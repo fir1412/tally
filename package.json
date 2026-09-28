@@ -1,0 +1,11 @@
+{
+  "name": "tally",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "sql.js": "^1.13.0"
+  }
+}

@@ -1,0 +1,252 @@
+// Welcome (first run), Settings, and every way to bring data in or take it out.
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, replaceAll, eraseAll, uid, today, expenseCats } from '../state.js';
+import { t, setLang, getLang, LANGS } from '../i18n.js';
+import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
+import { fmtRM, parseAmount, findDuplicate, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
+import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, LIMITS } from '../io.js';
+import { render, go, APP_VERSION } from '../app.js';
+
+const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
+const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+
+// ---- Welcome ----------------------------------------------------------------------------------------------------------
+export const welcomeView = {
+  title: 'Welcome',
+  render() {
+    return `<section class="welcome">
+      <h1>Tally</h1>
+      <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
+      ${langButtons()}
+      <ul class="points">
+        <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
+        <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your data never leaves this phone unless you export it.'))}</span></li>
+        <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
+      </ul>
+      <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
+      <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data (Money Manager, Excel, Google Sheets)'))}</button>
+      <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
+      <p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>
+    </section>`;
+  },
+};
+
+function accountSheet(a = {}) {
+  const isNew = !a.id;
+  openSheet(`<h2 class="sh-title">${esc(isNew ? t('Add an account') : t('Edit account'))}</h2>
+    <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}" autofocus></label>
+    <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
+    <label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>
+    <p class="err" id="ac-err" role="alert"></p>
+    <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
+}
+
+// ---- Settings -----------------------------------------------------------------------------------------------------------
+const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
+export const settingsView = {
+  title: 'Settings',
+  render() {
+    const rules = Object.entries(S.kv.rules);
+    const last = S.kv.lastBackup;
+    return `<header class="top"><button class="icon-btn" data-act="go" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
+      <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
+        <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
+      <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(t(KIND[a.kind] || 'Bank account'))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
+        <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
+      <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
+        <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
+        <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div></section>
+      <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager (.mmbackup), Excel, CSV, a bank statement, or Google Sheets.'))}</p>
+        <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
+        <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
+      <section class="card"><h2>${esc(t('Categories'))}</h2><ul class="chips static">${expenseCats().map(c => `<li class="chip"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</li>`).join('')}</ul>
+        <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
+        <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
+          <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
+      <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
+        <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button></section>
+      <p class="fine center">Tally ${APP_VERSION}</p>`;
+  },
+};
+export const input = {
+  'text-size': async el => { await setSetting('textSize', +el.value); document.documentElement.style.fontSize = `${el.value}%`; },
+  'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
+  'imp-acc': el => { IMP.accountId = el.value; },
+  'imp-cat': el => { IMP.catMap[el.dataset.src] = el.value; },
+};
+
+// ---- import: files, paste, Google Sheets link, Money Manager ------------------------------------------------------------
+let IMP = null; // {rows, header, map, accountId, catMap, name} or {mm, buf}
+function importSheet() {
+  openSheet(`<h2 class="sh-title">${esc(t('Bring data in'))}</h2>
+    <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.mmbackup,.json" hidden></label>
+    <p class="fine">${esc(t('Money Manager backup (.mmbackup), Excel (.xlsx), CSV from your bank or another app, or a Tally backup.'))}</p>
+    <h3>${esc(t('From Google Sheets'))}</h3>
+    <label class="field"><span>${esc(t('Paste the cells (select all in the sheet, copy, paste here)'))}</span><textarea id="imp-paste" rows="4" placeholder="Date	Amount	Category	Note"></textarea></label>
+    <button class="btn ghost wide" data-act="imp-paste">${esc(t('Use pasted cells'))}</button>
+    <label class="field"><span>${esc(t('Or paste the sheet link (sharing must be "Anyone with the link")'))}</span><input id="imp-link" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <button class="btn ghost wide" data-act="imp-link">${esc(t('Fetch from Google Sheets'))}</button>
+    <p class="err" id="imp-err" role="alert"></p>`, { label: t('Import') });
+  $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); });
+}
+const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else toast(m, { k: 'bad' }); };
+async function ensureAccount() {
+  if (!S.accounts.length) await saveAccount({ id: uid('a'), name: t('Cash'), kind: 'cash', opening: 0, createdAt: Date.now() });
+}
+async function importFile(f) {
+  try {
+    if (f.size > LIMITS.backupBytes) return impErr(t('That file is too big (over 200 MB).'));
+    const buf = await f.arrayBuffer();
+    if (/\.mmbackup$/i.test(f.name)) return await importMoneyManager(buf);
+    if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
+    startMapping(await fileToRows(f.name, buf), f.name);
+  } catch (e) { impErr(t(e.message)); }
+}
+async function startMapping(rows, name) {
+  if (rows.length < 2) return impErr(t('That file has no rows to import. Check you picked the right sheet.'));
+  const header = rows[0].map(h => cleanText(h, 40));
+  await ensureAccount();
+  IMP = { rows: rows.slice(1), header, map: guessMapping(header), accountId: S.accounts[0].id, catMap: {}, name };
+  showMapping();
+}
+function showMapping() {
+  const { header, map, rows } = IMP;
+  const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
+  const { txs, skipped } = rowsToTx(rows, map, { accountId: IMP.accountId, catMap: IMP.catMap });
+  const srcCats = map.category != null ? [...new Set(rows.map(r => cleanText(r[map.category], 60)).filter(Boolean))].slice(0, 40) : [];
+  const cats = [...expenseCats(), ...INCOME_CATEGORIES];
+  openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(t('{0} rows', rows.length))}</p>
+    <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}</div>
+    <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+    ${srcCats.length ? `<details open><summary>${esc(t('Their categories → Tally categories'))}</summary><div class="grid2">${srcCats.map(s => `<label class="field"><span>${esc(s)}</span><select data-input="imp-cat" data-src="${esc(s)}">${cats.map(c => `<option value="${esc(c.id)}"${(IMP.catMap[s] || mapCategory(s)) === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>`).join('')}</div></details>` : ''}
+    <p class="${txs.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', txs.length))}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>
+    <ul class="list preview">${txs.slice(0, 5).map(x => `<li class="rowb"><span>${esc(x.date)}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${txs.length ? '' : 'disabled'}>${esc(t('Import {0}', txs.length))}</button></div>`, { label: t('Import') });
+}
+async function commitImport(txs, label) {
+  const fresh = [], dups = [];
+  for (const x of txs) (S.tx.some(y => y.id === x.id) || findDuplicate(x, S.tx) ? dups : fresh).push(x);
+  await saveTxs(fresh);
+  if (!settings().onboarded) await setSetting('onboarded', true);
+  closeSheet(); go('home'); render();
+  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); render(); } });
+}
+async function importMoneyManager(buf) {
+  impErr(t('Reading the Money Manager backup…'));
+  const { loadSqlJs, readMoneyManager } = await import('../mmimport.js');
+  const mm = await readMoneyManager(buf, await loadSqlJs());
+  IMP = { mm, buf };
+  openSheet(`<h2 class="sh-title">${esc(t('Money Manager backup'))}</h2>
+    <ul class="list"><li>${esc(t('{0} transactions', mm.tx.length))}</li><li>${esc(t('{0} accounts: {1}', mm.accounts.length, mm.accounts.map(a => a.name).join(', ')))}</li>
+    <li>${esc(t('{0} of your categories kept as they are', mm.customCats.length))}</li>${mm.skipped ? `<li class="warn">${esc(t('{0} could not be read and will be skipped', mm.skipped))}</li>` : ''}
+    ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM (amounts kept as they are): {0}', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
+    ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos"> ${esc(t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
+    <p class="fine">${esc(t('Balances will match what Money Manager shows today.'))}</p>
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="mm-go">${esc(t('Import'))}</button></div>`, { label: t('Import') });
+}
+
+// ---- restore -------------------------------------------------------------------------------------------------------------
+async function restoreText(text) {
+  let data;
+  try { data = readBackup(text); } catch (e) { return impErr(t(e.message)); }
+  const choice = S.tx.length || S.accounts.length ? await new Promise(res => {
+    openSheet(`<h2 class="sh-title">${esc(t('Restore backup'))}</h2><p class="sh-body">${esc(t('The backup has {0} transactions. This phone has {1}.', data.tx.length, S.tx.length))}</p>
+      <button class="btn wide" data-x="merge">${esc(t('Merge (keep both, recommended)'))}</button><button class="btn ghost danger wide" data-x="replace">${esc(t('Replace everything on this phone'))}</button><button class="btn ghost wide" data-x="no">${esc(t('Cancel'))}</button>`, { label: t('Restore backup'), onClose: () => res('no') })
+      .addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { res(b.dataset.x); closeSheet(); } });
+  }) : 'replace';
+  if (choice === 'no') return;
+  const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
+  await replaceAll(choice === 'merge' ? mergeBackup(local, data) : data);
+  await setSetting('onboarded', true);
+  closeSheet(); go('home'); render();
+  toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
+}
+
+// ---- actions ---------------------------------------------------------------------------------------------------------------
+export const act = {
+  'set-lang': async b => { await setSetting('lang', b.dataset.l); await setLang(b.dataset.l); render(); },
+  'start-fresh': () => {
+    openSheet(`<h2 class="sh-title">${esc(t('Your accounts'))}</h2><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>
+      <label class="field"><span>${esc(t('Cash in wallet (RM)'))}</span><input id="sf-cash" inputmode="decimal" placeholder="0.00" autofocus></label>
+      <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
+      <label class="field"><span>${esc(t('E-wallet, e.g. Touch \'n Go (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
+  },
+  'sf-go': async b => {
+    const vals = ['cash', 'bank', 'ewallet'].map(k => [k, $(`#sf-${k}`).value.trim()]);
+    if (vals.some(([, v]) => v && parseAmount(v) == null)) return ($('#sf-err').textContent = t('Enter amounts like 150 or 150.50.'));
+    b.disabled = true;
+    const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet') };
+    let n = 0;
+    for (const [k, v] of vals) if (k !== 'ewallet' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k, opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
+    await setSetting('onboarded', true);
+    closeSheet(); go('home');
+    toast(t('All set. Scan your first receipt with the camera button.'));
+  },
+  'acc-edit': b => accountSheet(S.accounts.find(a => a.id === b.dataset.id) || {}),
+  'acc-save': async b => {
+    const name = $('#ac-name').value.trim(), opening = $('#ac-open').value.trim() ? parseAmount($('#ac-open').value) : 0;
+    if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
+    if (opening == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
+    const old = S.accounts.find(a => a.id === b.dataset.id);
+    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now() }), name, kind: $('#ac-kind').value, opening });
+    closeSheet(); render(); toast(t('Saved'));
+  },
+  'acc-del': async b => {
+    if (!(await confirmSheet({ title: t('Delete this account?'), ok: t('Delete'), danger: true }))) return;
+    try { await deleteAccount(b.dataset.id); render(); toast(t('Deleted')); } catch { toast(t('This account has transactions. Move or delete them first.'), { k: 'warn' }); }
+  },
+  'cat-add': () => openSheet(`<h2 class="sh-title">${esc(t('Add a category'))}</h2><label class="field"><span>${esc(t('Name'))}</span><input id="cat-name" maxlength="40" autofocus></label>
+    <label class="field"><span>${esc(t('Colour'))}</span><input id="cat-color" type="color" value="#0ea5e9"></label><button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') }),
+  'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').value); closeSheet(); render(); toast(t('Saved')); },
+  'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
+  'import-open': () => importSheet(),
+  'imp-paste': () => { const v = $('#imp-paste').value; if (!v.trim()) return impErr(t('Paste some cells first.')); startMapping(parseCSV(v, v.includes('\t') ? '\t' : undefined), t('Pasted cells')); },
+  'imp-link': async () => {
+    const url = sheetCsvUrl($('#imp-link').value);
+    if (!url) return impErr(t('That is not a Google Sheets link. It should start with https://docs.google.com/spreadsheets/d/'));
+    impErr(t('Fetching…'));
+    try {
+      const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
+      const text = await res.text();
+      if (!res.ok || /^\s*<!DOCTYPE html|<html/i.test(text)) throw new Error('private');
+      await startMapping(parseCSV(text), t('Google Sheets'));
+    } catch { impErr(t('Could not open that sheet. In Google Sheets, tap Share and set "Anyone with the link" to Viewer, or copy the cells and paste them instead.')); }
+  },
+  'imp-go': b => { b.disabled = true; const { txs } = rowsToTx(IMP.rows, IMP.map, { accountId: IMP.accountId, catMap: IMP.catMap }); return commitImport(txs, IMP.name || t('file')); },
+  'mm-go': async b => {
+    b.disabled = true;
+    const { mm, buf } = IMP, withPhotos = $('#mm-photos')?.checked;
+    for (const a of mm.accounts) if (!S.accounts.some(x => x.id === a.id)) await saveAccount(a);
+    const have = new Set(S.kv.customCats.map(c => c.id));
+    await setKv('customCats', [...S.kv.customCats, ...mm.customCats.filter(c => !have.has(c.id))]);
+    if (withPhotos) {
+      toast(t('Copying photos…'));
+      const { readPhotos } = await import('../mmimport.js');
+      const files = await readPhotos(buf, mm.photos.map(p => p.path));
+      for (const p of mm.photos) {
+        const bytes = files[p.path]; if (!bytes) continue;
+        const id = uid('p'); await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' }));
+        const x = mm.tx.find(y => y.id === p.txId); if (x) x.receiptId = id;
+      }
+    }
+    await commitImport(mm.tx, 'Money Manager');
+  },
+  'restore-pick': () => {
+    const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
+    inp.addEventListener('change', async () => { const f = inp.files[0]; if (!f) return; if (f.size > LIMITS.backupBytes) return toast(t('That file is too big (over 200 MB).'), { k: 'bad' }); restoreText(await f.text()); });
+    inp.click();
+  },
+  'backup': async () => {
+    const name = `tally-backup-${today()}.json`, text = makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } });
+    let shared = false;
+    try { shared = await shareFile(name, text); } catch { /* the user closed the share sheet */ }
+    if (!shared) download(name, text, 'application/json');
+    await setKv('lastBackup', new Date().toISOString());
+    render(); toast(t('Backup saved. Keep the file somewhere safe, like Google Drive.'));
+  },
+  'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),
+  'erase': async () => {
+    if (!(await confirmSheet({ title: t('Erase everything?'), body: t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.'), ok: t('Erase everything'), danger: true }))) return;
+    await eraseAll(); go('welcome'); toast(t('Everything was erased.'));
+  },
+};

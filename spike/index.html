@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tally scanner spike</title>
+<style>
+  :root { --bg:#0F172A; --card:#192134; --ink:#EEF2FA; --muted:#94A3B8; --ok:#34D399; --bad:#F59E0B; --line:rgba(255,255,255,.1); color-scheme:dark }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:20px 16px 60px; display:flex; flex-direction:column; gap:16px }
+  h1 { margin:0; font-size:1.4rem }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+  label, button, select { font:inherit }
+  button { background:#059669; color:#fff; border:0; border-radius:8px; padding:8px 14px; cursor:pointer }
+  button:disabled { opacity:.5 }
+  select { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px }
+  #summary { font-size:1.1rem; font-weight:600 }
+  .muted { color:var(--muted); font-size:.88rem }
+  .card { background:var(--card); border-radius:12px; padding:14px; display:grid; grid-template-columns:120px minmax(0,1fr); gap:14px }
+  .card img { width:120px; border-radius:6px }
+  .head { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap }
+  .ok { color:var(--ok) } .bad { color:var(--bad) }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:.9rem }
+  td { padding:3px 0; border-bottom:1px dashed var(--line) } td:last-child { text-align:right; font-family:ui-monospace, Consolas, monospace }
+  pre { white-space:pre-wrap; font-size:.8rem; color:var(--muted); max-height:240px; overflow:auto }
+  :focus-visible { outline:2px solid #fff; outline-offset:2px }
+  @media (max-width:520px) { .card { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tally scanner spike</h1>
+  <p class="muted">Pick receipt photos. They're read in this browser and never uploaded. The OCR engine loads once from this server (PaddleOCR) or from a CDN (Tesseract). A receipt <b>passes</b> when its items plus tax, service charge and rounding equal the printed total. The target is 80% or more.</p>
+  <div class="bar">
+    <label>Receipts <input id="files" type="file" accept="image/*" multiple></label>
+    <label>Engine
+      <select id="engine">
+        <option value="paddle">PaddleOCR (about 40 MB, best)</option>
+        <option value="tesseract">Tesseract</option>
+      </select>
+    </label>
+    <label>Tesseract layout
+      <select id="psm">
+        <option value="6">6 · one block, keeps rows (best so far)</option>
+        <option value="4">4 · column (splits names from prices)</option>
+        <option value="3">3 · automatic (splits names from prices)</option>
+      </select>
+    </label>
+    <button id="run" disabled>Read receipts</button>
+  </div>
+  <div id="summary" aria-live="polite"></div>
+  <div id="out" style="display:flex;flex-direction:column;gap:12px"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script type="module">
+import { parseReceipt, joinRows } from '../js/parse.js';
+
+const $ = id => document.getElementById(id);
+const rm = c => c === null ? '–' : (c < 0 ? '−' : '') + 'RM ' + (Math.abs(c) / 100).toFixed(2);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+
+// Grayscale, fix phone rotation, scale to ~1600px wide (Tesseract likes ~300 dpi-ish text).
+async function prep(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(3, 1600 / bmp.width); // ponytail: fixed width guess; tune with the psm knob and real receipts
+  const c = el('canvas', { width: Math.round(bmp.width * scale), height: Math.round(bmp.height * scale) });
+  const g = c.getContext('2d');
+  g.filter = 'grayscale(1) contrast(1.3)';
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c;
+}
+
+// PaddleOCR: fix rotation, only shrink (its detector resizes internally), pass raw pixels.
+async function pixels(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height)); // ponytail: 2000px cap for phone memory
+  const c = el('canvas', { width: Math.round(bmp.width * scale), height: Math.round(bmp.height * scale) });
+  const g = c.getContext('2d');
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+  return { data, width, height };
+}
+
+let worker, paddle, loadMs = 0;
+async function engineReady(engine) {
+  const t0 = performance.now();
+  if (engine === 'paddle' && !paddle) {
+    const { Ocr, env } = await import('../vendor/ocr.js');
+    env.wasm.wasmPaths = new URL('../vendor/', location.href).href;
+    paddle = await Ocr.create({ models: {
+      detectionPath: '../models/ch_PP-OCRv4_det_infer.onnx',
+      recognitionPath: '../models/ch_PP-OCRv4_rec_infer.onnx',
+      dictionaryPath: '../models/ppocr_keys_v1.txt',
+    } });
+  }
+  if (engine === 'tesseract') {
+    worker ??= await Tesseract.createWorker('eng');
+    await worker.setParameters({ tessedit_pageseg_mode: $('psm').value });
+  }
+  loadMs = performance.now() - t0;
+}
+async function readText(engine, file) {
+  if (engine === 'paddle') return joinRows((await paddle.detect(await pixels(file))).texts);
+  return (await worker.recognize(await prep(file))).data.text;
+}
+
+$('files').onchange = () => { $('run').disabled = !$('files').files.length; };
+$('run').onclick = async () => {
+  $('run').disabled = true;
+  $('out').replaceChildren();
+  const files = [...$('files').files];
+  const engine = $('engine').value;
+  let pass = 0, ms = 0;
+  $('summary').textContent = 'Loading OCR engine…';
+  try { await engineReady(engine); }
+  catch (e) { $('summary').textContent = `Couldn't load the OCR engine: ${e.message}`; $('run').disabled = false; return; }
+
+  for (const [i, file] of files.entries()) {
+    $('summary').textContent = `Reading ${i + 1} of ${files.length}…`;
+    const t0 = performance.now();
+    let text = '', r;
+    try {
+      text = await readText(engine, file);
+      r = parseReceipt(text);
+    } catch (e) {
+      r = { items: [], check: { ok: false, mode: 'error: ' + e.message, diff: null } };
+    }
+    const dt = performance.now() - t0; ms += dt;
+    if (r.check.ok) pass++;
+    render(file, r, text, dt);
+  }
+  const pct = Math.round(pass / files.length * 100);
+  $('summary').className = pct >= 80 ? 'ok' : 'bad';
+  $('summary').textContent = `${pass} of ${files.length} add up (${pct}%) · ${(ms / files.length / 1000).toFixed(1)} s per receipt · engine load ${(loadMs / 1000).toFixed(1)} s · ${engine}${crossOriginIsolated ? ', multi-thread' : ', single thread'} · target 80%`;
+  $('run').disabled = false;
+};
+
+function render(file, r, text, dt) {
+  const status = r.check.ok
+    ? el('span', { className: 'ok', textContent: `✓ adds up (${r.check.mode})` })
+    : el('span', { className: 'bad', textContent: r.check.diff != null ? `✗ off by ${rm(r.check.diff)}` : `✗ ${r.check.mode}` });
+  const rows = r.items.map(it => el('tr', {}, el('td', { textContent: it.name }), el('td', { textContent: rm(it.cents) })));
+  for (const k of ['subtotal', 'service', 'tax', 'rounding', 'total'])
+    if (r[k] != null) rows.push(el('tr', {}, el('td', { className: 'muted', textContent: k }), el('td', { textContent: rm(r[k]) })));
+  const copy = el('button', { textContent: 'Copy OCR text', type: 'button' });
+  copy.onclick = () => navigator.clipboard.writeText(text).then(() => copy.textContent = 'Copied', () => copy.textContent = 'Copy failed');
+  const img = el('img', { src: URL.createObjectURL(file), alt: '' });
+  $('out').append(el('article', { className: 'card' }, img, el('div', {},
+    el('div', { className: 'head' }, el('b', { textContent: r.merchant ?? file.name }), status),
+    el('div', { className: 'muted', textContent: `${r.date ?? 'no date'} · ${r.items.length} items · ${(dt / 1000).toFixed(1)} s · ${file.name}` }),
+    el('table', {}, ...rows),
+    el('details', {}, el('summary', { textContent: 'OCR text' }), el('pre', { textContent: text }), copy))));
+}
+</script>
+</body>
+</html>

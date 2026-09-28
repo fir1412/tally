@@ -1,0 +1,20 @@
+{
+  "name": "spike",
+  "version": "1.0.0",
+  "description": "",
+  "main": "parse.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": "true",
+  "dependencies": {
+    "@gutenye/ocr-browser": "^1.4.9",
+    "@gutenye/ocr-node": "^1.4.9",
+    "onnxruntime-web": "^1.30.0",
+    "tesseract.js": "^5.1.1"
+  }
+}

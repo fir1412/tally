@@ -1,0 +1,127 @@
+// Tiny IndexedDB wrapper with a localStorage fallback.
+// Stores: accounts, tx, recurring, receipts (keyed by id) and kv (keyed by key). Adapted from we go gim.
+// Never rename NAME: every user's data lives under it (and under this site's address).
+
+const NAME = 'tally', VERSION = 1;
+export const STORES = ['accounts', 'tx', 'recurring', 'receipts', 'kv'];
+
+let idb = null;
+let mem = null; // fallback: {store: {id: obj}}
+
+// Other tabs of the app are told about every write, so two open tabs don't silently overwrite each other.
+const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tally-data') : null;
+bc?.unref?.(); // Node only (tests): an open channel must not keep the process alive
+const notify = store => { try { bc?.postMessage({ store, at: Date.now() }); } catch {} };
+/** Called with the store name when another tab of the app changed data. */
+export const onRemoteChange = cb => bc?.addEventListener('message', e => cb(e.data?.store));
+/** Called when a save failed (for example the fallback storage is full). */
+let failHandler = () => {};
+export const onSaveFailed = cb => { failHandler = cb; };
+
+function open() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in globalThis)) return reject(new Error('no indexedDB'));
+    const req = indexedDB.open(NAME, VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      for (const s of STORES) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: s === 'kv' ? 'key' : 'id' });
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      // A newer version opened in another tab: let it upgrade instead of blocking it, then reload into it.
+      db.onversionchange = () => { db.close(); if (typeof location !== 'undefined') location.reload(); };
+      resolve(db);
+    };
+    req.onerror = () => reject(req.error);
+    // Another tab holds an older version open: don't hang on "Loading…" forever.
+    req.onblocked = () => setTimeout(() => reject(new Error('The app is open in another tab. Close it and reload.')), 4000);
+  });
+}
+
+function lsLoad() {
+  mem = {};
+  for (const s of STORES) {
+    try { mem[s] = JSON.parse(localStorage.getItem(`${NAME}.${s}`) || '{}'); } catch { mem[s] = {}; }
+  }
+}
+function lsSave(store) {
+  try { localStorage.setItem(`${NAME}.${store}`, JSON.stringify(mem[store])); } catch (e) { console.warn('save failed', e); failHandler(e); }
+}
+
+let mode = null;
+/** 'indexeddb', or 'localstorage' when the browser's database is unavailable (for example some private windows). */
+export const storageMode = () => mode;
+
+export async function init() {
+  try { idb = await open(); } catch (e) {
+    if (/another tab/.test(e?.message || '')) throw e;
+    idb = null; lsLoad();
+  }
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+  mode = idb ? 'indexeddb' : 'localstorage';
+  return mode;
+}
+
+function tx(store, mode, fn) {
+  return new Promise((resolve, reject) => {
+    const t = idb.transaction(store, mode);
+    const os = t.objectStore(store);
+    let result;
+    Promise.resolve(fn(os)).then(r => { result = r; });
+    t.oncomplete = () => resolve(result);
+    t.onerror = () => { failHandler(t.error); reject(t.error); };
+    t.onabort = () => { failHandler(t.error); reject(t.error); };
+  });
+}
+const reqP = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+
+export async function all(store) {
+  if (!idb) return Object.values(mem[store]);
+  return tx(store, 'readonly', os => reqP(os.getAll()));
+}
+
+export async function put(store, obj) {
+  if (!idb) { const k = store === 'kv' ? obj.key : obj.id; mem[store][k] = obj; lsSave(store); notify(store); return obj; }
+  await tx(store, 'readwrite', os => { os.put(obj); });
+  notify(store);
+  return obj;
+}
+
+export async function putMany(store, list) {
+  if (!idb) { for (const o of list) mem[store][store === 'kv' ? o.key : o.id] = o; lsSave(store); notify(store); return; }
+  await tx(store, 'readwrite', os => { for (const o of list) os.put(o); });
+  notify(store);
+}
+
+export async function del(store, key) {
+  if (!idb) { delete mem[store][key]; lsSave(store); notify(store); return; }
+  await tx(store, 'readwrite', os => { os.delete(key); });
+  notify(store);
+}
+
+export async function clear(store) {
+  if (!idb) { mem[store] = {}; lsSave(store); notify(store); return; }
+  await tx(store, 'readwrite', os => { os.clear(); });
+  notify(store);
+}
+
+/** One key from the kv store, read directly (never the whole store). */
+export async function getKv(key, fallback = null) {
+  if (!idb) { const hit = mem.kv[key]; return hit ? hit.value : fallback; }
+  const hit = await tx('kv', 'readonly', os => reqP(os.get(key)));
+  return hit ? hit.value : fallback;
+}
+export const setKv = (key, value) => put('kv', { key, value });
+
+/** Keys of the kv store starting with a prefix, without loading every value. */
+export async function kvKeys(prefix) {
+  if (!idb) return Object.keys(mem.kv).filter(k => k.startsWith(prefix));
+  const keys = await tx('kv', 'readonly', os => reqP(os.getAllKeys()));
+  return keys.filter(k => String(k).startsWith(prefix));
+}
+
+/** One record by key from any store (receipt photos are read one at a time, never all at once). */
+export async function get(store, key) {
+  if (!idb) return mem[store][key] ?? null;
+  return (await tx(store, 'readonly', os => reqP(os.get(key)))) ?? null;
+}

@@ -1,0 +1,15 @@
+# Third-party notices
+
+Tally ships these files unchanged (except bundling) so it can run offline on the phone.
+
+| Component | Files | License |
+|---|---|---|
+| PaddleOCR PP-OCRv4 models (PaddlePaddle) | `models/ch_PP-OCRv4_det_infer.onnx`, `models/ch_PP-OCRv4_rec_infer.onnx`, `models/ppocr_keys_v1.txt` | Apache-2.0 |
+| @gutenye/ocr-browser, @gutenye/ocr-common (Guten Ye) | bundled in `vendor/ocr.js` | MIT |
+| OpenCV.js via @techstark/opencv-js | bundled in `vendor/ocr.js` | Apache-2.0 |
+| ONNX Runtime Web (Microsoft) | bundled in `vendor/ocr.js`, `vendor/ort-wasm-simd-threaded.*` | MIT |
+| js-clipper, tiny-invariant | bundled in `vendor/ocr.js` | BSL-1.0, MIT |
+| sql.js (SQLite compiled to WebAssembly) | `vendor/sql-wasm.js`, `vendor/sql-wasm.wasm` | MIT (SQLite is public domain) |
+
+`vendor/ocr.js` was built with esbuild from `@gutenye/ocr-browser@1.4.9` aliased to `onnxruntime-web/wasm`.
+Parts of `js/db.js`, `js/ui.js`, `js/io.js`, `js/calendar.js` and `sw.js` are adapted from the author's own "we go gim" (MIT).

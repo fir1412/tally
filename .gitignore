@@ -1,0 +1,6 @@
+receipts/
+node_modules/
+eng.traineddata
+notes/
+graphify-out/
+*.log
