@@ -240,6 +240,15 @@ export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, 
   await db.writeAtomic({ del, put: { accounts, tx, recurring, kv: kvRows(kv) } });
   await load();
 }
+/** The old address (it shares its site with another app): Tally has moved to NEW_HOME. */
+export const OLD_HOME = globalThis.location?.hostname === 'fir1412.github.io', NEW_HOME = 'https://tallymy.github.io/';
+/** Everything Tally keeps at this address, and only Tally's: its database, its storage keys, caches and offline worker. */
+export async function wipeSite() {
+  await db.destroy();
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith('tally')) localStorage.removeItem(k); } catch {}
+  try { for (const k of await caches.keys()) if (k.startsWith('tally')) await caches.delete(k); } catch {}
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) if (new URL(r.scope).pathname.startsWith('/tally/')) await r.unregister(); } catch {}
+}
 export async function eraseAll() {
   for (const s of db.STORES) await db.clear(s);
   db.setKey(null); db.expectSealed(false);   // nothing encrypted left, and no key for a fresh start

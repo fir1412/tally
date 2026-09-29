@@ -1,7 +1,7 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached } from '../state.js';
+import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
-import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
+import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
@@ -36,6 +36,12 @@ const dismissed = () => S.kv.dismissed || [];
 const MODULE_OF = { bills: 'bills', insight: 'insights', nudge: 'insights', stickers: 'stickers' };
 const shown = id => !(settings().homeHide || []).includes(id) && (!MODULE_OF[id] || on(MODULE_OF[id]));
 /** Days logged up to today (entries you made, and "nothing spent" check-ins): one sticker each. */
+/** At the old address: Tally has moved; three steps, in order. Not dismissable: the data is safer at the new one. */
+const movedCard = () => `<section class="card moved"><h2>${esc(t('Tally has moved to tallymy.github.io'))}</h2>
+  <p>${esc(t('This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:'))}</p>
+  <ol><li><button class="btn small" data-act="backup">${esc(t('1. Back up here'))}</button></li>
+  <li><a class="btn small ghost" href="${NEW_HOME}" target="_blank" rel="noopener">${esc(t('2. Open the new address and restore the backup'))}</a></li>
+  <li><button class="btn small ghost danger" data-act="old-erase">${esc(t('3. Erase everything here'))}</button></li></ol></section>`;
 /** The answer and the sums behind it. */
 function affordHtml(r) {
   const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
@@ -216,7 +222,7 @@ export const homeView = {
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
     const find = !fresh && !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(cached(findsOf, upToday, { today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)), ins: homeInsights() }), tdy);   // the price finds come from the insights the banner uses
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
-      ${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button><button class="link" data-act="net-check">${esc(t('Check what Tally contacted'))}</button></section>` : ''}<div class="cols"><div class="col">
+      ${OLD_HOME ? movedCard() : ''}${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button><button class="link" data-act="net-check">${esc(t('Check what Tally contacted'))}</button></section>` : ''}<div class="cols"><div class="col">
       <section class="hero">
         ${(n => (n ? `<span class="label">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
@@ -343,6 +349,10 @@ export const act = {
     setTimeout(find, 100);
   },
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
+  'old-erase': async () => {
+    if (!(await confirmSheet({ title: t('Erase everything at this old address?'), body: t('Only do this after your backup is restored at tallymy.github.io. This deletes Tally\'s data, settings and offline files from this address; nothing of the other app.'), ok: t('Erase everything here'), danger: true }))) return;
+    await wipeSite(); location.replace(NEW_HOME);
+  },
   'afford': () => {
     const accts = scopedAccounts(), counted = accts.filter(a => a.typed !== false);
     const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Can I afford it?'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>

@@ -38,11 +38,16 @@ const SHARED = 'tally-share';   // files shared into Tally, waiting for the page
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method === 'POST' && new URL(req.url).pathname.endsWith('/share')) {
+    // Only the phone's share sheet ("none") or Tally itself may send files in: another website's form can't plant a
+    // file for Tally to open. At most 20 files and 200 MB, kept as plain bytes (the type rides in a header).
+    const site = req.headers.get('sec-fetch-site');
+    if (site && site !== 'none' && site !== 'same-origin') { e.respondWith(Response.redirect('./', 303)); return; }
     e.respondWith((async () => {
-      const files = (await req.formData()).getAll('files').filter(f => typeof f !== 'string').slice(0, 20);
+      let room = 200 * 1024 * 1024;
+      const files = (await req.formData()).getAll('files').filter(f => typeof f !== 'string').slice(0, 20).filter(f => (room -= f.size) >= 0);
       await caches.delete(SHARED);
       const c = await caches.open(SHARED);
-      await Promise.all(files.map((f, i) => c.put(`./shared/${i}`, new Response(f, { headers: { 'content-type': f.type || 'application/octet-stream', 'x-name': encodeURIComponent(f.name || `file-${i}`) } }))));
+      await Promise.all(files.map((f, i) => c.put(`./shared/${i}`, new Response(f, { headers: { 'content-type': 'application/octet-stream', 'x-type': f.type || '', 'x-name': encodeURIComponent(f.name || `file-${i}`) } }))));
       return Response.redirect('./#/share', 303);
     })());
     return;
@@ -67,7 +72,8 @@ self.addEventListener('fetch', e => {
   }
   const key = keyFor(url), shell = req.mode === 'navigate';
   // Only a page load may fall back to the app shell: a script answered with index.html would leave the app stuck.
-  const fromCache = () => caches.match(key).then(r => r || (shell ? caches.match('./index.html') : undefined));
+  // Only the app's own cache answers: never the shared files or another cache under this origin.
+  const fromCache = () => caches.open(VERSION).then(c => c.match(key).then(r => r || (shell ? c.match(new URL('./index.html', self.registration.scope).href) : undefined)));
   if (!shell && corePaths.has(url.pathname)) {
     e.respondWith(fromCache().then(hit => hit || fetch(req).then(res => {
       if (cacheable(url, res)) caches.open(VERSION).then(c => c.put(key, res.clone()));

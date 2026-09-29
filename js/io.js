@@ -959,17 +959,20 @@ export function mergeJoint(local, incoming) {
   const pairs = [];
   for (const a of mineOnly) {
     const b = newTheirs.find(x => same(x.name) === same(a.name) && !pairs.some(p => p.b === x.id)) || (mineOnly.length === 1 && newTheirs.length === 1 ? newTheirs[0] : null);
-    if (b) pairs.push({ a: a.id, b: b.id });
+    if (b && (b.currency || 'MYR') === (a.currency || 'MYR') && b.kind === a.kind) pairs.push({ a: a.id, b: b.id });   // never into another currency or kind
   }
   const into = new Map(pairs.filter(p => p.b < p.a).map(p => [p.a, p.b])), keep = new Map(pairs.filter(p => p.a < p.b).map(p => [p.b, p.a]));   // ours → theirs, theirs → ours
   const ours = id => keep.get(id) || id, remap = x => (keep.has(x.accountId) || keep.has(x.toAccountId) ? { ...x, accountId: ours(x.accountId), ...(x.toAccountId ? { toAccountId: ours(x.toAccountId) } : {}) } : x);
-  const joint = theirsAll.filter(a => !keep.has(a.id)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
+  // An account this phone merges into keeps this phone's exchange rate: the file can't set what its RM worth is.
+  const ourRate = new Map(pairs.filter(p => p.b < p.a).map(p => [p.b, acc.get(p.a)?.rate]));
+  const joint = theirsAll.filter(a => !keep.has(a.id)).map(a => (ourRate.has(a.id) ? { ...a, rate: ourRate.get(a.id) } : a)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
   const myGone = local.kv.jointGone || {}, theirGone = incoming.gone || {}, me = local.kv.settings?.myName || '';
   const tx = incoming.tx.map(remap).filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
     .filter(t => { const m = txs.get(t.id); return !(m && (personal.has(m.accountId) || personal.has(m.toAccountId))) && newer(m, t) && !((myGone[t.id] || 0) >= (t.updatedAt || 0)); })
     .map(t => { const m = txs.get(t.id); return m ? { ...t, ...(m.spouse ? { spouse: true } : {}), ...(m.by && !t.by ? { by: m.by } : {}) } : { ...t, ...(me && t.by === me ? {} : { spouse: true }) }; });
   const jointHere = new Set(local.accounts.filter(a => a.scope === 'joint').map(a => a.id));
-  const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id), dropped = new Set(drop);
+  // A delete from the partner removes joint-only rows; one that also uses a personal account here (a transfer in) stays.
+  const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && !personal.has(t.accountId) && !personal.has(t.toAccountId) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id), dropped = new Set(drop);
   const gone = Object.fromEntries(Object.keys({ ...theirGone, ...myGone }).map(id => [id, Math.max(theirGone[id] || 0, myGone[id] || 0)]).sort((a, b) => a[1] - b[1]).slice(-1000));
   const empty = mineOnly.filter(a => into.has(a.id)).map(a => ({ ...a, moved: local.tx.filter(t => t.accountId === a.id || t.toAccountId === a.id).length }));
   const to = id => into.get(id) || id;   // moved rows keep their edit time: a newer edit on the other phone still wins; a deleted one stays deleted
@@ -983,7 +986,7 @@ export function mergeJoint(local, incoming) {
   const bills = new Map((local.recurring || []).map(r => [r.id, r]));
   return {
     accounts: joint.filter(a => newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty,
-    recurring: [...(incoming.recurring || []).map(remap).filter(r => ids.has(r.accountId) && newer(bills.get(r.id), r)), ...movedBills],
+    recurring: [...(incoming.recurring || []).map(remap).filter(r => ids.has(r.accountId) && !personal.has(bills.get(r.id)?.accountId) && newer(bills.get(r.id), r)), ...movedBills],   // a personal bill is never overwritten
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(budgetsJoint && JSON.stringify(budgetsJoint) !== JSON.stringify(mine) ? { budgetsJoint } : {}),
   };

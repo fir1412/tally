@@ -1,5 +1,5 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos } from './state.js';
+import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos, OLD_HOME, NEW_HOME, wipeSite } from './state.js';
 import { gate, watch } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own , settling } from './ui.js';
@@ -166,12 +166,12 @@ window.addEventListener('unhandledrejection', e => console.error(e.reason));
 
 /** Files shared into Tally (Money Manager → Export → Share, Gallery, WhatsApp): photos go to the scanner, the rest to import. */
 async function takeShared() {
-  if (route() !== 'share') return;
-  history.replaceState(null, '', '#/home');
   if (!('caches' in window)) return;
+  if (route() !== 'share') return caches.delete('tally-share').catch(() => {});   // shared files never wait past a start
+  history.replaceState(null, '', '#/home');
   const c = await caches.open('tally-share'), keys = await c.keys();
   const files = [];
-  for (const k of keys) { const r = await c.match(k); files.push(new File([await r.blob()], decodeURIComponent(r.headers.get('x-name') || 'shared'), { type: r.headers.get('content-type') || '' })); }
+  for (const k of keys) { const r = await c.match(k); files.push(new File([await r.blob()], decodeURIComponent(r.headers.get('x-name') || 'shared'), { type: r.headers.get('x-type') || '' })); }
   await caches.delete('tally-share');
   const photos = files.filter(f => f.type.startsWith('image/')), other = files.filter(f => !f.type.startsWith('image/'));
   if (other.length) setTimeout(async () => (await need('setup')).importFile(other[0]), 400);   // one import at a time
@@ -184,8 +184,10 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     $('#app').innerHTML = `<main class="recover"><h1>Tally can only run on its own page.</h1><p><a class="btn" href="${esc(location.href)}" target="_top" rel="noopener">Open Tally</a></p></main>`;
     return;
   }
+  try { performance.setResourceTimingBufferSize?.(1000); } catch {}   // "Check it yourself" reads this record: keep more of it
   try {
     await load();
+    if (OLD_HOME && !S.accounts.length && !S.tx.length && !settings().lock) { await wipeSite(); return location.replace(NEW_HOME); }   // nothing here to move: go to the new address
     await setLang(settings().lang || pickLang(navigator.languages || [navigator.language]));
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
     await gate();   // app lock: nothing is shown before the PIN

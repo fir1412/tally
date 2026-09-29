@@ -22,11 +22,14 @@ Worker). The only outbound traffic is:
 - an **exchange rate** from `api.frankfurter.dev`, only when the user taps "Get today's rate" on a foreign-currency
   account: the request names the currency and nothing else (credentials omitted);
 - a **Google Calendar link**, only when the user taps it for a bill or the daily reminder: it opens Google Calendar
-  with the reminder's title (the bill's name and amount) filled in, and Google receives that text;
+  with the reminder's title filled in ("Pay" and the bill's name, or the daily reminder's text; never an amount),
+  and Google receives that text;
 - the app's own files from GitHub Pages.
 
-Settings → Privacy → "Check what Tally contacted" lists every address the page has contacted since it opened, from
-the browser's own record (`performance.getEntriesByType`).
+Settings → Privacy → "Check what Tally contacted" lists every address the page has fetched since it opened, from
+the browser's resource-timing record (`performance.getEntriesByType`, buffer raised to 1,000 entries). It can't show
+the service worker's or the reader worker's own traffic, or links opened in a new tab (Google Calendar), and it is
+reported by Tally's own code, so it can't vouch for a tampered build: the CSP and the public source are the real check.
 
 Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 
@@ -39,7 +42,7 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Clickjacking | GitHub Pages can't send `frame-ancestors`, so the app refuses to start inside another site's frame. |
 | Output escaping | All text reaches the page through `esc()`; no user text is inserted as HTML. Routes and `data-act` names are looked up only as a table's own keys, so `#/constructor` shows Home. |
 | Untrusted files: routing | Imports are routed **mostly** by content. A `.mmbackup` or `.json` file name is checked first. After that the zip, `{`, `%PDF-` and Excel signatures decide, and anything else is read as CSV text. |
-| Untrusted files: caps | Any picked or shared file: 200 MB (a share carries at most 20 files). CSV / Excel: 25 MB, 50,000 rows (and 200 columns in Excel). Google Sheets link: 25 MB, checked by Content-Length and again while streaming, with a 20 s timeout. Pasted cells: 50,000 rows. PDF statements: 25 MB, first 80 pages, 20,000 text items a page, images over 16 megapixels never decoded. Tally backup JSON: 50 MB of text, 200 accounts, 200,000 transactions, 500 bills, 50 custom categories, 5,000 rules, 500 items per receipt. Zips (Excel, photo backups, Money Manager): 150 MB inflated per file in total, no entry past its declared size, at most 5,000 entries read, a repeated name read once, and every offset checked (else "bad zip"). Money Manager: 200 accounts, 200,000 transactions, 2,000 categories (at most 50 become custom ones). Photos: 40 MB and 50 megapixels. |
+| Untrusted files: caps | Any picked or shared file: 200 MB (a share carries at most 20 files and 200 MB in all; the share endpoint in `sw.js` takes only the phone's share sheet or Tally itself, `Sec-Fetch-Site` none or same-origin, stores files as plain bytes, and page loads are answered only from the app's own cache, never from shared files). CSV / Excel: 25 MB, 50,000 rows (and 200 columns in Excel). Google Sheets link: 25 MB, checked by Content-Length and again while streaming, with a 20 s timeout. Pasted cells: 50,000 rows. PDF statements: 25 MB, first 80 pages, 20,000 text items a page, images over 16 megapixels never decoded. Tally backup JSON: 50 MB of text, 200 accounts, 200,000 transactions, 500 bills, 50 custom categories, 5,000 rules, 500 items per receipt. Zips (Excel, photo backups, Money Manager): 150 MB inflated per file in total, no entry past its declared size, at most 5,000 entries read, a repeated name read once, and every offset checked (else "bad zip"). Money Manager: 200 accounts, 200,000 transactions, 2,000 categories (at most 50 become custom ones). Photos: 40 MB and 50 megapixels. |
 | Crafted backups | `readBackup` rebuilds every record field by field. Ids must match `[\w-]{1,60}` and may not be `__proto__`, `constructor` or `prototype` (the same goes for rule keys). Dates must be real and amounts are bounded integers. Custom categories are checked first, and only a built-in or checked custom category is accepted anywhere else. Text is cleaned (`cleanText`: NFKC, hidden and bidi characters removed). Anything else is dropped and counted. A test checks that `Object.prototype` is untouched after `mergeBackup`. |
 | Money Manager backups | Read with sql.js, using fixed queries only. Every table read must be a real table in `sqlite_master` (not a view) with no generated columns. Their ids go through the same `okId` rule as backups (a uid that fails it is hashed). Links are kept in a `Map`, so a crafted uid can't reach `Object.prototype`. Opening balances are bounded like backup amounts. |
 | Calendar files (.ics) | Text values are escaped per RFC 5545 (`\ ; ,`, line breaks as `\n`, control characters dropped). UIDs and file names keep only `[\w-]`, and no value can start a new line. Tested with `\r\nATTACH:` in a category. |
@@ -48,7 +51,7 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Photos | Every photo from outside is re-encoded to a 1200 px JPEG, which also drops EXIF data such as GPS location. That covers receipt scans, Money Manager photos and the photos in a restored photo backup (only JPEG or PNG there, by magic bytes). The pixel size is read from the JPEG/PNG header before decoding. WebP/HEIC scans are covered only by the 40 MB cap. |
 | Saving | Records go to the database first and appear on screen only after that. Settings roll back if their save fails. A failed save, including a photo, shows "Could not save". In the localStorage fallback a failed save rejects instead of silently keeping the change in memory. "Replace everything" also clears old photos and the rules, budgets, custom categories and dismissed tips. |
 | Test clock | `?today=` and `?now=` (for tests and simulations) work only on localhost / 127.0.0.1. A link to the live site can't move anyone's date. |
-| Parsers | Hostile input (huge lines, repeated patterns) is tested not to freeze the CSV, receipt and statement parsers. PDF text is grouped into rows in linear time (50,000 scattered items tested). |
+| Parsers | Imported cells are capped at 2,000 characters (quoted or not, CSV and Excel), receipt and typed lines at 300, and the patterns that could slow down on long text see trimmed, capped text. `tests/security.test.mjs` times a 200 KB whitespace amount cell, a 40,000-word transfer text and 60,000-character lines. PDF text is grouped into rows in linear time (50,000 scattered items tested). |
 | Feedback spam | 1 message per minute and 10 per day per device; offline queue capped at 20; 4000 characters. A test checks that exactly 4 form fields are posted. |
 | Other network paths | None: a test checks that `js/` and `sw.js` use no `sendBeacon`, `WebSocket`, `XMLHttpRequest` or `EventSource`, and that `fetch` goes only to the feedback form, a pasted Sheets link and the exchange-rate address. |
 | Supply chain | Everything is vendored and self-hosted (OCR bundle, ONNX Runtime, models, sql.js, pdf.js, fonts). No page loads a script from a CDN at runtime (the OCR spike page was removed in 73ac174, and a test checks every tracked page). Licences in `THIRD_PARTY_NOTICES.md`. |
@@ -78,13 +81,20 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
   money in, without the personal side), joint budgets and the custom categories those rows use (`makeJointShare`,
   tested). Importing one goes through `readBackup`, then `mergeJoint`: records merge by id and the newer `updatedAt`
   wins (clamped to now, so a crafted file can't win forever), and a file can never overwrite or re-scope a personal
-  account or a row that uses one. Deletions travel: a deleted joint entry is recorded (`jointGone`, the last 1,000) and
+  account or a row that uses one: a partner's delete marker removes only rows that use no personal account here, a
+  bill from the file never replaces a personal bill, and two joint accounts merge only with the same currency and kind
+  (the merged one keeps this phone's exchange rate). `tests/joint.test.mjs` covers each. Deletions travel: a deleted joint entry is recorded (`jointGone`, the last 1,000) and
   the partner's next import removes it there too.
 - **Origin.** Tally now has its own origin, `https://tallymy.github.io/`, and the Play Store app wraps that one. The
   old address, `fir1412.github.io/tally/`, shares its origin with every other GitHub Pages project of that account.
   Data someone saved there stays readable by any page published on that account until they back it up and restore
-  it at the new address. The old address shows a banner asking them to do that. The service worker clears only
-  `tally-` caches, because a site root may be shared.
+  it at the new address. There, Home shows "Tally has moved" with three steps (back up here, restore at the new
+  address, erase here) and can't be dismissed; a visit with no data goes straight to the new address. "Erase
+  everything here" deletes Tally's IndexedDB database, its `tally*` localStorage keys, `tally-` caches and its service
+  worker (scope `/tally/`), and nothing of the other app (`.personas/oldhome-check.mjs`). Still open, outside this
+  repo: the other app on that site loads pdf.js from a CDN; self-host it (4.10+, `isEvalSupported: false`) or move that
+  app. Keep the `tallymy` GitHub account single-purpose, with 2FA and a protected `main`: a push to `main` reaches every
+  installed copy through the auto-updating service worker.
 - **SQLite version.** The vendored sql.js bundles SQLite 3.49.1. The newest sql.js on npm (1.14.2) still bundles
   3.49.1, so no build with the SQLite ≥ 3.50.2 fixes (CVE-2025-6965) is available yet. Tally's own queries are fixed
   and it reads only real tables with no generated columns, so a crafted `.mmbackup` can't supply the SQL. Upgrade when

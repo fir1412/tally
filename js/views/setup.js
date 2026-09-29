@@ -1051,7 +1051,7 @@ export const act = {
     const what = h => (h === location.host ? t("Tally's own files (the app itself)") : /(^|\.)google(usercontent)?\.com$/.test(h) ? t('Google: feedback you sent or a Sheets link you pasted') : h === 'api.frankfurter.dev' ? t('Exchange rate you asked for (no money data sent)') : t('Not expected: please tell us'));
     const hosts = [...new Set(performance.getEntriesByType('resource').concat(performance.getEntriesByType('navigation')).map(e => { try { return new URL(e.name).host; } catch { return ''; } }).filter(Boolean))];
     openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Check it yourself'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
-      <p class="sh-body">${esc(t('Every address this page has contacted since it opened, as recorded by your browser:'))}</p>
+      <p class="sh-body">${esc(t('Every address this page has fetched since it opened, as recorded by your browser (links you open in a new tab, like Google Calendar, are not in it):'))}</p>
       ${hosts.every(h => h === location.host) ? `<p class="okbox">${esc(t("Only Tally's own website. Nothing else."))}</p>` : ''}
       <ul class="list">${hosts.map(h => `<li><span class="grow"><b>${esc(h)}</b><small>${esc(what(h))}</small></span></li>`).join('')}</ul>
       <p class="fine">${esc(t('Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 40 MB, from Tally\'s own site).'))}</p>

@@ -195,3 +195,20 @@ test('a receipt goes where it was paid, whatever view is showing; typed entries 
   assert.equal(st.defaultAccount('receipt', { pay: 'card', amount: 3000 }), 'visa');
   assert.equal(st.defaultAccount('quick', { amount: 500 }), 'gp');
 });
+
+test('a crafted partner file cannot delete a personal row, overwrite a personal bill, or merge into another currency', () => {
+  const local = { accounts: ACCOUNTS, tx: TX, kv: KV, recurring: [{ id: 'b1', name: 'Gym', amount: 15000, accountId: 'mine', freq: 'monthly', day: 1, updatedAt: 10 }] };
+  const file = over => ({ accounts: [ACCOUNTS[1]], tx: [], recurring: [], gone: {}, kv: {}, ...over });
+  // t3 is my personal → joint transfer: a delete marker for it from the partner leaves it here
+  assert.deepEqual(IO.mergeJoint(local, file({ gone: { t3: Date.now(), t2: Date.now() } })).drop, ['t2']);
+  // a "bill" with my personal bill's id, pointed at the joint account, is refused
+  assert.deepEqual(IO.mergeJoint(local, file({ recurring: [{ id: 'b1', name: 'Gym', amount: 1, accountId: 'jt', freq: 'monthly', day: 1, updatedAt: 99 }] })).recurring, []);
+  // a joint account in SGD with the only-one-each-side shape is not merged into my ringgit joint account
+  const mine = { accounts: [ACCOUNTS[0], { id: 'zz', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 3 }], tx: [], kv: KV };
+  const sgd = { accounts: [{ id: 'aa', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, currency: 'SGD', rate: 9.99, createdAt: 1 }], tx: [], recurring: [], gone: {}, kv: {} };
+  assert.deepEqual(IO.mergeJoint(mine, sgd).empty, []);
+  // same currency: merged, and my rate is kept
+  const myr = { accounts: [{ ...sgd.accounts[0], currency: 'MYR', rate: 9.99 }], tx: [], recurring: [], gone: {}, kv: {} };
+  const m = IO.mergeJoint({ ...mine, accounts: [ACCOUNTS[0], { ...mine.accounts[1], rate: undefined }] }, myr);
+  assert.equal(m.empty.length, 1); assert.equal(m.accounts.find(a => a.id === 'aa').rate, undefined);
+});

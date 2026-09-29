@@ -187,6 +187,12 @@ export async function putRaw(store, recs) {
   notify(store);
 }
 
+/** Close and delete the whole database (leaving the old address). */
+export async function destroy() {
+  try { idb?.close(); } catch {}
+  idb = null;
+  await new Promise(res => { try { const r = indexedDB.deleteDatabase(NAME); r.onsuccess = r.onerror = r.onblocked = () => res(); } catch { res(); } });
+}
 /** Delete many keys in one transaction with one change notice (undo of a big import). */
 export async function delMany(store, keys) {
   if (!idb) return lsWrite(store, m => { for (const k of keys) delete m[k]; });
