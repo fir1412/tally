@@ -706,8 +706,17 @@ export function mergeJoint(local, incoming) {
   const jointHere = new Set(local.accounts.filter(a => a.scope === 'joint').map(a => a.id));
   const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id);
   const gone = Object.fromEntries(Object.keys({ ...theirGone, ...myGone }).map(id => [id, Math.max(theirGone[id] || 0, myGone[id] || 0)]).sort((a, b) => a[1] - b[1]).slice(-1000));
-  // A joint account made at setup that has nothing in it yet is the same account as theirs: use theirs.
-  const empty = joint.length ? local.accounts.filter(a => a.scope === 'joint' && !ids.has(a.id) && !local.tx.some(t => t.accountId === a.id || t.toAccountId === a.id)) : [];
+  // Before the first swap each phone made its own joint account: it is the same account as theirs. Ours joins theirs
+  // (by name, or the only one on each side), and what was added to ours moves into it, so both phones have one account.
+  const same = n => String(n || '').trim().toLowerCase(), newTheirs = joint.filter(a => !acc.has(a.id)), mineOnly = local.accounts.filter(a => a.scope === 'joint' && !ids.has(a.id));
+  const empty = [], into = new Map();
+  for (const a of mineOnly) {
+    const b = newTheirs.find(x => same(x.name) === same(a.name) && ![...into.values()].includes(x.id)) || (mineOnly.length === 1 && newTheirs.length === 1 ? newTheirs[0] : null);
+    if (b) { into.set(a.id, b.id); empty.push({ ...a, moved: local.tx.filter(t => t.accountId === a.id || t.toAccountId === a.id).length }); }
+  }
+  const now = Date.now(), to = id => into.get(id) || id;   // moved rows are edits: they go back to the partner in the next file
+  const moved = local.tx.filter(t => into.has(t.accountId) || into.has(t.toAccountId)).map(t => ({ ...t, accountId: to(t.accountId), ...(t.toAccountId ? { toAccountId: to(t.toAccountId) } : {}), updatedAt: now }));
+  const movedBills = (local.recurring || []).filter(r => into.has(r.accountId)).map(r => ({ ...r, accountId: to(r.accountId), updatedAt: now }));
   const have = new Set((local.kv.customCats || []).map(c => c.id));
   // Joint budgets: the newer one wins per category, and a category only one phone has budgeted is kept.
   const jb = incoming.kv.budgets?.joint, mine = local.kv.budgets?.joint;
@@ -715,8 +724,8 @@ export function mergeJoint(local, incoming) {
   const budgetsJoint = jb && { ...newest, byCat: { ...(older?.byCat || {}), ...(newest?.byCat || {}) } };
   const bills = new Map((local.recurring || []).map(r => [r.id, r]));
   return {
-    accounts: joint.filter(a => newer(acc.get(a.id), a)), tx, drop, gone, empty,
-    recurring: (incoming.recurring || []).filter(r => ids.has(r.accountId) && newer(bills.get(r.id), r)),
+    accounts: joint.filter(a => newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty,
+    recurring: [...(incoming.recurring || []).filter(r => ids.has(r.accountId) && newer(bills.get(r.id), r)), ...movedBills],
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(budgetsJoint && JSON.stringify(budgetsJoint) !== JSON.stringify(mine) ? { budgetsJoint } : {}),
   };

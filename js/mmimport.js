@@ -77,19 +77,32 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       if (photoPath.has(l.Photo)) photos.push({ txId: id, path: photoPath.get(l.Photo) });
     }
 
+    // Transfers (ATM withdrawals, e-wallet reloads). No public source says where a transfer's two accounts are: on the row
+    // (fromAccount/toAccount) or as sync_link rows (FromAccount/ToAccount). Either is read when it names two known accounts;
+    // anything else is counted and left out, and balances still match (openings come from what was imported).
+    let transfersSkipped = 0;
+    if (has('transfer')) {
+      const cols = rows(`select name from pragma_table_info('transfer')`).map(c => c.name), col = re => cols.find(c => re.test(c));
+      const fromC = col(/^from_?acc/i), toC = col(/^to_?acc/i), amtC = col(/^fromAmount$/i) || col(/^amount$/i), toAmtC = col(/^toAmount$/i);
+      const side = new Map();
+      for (const l of rows(`select entityUid, otherType, otherUid from sync_link where isRemoved = 0 and entityType = 'Transfer' limit 1000000`)) (side.get(l.entityUid) || side.set(l.entityUid, {}).get(l.entityUid))[/^from/i.test(l.otherType) ? 'from' : /^to/i.test(l.otherType) ? 'to' : l.otherType] = l.otherUid;
+      for (const r of rows(`select * from transfer where isRemoved = 0 limit 200000`)) {
+        const s = side.get(r.uid) || {}, from = fromC ? r[fromC] : s.from, to = toC ? r[toC] : s.to, amt = Number(r[amtC]), toAmt = Number(r[toAmtC]);
+        if (!accIds.has(from) || !accIds.has(to) || from === to || !validIso(r.date) || !Number.isInteger(amt) || amt <= 0 || amt > MAX_SEN) { transfersSkipped++; continue; }
+        tx.push({ id: mmId(r.uid), date: r.date, time: localTime(r.created), type: 'transfer', amount: amt, ...(Number.isInteger(toAmt) && toAmt > 0 && toAmt <= MAX_SEN && toAmt !== amt ? { toAmount: toAmt } : {}),
+          accountId: mmId(from), toAccountId: mmId(to), category: 'other', merchant: cleanText(r.comment, 80), note: '', source: 'import', createdAt: Date.parse(r.created) || now });
+      }
+    }
+
     // Opening balance = their current balance minus everything imported, so Tally shows the same balance today.
     const accounts = accRows.map(a => {
       const id = mmId(a.uid);
-      const net = tx.filter(t => t.accountId === id).reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+      const net = tx.reduce((s, t) => s + (t.accountId === id ? (t.type === 'income' ? t.amount : -t.amount) : 0) + (t.toAccountId === id ? t.toAmount ?? t.amount : 0), 0);
       const bal = Number.isInteger(Number(a.balance)) && a.balance != null ? Number(a.balance) : net;
       const title = String(a.title || '');
       return { id, name: cleanText(title, 60) || 'Account', kind: /cash|tunai|现金/i.test(title) ? 'cash' : /card|kad|卡/i.test(title) ? 'card' : /wallet|tng|grab|boost/i.test(title) ? 'ewallet' : 'bank', opening: okSigned(bal - net) ? bal - net : 0, createdAt: Date.parse(a.created) || now, currency: a.currencyCode || 'MYR' };
     });
-    // TODO(transfers): rows of the `transfer` table are counted, not imported. Which sync_link rows tie a transfer to
-    // its two accounts (entityType 'Transfer'? one otherType per side?) is in no public source and no backup we have,
-    // so nothing is guessed. Balances still match: each opening is the current balance minus what was imported, and a
-    // transfer only moves money between the two. Import them when a real backup shows the link rows.
-    return { accounts: accounts.map(keepCurrency), tx, customCats, photos, skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped: has('transfer') ? rows(`select count(*) as n from transfer where isRemoved = 0`)[0].n : 0 };
+    return { accounts: accounts.map(keepCurrency), tx, customCats, photos, skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped };
   } finally { db.close(); }
 }
 

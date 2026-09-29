@@ -98,7 +98,7 @@ new Function('module', 'exports', 'require', '__dirname', readFileSync(VENDOR + 
 const SQL = await mod.exports({ wasmBinary: readFileSync(VENDOR + 'sql-wasm.wasm') });
 const sqlite = sql => { const db = new SQL.Database(); db.exec(sql); const d = db.export(); db.close(); return d; };
 
-test('Money Manager (Innim): an SGD account keeps its currency; transfers are counted, not imported, and balances still match', async () => {
+test('Money Manager (Innim): an SGD account keeps its currency; transfers without their accounts are counted, not imported, and balances still match', async () => {
   const db = sqlite(`create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
     create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);
     create table category(uid, title, type, color, isRemoved); create table sync_link(entityUid, entityType, otherType, otherUid, isRemoved);
@@ -112,10 +112,27 @@ test('Money Manager (Innim): an SGD account keeps its currency; transfers are co
   const mm = await readMoneyManager(new Uint8Array(await IO.zipStore([{ name: 'MyFinance.db', data: db }]).arrayBuffer()), SQL);
   assert.deepEqual(mm.accounts.map(a => [a.name, a.currency]), [['Maybank', undefined], ['DBS', 'SGD']]);
   assert.deepEqual(mm.otherCurrency, ['DBS']);
-  // Assumption documented in mmimport.js: the transfer table's link rows are unknown, so transfers are only counted.
   assert.equal(mm.transfersSkipped, 2);
   assert.ok(!mm.tx.some(t => t.type === 'transfer'));
   assert.deepEqual(Object.values(E.balances(mm.accounts, mm.tx).by), [90000, 20000]);   // today's balances match Money Manager
+});
+
+test('Money Manager (Innim): transfers come in when the backup names both accounts (link rows or columns); balances still match', async () => {
+  const base = `create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
+    create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);
+    create table category(uid, title, type, color, isRemoved); create table sync_link(entityUid, entityType, otherType, otherUid, isRemoved);
+    insert into account values ('b', 'Maybank', 'MYR', '2026-01-01', 0), ('c', 'Cash', 'MYR', '2026-01-01', 0), ('s', 'DBS', 'SGD', '2026-01-01', 0);
+    insert into account_balance values ('b', 90000), ('c', 5000), ('s', 20000);`;
+  const read = async sql => readMoneyManager(new Uint8Array(await IO.zipStore([{ name: 'MyFinance.db', data: sqlite(base + sql) }]).arrayBuffer()), SQL);
+  const links = await read(`create table transfer(uid, created, modified, fromAmount, fromCurrencyCode, toAmount, toCurrencyCode, date, comment, isRemoved);
+    insert into transfer values ('x1', '2026-09-02T02:00:00Z', '', 20000, 'MYR', 20000, 'MYR', '2026-09-02', 'ATM', 0), ('x2', '', '', 10000, 'SGD', 34000, 'MYR', '2026-09-03', '', 0), ('x3', '', '', 500, 'MYR', 500, 'MYR', '2026-09-04', '', 0);
+    insert into sync_link values ('x1', 'Transfer', 'FromAccount', 'b', 0), ('x1', 'Transfer', 'ToAccount', 'c', 0), ('x2', 'Transfer', 'FromAccount', 's', 0), ('x2', 'Transfer', 'ToAccount', 'b', 0), ('x3', 'Transfer', 'FromAccount', 'b', 0);`);
+  assert.deepEqual(links.tx.map(t => [t.merchant, t.accountId.slice(-1) === links.accounts[0].id.slice(-1), t.amount, t.toAmount]), [['ATM', true, 20000, undefined], ['', false, 10000, 34000]]);
+  assert.equal(links.transfersSkipped, 1);   // x3 names one account only
+  assert.deepEqual(Object.values(E.balances(links.accounts, links.tx).by), [90000, 5000, 20000]);
+  const cols = await read(`create table transfer(uid, fromAccount, toAccount, amount, date, isRemoved); insert into transfer values ('y1', 'b', 'c', 15000, '2026-09-05', 0);`);
+  assert.deepEqual(cols.tx.map(t => [t.type, t.amount]), [['transfer', 15000]]);
+  assert.deepEqual(Object.values(E.balances(cols.accounts, cols.tx).by), [90000, 5000, 20000]);
 });
 
 test('Money Manager (Realbyte): an account in another currency keeps it', async () => {

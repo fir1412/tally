@@ -132,3 +132,16 @@ test('merge round 4: deletions travel, spouse rows are marked, budgets and bills
   const edited = TX.map(x => (x.id === 't2' ? { ...x, updatedAt: 50 } : x));
   assert.deepEqual(IO.mergeJoint({ accounts: ACCOUNTS, tx: edited, kv: KVb }, back).drop, []);
 });
+
+test('merge: each phone made its own joint account and used it before the first swap: one account after, nothing lost', () => {
+  const his = IO.readBackup(IO.makeJointShare({ accounts: ACCOUNTS, tx: TX, kv: KV, recurring: [] }, 'Hafiz'));
+  const hers = { accounts: [{ id: 'mine2', name: 'Her bank', kind: 'bank', opening: 0, createdAt: 1 }, { id: 'jt2', name: 'joint cimb', kind: 'bank', opening: 50000, scope: 'joint', createdAt: 1, updatedAt: 5 }],
+    tx: [{ id: 'p1', date: '2026-01-08', type: 'expense', amount: 8500, accountId: 'jt2', category: 'groceries', merchant: 'Pasar tani', createdAt: 5, updatedAt: 5 },
+      { id: 'p2', date: '2026-01-08', type: 'transfer', amount: 1000, accountId: 'mine2', toAccountId: 'jt2', category: 'other', createdAt: 5, updatedAt: 5 }],
+    kv: { settings: {}, budgets: { total: 0, byCat: {} }, customCats: [] }, recurring: [{ id: 'b1', name: 'Water', amount: 3000, day: 5, accountId: 'jt2', updatedAt: 5 }] };
+  const m = IO.mergeJoint(hers, his);
+  assert.deepEqual(m.empty.map(a => [a.id, a.moved]), [['jt2', 2]]);   // hers goes; theirs stays
+  assert.deepEqual(m.tx.filter(x => x.id.startsWith('p')).map(x => [x.id, x.accountId, x.toAccountId]), [['p1', 'jt', undefined], ['p2', 'mine2', 'jt']]);
+  assert.equal(m.recurring.find(r => r.id === 'b1').accountId, 'jt');
+  assert.ok(m.tx.some(x => x.id === 't2'));   // his rent arrives too
+});

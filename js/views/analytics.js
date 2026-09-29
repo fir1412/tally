@@ -139,7 +139,7 @@ function reliefCard(M) {
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
   return card('relief', t('Possible tax-relief expenses in {0}', year), got.length ? t('{0} in spending to review', fmtRM(total)) : t('Nothing found yet for {0}', year),
     `${rows ? `<ul class="relief">${rows}</ul>` : ''}${none.length ? `<p class="fine">${esc(t('Not found yet: {0}.', none.join(', ')))}</p>` : ''}
-    <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} <a href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
+    <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
 }
 
 // ---- 8. couples: who put money into the joint account --------------------------------------------------------------------------

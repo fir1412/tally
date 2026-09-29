@@ -298,6 +298,7 @@ body.touring .tabs { z-index: 21; }
 @media (max-width: 767px) { body.touring .scrim { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } body.touring .sheet { border-radius: 18px; } }
 .tour-pulse { position: relative; z-index: 22; border-radius: 14px; outline: 3px solid var(--warn); outline-offset: 3px; scroll-margin-top: 96px; animation: tour-pulse 1.5s var(--ease-out) 3; }
 .fab.tour-pulse { border-radius: 50%; }
+.tour-pulse.tour-under { z-index: auto; }
 @keyframes tour-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 75%, transparent); } 70%, 100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--warn) 0%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .tour-pulse { animation: none; outline: 3px solid var(--warn); outline-offset: 4px; } }
 @keyframes tour-pop { from { transform: scale(.8); opacity: 0; } }
@@ -763,3 +764,6 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, #view [tabindex="-1"]:focus:no
 @media (min-width: 1440px) { main.view-insights { max-width: 1320px; } }   /* 12 months side by side without scrolling any under the pinned Category column */
 @media (min-width: 600px) { .banner .grow { min-width: 18ch; } }   /* three actions beside the words wrap under them instead of squeezing them to a letter a line */
 .accts .num small { display: block; text-align: right; color: var(--mute); font-size: var(--fs-sm); }
+details > summary { min-height: 44px; padding-block: 10px; box-sizing: border-box; cursor: pointer; }   /* every fold-out row is a 44px target */
+a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* the LHDN source link */
+[data-act="bill-edit"] { min-width: 44px; }

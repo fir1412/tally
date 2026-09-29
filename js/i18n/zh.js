@@ -1042,4 +1042,6 @@ export default {
   "Balance when you started ({0})": "开始时的余额（{0}）",
   "Enter how many ringgit 1 {0} is, for example 3.30.": "请输入 1 {0} 等于多少令吉，例如 3.30。",
   "Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.": "非令吉：{0}。保留原币种，并按你可在设置中修改的汇率折算成令吉。",
+  "Your joint account \"{0}\" is the same account as theirs: your {1} entries move into it.": "你的共同账户「{0}」和对方的是同一个账户：你的 {1} 笔记录会移到里面。",
+  "Deleting an entry deletes it on the other phone too, once they import your next file.": "删除一笔记录后，对方导入你的下一个文件时，那笔记录在对方手机上也会删除。",
 };

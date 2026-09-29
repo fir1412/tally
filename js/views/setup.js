@@ -201,6 +201,7 @@ let IMP = null; // {rows, header, map, accountId, catMap, name} or {mm, buf}
 function importSheet() {
   openSheet(`<h2 class="sh-title">${esc(t('Bring data in'))}</h2>
     <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" hidden></label>
+    <p class="err" id="imp-err" role="alert"></p>
     <p class="fine">${esc(t("Can't see your file here? Open your phone's file manager, long-press the file and Share it to Tally. Or move it to another folder once, then it shows up here."))}</p>
     <p class="fine">${esc(t('Exports and backups from Money Manager (Innim or Realbyte), Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney; Excel (.xlsx) or CSV from your bank; or a Tally backup.'))}</p>
     <details class="howto"><summary>${esc(t('How to export from your money app'))}</summary><ul class="newlist">${howTo().map(([a, s]) => `<li><b>${esc(a)}:</b> ${esc(s)}</li>`).join('')}</ul></details>
@@ -208,8 +209,7 @@ function importSheet() {
     <label class="field"><span>${esc(t('Paste the cells (select all in the sheet, copy, paste here)'))}</span><textarea id="imp-paste" rows="4" placeholder="Date	Amount	Category	Note"></textarea></label>
     <button class="btn ghost wide" data-act="imp-paste">${esc(t('Use pasted cells'))}</button>
     <label class="field"><span>${esc(t('Or paste the sheet link (sharing must be "Anyone with the link")'))}</span><input id="imp-link" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
-    <button class="btn ghost wide" data-act="imp-link">${esc(t('Fetch from Google Sheets'))}</button>
-    <p class="err" id="imp-err" role="alert"></p>`, { label: t('Import') });
+    <button class="btn ghost wide" data-act="imp-link">${esc(t('Fetch from Google Sheets'))}</button>`, { label: t('Import') });
   $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); });
 }
 /** Where each app keeps its export (presets.js reads them with no column matching). Menu names as the apps' help pages
@@ -233,7 +233,8 @@ const impAccount = () => (IMP.accountId === 'new' ? IMP.newId : IMP.accountId);
 const newKind = () => IMP.kind || (IMP.map.debit != null || IMP.map.credit != null || IMP.map.balance != null ? 'bank' : 'cash');
 /** What's wrong with a typed amount: over RM 100 million, or not an amount. */
 const amtErr = v => (tooLarge(v) ? t('That amount is too large (RM 100 million at most).') : t('Enter amounts like 150 or 150.50.'));
-const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else toast(m, { k: 'bad' }); };
+/** Import progress and errors, under "Choose a file" and scrolled into view (a small phone showed them below the fold). */
+const impErr = m => { const el = $('#imp-err'); if (!el) return toast(m, { k: 'bad' }); el.textContent = m; if (m) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
 async function ensureAccount() {
   if (!S.accounts.length) await saveAccount({ id: uid('a'), name: t('Cash'), kind: 'cash', opening: 0, createdAt: Date.now() });
 }
@@ -261,6 +262,7 @@ export async function importFile(f) {
       const names = [];
       const z = await unzip(buf, n => (names.push(n), n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n))).catch(() => ({}));
       if (z[BACKUP_JSON]) return await restoreText(jsonText(z[BACKUP_JSON]), z);
+      if (names.includes('MyFinance.db')) { kind = 'Money Manager'; return await importMoneyManager(buf); }   // a .mmbackup renamed .zip (Telegram, Drive)
       if (names.length && !names.some(n => n.startsWith('xl/'))) { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }   // a renamed .mmbak
     }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
@@ -284,7 +286,8 @@ async function startMapping(rows, name, { sheet = false } = {}) {
   const have = new Set([...expenseCats(), ...INCOME_CATEGORIES].map(c => c.id));
   const catMap = Object.fromEntries(Object.entries(saved?.catMap || {}).filter(([, v]) => have.has(v)));
   const sourceKey = hash(JSON.stringify([name, rows])), remembered = settings().importSources?.[sourceKey];
-  const existing = S.accounts.find(a => a.id === remembered) || (sheet && S.accounts.find(a => a.id === settings().sheetAccount)) || (prov && findAccount(prov[1], kind));
+  const existing = S.accounts.find(a => a.id === remembered) || (sheet && S.accounts.find(a => a.id === settings().sheetAccount)) || (prov && findAccount(prov[1], kind))
+    || (!preset && /bank|statement|penyata|结单|對賬/i.test(name) && S.accounts.filter(a => a.kind === 'bank').length === 1 && S.accounts.find(a => a.kind === 'bank'));   // "bank_statement_sep.csv" and one bank account: that one
   // Another app's history or a bank's statement is its own account by default (Round 2: imports landed in Cash).
   IMP = { rows: rows.slice(h + 1), header, sig, sourceKey, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || (sheet ? t('Google Sheet') : ''), kind, catMap, accIds: {}, name, sheet, skipFuture: true, tabs: rows.tabs };
   showMapping();
@@ -532,9 +535,10 @@ const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.ac
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
 async function importJoint(data, zip = {}) {
   const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, data), from = data.by || t('your partner');
-  const body = [t('New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.', m.tx.length, m.drop.length),
+  const theirs = m.tx.length - m.empty.reduce((s, a) => s + (a.moved || 0), 0);
+  const body = [t('New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.', theirs, m.drop.length),
     m.budgetsJoint ? t('Joint budgets are updated.') : '', m.recurring.length ? t('Joint bills: {0}.', m.recurring.length) : '',
-    ...m.empty.map(a => t('Your empty joint account "{0}" is replaced by theirs.', a.name))].filter(Boolean).join(' ');
+    ...m.empty.map(a => (a.moved ? t('Your joint account "{0}" is the same account as theirs: your {1} entries move into it.', a.name, a.moved) : t('Your empty joint account "{0}" is replaced by theirs.', a.name)))].filter(Boolean).join(' ');
   if (!(await confirmSheet({ title: t('Joint accounts from {0}', from), body, ok: t('Add') }))) return;
   await putAll({ accounts: m.accounts, tx: m.tx, recurring: m.recurring, del: { tx: m.drop, accounts: m.empty.map(a => a.id) }, kv: {
     jointGone: m.gone,
@@ -546,7 +550,7 @@ async function importJoint(data, zip = {}) {
   closeSheet(); go('home'); render();
   const wanted = new Set(m.tx.map(x => x.receiptId).filter(Boolean));
   for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) { const jpeg = await reencode(new Blob([bytes])); if (jpeg) await savePhoto(id, jpeg); } }   // same size and pixel limits as a backup
-  toast(t('{0} joint entries added or updated from {1}', m.tx.length, from), { k: 'good', icon: 'check' });
+  toast(t('{0} joint entries added or updated from {1}', theirs, from), { k: 'good', icon: 'check' });
 }
 async function backedUp(msg) {
   const first = !S.kv.lastBackup;
@@ -816,7 +820,7 @@ export const act = {
       <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it. Send it only to your partner.'))}</span></p>
       ${canShare ? `<button class="btn wide" data-act="jt-send">${esc(t('Send to my partner (WhatsApp, email)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="jt-save">${esc(t('Save to this phone (Downloads)'))}</button>
-      <p class="fine">${esc(t('Your partner opens Tally, taps Settings → Import from my partner and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry does not delete it on the other phone: delete it there too.'))}</p>`, { label: t('Share joint accounts') });
+      <p class="fine">${esc(t('Your partner opens Tally, taps Settings → Import from my partner and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry deletes it on the other phone too, once they import your next file.'))}</p>`, { label: t('Share joint accounts') });
   },
   'jt-send': async () => {
     const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());

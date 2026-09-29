@@ -1042,4 +1042,6 @@ export default {
   "Balance when you started ({0})": "Baki semasa mula ({0})",
   "Enter how many ringgit 1 {0} is, for example 3.30.": "Masukkan berapa ringgit untuk 1 {0}, contohnya 3.30.",
   "Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.": "Bukan dalam RM: {0}. Disimpan dalam mata wang sendiri dan dikira dalam RM pada kadar yang boleh diubah dalam Tetapan.",
+  "Your joint account \"{0}\" is the same account as theirs: your {1} entries move into it.": "Akaun bersama anda \"{0}\" ialah akaun yang sama dengan akaun mereka: {1} rekod anda dipindahkan ke dalamnya.",
+  "Deleting an entry deletes it on the other phone too, once they import your next file.": "Memadam rekod akan memadamnya di telefon satu lagi juga, sebaik sahaja mereka mengimport fail anda yang seterusnya.",
 };

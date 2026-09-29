@@ -70,7 +70,7 @@ const skipTour = () => new URLSearchParams(location.search).has('notour');   // 
 export function showTour(start = 0) {
   let i = start;
   hideToast();   // an import's toast shouldn't sit over the tour
-  const unpulse = () => document.querySelectorAll('.tour-pulse').forEach(x => x.classList.remove('tour-pulse'));
+  const unpulse = () => document.querySelectorAll('.tour-pulse').forEach(x => x.classList.remove('tour-pulse', 'tour-under'));
   const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { document.body.classList.remove('touring'); unpulse(); if (!settings().tourDone) seen(); } });
   sheet.closest('.scrim').classList.add('tourscrim');   // no dark cover: the screen the tip is about stays in view
   document.body.classList.add('touring');
@@ -79,11 +79,15 @@ export function showTour(start = 0) {
     if (route() !== tab) { history.replaceState(history.state, '', `#/${tab}`); render(); }
     unpulse();
     const target = TARGET[i] && document.querySelector(TARGET[i]);
-    if (target) { target.classList.add('tour-pulse'); target.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }   // above the tour card
+    if (target) {
+      target.classList.add('tour-pulse'); target.scrollIntoView?.({ block: 'start', behavior: 'smooth' });   // above the tour card
+      // Big text on a small phone: the card can reach the button. Then it pulses under the card instead of over its words.
+      const under = () => { const a = target.getBoundingClientRect(), c = sheet.getBoundingClientRect(); target.classList.toggle('tour-under', a.bottom > c.top && a.top < c.bottom); };
+      under(); for (const ms of [300, 700, 1200]) setTimeout(under, ms);   // while and after the smooth scroll
+    }
     const last = i === TOUR.length - 1;
     sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="tour"><div class="tour-ic">${icon}</div>
       <p class="lbl">${esc(i ? t('Tip {0} of {1}', i, TOUR.length - 1) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>
-      ${last ? `<p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))}</span></p>` : ''}
       ${i ? `<div class="dots" aria-hidden="true">${TOUR.slice(1).map((_, j) => `<i class="${j + 1 === i ? 'on' : j + 1 < i ? 'done' : ''}"></i>`).join('')}</div>` : ''}
       ${last && canInstall() ? `<button class="btn ghost wide" data-t="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
       ${last ? `<button class="btn ghost wide" data-t="learn">${ICON.sparkles}${esc(t('Then try it: Learn Tally'))}</button>` : ''}
@@ -100,7 +104,7 @@ export function showTour(start = 0) {
     if (k === 'back') { i--; return paint(); }
     closeSheet();
     if (k === 'learn') location.hash = '#/learn';
-    else if (route() !== 'home') location.hash = '#/home';
+    else { if (route() !== 'home') { history.replaceState(history.state, '', '#/home'); render(); } window.scrollTo(0, 0); }   // Home from the top: the balance first
   });
   paint();
 }
