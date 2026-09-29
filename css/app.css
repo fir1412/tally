@@ -111,7 +111,7 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 44px; padding: 10px var(--sp-4); border: 0; border-radius: 12px; background: var(--btn); color: var(--btn-ink); font-weight: 650; cursor: pointer; text-decoration: none; text-align: center; }
 .btn.ghost { background: var(--panel2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .btn.danger { background: var(--bad); color: var(--danger-ink); } .btn.ghost.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1px var(--bad); }
-.btn.small { min-height: 36px; padding: 6px var(--sp-3); font-size: var(--fs-sm); }
+.btn.small { min-height: 44px; padding: 6px var(--sp-3); font-size: var(--fs-sm); }
 .btn.wide { width: 100%; }
 .btn.stack { flex-direction: column; gap: 0; }
 .btn.stack small { font-weight: 400; font-size: var(--fs-xs); color: var(--mute); }
