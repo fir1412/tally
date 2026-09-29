@@ -26,7 +26,26 @@ const need = name => (loading[name] ||= LAZY[name]().then(m => { mods[name] = m;
 const needAll = () => Promise.all(Object.keys(LAZY).map(need));
 
 export const route = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
-export function go(r) { if (route() === r) render(); else location.hash = `#/${r}`; }
+// Back like an app, not a web page. Home is the root and each history entry knows how far above it it is (state.depth).
+// A tab opened from Home is one step up; switching between tabs replaces that step. Other screens (a receipt's review,
+// Learn) and sheets go one step above the screen they came from. So back always leads towards Home, Home is never
+// more than one back away from a tab, and back on Home leaves the app.
+const TABS = new Set(['home', 'activity', 'insights', 'budgets', 'settings']);
+const depth = () => history.state?.depth || 0;
+export function go(r) {
+  const cur = route(), d = depth();
+  const root = () => { if (route() !== 'home') { location.replace('#/home'); history.replaceState({ depth: 0 }, ''); } };   // the root was Welcome (first run): Home takes its place
+  if (r === 'home') { if (d > 0) { addEventListener('popstate', root, { once: true }); history.go(-d); } else if (cur !== 'home') root(); else render(); return; }
+  if (cur === r) return render();
+  const tab = TABS.has(r) && TABS.has(cur) && cur !== 'home' && d === 1;
+  if (tab) { location.replace(`#/${r}`); history.replaceState({ depth: 1 }, ''); return; }
+  location.hash = `#/${r}`; history.replaceState({ depth: d + 1 }, '');
+}
+// Links to screens (the tab bar) go the same way.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault(); go(a.getAttribute('href').slice(2) || 'home');
+});
 let renderedRoute = null;
 function focusAfterRender(app, previous, routeChanged) {
   const heading = () => {

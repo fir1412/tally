@@ -94,7 +94,7 @@ export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {
       else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
     }
   });
-  if (!history.state?.sheet) history.pushState({ sheet: true }, ''); // Android back closes the sheet
+  if (!history.state?.sheet) history.pushState({ sheet: true, depth: (history.state?.depth || 0) + 1 }, ''); // Android back closes the sheet
   sheetClose = () => {
     sheetClose = below;
     wrap.classList.add('out'); wrap.style.pointerEvents = 'none';   // exit animation, then gone
@@ -113,7 +113,9 @@ export const sheetOpen = () => !!sheetClose;
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
     if (sheetClose) { sheetClose(); staleHref = null; return; }
-    const skip = staleHref && location.href === staleHref; staleHref = null;
+    // Back onto the entry a closed sheet left behind: step over it. Only that entry (its state says sheet): a tap on a
+    // link to the same address makes a new entry, which must open (Settings after the tour's last tip bounced).
+    const skip = staleHref && location.href === staleHref && history.state?.sheet; staleHref = null;
     if (skip) history.back();
   });
   window.addEventListener('hashchange', () => { staleHref = null; while (sheetClose) closeSheet(); });   // stacked ones too
@@ -292,3 +294,11 @@ export const ICON = {
   phone: I('<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/>'),
   palette: I('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.5-1.9-.4-1.3.5-2.6 1.9-2.6H18a3 3 0 0 0 3-3C21 7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>'),
 };
+
+// A row of category chips is one Tab stop: arrow keys move along it (keyboard users met 13 stops in a row).
+if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
+  const c = e.target.closest?.('.chips.cats .chip'); if (!c || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const all = [...c.parentElement.querySelectorAll('.chip')], i = all.indexOf(c);
+  const next = all[e.key === 'Home' ? 0 : e.key === 'End' ? all.length - 1 : (i + (/Right|Down/.test(e.key) ? 1 : -1) + all.length) % all.length];
+  e.preventDefault(); all.forEach(x => x.setAttribute('tabindex', x === next ? '0' : '-1')); next.focus();
+});

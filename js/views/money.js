@@ -152,7 +152,7 @@ function sheetHtml() {
     ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
-    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}<button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button></div>`}
+    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}<button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button></div>`}
     ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
@@ -247,7 +247,7 @@ export const budgetsView = {
       const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] }), pct = Math.min(100, Math.round(spent / budget * 100));
       const state = spent > budget ? 'bad' : p.over ? 'warn' : 'good';
       const word = spent > budget ? t('Over by {0}', fmtRM(spent - budget)) : p.over ? t('Heading over: about {0} by month end', fmtRM(p.projected)) : t('{0} left', fmtRM(budget - spent));
-      return `<div class="meter ${state}" role="img" aria-label="${esc(`${pct}%`)}"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;
+      return `<div class="meter ${state}" aria-hidden="true"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;
     };
     // Cumulative spend this month vs the budget line.
     let run = 0; const series = [], byDay = {};

@@ -549,6 +549,20 @@ export function pairTransfers(all, fresh) {
   }
   return pairs;
 }
+/**
+ * A wallet statement imported first saves each reload as a transfer from "Other bank" (outside). When the bank's
+ * statement comes later, its line for that reload ("Transfer TO TNG Digital") is that same money: the transfer now
+ * comes from this bank, and the bank line is not saved as spending. → {relink: updated transfers, taken: bank-line ids}
+ */
+export function relinkReloads(existing, fresh, outsideId) {
+  const open = existing.filter(x => x.type === 'transfer' && x.accountId === outsideId), relink = [], taken = new Set();
+  for (const x of fresh) {
+    if (x.type !== 'expense' || x.accountId === outsideId || !TOPUP.test(`${x.merchant || ''} ${x.note || ''}`)) continue;
+    const i = open.findIndex(o => o.amount === x.amount && Math.abs(daysBetween(o.date, x.date)) <= 1);
+    if (i >= 0) { relink.push({ ...open[i], accountId: x.accountId }); taken.add(x.id); open.splice(i, 1); }
+  }
+  return { relink, taken };
+}
 /** One transfer for a pair: the expense's id, day and text, into the income's account. */
 export const asTransfer = ([o, i]) => ({ ...o, type: 'transfer', toAccountId: i.accountId, category: 'other' });
 /**
@@ -580,7 +594,7 @@ export function reloadTransfers(txs, accounts, other) {
   const kind = new Map(accounts.map(a => [a.id, a.kind])), banks = accounts.filter(a => (a.kind === 'bank' || a.kind === 'card') && !a.outside);
   const words = s => String(s || '').toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || [];
   return txs.filter(x => x.type === 'income' && kind.get(x.accountId) === 'ewallet' && RELOAD.test(`${x.merchant || ''} ${x.note || ''}`)).map(x => {
-    const text = new Set(words(`${x.merchant} ${x.note}`)), from = banks.find(a => words(a.name).some(w => !NOT_NAME.test(w) && text.has(w)));
+    const text = words(`${x.merchant} ${x.note}`), from = banks.find(a => words(a.name).some(w => !NOT_NAME.test(w) && text.some(x => x === w || (w.length >= 4 && x.startsWith(w)))));   // "Maybank2u" is Maybank
     return { ...x, type: 'transfer', accountId: from?.id || other, toAccountId: x.accountId, category: 'other' };
   });
 }

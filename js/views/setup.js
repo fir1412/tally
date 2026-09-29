@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -376,12 +376,15 @@ function planMoves(fresh, accounts, otherId) {
  * `before(fresh)` runs first (photos) and returns photo ids to remove again on Undo. → the ids of the accounts it touched.
  */
 async function commitImport(txs, label, { before = async () => [], accounts = [], kv = {}, newAccounts = [], undoMore = async () => {}, tourLater = false } = {}) {
-  const { fresh, dups } = splitDups(S.tx, txs, Object.fromEntries([...S.accounts, ...accounts].map(a => [a.id, a.name])));
+  const split = splitDups(S.tx, txs, Object.fromEntries([...S.accounts, ...accounts].map(a => [a.id, a.name]))), { dups } = split;
+  const outside = S.accounts.find(a => a.outside), { relink, taken } = outside ? relinkReloads(S.tx, split.fresh, outside.id) : { relink: [], taken: new Set() };
+  const fresh = split.fresh.filter(x => !taken.has(x.id));   // reloads the wallet's file already had: now from this bank
   const photoIds = await before(fresh);
   const other = S.accounts.find(a => a.outside) || { id: uid('a'), name: t('Other bank'), kind: 'bank', opening: 0, outside: true, createdAt: Date.now() };
   const { pairs, paired, reloads } = planMoves(fresh, [...S.accounts, ...accounts], other.id), moved = new Set(reloads.map(x => x.id));
   if (reloads.some(x => x.accountId === other.id) && !S.accounts.includes(other)) { accounts = [...accounts, other]; newAccounts = [...newAccounts, other.id]; }
-  const replaced = S.tx.filter(x => paired.has(x.id)), save = [...fresh.filter(x => !paired.has(x.id) && !moved.has(x.id)), ...pairs.map(asTransfer), ...reloads];
+  const relinked = new Set(relink.map(x => x.id));
+  const replaced = S.tx.filter(x => paired.has(x.id) || relinked.has(x.id)), save = [...fresh.filter(x => !paired.has(x.id) && !moved.has(x.id)), ...pairs.map(asTransfer), ...reloads, ...relink];
   const kept = new Set(save.map(x => x.id)), gone = replaced.filter(x => !kept.has(x.id)).map(x => x.id);
   const used = new Set(save.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
   const stagedAccounts = accounts.filter(a => !newAccounts.includes(a.id) || used.has(a.id));
@@ -393,8 +396,8 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   catch (e) { await deletePhotos(photoIds); throw e; }
   if (first && !tourLater) afterSetup();
   closeSheet(); go('home'); render();
-  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length)}` : '')
-    + (reloads.length ? ` · ${t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads.length)}` : ''), { undo: async () => {
+  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length + relink.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length + relink.length)}` : '')
+    + (reloads.length ? ` · ${t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads.length)}` : ''), { undo: !save.length ? null : async () => {
     await putAll({ accounts: shifted, tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) } });
     await deletePhotos(photoIds);
     await undoMore(); render();
@@ -739,7 +742,10 @@ export const act = {
   },
   'mm-go': async b => {
     b.disabled = true;
-    const { mm, buf } = IMP, withPhotos = $('#mm-photos')?.checked;
+    const { buf } = IMP, withPhotos = $('#mm-photos')?.checked;
+    // The same ledger from another format (its Excel export first): same-named accounts are the ones already here.
+    const here = new Map(S.accounts.map(a => [norm(a.name), a.id])), same = id => (!S.accounts.some(a => a.id === id) && here.get(norm(IMP.mm.accounts.find(a => a.id === id)?.name))) || id;
+    const mm = { ...IMP.mm, tx: IMP.mm.tx.map(x => ({ ...x, accountId: same(x.accountId), ...(x.toAccountId ? { toAccountId: same(x.toAccountId) } : {}) })) };
     const fresh = splitDups(S.tx, mm.tx, Object.fromEntries([...S.accounts, ...mm.accounts].map(a => [a.id, a.name]))).fresh, used = new Set(fresh.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
     const accounts = mm.accounts.filter(a => used.has(a.id) && !S.accounts.some(x => x.id === a.id));
     const have = new Set(S.kv.customCats.map(c => c.id));

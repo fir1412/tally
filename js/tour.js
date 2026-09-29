@@ -2,7 +2,7 @@
 import { S, settings, setKv, persistStorage } from './state.js';
 import { t } from './i18n.js';
 import { esc, ICON, openSheet, closeSheet, toast, hideToast, announce } from './ui.js';
-import { render, route, APP_VERSION } from './app.js';
+import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
@@ -103,8 +103,8 @@ export function showTour(start = 0) {
     if (k === 'next' && i < TOUR.length - 1) { i++; return paint(); }
     if (k === 'back') { i--; return paint(); }
     closeSheet();
-    if (k === 'learn') location.hash = '#/learn';
-    else { if (route() !== 'home') { history.replaceState(history.state, '', '#/home'); render(); } window.scrollTo(0, 0); }   // Home from the top: the balance first
+    go(k === 'learn' ? 'learn' : 'home');   // through the router: no step of the tour is left behind Home
+    if (k !== 'learn') setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 350);   // Home from the top: the balance first (after the last tip's scroll)
   });
   paint();
 }
