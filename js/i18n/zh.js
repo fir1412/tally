@@ -1082,4 +1082,12 @@ export default {
   "Business": "生意",
   "Business (my stall, rides, shop)": "生意（摊位、载客、店铺）",
   "Show this line on the receipt": "在收据上显示这一行",
+  "If the phone runs out of space, the browser may clear Tally. A backup file keeps you safe.": "手机空间不足时，浏览器可能会清除 Tally。备份文件能保住你的数据。",
+  "Your first backup. Keep a copy off this phone too (Drive or email).": "第一次备份。也在手机以外存一份（Drive 或邮件）。",
+  "Picked up what you were typing": "已恢复你刚才输入的内容",
+  "Start over": "重新开始",
+  "Move money between accounts": "在账户之间转钱",
+  "Go to": "前往",
+  "Backup & restore": "备份与恢复",
+  "Language & text size": "语言与字号",
 };

@@ -30,7 +30,7 @@ export function txRow(x) {
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="dot tdot" aria-hidden="true"></span>' : dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(x.type === 'transfer' || x.fx != null ? fmtAcct(accOf(x.accountId), x.fx ?? x.amount) : fmtRM(x.amount))}</span></button></li>`;
 }
 
@@ -154,7 +154,7 @@ function sheetHtml() {
     ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
-    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}<button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button></div>`}
+    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
     ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
@@ -233,10 +233,19 @@ const usualCategory = () => {
   return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([c]) => c).find(c => expenseCats().some(e => e.id === c)) || (S.kv.settings?.ownCats ? 'other' : 'dining');
 };
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
+/** A new entry closed without Save (phone back, a tap outside): the next plain Add within 15 minutes picks it up. */
+let unsaved = null;
 export function openTxSheet(preset = {}) {
-  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: defaultAccount('quick', { amount: preset.amount || 0 }), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
-  catPicked = !!preset.category; accPicked = !!preset.accountId;
-  catInView(openSheet(sheetHtml(), { label: t('Add') }));
+  const resume = !Object.keys(preset).length && unsaved && Date.now() - unsaved.at < 15 * 60e3 ? unsaved : null;
+  unsaved = null;
+  draft = resume ? resume.draft : { id: uid('t'), type: 'expense', amount: 0, accountId: defaultAccount('quick', { amount: preset.amount || 0 }), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
+  catPicked = resume ? resume.cat : !!preset.category; accPicked = resume ? resume.acc : !!preset.accountId;
+  catInView(openSheet(sheetHtml(), { label: t('Add'), onClose: () => {
+    if (S.tx.some(x => x.id === draft.id)) return;   // saved
+    try { readForm(); } catch { /* the sheet is already gone */ }
+    if (draft.amount > 0 || draft.merchant) unsaved = { draft: structuredClone(draft), cat: catPicked, acc: accPicked, at: Date.now() };
+  } }));
+  if (resume) toast(t('Picked up what you were typing'), { undo: () => { closeSheet(); unsaved = null; openTxSheet({ type: 'expense' }); }, undoLabel: t('Start over') });
 }
 
 // ---- Budgets ----------------------------------------------------------------------------------------------------------

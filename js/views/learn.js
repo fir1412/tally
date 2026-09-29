@@ -127,7 +127,14 @@ export const badgesView = {
 // ---- ticking missions off, and badges earned --------------------------------------------------------------------
 /** Waits for a toast already on screen (never covers an Undo), then shows this one. */
 const quiet = (fn, n = 0) => { const el = document.getElementById('toast'); if (el?.classList.contains('on') && (n < 4 || el.classList.contains('has-undo'))) return setTimeout(() => quiet(fn, n + 1), 1500); fn(); };
-const redraw = () => { if (['home', 'learn', 'settings'].includes(route()) && !sheetOpen() && !document.activeElement?.matches('input, textarea, select')) render(); };
+// A redraw waits until the screen has had 1.5 s without a tap: a button swapped out as it's pressed swallows the tap
+// (half the simulated users lost "Take a photo" right after their first entry).
+let lastTap = 0;
+if (typeof document !== 'undefined') document.addEventListener('pointerdown', () => { lastTap = Date.now(); }, true);
+const redraw = () => {
+  const wait = lastTap + 1500 - Date.now(); if (wait > 0) return void setTimeout(redraw, wait);
+  if (['home', 'learn', 'settings'].includes(route()) && !sheetOpen() && !document.activeElement?.matches('input, textarea, select')) render();
+};
 async function tick(ids) {
   const got = { ...(settings().learn || {}) }, add = ids.filter(id => !got[id]);
   if (!add.length) return;
@@ -166,7 +173,7 @@ const FIRSTS = {
   entry: [() => S.tx.filter(x => x.source === 'quick' || (x.source === 'receipt' && !x.receiptId)).length === 1, () => t('Your first entry. Nice start!')],
   receipt: [() => S.tx.filter(x => x.source === 'receipt' && x.receiptId).length === 1, () => t('Your first receipt, item by item. Nice!')],
   budget: [() => true, () => t('Your first budget. Tally keeps an eye on the pace.')],   // the caller knows there was none before
-  backup: [() => true, () => t('Your first backup. Your data is safe.')],
+  backup: [() => true, () => t('Your first backup. Keep a copy off this phone too (Drive or email).')],
 };
 /** The warm word for a first time, once (stored), or null. The caller shows it in place of its usual toast, with cheer. */
 export function firstWord(key) {
