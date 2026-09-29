@@ -16,7 +16,7 @@ export const CATEGORIES = [
   { id: 'other', name: 'Other', color: '#64748B' },
 ];
 /** Colours for categories the user adds, none close to a built-in one; the first not yet used is taken. */
-export const CUSTOM_COLORS = ['#EAB308', '#22C55E', '#FB7185', '#0369A1', '#A3E635', '#C084FC', '#78716C', '#F87171', '#2DD4BF', '#9A3412'];
+export const CUSTOM_COLORS = ['#22C55E', '#FB7185', '#C084FC', '#0369A1', '#EAB308', '#A3E635', '#78716C', '#F87171', '#2DD4BF', '#9A3412'];
 export const nextColor = (used = []) => { const u = new Set(used.map(c => String(c).toLowerCase())); return CUSTOM_COLORS.find(c => !u.has(c.toLowerCase())) || CUSTOM_COLORS[u.size % CUSTOM_COLORS.length]; };
 export const INCOME_CATEGORIES = [
   { id: 'salary', name: 'Salary', color: '#059669' },

@@ -30,14 +30,14 @@ export function lineChart(series, { goal = null, height = 160, label = 'chart', 
   let g = '';
   for (const v of niceTicks(y0, y1, 3)) g += `<line x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 4"/><text x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--mute)">${short(v)}</text>`;
   const pts = series.map(p => [X(Date.parse(p.date)), Y(p.v)]), lp = pts.at(-1);
-  // The spent label sits above the last point; near the budget line it moves below the point, or the budget label below its line.
-  let endY = Math.max(12, lp[1] - 9), goalY = goal != null ? Y(goal) - 5 : 0;
-  if (goal != null && Math.abs(goalY - endY) < 14) { if (lp[1] >= Y(goal)) endY = Math.min(H - B - 4, lp[1] + 18); else goalY = Y(goal) + 14; }
-  if (goal != null) g += `<line x1="${L}" x2="${W - R}" y1="${Y(goal).toFixed(1)}" y2="${Y(goal).toFixed(1)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${W - R}" y="${goalY.toFixed(1)}" text-anchor="end" font-size="11" fill="var(--warn)">${esc(t('Budget'))} ${short(goal)}</text>`;
+  // The budget label sits at the left end of its line, away from the spent label at the right end (a running total
+  // starts low); below the line if the first day already reaches it.
+  const goalY = goal == null ? 0 : Math.abs(Y(goal) - pts[0][1]) < 16 ? Y(goal) + 14 : Y(goal) - 5;
+  if (goal != null) g += `<line x1="${L}" x2="${W - R}" y1="${Y(goal).toFixed(1)}" y2="${Y(goal).toFixed(1)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${L + 6}" y="${goalY.toFixed(1)}" font-size="11" fill="var(--warn)">${esc(t('Budget'))} ${short(goal)}</text>`;
   const line = pts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ');
   if (pts.length > 1) g += `<polygon points="${pts[0][0].toFixed(1)},${(H - B).toFixed(1)} ${line} ${pts.at(-1)[0].toFixed(1)},${(H - B).toFixed(1)}" fill="var(--${k})" opacity=".14"/><polyline points="${line}" fill="none" stroke="var(--${k})" stroke-width="2.5" stroke-linejoin="round"/>`;
   pts.forEach((p, i) => { g += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 2.5}" fill="var(--${k})"><title>${esc(fmtDate(series[i].date))}: ${esc(fmtRM(series[i].v))}</title></circle>`; });
-  g += `<text class="endlabel" x="${Math.min(lp[0], W - R)}" y="${endY.toFixed(1)}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">${esc(fmtRM(series.at(-1).v))}</text>`;
+  g += `<text class="endlabel" x="${Math.min(lp[0], W - R)}" y="${Math.max(12, lp[1] - 9).toFixed(1)}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">${esc(fmtRM(series.at(-1).v))}</text>`;
   g += `<text x="${L}" y="${H - 5}" font-size="11" fill="var(--mute)">${esc(fmtDate(series[0].date))}</text>`;
   if (series.length > 1) g += `<text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="11" fill="var(--mute)">${esc(fmtDate(series.at(-1).date))}</text>`;
   return `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}</svg>`;

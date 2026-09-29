@@ -243,3 +243,10 @@ test('bill payments stay out of the unusual-week insight', () => {
   txs.at(-1).source = 'quick'; delete txs.at(-1).bill;
   assert.ok(E.insights({ txs, today: '2026-09-28' }).some(i => i.kind === 'unusual'));
 });
+
+test('category colours: built-ins all differ; a new category takes a colour not in use', () => {
+  assert.equal(new Set(E.CATEGORIES.map(c => c.color.toLowerCase())).size, E.CATEGORIES.length);
+  assert.ok(E.CUSTOM_COLORS.every(c => !E.CATEGORIES.some(b => b.color.toLowerCase() === c.toLowerCase())));
+  assert.equal(E.nextColor([]), E.CUSTOM_COLORS[0]);
+  assert.equal(E.nextColor([E.CUSTOM_COLORS[0].toLowerCase()]), E.CUSTOM_COLORS[1]);
+});

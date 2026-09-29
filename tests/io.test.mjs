@@ -100,9 +100,10 @@ test('CSV export is formula-safe with a BOM and one row per receipt item', () =>
 });
 
 test('backup round trip; hostile or broken entries dropped; merge keeps local', () => {
-  const good = { accounts: [{ id: 'a', name: 'Cash', kind: 'cash', opening: 1000 }], tx: [{ id: 't1', date: '2026-09-01', type: 'expense', amount: 500, accountId: 'a', category: 'dining', items: [{ name: 'Teh', cents: 500, category: 'dining' }] }], recurring: [], kv: { budgets: { total: 100000, byCat: { dining: 30000, hacked: 5 } }, rules: { TEH: 'dining' } } };
+  const good = { accounts: [{ id: 'a', name: 'Cash', kind: 'cash', opening: 1000 }], tx: [{ id: 't1', date: '2026-09-01', type: 'expense', amount: 500, accountId: 'a', category: 'dining', items: [{ name: 'Teh', cents: 500, category: 'dining', qty: 2, unit: 250 }] }], recurring: [], kv: { budgets: { total: 100000, byCat: { dining: 30000, hacked: 5 } }, rules: { TEH: 'dining' } } };
   const back = IO.readBackup(IO.makeBackup(good));
   assert.equal(back.tx.length, 1);
+  assert.deepEqual([back.tx[0].items[0].qty, back.tx[0].items[0].unit], [2, 250]);   // "Teh 2x2.50" keeps its quantity
   assert.deepEqual(back.kv.budgets.byCat, { dining: 30000 });
   const evil = JSON.parse(IO.makeBackup(good));
   evil.tx.push({ id: 'x', date: '2026-02-30', type: 'expense', amount: 1, accountId: 'a' }, { id: 'y', date: '2026-09-01', type: 'expense', amount: -5, accountId: 'a' },

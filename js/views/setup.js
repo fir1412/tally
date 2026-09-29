@@ -551,10 +551,10 @@ export const act = {
     }
     const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
     await setSetting('importMaps', Object.fromEntries(maps));
-    const blind = m.balance == null ? made.filter(id => (id === IMP.newId ? opening ?? adjusted[''] : adjusted[acc.values.find(a => a.id === id)?.v.toLowerCase()]) == null) : [];
+    const blind = m.balance == null ? made.filter(id => !(id === IMP.newId ? opening ?? adjusted[''] : adjusted[acc.values.find(a => a.id === id)?.v.toLowerCase()])) : [];   // started at zero: nothing said what they hold
     const first = !settings().onboarded;   // the tour waits until the balances are in
     await commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, tourLater: blind.length > 0, undoMore: () => setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id))) });
-    if (blind.length) balanceTodaySheet(blind, first ? afterSetup : undefined);
+    if (blind.length) setTimeout(() => balanceTodaySheet(blind, first ? afterSetup : undefined), 300);   // after the move to Home settles (like the tour)
   },
   'mm-go': async b => {
     b.disabled = true;
