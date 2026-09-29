@@ -6,6 +6,9 @@ import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.5.0': [
+    'Bring your history from Money Manager (Realbyte, Excel or .mmbak), Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and AndroMoney: no column matching, and transfers, accounts and categories come across',
+  ],
   '0.4.0': [
     'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
     'Share joint accounts with your spouse as a file; their changes come back the same way, and newer edits win',

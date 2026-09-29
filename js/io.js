@@ -32,14 +32,15 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
   return rows.filter(r => r.some(x => x.trim() !== ''));
 }
-/** Bytes → text: UTF-8 (with or without BOM), UTF-16, else Windows-1252. ponytail: no GBK/Big5 detection yet. */
+/** Bytes → text: UTF-8 (with or without BOM), UTF-16, Big5 for an AndroMoney export, else Windows-1252.
+ *  ponytail: no general GBK/Big5 detection yet; only AndroMoney's banner line says so. */
 export function decodeBytes(u8) {
   const b = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8);
   if (b[0] === 0xff && b[1] === 0xfe) return new TextDecoder('utf-16le').decode(b.subarray(2));
   if (b[0] === 0xfe && b[1] === 0xff) return new TextDecoder('utf-16be').decode(b.subarray(2));
   if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return new TextDecoder('utf-8').decode(b.subarray(3));
   const utf8 = new TextDecoder('utf-8').decode(b);
-  return utf8.includes('�') ? new TextDecoder('windows-1252').decode(b) : utf8;
+  return !utf8.includes('�') ? utf8 : new TextDecoder(/andromoney/i.test(utf8.slice(0, 200)) ? 'big5' : 'windows-1252').decode(b);
 }
 /** Hidden characters out, length capped: names from files can't break the layout or hide text. */
 export const cleanText = (s, max = LIMITS.text) => String(s ?? '').slice(0, max * 4).normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -239,15 +240,15 @@ export function headerRow(rows) {
 // ---- dates in files -----------------------------------------------------------------------------
 const MON_EN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MON_MS = ['jan', 'feb', 'mac', 'apr', 'mei', 'jun', 'jul', 'ogo', 'sep', 'okt', 'nov', 'dis'];
-/** "28/09/2026", "28-09-26", "2026-09-28", "2026/9/28", "28 Sep 2026", "2026年9月28日", Excel serial → ISO, or null.
- *  Day first, unless monthFirst (a US-locale sheet: see dateOrder). */
+/** "28/09/2026", "28-09-26", "2026-09-28", "2026/9/28", "20260928", "28 Sep 2026", "2026年9月28日", Excel serial → ISO,
+ *  or null. Day first, unless monthFirst (a US-locale sheet: see dateOrder). */
 export function fileDate(v, monthFirst = false) {
   const s = cleanText(v, 40);
   if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5).toISOString().slice(0, 10);
   let m, y, mo, d;
-  if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
+  if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/) || s.match(/^(\d{4})(\d{2})(\d{2})$/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
   else if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) [d, mo, y] = monthFirst ? [+m[2], +m[1], +m[3]] : [+m[1], +m[2], +m[3]];
-  else if ((m = s.match(/^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[ -,]*(\d{2,4})/))) {
+  else if ((m = s.match(/^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[\s,.-]*(\d{2,4})/))) {
     const k = m[2].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
     [d, mo, y] = [+m[1], i + 1, +m[3]];
   } else if ((m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
@@ -256,13 +257,28 @@ export function fileDate(v, monthFirst = false) {
   const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   return mo >= 1 && validIso(iso) && y >= 2000 && y <= 2100 ? iso : null;
 }
-/** Month first for a whole column when some "a/b/yyyy" has b > 12 and none has a > 12 (7/13/2026 is 13 July). */
-export function dateOrder(rows, col) {
+/** Month first for a whole column when some "a/b/yyyy" has b > 12 and none has a > 12 (7/13/2026 is 13 July).
+ *  For an app that writes month first (mdy), unless some a > 12. */
+export function dateOrder(rows, col, mdy = false) {
   let a = false, b = false;
   for (const r of rows) { const m = cleanText(r?.[col], 40).match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/); if (m) { a ||= +m[1] > 12; b ||= +m[2] > 12; } }
-  return b && !a;
+  return (b || mdy) && !a;
 }
-const timeOf = v => { const m = cleanText(v, 40).match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null; };
+const pad2 = n => String(n).padStart(2, '0');
+/** "12:40" in a cell, the fraction of an Excel date-time serial, or (bare) a Time column's "930" / "1845" (AndroMoney). */
+const timeOf = (v, bare = false) => {
+  const s = cleanText(v, 40), m = s.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (m) return `${m[1].padStart(2, '0')}:${m[2]}`;
+  if (/^\d{5}\.\d+$/.test(s)) { const min = Math.round((+s % 1) * 1440) % 1440; return min ? `${pad2(Math.floor(min / 60))}:${pad2(min % 60)}` : null; }
+  return bare && /^\d{3,4}$/.test(s) && +s.slice(0, -2) < 24 && +s.slice(-2) < 60 ? `${pad2(s.slice(0, -2))}:${s.slice(-2)}` : null;
+};
+/** "2026-09-28T02:30:00Z" or "…+00:00": a moment with a time zone → this phone's date and time (Spendee). */
+const zoned = v => {
+  const s = cleanText(v, 40);
+  if (!/^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)? ?(Z|[+-]\d\d:?\d\d)$/i.test(s)) return null;
+  const d = new Date(s.replace(' ', 'T').replace(' ', ''));
+  return isNaN(d) ? null : { date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`, time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` };
+};
 
 // ---- rows → transactions ---------------------------------------------------------------------------
 const ALL_CATS = [...CATEGORIES, ...INCOME_CATEGORIES];
@@ -301,7 +317,7 @@ const CAT_WORDS = [
   ['fun', /entertain|hiburan|leisure|娱乐|娛樂/i], ['education', /educat|pendidikan|school|sekolah|yuran|教育|学费|學費/i],
 ];
 /** Excel stores computed cells as long doubles ("12.720000000000001"): round those to sen, read the rest as typed. */
-export const fileAmount = v => { const s = cleanText(v, 40); return /^-?\d+\.\d{3,}$/.test(s) ? Math.round(parseFloat(s) * 100) : parseAmount(s); };
+export const fileAmount = v => { const s = cleanText(v, 40).replace(/^(-?) ?(MYR|\$) ?/i, '$1'); return /^-?\d+\.\d{3,}$/.test(s) ? Math.round(parseFloat(s) * 100) : parseAmount(s); };
 /** Short stable hash (FNV-1a) → base36. */
 export const hash = str => { let h = 0x811c9dc5; for (const ch of String(str)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
 /**
@@ -348,43 +364,113 @@ export function balanceSigns(rows, map, amtOf) {
  * Direction: the running balance when it says, else a type column (income/expense, DR/CR, Payment/Reload), else the
  * sign. With neither: if any amount is negative the file is signed (negative = spent); if none is, all is spending.
  * `accounts` maps an Account column's values (lower case) to account ids.
+ * A `preset` (presets.js, with the file's `header`) adds another app's rules: its transfers between accounts become
+ * Tally transfers (both halves of one transfer → one), its balance corrections go into `opening` (per account name,
+ * lower case) instead of spending, and its category names map to ours. → also {transfers, loose (a transfer half
+ * whose other side isn't in the file, kept as money in or out), adjustments, opening}.
  */
-export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now() } = {}) {
-  const txs = [], skipped = [];
+export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now(), preset = null, header = [] } = {}) {
+  const txs = [], skipped = [], legs = [], opening = {};
+  let adjustments = 0;
   rows = rows.slice(0, LIMITS.rows);
   const signed = map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0);
-  const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date);
+  const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
   const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
   const bal = balanceSigns(rows, map, amtOf);
   rows.forEach((r, n) => {
-    const get = k => (map[k] != null ? r[map[k]] ?? '' : '');
-    const date = fileDate(get('date'), mdy);
-    if (!date) return skipped.push({ row: n + 2, why: 'date' });
-    let amt = null, type = null;
+    const cx = rowCtx(r, map, header), get = cx.get;
+    const z = zoned(get('date')), date = z?.date || fileDate(get('date'), mdy);
+    let amt = null, type = null, sign = 1;
     if (dc) {
       const d = fileAmount(get('debit')), c = fileAmount(get('credit'));
-      if (d) { amt = Math.abs(d); type = 'expense'; } else if (c) { amt = Math.abs(c); type = 'income'; }
+      if (d) { amt = Math.abs(d); type = 'expense'; sign = -1; } else if (c) { amt = Math.abs(c); type = 'income'; }
     } else {
       const a = fileAmount(get('amount'));
-      if (a != null) { amt = Math.abs(a); type = a < 0 ? 'expense' : signed ? 'income' : null; }
+      if (a != null) { amt = Math.abs(a); type = a < 0 ? 'expense' : signed ? 'income' : null; sign = a < 0 ? -1 : 1; }
     }
     if (!amt) return skipped.push({ row: n + 2, why: 'amount' });
     const tword = cleanText(get('type'), 40);
     if (tword) type = OUT_TYPE.test(tword) ? 'expense' : IN_TYPE.test(tword) ? 'income' : TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
     if (bal[n] && !dc && !signed) type = bal[n] > 0 ? 'income' : 'expense'; // only unsigned amounts: columns and signs say it outright
-    type ||= 'expense'; // ponytail: transfers from other apps come in as expenses; pairTransfers joins the ones it can see
-    const merchant = cleanDesc(map.merchant != null ? get('merchant') : get('note')).slice(0, 80).trim();
-    const rawCat = get('category');
-    let category = rawCat ? mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
+    type = preset?.type?.(cx) || type || 'expense'; // ponytail: transfers from unknown apps come in as expenses; pairTransfers joins the ones it can see
+    if (!(dc || signed)) sign = type === 'income' ? 1 : -1;  // which way the money went, whatever the type column calls it
+    const accName = cleanText(preset?.account ? preset.account(cx) : get('account'), 40);
+    // Another app's balance correction: part of the account's opening balance, never spending (dated or not).
+    if (preset?.adjust?.(cx) && !preset.transfer?.(cx)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; adjustments++; return; }
+    if (!date) return skipped.push({ row: n + 2, why: 'date' });
+    const fromMerchant = map.merchant != null && !!cleanText(get('merchant'));   // an empty Payee falls back to the note
+    const merchant = cleanDesc(fromMerchant ? get('merchant') : get('note')).slice(0, 80).trim(), note = fromMerchant ? cleanText(get('note'), 200) : '';
+    const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
+    const tr = preset?.transfer?.(cx);
+    if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
+    const rawCat = get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
+    let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
-    if (!tword && !signed && !bal[n] && !dc && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
+    if (!tword && !signed && !bal[n] && !dc && !preset?.type && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
-    const time = timeOf(get('date')), acc = map.account != null && accounts[cleanText(get('account'), 40).toLowerCase()];
-    txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc || accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });
+    txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, merchant, note, source, createdAt: now });
   });
-  return { txs: importIds(txs, idPrefix), skipped };
+  const { transfers, loose } = joinLegs(legs);
+  const tx = t => ({ id: '', date: t.date, ...(t.time ? { time: t.time } : {}), type: t.type, amount: t.amt, accountId: t.acc, ...(t.toAcc ? { toAccountId: t.toAcc } : {}), category: t.type === 'income' ? 'income' : 'other', merchant: t.merchant, note: t.note, source, createdAt: now });
+  const all = [...txs, ...transfers.map(t => tx({ ...t, type: 'transfer' })), ...loose.map(t => tx({ ...t, type: t.dir === 'in' ? 'income' : 'expense', note: t.note || 'Transfer' }))];   // the word lets pairTransfers join it to the other side, imported later
+  return { txs: importIds(all, idPrefix), skipped, transfers: transfers.length, loose: loose.length, adjustments, opening };
 }
+/** A row's cells by mapped key (get) and by the app's own column name (raw), for presets.js. */
+function rowCtx(r, map, header = []) {
+  const get = k => (map[k] != null ? r[map[k]] ?? '' : '');
+  return { get, raw: name => { const i = header.findIndex(h => cleanText(h, 60).toLowerCase() === name); return i >= 0 ? r[i] ?? '' : ''; } };
+}
+/**
+ * Transfer halves → one transfer each. A half that names the other account ("To 'Savings'", "Transfer : Maybank")
+ * is a transfer by itself, and the matching half from the other account's rows is dropped. Halves that don't name it
+ * (Money Lover, Spendee, Wallet) pair up: out of one account, into another, same amount, within a day, nearest first.
+ * What's left over is `loose`: its other side is not in the file.
+ * ponytail: O(halves²), fine for a few thousand transfers; bucket by amount if a file ever has tens of thousands.
+ */
+function joinLegs(legs) {
+  const transfers = [], loose = [], anon = [];
+  const near = (a, b) => Math.abs(daysBetween(a.date, b.date)) <= 1;
+  for (const l of legs) {
+    if (!l.to) { anon.push(l); continue; }
+    const [from, to] = l.dir === 'out' ? [l.acc, l.to] : [l.to, l.acc];
+    const twin = transfers.find(t => !t.twin && t.dir !== l.dir && t.acc === from && t.toAcc === to && t.amt === l.amt && near(t, l));
+    if (twin) { twin.twin = true; continue; }
+    if (from === to) { loose.push(l); continue; }
+    transfers.push({ ...l, acc: from, toAcc: to });
+  }
+  const used = new Set();
+  for (const o of anon.filter(l => l.dir === 'out')) {
+    let best = null;
+    for (const i of anon) {
+      if (i.dir !== 'in' || used.has(i) || i.acc === o.acc || i.amt !== o.amt || !near(o, i)) continue;
+      const d = Math.abs(daysBetween(o.date, i.date)) * 1440 + Math.abs(mins(o.time) - mins(i.time));
+      if (!best || d < best.d) best = { i, d };
+    }
+    if (best) { used.add(best.i); used.add(o); transfers.push({ ...o, toAcc: best.i.acc, merchant: o.merchant || best.i.merchant }); }
+  }
+  loose.push(...anon.filter(l => !used.has(l)));
+  return { transfers, loose };
+}
+const mins = t => (t ? +t.slice(0, 2) * 60 + +t.slice(3) : 0);
+/** The accounts a file names: its Account column (or the preset's rule) and the other side of its transfers.
+ *  → {names (as written, first spelling), blanks: some money row has none}. */
+export function accountNames(rows, map, { preset = null, header = [] } = {}) {
+  const names = new Map();
+  let blanks = false;
+  if (map.account == null && !preset?.account) return { names: [], blanks };
+  for (const r of rows.slice(0, LIMITS.rows)) {
+    const cx = rowCtx(r, map, header), tr = preset?.transfer?.(cx);
+    for (const v of [preset?.account ? preset.account(cx) : cx.get('account'), tr?.to]) {
+      const s = cleanText(v, 40);
+      if (s && !names.has(s.toLowerCase())) names.set(s.toLowerCase(), s);
+    }
+    if (!cleanText(preset?.account ? preset.account(cx) : cx.get('account'), 40) && !preset?.adjust?.(cx)) blanks = true;
+  }
+  return { names: [...names.values()], blanks };
+}
+/** False for a preset's transfer and balance-correction rows: their Category cell isn't a spending category. */
+export const isMoneyRow = (r, map, { preset = null, header = [] } = {}) => { const cx = rowCtx(r, map, header); return !preset?.transfer?.(cx) && !preset?.adjust?.(cx); };
 
 // ---- after an import: already here? transfers between the user's own accounts ----------------------------------------
 /**

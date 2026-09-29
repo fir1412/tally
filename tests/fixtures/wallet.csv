@@ -1,0 +1,10 @@
+account;category;currency;amount;ref_currency_amount;type;payment_type;payment_type_local;note;date;gps_latitude;gps_longitude;gps_accuracy_in_meters;warranty_in_month;transfer;payee;labels;envelope_id;custom_category
+Maybank;Wage, invoices;MYR;3500.00;3500.00;Income;TRANSFER;Bank transfer;September pay;2026-09-01 09:00:00;;;;0;false;Acme Sdn Bhd;;10011;false
+Maybank;TRANSFER;MYR;-100.00;-100.00;Expenses;TRANSFER;Bank transfer;Reload;2026-09-02 10:15:00;;;;0;true;;;20001;false
+TNG;TRANSFER;MYR;100.00;100.00;Income;TRANSFER;Bank transfer;Reload;2026-09-02 10:15:00;;;;0;true;;;20001;false
+Cash;Restaurant, fast-food;MYR;-12.50;-12.50;Expenses;CASH;Cash;Nasi lemak;2026-09-03 12:40:00;;;;0;false;Mamak Ali;;1003;false
+Maybank;TRANSFER;MYR;-200.00;-200.00;Expenses;TRANSFER;Bank transfer;ATM;2026-09-05 18:00:00;;;;0;true;;;20001;false
+Cash;TRANSFER;MYR;200.00;200.00;Income;TRANSFER;Bank transfer;ATM;2026-09-05 18:00:00;;;;0;true;;;20001;false
+Maybank;Groceries;MYR;-85.40;-85.40;Expenses;DEBIT_CARD;Debit card;;2026-09-13 18:00:00;;;;0;false;Tesco;;1000;false
+TNG;Public transport;MYR;-30.00;-30.00;Expenses;CASH;Cash;Toll;2026-09-14 08:30:00;;;;0;false;;;4000;false
+Cash;Refunds (tax, purchase);MYR;20.00;20.00;Income;CASH;Cash;Refund;2026-09-20 12:00:00;;;;0;false;;;10012;false

@@ -1,0 +1,10 @@
+AndroMoney Export,2026/09/29
+Id,Currency,Amount,Category,Sub-Category,Date,Expense(Transfer Out),Income(Transfer In),Note,Periodic,Project,Payee/Payer,uid,Time
+1,MYR,1000,SYSTEM,INIT_AMOUNT,10100101,,Maybank,,,,,u1,
+2,MYR,3500,Salary,Salary,20260901,,Maybank,September pay,,,Acme Sdn Bhd,u2,900
+3,MYR,100,Transfer,,20260902,Maybank,TNG,Reload,,,,u3,1015
+4,MYR,12.5,Food,Breakfast,20260903,Cash,,Nasi lemak,,,Mamak Ali,u4,1240
+5,MYR,200,Transfer,,20260905,Maybank,Cash,ATM,,,,u5,1800
+6,MYR,85.4,Groceries,Supermarket,20260913,Maybank,,,,,Tesco,u6,1800
+7,MYR,30,Transportation,Toll,20260914,TNG,,Toll,,,PLUS,u7,830
+8,MYR,20,Other,Refund,20260920,,Cash,Refund,,,,u8,1200
