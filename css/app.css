@@ -727,3 +727,11 @@ input.switch:checked::before { transform: translateX(20px); background: var(--bt
 .iossteps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .iossteps li { display: grid; grid-template-columns: 28px 48px 1fr; align-items: center; gap: var(--sp-3); }
 .iosnum { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--panel2); font: 600 var(--fs-sm)/1 var(--mono); }
+
+/* Welcome: the four things people ask before trying a money app */
+.promise { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.promise li { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--good); }
+.promise svg { width: 16px; height: 16px; }
+
+/* Headings focused on a screen change (for screen readers) are not controls: no ring */
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, #view [tabindex="-1"]:focus:not(:focus-visible) { outline: none; }

@@ -68,6 +68,7 @@ export const welcomeView = {
     return `<section class="welcome">
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
+      <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Stays on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
       ${demoCard()}
       <div class="langrow">${langButtons()}<div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
       <ul class="points">

@@ -985,4 +985,9 @@ export default {
   "Tap Share": "点「分享」",
   "Add to Home Screen": "添加到主屏幕",
   "Open Tally from there": "从那里打开 Tally",
+  "Tally is": "Tally 是",
+  "Free": "免费",
+  "No ads": "无广告",
+  "No sign-up": "无需注册",
+  "Stays on your phone": "数据留在你的手机",
 };

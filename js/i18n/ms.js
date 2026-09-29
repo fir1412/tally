@@ -985,4 +985,9 @@ export default {
   "Tap Share": "Ketik Kongsi",
   "Add to Home Screen": "Tambah ke Skrin Utama",
   "Open Tally from there": "Buka Tally dari situ",
+  "Tally is": "Tally ialah",
+  "Free": "Percuma",
+  "No ads": "Tiada iklan",
+  "No sign-up": "Tanpa daftar akaun",
+  "Stays on your phone": "Kekal dalam telefon anda",
 };
