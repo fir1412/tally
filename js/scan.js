@@ -5,20 +5,23 @@ import { parseReceipt } from './parse.js';
 // OCR runs in a worker (js/ocr-worker.js): the screen stays responsive, and the page keeps a strict CSP.
 let worker = null, loading = null, ready = false, seq = 0;
 const pending = new Map();
+/** One OCR request. A worker that doesn't answer within 2 minutes (first run includes the 40 MB download) is reset. */
 function call(raw) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => { pending.delete(id); reset(); reject(new Error('The receipt reader stopped responding. Try again.')); }, 120_000);
+    pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
     worker.postMessage({ id, raw });
   });
 }
+function reset() { worker?.terminate(); worker = null; loading = null; ready = false; for (const p of pending.values()) p.reject(new Error('reset')); pending.clear(); }
 export const ocrReady = () => ready;
 /** Start the OCR worker and load the models once (about 1 s from cache, longer on the first download). */
 export function loadOcr() {
   loading ||= (async () => {
     worker = new Worker(new URL('./ocr-worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }) => { const p = pending.get(data.id); if (!p) return; pending.delete(data.id); data.error ? p.reject(new Error(data.error)) : p.resolve(data); };
-    worker.onerror = e => { for (const p of pending.values()) p.reject(new Error(e.message || 'OCR worker failed')); pending.clear(); loading = null; ready = false; };
+    worker.onerror = e => { e.preventDefault?.(); const err = new Error(e.message || 'The receipt reader failed to start.'); for (const p of pending.values()) p.reject(err); pending.clear(); reset(); };
     await call(null); // warm up: loads the models
     ready = true;
   })().catch(e => { loading = null; throw e; });

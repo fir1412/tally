@@ -1,9 +1,10 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, replaceAll, eraseAll, uid, today, expenseCats } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
 import { t, setLang, getLang, LANGS } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
-import { fmtRM, parseAmount, findDuplicate, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
-import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, LIMITS } from '../io.js';
+import { fmtRM, parseAmount, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
+import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS } from '../io.js';
+import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
@@ -101,6 +102,7 @@ async function importFile(f) {
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
     if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) return await importMoneyManager(buf);
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
+    if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
     startMapping(await fileToRows(f.name, buf), f.name);
   } catch (e) { impErr(t(e.message)); }
 }
@@ -125,13 +127,21 @@ function showMapping() {
     <ul class="list preview">${txs.slice(0, 5).map(x => `<li class="rowb"><span>${esc(x.date)}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${txs.length ? '' : 'disabled'}>${esc(t('Import {0}', txs.length))}</button></div>`, { label: t('Import') });
 }
-async function commitImport(txs, label) {
+/**
+ * Save imported rows. Already here = same id (same file imported again), or the same purchase from another source
+ * (a receipt and its statement line: same day, amount and type). Identical rows within one file are all kept.
+ * `before(fresh)` runs first (photos) and returns ids to remove again on Undo.
+ */
+async function commitImport(txs, label, before = async () => []) {
+  const byId = new Set(S.tx.map(x => x.id));
+  const sameBuy = x => S.tx.some(y => y.source !== x.source && y.date === x.date && y.amount === x.amount && y.type === x.type);
   const fresh = [], dups = [];
-  for (const x of txs) (S.tx.some(y => y.id === x.id) || findDuplicate(x, S.tx) ? dups : fresh).push(x);
+  for (const x of txs) (byId.has(x.id) || sameBuy(x) ? dups : fresh).push(x);
+  const photoIds = await before(fresh);
   await saveTxs(fresh);
   if (!settings().onboarded) await setSetting('onboarded', true);
   closeSheet(); go('home'); render();
-  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); render(); } });
+  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); await deletePhotos(photoIds); render(); } });
 }
 async function importMoneyManager(buf) {
   impErr(t('Reading the Money Manager backup…'));
@@ -141,10 +151,58 @@ async function importMoneyManager(buf) {
   openSheet(`<h2 class="sh-title">${esc(t('Money Manager backup'))}</h2>
     <ul class="list"><li>${esc(t('{0} transactions', mm.tx.length))}</li><li>${esc(t('{0} accounts: {1}', mm.accounts.length, mm.accounts.map(a => a.name).join(', ')))}</li>
     <li>${esc(t('{0} of your categories kept as they are', mm.customCats.length))}</li>${mm.skipped ? `<li class="warn">${esc(t('{0} could not be read and will be skipped', mm.skipped))}</li>` : ''}
+    ${mm.adjustments ? `<li>${esc(t('{0} balance corrections folded into opening balances (not counted as spending)', mm.adjustments))}</li>` : ''}
+    ${mm.transfersSkipped ? `<li class="warn">${esc(t('{0} transfers between accounts were not imported', mm.transfersSkipped))}</li>` : ''}
     ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM (amounts kept as they are): {0}', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
-    ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos"> ${esc(t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
+    ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
     <p class="fine">${esc(t('Balances will match what Money Manager shows today.'))}</p>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="mm-go">${esc(t('Import'))}</button></div>`, { label: t('Import') });
+}
+
+// ---- bank and e-wallet PDF statements ---------------------------------------------------------------------
+async function importStatement(buf, password) {
+  impErr(t('Reading the statement…'));
+  const pdfjs = await import('../../vendor/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../../vendor/pdf.worker.min.mjs', import.meta.url).href;
+  let doc;
+  try {
+    // isEvalSupported false: the CVE-2024-4367 class of malicious-PDF script is never evaluated; no font loading.
+    doc = await pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), password, isEvalSupported: false, disableFontFace: true }).promise;
+  } catch (e) {
+    if (e?.name === 'PasswordException') return pdfPassword(buf, !!password);
+    throw new Error(t('This PDF could not be opened. Download it again from your bank app.'));
+  }
+  const lines = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 80); i++) lines.push(...linesFromItems((await (await doc.getPage(i)).getTextContent()).items));
+  const st = parseStatement(lines);
+  if (!st.rows.length) return impErr(t('No transactions found in this PDF. If it is a scanned picture, download the statement again from your bank app, or its CSV.'));
+  IMP = { st };
+  const name = st.provider?.[1] || t('Bank statement');
+  const existing = S.accounts.find(a => a.name.toLowerCase() === name.toLowerCase());
+  openSheet(`<h2 class="sh-title">${esc(name)}</h2>
+    <p class="fine">${esc(t('{0} transactions', st.rows.length))} · ${esc(`${st.rows[0].date} → ${st.rows.at(-1).date}`)}</p>
+    <p class="${st.reconciled ? 'okbox' : 'warnbox'}">${esc(st.reconciled ? t('Opening and closing balances check out: nothing is missing.') : t('The balances on this statement could not be checked. Look over the rows before importing.'))}</p>
+    <label class="field"><span>${esc(t('Into account'))}</span><select id="st-acc">${existing ? '' : `<option value="new">${esc(t('New account: {0}', name))}</option>`}${S.accounts.map(a => `<option value="${esc(a.id)}"${existing?.id === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+    <ul class="list preview">${st.rows.slice(0, 6).map(r => `<li class="rowb"><span>${esc(r.date)}</span><span class="grow">${esc(r.desc)}</span><span class="amt ${r.amount > 0 ? 'income' : 'expense'}">${r.amount > 0 ? '+' : '−'}${esc(fmtRM(Math.abs(r.amount)))}</span></li>`).join('')}</ul>
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="st-go">${esc(t('Import {0}', st.rows.length))}</button></div>`, { label: t('Import') });
+}
+function pdfPassword(buf, wrong) {
+  IMP = { pdf: buf };
+  openSheet(`<h2 class="sh-title">${esc(t('This statement is locked'))}</h2>
+    <p class="sh-body">${esc(t('Banks usually lock statements with your IC number or date of birth. The password is only used on this phone.'))}</p>
+    <label class="field"><span>${esc(t('PDF password'))}</span><input id="pdf-pw" type="password" autocomplete="off" autofocus></label>
+    ${wrong ? `<p class="err">${esc(t('That password did not work. Try again.'))}</p>` : ''}
+    <button class="btn wide" data-act="pdf-unlock">${esc(t('Unlock'))}</button>`, { label: t('PDF password') });
+}
+/** Re-encode a photo as JPEG (max 1200 px): smaller, and location data in the original is dropped. */
+async function reencode(blob) {
+  try {
+    const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    const k = Math.min(1, 1200 / Math.max(bmp.width, bmp.height));
+    const c = Object.assign(document.createElement('canvas'), { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); bmp.close?.();
+    return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+  } catch { return null; }
 }
 
 // ---- restore -------------------------------------------------------------------------------------------------------------
@@ -158,7 +216,7 @@ async function restoreText(text) {
   }) : 'replace';
   if (choice === 'no') return;
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
-  await replaceAll(choice === 'merge' ? mergeBackup(local, data) : data);
+  if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
   await setSetting('onboarded', true);
   closeSheet(); go('home'); render();
   toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
@@ -209,8 +267,9 @@ export const act = {
     if (!url) return impErr(t('That is not a Google Sheets link. It should start with https://docs.google.com/spreadsheets/d/'));
     impErr(t('Fetching…'));
     try {
-      const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
+      const res = await fetch(url, { credentials: 'omit', redirect: 'follow', signal: AbortSignal.timeout(20000) });
       const text = await res.text();
+      if (text.length > LIMITS.fileBytes) throw new Error('big');
       if (!res.ok || /^\s*<!DOCTYPE html|<html/i.test(text)) throw new Error('private');
       await startMapping(parseCSV(text), t('Google Sheets'));
     } catch { impErr(t('Could not open that sheet. In Google Sheets, tap Share and set "Anyone with the link" to Viewer, or copy the cells and paste them instead.')); }
@@ -222,17 +281,33 @@ export const act = {
     for (const a of mm.accounts) if (!S.accounts.some(x => x.id === a.id)) await saveAccount(a);
     const have = new Set(S.kv.customCats.map(c => c.id));
     await setKv('customCats', [...S.kv.customCats, ...mm.customCats.filter(c => !have.has(c.id))]);
-    if (withPhotos) {
-      toast(t('Copying photos…'));
+    await commitImport(mm.tx, 'Money Manager', async fresh => {
+      if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
-      const files = await readPhotos(buf, mm.photos.map(p => p.path));
-      for (const p of mm.photos) {
-        const bytes = files[p.path]; if (!bytes) continue;
-        const id = uid('p'); await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' }));
-        const x = mm.tx.find(y => y.id === p.txId); if (x) x.receiptId = id;
+      const want = new Map(fresh.map(x => [x.id, x]));
+      const todo = mm.photos.filter(p => want.has(p.txId)), ids = [];
+      for (const [n, p] of todo.entries()) {
+        if (n % 25 === 0) toast(t('Copying photos… {0} of {1}', n, todo.length));
+        const bytes = (await readPhotos(buf, [p.path]))[p.path];
+        const jpeg = bytes && await reencode(new Blob([bytes], { type: 'image/jpeg' }));
+        if (!jpeg) continue;
+        const id = uid('p'); await savePhoto(id, jpeg); ids.push(id);
+        want.get(p.txId).receiptId = id;
       }
+      return ids;
+    });
+  },
+  'pdf-unlock': () => { const pw = $('#pdf-pw').value; if (pw) importStatement(IMP.pdf, pw).catch(e => impErr(e.message)); },
+  'st-go': async b => {
+    b.disabled = true;
+    const { st } = IMP, sel = $('#st-acc').value;
+    let accountId = sel;
+    if (sel === 'new') {
+      accountId = uid('a');
+      const first = st.rows[0];
+      await saveAccount({ id: accountId, name: st.provider?.[1] || t('Bank statement'), kind: isWallet(st.provider?.[0]) ? 'ewallet' : 'bank', opening: st.opening ?? (first.balance != null ? first.balance - first.amount : 0), createdAt: Date.now() });
     }
-    await commitImport(mm.tx, 'Money Manager');
+    await commitImport(importIds(statementToTx(st.rows, { accountId }), 's'), st.provider?.[1] || t('Bank statement'));
   },
   'restore-pick': () => {
     // No accept filter (Android hides .mmbackup and some .json files); importFile routes by content and size.
@@ -243,9 +318,9 @@ export const act = {
   'backup': async () => {
     const name = `tally-backup-${today()}.json`, text = makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } });
     let shared = false;
-    try { shared = await shareFile(name, text); } catch { /* the user closed the share sheet */ }
+    try { shared = await shareFile(name, text); } catch (e) { if (e?.name === 'AbortError') return; } // closed the share sheet: no backup made
     if (!shared) download(name, text, 'application/json');
-    await setKv('lastBackup', new Date().toISOString());
+    await setKv('lastBackup', `${today()}T${nowTime()}`);
     render(); toast(t('Backup saved. Keep the file somewhere safe, like Google Drive.'));
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),

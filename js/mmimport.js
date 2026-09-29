@@ -1,6 +1,6 @@
 // Import from "Money manager & expenses" (Innim) backups (.mmbackup): a zip holding MyFinance.db (SQLite) and
 // photos/. SQLite is read with sql.js (vendored, loaded only here). Accounts keep their current balances.
-import { unzip, cleanText, mapCategory } from './io.js';
+import { unzip, cleanText, mapCategory, hash } from './io.js';
 import { INCOME_CATEGORIES, validIso, MAX_SEN } from './engine.js';
 
 /** Load sql.js in the browser (UMD script → window.initSqlJs). Node tests pass their own SQL instead. */
@@ -39,7 +39,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       let id = mapCategory(title);
       if (c.type === 'Income') id = INCOME_CATEGORIES.some(x => x.id === id) ? id : /salary|gaji|工资|薪/i.test(title) ? 'salary' : 'income';
       else if (id === 'other' && !/^other|lain|其他/i.test(title)) {
-        id = `c_mm${customCats.length}`;
+        id = `c_mm_${hash(c.uid)}`; // stable per backup: a second backup never lands in the first one's categories
         customCats.push({ id, name: title, color: hex(c.color) });
       } else if (INCOME_CATEGORIES.some(x => x.id === id)) id = 'other';
       catMap[c.uid] = id;
@@ -53,11 +53,14 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
     const accRows = rows(`select a.uid, a.title, a.currencyCode, a.created, b.value as balance from account a left join account_balance b on b.uid = a.uid where a.isRemoved = 0`);
     const accIds = new Set(accRows.map(a => a.uid));
     const tx = [], photos = [];
-    let skipped = 0;
+    let skipped = 0, adjustments = 0;
     for (const t of rows(`select uid, type, amountInAccountCurrency as amt, date, comment, created from "transaction" where isRemoved = 0`)) {
       const l = link[t.uid] || {};
       const amt = Number(t.amt);
       if (!validIso(t.date) || !Number.isInteger(amt) || amt <= 0 || amt > MAX_SEN || !accIds.has(l.Account)) { skipped++; continue; }
+      // Money Manager records a manual balance correction as an uncategorised entry with no note. It isn't spending:
+      // leaving it out folds it into the opening balance, so today's balances still match.
+      if (!l.Category && !cleanText(t.comment)) { adjustments++; continue; }
       const type = t.type === 'Income' ? 'income' : 'expense';
       let category = catMap[l.Category] || (type === 'income' ? 'income' : 'other');
       if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = 'income';
@@ -76,7 +79,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
     });
     const otherCurrency = accounts.filter(a => a.currency !== 'MYR').map(a => a.name);
     accounts.forEach(a => delete a.currency);
-    return { accounts, tx, customCats, photos, skipped, otherCurrency, transfersSkipped: has('transfer') ? rows(`select count(*) as n from transfer where isRemoved = 0`)[0].n : 0 };
+    return { accounts, tx, customCats, photos, skipped, adjustments, otherCurrency, transfersSkipped: has('transfer') ? rows(`select count(*) as n from transfer where isRemoved = 0`)[0].n : 0 };
   } finally { db.close(); }
 }
 

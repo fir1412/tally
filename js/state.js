@@ -95,6 +95,7 @@ export async function saveBill(b) {
 }
 export async function deleteBill(id) { S.recurring = S.recurring.filter(b => b.id !== id); await db.del('recurring', id); }
 export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).catch(() => {}); // photos are nice-to-have
+export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------

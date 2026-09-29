@@ -34,12 +34,14 @@ document.addEventListener('click', async e => {
   const fn = ACT[b.dataset.act];
   if (!fn) return;
   e.preventDefault();
-  try { await fn(b, e); } catch (err) { console.error(err); toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
+  try { await fn(b, e); } catch (err) { console.error(err); if (b.isConnected) b.disabled = false; toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
 });
+// Typing fields report on 'input'; selects, checkboxes, dates and files on 'change' (each handler runs once).
+const typing = el => el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'date', 'time', 'color'].includes(el.type));
 for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   const el = e.target.closest('[data-input]');
   const fn = el && INPUT[el.dataset.input];
-  if (fn && (ev === 'input' || el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'file' || el.type === 'date')) fn(el, e);
+  if (fn && (ev === 'input') === typing(el)) fn(el, e);
 });
 window.addEventListener('hashchange', () => { if (sheetOpen()) closeSheet(); render(); window.scrollTo(0, 0); });
 
