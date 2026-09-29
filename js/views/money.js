@@ -361,7 +361,7 @@ function billSheet(b) {
 }
 /** Calendar reminder: monthly from calendar.js; a weekly or yearly bill repeats from its next date; instalments stop. */
 const billEv = x => {
-  const e = billEvent({ id: x.id, day: x.day, title: t('Pay {0} ({1})', x.name, fmtRM(x.amount)), details: t('Tally reminder') });
+  const e = billEvent({ id: x.id, day: x.day, title: t('Pay {0}', x.name), details: t('Tally reminder') });
   const next = billStatus(x, today(), []).next, ymd = d => d.replaceAll('-', '');
   if (next && (x.freq === 'weekly' || x.freq === 'yearly')) Object.assign(e, { start: `${ymd(next)}T090000`, end: `${ymd(next)}T093000`, rrule: `FREQ=${x.freq.toUpperCase()}` });
   if (x.until) e.rrule += `;UNTIL=${ymd(x.until)}T235959`;

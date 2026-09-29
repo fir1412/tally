@@ -623,12 +623,12 @@ export function dueNudge(habitList, txs, now, dismissed = []) {
  */
 export const RELIEFS = [
   { id: 'zakat', name: 'Zakat and fitrah (tax rebate)', shop: true, re: /zakat|fitrah/i },
-  { id: 'donation', name: 'Gifts to approved bodies', shop: true, re: /derma\b|donation|sumbangan|wakaf|yayasan|foundation|charity|捐款|捐赠|捐獻/i },
+  { id: 'donation', name: 'Donations (approved bodies only, official receipt needed)', re: /derma\b|donation|sumbangan|wakaf|捐款|捐赠|捐獻/i },
   { id: 'breastfeeding', name: 'Breastfeeding equipment', re: /breast ?pump|pam susu|breastfeed|penyusuan|nursing (bra|pad)|milk storage|吸奶器|母乳/i },
   { id: 'childcare', name: 'Childcare and kindergarten fees', shop: true, re: /tadika|taska|kindergarten|pre-?school|prasekolah|child ?care|day ?care|nursery fee|幼儿园|幼兒園|托儿|托兒/i },
   { id: 'ev', name: 'EV charging', shop: true, re: /(?=.*(?:\bev charg(?:e|er|ing)|electric vehicle charg(?:e|er|ing)|charging (?:station|equipment)|wallbox|充电桩|充電樁))(?=.*(?:install(?:ation)?|rent(?:al)?|purchas(?:e|ing)|subscription|equipment|pemasangan|sewaan|pembelian|langganan|peralatan|安装|安裝|购买|購買|租赁|租賃|订阅|訂閱))/i },
-  { id: 'sports', name: 'Sports and gym', shop: true, re: /\bgym\b|fitness|badminton|futsal|racket|raket|shuttlecock|jersey|kasut sukan|running shoe|decathlon|marathon|yoga|pilates|swimming|renang|\bsports?\b|\bsukan\b|健身|羽毛球/i },
-  { id: 'medical', name: 'Medical, dental and vaccination', shop: true, cats: ['health', 'other'], re: /dental|dentist|pergigian|\bgigi\b|scaling|vaksin|vaccin|medical check|health screening|pemeriksaan kesihatan|fertility|\bivf\b|physio|mental health|psychiatr|psycholog|hospital|牙医|牙醫|牙科|疫苗|医院|醫院|体检|體檢/i },
+  { id: 'sports', name: 'Sports and gym', shop: true, re: /\bgym\b|fitness|badminton|futsal|racket|raket|shuttlecock|jersey|kasut sukan|running shoe|marathon|yoga|pilates|swimming|renang|\bsports?\b|\bsukan\b|健身|羽毛球/i },
+  { id: 'medical', name: 'Medical, dental and vaccination', shop: true, cats: ['health', 'other'], re: /dental|dentist|pergigian|\bgigi\b|scaling|vaksin|vaccin|medical check|health screening|pemeriksaan kesihatan|fertility|\bivf\b|physio|mental health|psychiatr|psycholog|牙医|牙醫|牙科|疫苗|医院|醫院|体检|體檢/i },
   { id: 'education', name: 'Education fees (yourself)', shop: true, cats: ['education', 'other', 'bills'], re: /yuran pengajian|tuition fee|course fee|semester fee|university|universiti|\bcollege\b|\bkolej\b|\bdegree\b|\bmba\b|\bphd\b|upskill|\bkursus\b|学费|學費/i },
   { id: 'lifestyle', name: 'Books, phone, computer and internet', re: /\bbooks?\b|\bbuku\b|\bnovel\b|magazine|majalah|newspaper|akhbar|smartphone|\b(hand)?phone\b|telefon bimbit|iphone|galaxy|redmi|tablet|\bipad\b|laptop|computer|komputer|macbook|internet|unifi|broadband|fibre|书|書|杂志|雜誌|手机|手機|电脑|電腦|平板/i, no: /reload|prepaid|top ?up|\bcase\b|casing|cover|protector|charger|cable|kabel|buku latihan|exercise book/i },
 ];

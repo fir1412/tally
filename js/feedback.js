@@ -49,7 +49,7 @@ export function openFeedback(version, preset = 'Idea') {
     <div class="segs" role="group" aria-label="${esc(t('Feedback type'))}">${TYPES.map(k => `<button class="seg${k === type ? ' on' : ''}" data-fb="${k}" aria-pressed="${k === type}">${esc(t(k))}</button>`).join('')}</div>
     <label class="field"><span>${esc(t('Message'))}</span><textarea id="fb-msg" rows="5" maxlength="4000" placeholder="${esc(t('What happened, or what would make Tally better?'))}" autofocus></textarea></label>
     <label class="field"><span>${esc(t('Contact (optional)'))}</span><input id="fb-contact" maxlength="200" placeholder="${esc(t('Email or handle, if you would like a reply'))}" autocomplete="email"></label>
-    <p class="fine">${esc(t('Also sent: {0}. Nothing about your money, receipts or accounts is included.', info))}</p>
+    <p class="fine">${esc(t("Sent to the developer through Google Forms (Google may store it outside Malaysia): your message, the contact you add (optional) and {0}. Used only to fix Tally and reply to you; kept 12 months. Don't include IC or account numbers.", info))} <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a></p>
     <div class="row2"><button class="btn ghost" data-fb-x="cancel">${esc(t('Cancel'))}</button><button class="btn" data-fb-x="send">${esc(t('Send'))}</button></div>`, { label: t('Send feedback') });
   sheet.addEventListener('click', async e => {
     const b = e.target.closest('[data-fb]');

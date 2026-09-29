@@ -192,7 +192,7 @@ export async function xlsxSheets(buf) {
  * 'rows'}]}, for the mapping sheet.
  */
 export async function xlsxToRows(buf) {
-  const all = await xlsxSheets(buf);
+  const all = (await xlsxSheets(buf)).map(s => ({ ...s, rows: reshape(s.rows, s.name) }));
   const ledger = rows => { const h = headerRow(rows), m = guessMapping((rows[h] || []).map(x => cleanText(x, 40))); return m.date != null && (m.amount ?? m.debit ?? m.credit) != null ? { h, m } : null; };
   const sig = s => { const l = ledger(s.rows); if (!l) return null; const k = l.m.amount ?? l.m.debit ?? l.m.credit; return s.rows.slice(l.h + 1).map(r => `${fileDate(r[l.m.date]) || r[l.m.date]}|${fileAmount(r[k]) ?? ''}|${fileAmount(r[l.m.credit]) ?? ''}`).filter(x => !/^\|/.test(x)); };
   const sigs = all.map(sig);
@@ -209,11 +209,11 @@ export async function xlsxToRows(buf) {
     if (h < 0 || m.date == null || (m.amount ?? m.debit ?? m.credit) == null) { tabs.skipped.push({ name: s.name, why: 'columns' }); continue; }
     if (out.length >= LIMITS.rows) { tabs.skipped.push({ name: s.name, why: 'rows' }); continue; }
     const m0 = guessMapping(head), meaning = Object.fromEntries(Object.entries(m).map(([k, i]) => [i, k]));
-    const to = hd.map((x, i) => {
-      const n = name(x), same = n ? head.findIndex(y => name(y) === n) : -1;
-      if (same >= 0) return same;
-      if (meaning[i] && m0[meaning[i]] != null) return m0[meaning[i]];
-      return n ? head.push(x) - 1 : -1;
+    const used = new Set(), to = hd.map((x, i) => {
+      const n = name(x), same = n ? head.findIndex((y, j) => name(y) === n && !used.has(j)) : -1;
+      const j = same >= 0 ? same : meaning[i] && m0[meaning[i]] != null && !used.has(m0[meaning[i]]) ? m0[meaning[i]] : n ? head.push(x) - 1 : -1;
+      if (j >= 0) used.add(j);
+      return j;
     });
     for (const r of s.rows.slice(h + 1)) { const row = []; to.forEach((j, i) => { if (j >= 0) row[j] = r[i] ?? ''; }); out.push(Array.from(row, x => x ?? '')); }
     tabs.read.push(s.name);
@@ -271,8 +271,27 @@ const HEAD = {
  * Transport | … | Total, or Date | Cash | Maybank | TNG) when there is no amount column of its own: a row per filled
  * cell, the column's name as its Category or Account; Total and Balance columns are left out. Else rows as they are.
  */
-export function reshape(rows) {
+export function monthYear(s) {
+  const t = cleanText(s, 30), m = t.match(/^([A-Za-z]{3})[a-z]*\.?[\s'-]*(\d{4})$/) || t.match(/^(\d{4})\s*年\s*(\d{1,2})\s*月$/) || t.match(/^(\d{1,2})[/-](\d{4})$/);
+  if (!m) return null;
+  const mon = /^\d{4}$/.test(m[1]) ? +m[2] : /^\d+$/.test(m[1]) ? +m[1] : (MON_EN.indexOf(m[1].toLowerCase()) >= 0 ? MON_EN.indexOf(m[1].toLowerCase()) : MON_MS.indexOf(m[1].toLowerCase())) + 1;
+  const year = /^\d{4}$/.test(m[1]) ? +m[1] : +m[2];
+  return mon >= 1 && mon <= 12 ? `${year}-${String(mon).padStart(2, '0')}` : null;
+}
+export function reshape(rows, tab = '') {
   const clean = r => (r || []).map(x => cleanText(x, 40)), money = m => m.amount ?? m.debit ?? m.credit;
+  const DAY = /^(day|hari|日|日期\(日\)|tarikh \(hari\))$/i, day = (ym, d) => (/^\d{1,2}$/.test(cleanText(d)) && +d >= 1 && +d <= 31 ? `${ym}-${String(+d).padStart(2, '0')}` : cleanText(d));
+  for (let h = 0; h < Math.min(rows.length, 40); h++) {
+    const r = clean(rows[h]), dc = r.findIndex(x => DAY.test(x));
+    if (dc < 0 || r.some(x => HEAD.date[0].test(x))) continue;
+    const months = r.map((x, i) => (i !== dc && monthYear(x) ? i : -1)).filter(i => i >= 0), ym = monthYear(tab);
+    if (months.length) {   // Day | Jul 2026 | Aug 2026: a row per filled cell
+      const out = [['Date', 'Amount']];
+      for (const row of rows.slice(h + 1)) for (const i of months) if (fileAmount(row[i])) out.push([day(monthYear(r[i]), row[dc]), row[i]]);
+      return [...rows.slice(0, h), ...out];
+    }
+    if (ym) return [...rows.slice(0, h), r.map((x, i) => (i === dc ? 'Date' : rows[h][i])), ...rows.slice(h + 1).map(row => row.map((x, i) => (i === dc ? day(ym, x) : x)))];
+  }
   for (let h = 0; h < Math.min(rows.length, 40); h++) {
     const r = clean(rows[h]), starts = r.map((x, i) => (HEAD.date[0].test(x) ? i : -1)).filter(i => i >= 0);
     if (starts.length < 2) continue;
@@ -480,6 +499,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   // A Paid? / Done column of ticks: unticked rows are bills still to pay, not spending yet.
   const paidCol = header.findIndex(h => /^(paid\??|done|settled|dibayar\??|sudah bayar|bayar\??|已付|已付款|已缴)$/i.test(cleanText(h, 30)));
   const curCol = header.findIndex(h => /^(currency|curr\.?|ccy|mata wang|货币|貨幣|幣別|币种)$/i.test(cleanText(h, 30)));
+  const fxCol = header.findIndex((h, i) => i !== map.amount && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$|\((sgd|s\$|usd|eur|gbp|aud|idr|thb|cny|jpy|hkd|bnd)\)$/i.test(cleanText(h, 30)));
   const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
   const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
   const bal = balanceSigns(rows, map, amtOf);
@@ -489,7 +509,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (status >= 0 && /fail|unsuccess|gagal|cancel|batal|reject|declin|revers|refused|失败|失敗|取消/i.test(r[status] ?? '')) return skipped.push({ row: n + 2, why: 'failed' });
     if (paidCol >= 0 && /^(false|no|tidak|belum|0|☐|✗|否)$/i.test(cleanText(r[paidCol], 10))) return skipped.push({ row: n + 2, why: 'unpaid' });
     // Another currency (a Currency column, or S$ / SGD in the amount) is never read as ringgit.
-    if ((curCol >= 0 && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$/i.test(cleanText(r[curCol], 10))) || /^\s*-?\s*(s\$|sgd\b)/i.test(String(r[map.amount] ?? r[map.debit] ?? r[map.credit] ?? ''))) return skipped.push({ row: n + 2, why: 'currency' });
+    if ((fxCol >= 0 && !cleanText(r[map.amount ?? -1]) && cleanText(r[fxCol])) || (curCol >= 0 && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$/i.test(cleanText(r[curCol], 10))) || /^\s*-?\s*(s\$|sgd\b)/i.test(String(r[map.amount] ?? r[map.debit] ?? r[map.credit] ?? ''))) return skipped.push({ row: n + 2, why: 'currency' });
     const cx = rowCtx(r, map, header), get = cx.get;
     const z = zoned(get('date')), date = z?.date || fileDate(get('date'), mdy);
     let amt = null, type = null, sign = 1;
@@ -529,7 +549,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     // "Food" in another app at KFC or a mamak is a meal, not groceries (a category actually named Groceries stays).
     if (category === 'groceries' && !CAT_WORDS.find(([c]) => c === 'groceries')[1].test(rawCat || '') && shopCategory(merchant) === 'dining') category = 'dining';
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
-    if (!tword && !signed && !bal[n] && !dc && !preset?.type && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
+    if (!tword && !signed && !bal[n] && !dc && !preset?.type && (INCOME_CATEGORIES.some(c => c.id === category) || INCOME_WORD.test(cleanText(rawCat, 60)))) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
     if (refundRow && type === 'income') { txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category: 'refund', cat: INCOME_CATEGORIES.some(c => c.id === category) ? 'other' : category, merchant, note, source, createdAt: now }); return; }

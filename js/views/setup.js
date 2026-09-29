@@ -88,17 +88,18 @@ export const welcomeView = {
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
       <p class="sublede">${esc(t('No receipt? Just type the amount.'))}</p>
-      <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Stays on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
+      <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Kept on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
       <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
-      <p class="fine maker">${esc(t('Made in Malaysia by one independent developer. Free because there are no servers to pay for, and nothing is collected, so there is nothing to sell.'))}</p>
+      <p class="fine maker">${esc(t("Made in Malaysia by one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell."))}</p>
+      <p class="fine">${esc(t('By using Tally you agree to the Terms of use and have read the Privacy policy.'))}</p>
       <p class="legal">${legalLinks()}</p>
       ${demoCard()}
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
-        <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your data never leaves this phone unless you export it.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></li>
+        <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your entries stay on this phone. They leave it only when you export, back up or share them, or add a reminder to Google Calendar.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></li>
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
         <li>${ICON.download}<span>${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</span></li>
       </ul>
@@ -186,7 +187,7 @@ export const settingsView = {
         ${rules.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
-      <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
+      <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, and feedback you send.'))}</p>
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(lockOn() ? (settings().lock.cred ? t('On: PIN, fingerprint or face') : t('On: PIN')) : t('Off'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
@@ -197,7 +198,7 @@ export const settingsView = {
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
         <button class="btn ghost wide" data-act="update-check">${esc(t('Check for updates'))}</button>
-        <p class="fine">${esc(t('Tell the developer about a bug or an idea. Your message and the app version are sent; nothing about your money.'))}</p>
+        <p class="fine">${esc(t('Tell the developer about a bug or an idea. Sent: your message, the contact you add, and app and device details. Nothing about your money.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
       <p class="fine center">Tally ${APP_VERSION}</p>`;
   },
@@ -394,7 +395,7 @@ function showMapping() {
     ${fresh.length || !dups.length ? `<p class="${fresh.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', fresh.length))}${dups.length ? ` · ${esc(t('{0} already in Tally, will be skipped', dups.length))}` : ''}${(k => (k.length ? ` · ${esc(k.length === 1 ? t('1 row skipped (no date or amount)') : t('{0} rows skipped (no date or amount)', k.length))}` : ''))(skipped.filter(x => !['currency', 'unpaid'].includes(x.why)))}</p>
     ${(k => (k ? `<p class="warnbox">${ICON.alert}<span>${esc(t('{0} rows are in another currency (SGD…) and were left out. Add an account in that currency (Settings → Accounts), then import them into it.', k))}</span></p>` : ''))(skipped.filter(x => x.why === 'currency').length)}
     ${(k => (k ? `<p class="fine">${esc(t('{0} unpaid rows (Paid? not ticked) left out.', k))}</p>` : ''))(skipped.filter(x => x.why === 'unpaid').length)}
-    ${!fresh.length && !dups.length ? `<p class="fine">${esc(IMP.map.date == null ? t('No date column found. Pick it above, or open the tab with your transactions.') : (IMP.map.amount ?? IMP.map.debit ?? IMP.map.credit) == null ? t('No amount column found. Pick it above.') : t('This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.'))}</p>` : ''}`
+    ${!fresh.length && !dups.length && !skipped.some(x => ['currency', 'unpaid', 'failed'].includes(x.why)) ? `<p class="fine">${esc(IMP.map.date == null ? t('No date column found. Pick it above, or open the tab with your transactions.') : (IMP.map.amount ?? IMP.map.debit ?? IMP.map.credit) == null ? t('No amount column found. Pick it above.') : t('This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.'))}</p>` : ''}`
       : `<p class="warnbox">${esc(t('All {0} rows are already in Tally. Nothing new to import.', dups.length))}</p>`}
     ${fresh.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
     ${moved || loose || adjustments ? `<p class="fine">${[moved && (moved === 1 ? t('1 transfer between your accounts') : t('{0} transfers between your accounts', moved)), loose && (loose === 1 ? t("1 transfer to another wallet: import that wallet's file next and it will be matched.") : t("{0} transfers to another wallet: import that wallet's file next and they'll be matched.", loose)), adjustments && t('{0} balance corrections folded into opening balances (not counted as spending)', adjustments)].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
@@ -510,7 +511,7 @@ async function importStatement(buf, password) {
   const reloads = st.provider?.[2] === 'ewallet' ? planMoves(statementToTx(st.rows, { accountId: '_w' }), [{ id: '_w', kind: 'ewallet' }, ...S.accounts], '').reloads.length : 0;
   openSheet(`<h2 class="sh-title">${esc(name)}</h2>
     <p class="fine">${esc(t('{0} transactions', st.rows.length))} · ${esc(`${st.rows[0].date} → ${st.rows.at(-1).date}`)}</p>
-    <p class="${st.reconciled ? 'okbox' : 'warnbox'}">${esc(st.reconciled ? t('Opening and closing balances check out: nothing is missing.') : t('The balances on this statement could not be checked. Look over the rows before importing.'))}</p>
+    <p class="${st.reconciled ? 'okbox' : 'warnbox'}">${esc(st.reconciled ? t('The rows add up from the opening to the closing balance. Check a few before importing.') : t('The balances on this statement could not be checked. Look over the rows before importing.'))}</p>
     ${reloads ? `<p class="fine">${esc(t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads))}</p>` : ''}
     <label class="field"><span>${esc(t('Into account'))}</span><select id="st-acc">${existing ? '' : `<option value="new">${esc(t('New account: {0}', name))}</option>`}${S.accounts.map(a => `<option value="${esc(a.id)}"${existing?.id === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
     <ul class="list preview">${st.rows.slice(0, 6).map(r => `<li class="rowb"><span>${esc(r.date)}</span><span class="grow">${esc(cleanDesc(r.desc))}</span><span class="amt ${r.amount > 0 ? 'income' : 'expense'}">${r.amount > 0 ? '+' : '−'}${esc(fmtRM(Math.abs(r.amount)))}</span></li>`).join('')}</ul>
@@ -590,10 +591,11 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
   return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files), missing };
 }
 /** The backup as the sheet asks: with or without photos, and sealed with its password when one is typed. Null: too short. */
-async function sealedBackup() {
-  const pw = $('#bk-pass')?.value || '', r = await backupBlob($('#bk-photos')?.checked);
+async function sealedBackup(r = null, pass = '#bk-pass', err = '#bk-err') {
+  const pw = $(pass)?.value || '';
+  r ||= await backupBlob($('#bk-photos')?.checked);
   if (!pw) return r;
-  if (pw.length < 6) { $('#bk-err').textContent = t('Use at least 6 characters.'); $('#bk-pass').focus(); return null; }
+  if (pw.length < 8) { $(err).textContent = t('Use at least 8 characters.'); $(pass).focus(); return null; }
   const text = await sealBackup(new Uint8Array(await r.blob.arrayBuffer()), pw);
   return { ...r, name: r.name.replace(/\.(json|zip)$/, '.locked.json'), blob: new Blob([text], { type: 'application/json' }) };
 }
@@ -781,7 +783,7 @@ export const act = {
       const rateUrl = `${RATE_API}?from=${encodeURIComponent(cur === 'BND' ? 'SGD' : cur)}&to=MYR`;   // the Brunei dollar is pegged 1:1 to the Singapore dollar
       const res = await fetch(rateUrl, { credentials: 'omit' });
       const j = await res.json(), r = +j?.rates?.MYR; if (!res.ok || !(r > 0)) throw new Error();
-      $('#ac-rate').value = String(+r.toFixed(r < 0.01 ? 7 : 4)); out.textContent = t("European Central Bank rate for {0}. Change it to your bank's rate if you like.", fmtDate(j.date, { year: true }));
+      $('#ac-rate').value = String(+r.toFixed(r < 0.01 ? 7 : 4)); out.textContent = t("European Central Bank reference rate for {0}, for information only. Your bank's rate will differ; change it if you like.", fmtDate(j.date, { year: true }));
     } catch { out.textContent = t('Could not get the rate (offline?). Type the rate from your bank app.'); }
   },
   // The whole app's colours; a palette brings its own accent, so a hand-picked one is cleared (it can be picked again after).
@@ -927,8 +929,8 @@ export const act = {
       <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories.', S.tx.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
       ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos" checked> ${esc(photoCount() === 1 ? t('Include 1 receipt photo (a bigger .zip file)') : t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
-      <details class="more-cats"><summary>${ICON.lock}${esc(t('Protect with a password'))}</summary><label class="field"><span>${esc(t('Password (optional)'))}</span><input id="bk-pass" type="password" autocomplete="new-password" minlength="6"></label>
-        <p class="fine">${esc(t('Only someone with this password can open the file. If you forget it, the backup cannot be opened: no one can reset it.'))}</p><p class="err" id="bk-err" role="alert"></p></details>
+      <details class="more-cats"><summary>${ICON.lock}${esc(t('Protect with a password'))}</summary><label class="field"><span>${esc(t('Password (optional)'))}</span><input id="bk-pass" type="password" autocomplete="new-password" minlength="8"></label>
+        <p class="fine">${esc(t("Without this password the file can't be opened, and no one can reset it. Use a long password: short ones can be guessed."))}</p><p class="err" id="bk-err" role="alert"></p></details>
       ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
@@ -956,19 +958,22 @@ export const act = {
       <p class="sh-body">${esc(t('One file with your {0} joint accounts, their {1} entries, joint budgets and the categories they use. Nothing from your personal accounts.', jointIds().size, rows.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
       ${photos ? `<label class="check"><input type="checkbox" id="jt-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photos))}</label>` : ''}
-      <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it. Send it only to your partner.'))}</span></p>
+      <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it, including any receipt photos (they may show card numbers or names). Send it only to your partner, or add a password.'))}</span></p>
+      <details class="more-cats"><summary>${ICON.lock}${esc(t('Protect with a password'))}</summary><label class="field"><span>${esc(t('Password (optional)'))}</span><input id="jt-pass" type="password" autocomplete="new-password" minlength="8"></label><p class="fine">${esc(t('Tell your partner the password another way (not in the same chat).'))}</p><p class="err" id="jt-err" role="alert"></p></details>
       ${canShare ? `<button class="btn wide" data-act="jt-send">${esc(t('Send to my partner (WhatsApp, email)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="jt-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('Your partner opens Tally, taps Settings → Import from my partner and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry deletes it on the other phone too, once they import your next file.'))}</p>`, { label: t('Share joint accounts') });
   },
   'jt-send': async () => {
-    const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    const r = await sealedBackup(await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx()), '#jt-pass', '#jt-err'); if (!r) return;
+    const { name, blob, missing } = r;
     try { if (!(await shareFile(name, blob, blob.type))) return act['jt-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; }
     closeSheet(); toast(t('Sent {0}', name), { k: 'good', icon: 'check' }); warnMissingPhotos(missing);
   },
   'jt-save': async b => {
+    const r = await sealedBackup(await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx()), '#jt-pass', '#jt-err'); if (!r) return;
     if (b) b.disabled = true;
-    const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    const { name, blob, missing } = r;
     download(name, blob, blob.type);
     closeSheet(); toast(t('Download started. Check your Downloads folder for {0}.', name), { k: 'good', icon: 'check' }); warnMissingPhotos(missing);
   },

@@ -41,7 +41,7 @@ export function forecastCard() {
       <div class="sbar">${parts.filter(p => p[1] > 0).map(([, v, k]) => `<i class="${k}" style="width:${w(v)}"></i>`).join('')}</div>
       ${B ? `<span class="mark${at > 70 ? ' end' : ''}" style="left:${at.toFixed(2)}%"><span>${esc(t('Budget'))} ${esc(short(B))}</span></span>` : ''}</div>
     <ul class="slegend">${parts.map(([l, v, k]) => `<li><span class="key ${k}"></span><span class="grow">${esc(l)}</span><span class="num">${esc(fmtRM(v))}</span></li>`).join('')}</ul>
-    ${f.safe != null ? `<p class="safe"><span class="lbl">${esc(t('Safe to spend'))}</span><b class="num">${esc(t('{0} a day', fmtRM(f.safe)))}</b><small>${esc(t('for {0} days, today included', f.daysLeft + 1))}</small></p>` : ''}
+    ${f.safe != null ? `<p class="safe"><span class="lbl">${esc(t('Budget left per day'))}</span><b class="num">${esc(t('{0} a day', fmtRM(f.safe)))}</b><small>${esc(t('for {0} days, today included', f.daysLeft + 1))}</small></p>` : ''}
     <p class="fine">${esc(t('Spent so far, bills still due, and your everyday pace. One-off big buys count once.'))}${f.early ? ` ${esc(t("Early in the month, last month's pace is used."))}` : ''}</p></section>`;
 }
 
@@ -141,7 +141,7 @@ function reliefCard(M) {
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
   return card('relief', t('Possible tax-relief expenses in {0}', year), got.length ? t('{0} in spending to review', fmtRM(total)) : t('Nothing found yet for {0}', year),
     `${rows ? `<ul class="relief">${rows}</ul>` : ''}${got.some(l => l.proof) ? `<button class="btn ghost" data-act="relief-dl" data-y="${year}">${ICON.download}${esc(t('Download the receipts for {0}', year))}</button>` : ''}${none.length ? `<details class="fine more-cats"><summary>${esc(t('Also looked for'))}</summary>${esc(none.join(', '))}</details>` : ''}
-    <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
+    <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} ${esc(t('Matched using YA 2025 categories; rules for {0} may differ. Not tax advice.', year))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
 }
 
 // ---- 8. couples: who put money into the joint account --------------------------------------------------------------------------
