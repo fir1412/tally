@@ -6,6 +6,7 @@ import { esc, short, ICON } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
 import { catLabel, showIds, downloadReceipts } from './money.js';
 import { receiptName, csvLine } from '../io.js';
+import { on } from '../features.js';
 
 const OPEN = new Set();   // cards opened stay open across re-renders (a scope or month change)
 const card = (id, title, head, body) => `<details class="card acard"${OPEN.has(id) ? ' open' : ''}><summary data-act="acard" data-id="${id}"><span class="grow"><span class="lbl">${esc(title)}</span><b>${esc(head)}</b></span><span class="chev" aria-hidden="true"></span></summary>${body}</details>`;
@@ -156,8 +157,8 @@ function jointCard(M) {
 export function analyticsCards(M) {
   const n = booked().filter(x => x.type === 'expense').length, need = 5;
   // Tax relief doesn't wait for 5 entries: people come to Tally for it at tax time (a zakat payment, a child's books).
-  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${cached(taxRelief, booked(), reliefYear(M)).some(l => l.entries.length) ? reliefCard(M) : ''}`;
-  return [scope() === 'joint' && jointCard(M), fixedCard(M), foodCard(M), whenCard(M), payCard(M), pricesCard(), reliefCard(M)].filter(Boolean).join('');
+  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${on('taxrelief') && cached(taxRelief, booked(), reliefYear(M)).some(l => l.entries.length) ? reliefCard(M) : ''}`;
+  return [scope() === 'joint' && jointCard(M), fixedCard(M), foodCard(M), whenCard(M), payCard(M), pricesCard(), on('taxrelief') && reliefCard(M)].filter(Boolean).join('');
 }
 
 export const act = {

@@ -6,6 +6,7 @@ import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, c
 import { firstWord } from './learn.js';
 import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
+import { on } from '../features.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES } from '../scan.js';
 let saved = false; ocrSaved().then(v => { saved = v; }, () => {});   // already on this phone: starting it is not a download
 import { render, go, scanned } from '../app.js';
@@ -211,7 +212,7 @@ export const reviewView = {
         <label class="field"><span>${esc(t('One item per line with its price. Tally sorts each into a category; change any it gets wrong.'))}</span><textarea id="rv-lines" rows="4" placeholder="${esc(EXAMPLE[getLang()] || EXAMPLE.en)}">${esc(current.unread || '')}</textarea></label>
         <button class="btn ghost wide" data-act="rv-lines">${esc(t('Add these items'))}</button></details>
       ${d.items.length ? '' : `<label class="field"><span>${esc(t('Category'))}</span><select id="rv-cat" data-input="rv-f" data-k="category">${catOpts(d.category)}</select></label>`}
-      ${remindHtml(d)}
+      ${on('reminders') ? remindHtml(d) : ''}
       ${current.manual ? '' : `<label class="check"><input type="checkbox" id="rv-refund" data-input="rv-refund"${d.refund ? ' checked' : ''}> ${esc(t('Refund: money back to this account'))}</label>`}
       <label class="check"><input type="checkbox" id="rv-learn" checked> ${esc(t('Remember my category changes for next time'))}</label>
       <div class="row2 sticky"><button class="btn ghost" data-act="rv-skip">${esc(current.existing ? t('Cancel') : t('Discard'))}</button><button class="btn" data-act="rv-save">${esc(flagged ? t('Save · {0} to check', flagged) : t('Save'))}</button></div>`;

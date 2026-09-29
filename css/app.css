@@ -803,6 +803,7 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .items-edit .rawbtn { background: none; border: 0; box-shadow: none; justify-self: start; width: auto; padding: 0 4px; min-height: 44px; min-width: 44px; }
 /* Type-first Home: typing and scanning side by side, right under the balance. */
 .addrow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.addrow.one { grid-template-columns: 1fr; }
 .addrow .btn { min-width: 0; white-space: normal; text-align: center; }
 .sublede { margin: 0; font-weight: 600; }
 .maker { margin: var(--sp-2) 0 0; }

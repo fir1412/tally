@@ -14,6 +14,7 @@ import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
 import { badge } from './money.js';
+import { MODULES, PRESETS, on, setModules, presetNow } from '../features.js';
 import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
 
@@ -28,6 +29,14 @@ const setSize = async n => { await setSetting('textSize', n); document.documentE
 // ---- Appearance & personal: few words, the controls show what they do ------------------------------------------------
 const seg = (act, v, on, label, icon = '') => `<button class="seg${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"${icon ? ` aria-label="${esc(label)}" title="${esc(label)}"` : ''}>${icon || esc(label)}</button>`;
 const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles], ['stickers', t('Sticker book'), ICON.award]];
+/** Tally in modules: a preset (Simple · Standard · Everything) or each feature on its own. Off hides; nothing is deleted. */
+function featuresCard() {
+  const now = presetNow(), preset = (id, label, sub) => `<button class="pal preset${now === id ? ' on' : ''}" data-act="set-preset" data-v="${id}" aria-pressed="${now === id}"><b>${esc(label)}</b><small>${esc(sub)}</small></button>`;
+  return `<section class="card" id="s-features"><h2>${esc(t('Features'))}</h2><p class="fine">${esc(t("Turn off what you don't use. Nothing is deleted: turn it back on and it is all there."))}</p>
+    <div class="palettes" role="group" aria-label="${esc(t('Features'))}">${preset('simple', t('Simple'), t('Type it, see the list and totals'))}${preset('standard', t('Standard'), t('Receipts, budgets, insights'))}${preset('everything', t('Everything'), t('All of it, streaks too'))}</div>
+    ${now === 'custom' ? `<p class="fine">${esc(t('Custom: your own mix.'))}</p>` : ''}
+    <details class="more-cats"${now === 'custom' ? ' open' : ''}><summary>${esc(t('Choose features one by one'))}</summary>${MODULES.map(([k, name, sub]) => `<label class="toggle"><span class="grow"><b>${esc(t(name))}</b><small>${esc(t(sub))}</small></span><input type="checkbox" class="switch" role="switch" data-input="module" data-k="${k}"${on(k) ? ' checked' : ''}></label>`).join('')}</details></section>`;
+}
 function lookCard() {
   const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || baseAccent(), hide = s.homeHide || [];
   const themes = [['system', t('Same as phone'), ICON.phone], ['light', t('Light theme'), ICON.sun], ['dark', t('Dark theme'), ICON.moon]];
@@ -109,12 +118,12 @@ function accountSheet(a = {}) {
   openSheet(`<h2 class="sh-title">${esc(isNew ? t('Add an account') : t('Edit account'))}</h2>
     <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}"${isNew ? ' autofocus' : ''}></label>
     ${isNew ? '' : `<label class="field"><span>${esc(isFx(a) ? t('Balance today ({0})', cur) : t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
-    <div class="grid2"><label class="field"><span>${esc(t('Currency'))}</span><select id="ac-cur" data-input="ac-cur">${['MYR', ...Object.keys(FX_START)].map(c => `<option${cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>
+    <div class="grid2"><label class="field"${on('currencies') || isFx(a) ? '' : ' hidden'}><span>${esc(t('Currency'))}</span><select id="ac-cur" data-input="ac-cur">${['MYR', ...Object.keys(FX_START)].map(c => `<option${cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>
       <label class="field" id="ac-rate-f"${isFx(a) ? '' : ' hidden'}><span>${esc(t('RM for 1 {0}', isFx(a) ? a.currency : 'SGD'))}</span><input id="ac-rate" inputmode="decimal" value="${isFx(a) ? rateOf(a) : ''}"><button type="button" class="link" data-act="rate-get">${esc(t("Get today's rate"))}</button><small class="fine" id="rate-src" role="status"></small></label></div>
     <p class="fine" id="ac-cur-note"${isFx(a) ? '' : ' hidden'}>${esc(t('Amounts in this account stay in its own currency. Totals, budgets and insights count them in RM at this rate. A transfer to or from an RM account updates it.'))}</p>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(isFx(a) ? t('Balance when you started ({0})', cur) : t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
-    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option><option value="business"${a.scope === 'business' ? ' selected' : ''}>${esc(t('Business (my stall, rides, shop)'))}</option></select></label>
+    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option>${on('joint') || a.scope === 'joint' ? `<option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option>` : ''}${on('business') || a.scope === 'business' ? `<option value="business"${a.scope === 'business' ? ' selected' : ''}>${esc(t('Business (my stall, rides, shop)'))}</option>` : ''}</select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
 }
@@ -145,6 +154,7 @@ export const settingsView = {
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <nav class="jumps chips" aria-label="${esc(t('Go to'))}">${[['s-backup', t('Backup & restore')], ['s-accounts', t('Accounts')], ['s-cats', t('Categories')], ['look', t('Language & text size')], ['remind', t('Daily reminder')], ['s-help', t('Help and feedback')]].map(([id, l]) => `<button class="chip" data-act="jump" data-to="${id}">${esc(l)}</button>`).join('')}</nav>
+      ${featuresCard()}
       ${lookCard()}
       <section class="card"><h2>${esc(t('Budget month'))}</h2>
         <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${startDay() === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>
@@ -193,6 +203,7 @@ export const settingsView = {
   },
 };
 export const input = {
+module: async el => { await setModules({ [el.dataset.k]: el.checked }); render(); $(`[data-input="module"][data-k="${el.dataset.k}"]`)?.focus(); },
   'text-size': el => setSize(+el.value),
   'own-cats': async el => { await setSetting('ownCats', el.checked); ownCategories(el.checked); render(); toast(el.checked ? t('Only your categories now. Add yours above.') : t("Tally's categories are back.")); },
   'ac-cur': el => {   // another currency: its rate, starting from a rough one to change
@@ -655,15 +666,18 @@ export const act = {
   'set-size': async b => { await setSize(+b.dataset.n); render(); },
   'set-lang': async b => { await setSetting('lang', b.dataset.l); await setLang(b.dataset.l); render(); },
   'start-fresh': () => {
-    openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Your accounts'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>
+    openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Your accounts'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div><p class="sh-body">${esc(t('Where do you keep money? Type what is in each today, or leave it empty if you are not sure.'))}</p>
+      <div class="segs" role="group" aria-label="${esc(t('Features'))}"><button type="button" class="seg on" data-act="sf-mode" data-v="standard" aria-pressed="true">${esc(t('Standard'))}</button><button type="button" class="seg" data-act="sf-mode" data-v="simple" aria-pressed="false">${esc(t('Simple'))}</button></div>
+      <p class="fine">${esc(t('Simple is a plain money tracker: type it, see the list and totals. Change it any time in Settings → Features.'))}</p>
       <label class="field"><span>${esc(t('Cash in wallet (RM)'))}</span><input id="sf-cash" inputmode="decimal" placeholder="0.00" autofocus></label>
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
       <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
-      <label class="field"><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <label class="field"${on('joint') ? '' : ' hidden'}><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
+    if ($('[data-act="sf-mode"][data-v="simple"]')?.classList.contains('on')) await setModules(PRESETS.simple);
     const vals = ['cash', 'bank', 'ewallet', 'joint'].map(k => [k, $(`#sf-${k}`).value.trim()]);
     const bad = vals.find(([, v]) => v && calcAmount(v) == null);
     if (bad) return ($('#sf-err').textContent = amtErr(bad[1]));
@@ -752,6 +766,8 @@ export const act = {
   'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
   'set-accent': async b => { await setSetting('accent', b.dataset.v === baseAccent() ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
   'accent-custom': () => pickAccent(),
+  'set-preset': async b => { const p = PRESETS[b.dataset.v]; if (!p) return; await setModules(p); render(); $(`[data-act="set-preset"][data-v="${b.dataset.v}"]`)?.focus(); toast(t('Features set: {0}', t({ simple: 'Simple', standard: 'Standard', everything: 'Everything' }[b.dataset.v]))); },
+  'sf-mode': b => { for (const x of document.querySelectorAll('[data-act="sf-mode"]')) { const o = x === b; x.classList.toggle('on', o); x.setAttribute('aria-pressed', o); } },
   // Only on this tap does Tally go online for a rate: the European Central Bank's, via frankfurter.dev (nothing about the
   // person or their money is sent). It fills the field; the person can still type their bank's own rate.
   'rate-get': async () => {

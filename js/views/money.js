@@ -7,6 +7,7 @@ import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
+import { on } from '../features.js';
 import { onColor } from '../colorpicker.js';
 import { render, go } from '../app.js';
 
@@ -205,9 +206,9 @@ function sheetHtml() {
     ${d.items?.length ? `<details class="items"><summary>${esc(d.receiptId ? (d.items.length === 1 ? t('1 item from the receipt') : t('{0} items from the receipt', d.items.length)) : d.items.length === 1 ? t('1 item') : t('{0} items', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
     ${refundsOf(d)}
-    ${d.type === 'expense' ? `<details class="more"${d.returnBy || d.warranty ? ' open' : ''}><summary>${esc(t('Return or warranty reminder'))}</summary><div class="row2"><label class="field"><span>${esc(t('Return by'))}</span><input id="tx-return" type="date" value="${esc(d.returnBy || '')}"></label><label class="field"><span>${esc(t('Warranty until'))}</span><input id="tx-warranty" type="date" value="${esc(d.warranty || '')}"></label></div><small class="fine">${esc(t('Home reminds you 2 days before the return window ends and a month before the warranty does.'))}</small></details>` : ''}
+    ${d.type === 'expense' && on('reminders') ? `<details class="more"${d.returnBy || d.warranty ? ' open' : ''}><summary>${esc(t('Return or warranty reminder'))}</summary><div class="row2"><label class="field"><span>${esc(t('Return by'))}</span><input id="tx-return" type="date" value="${esc(d.returnBy || '')}"></label><label class="field"><span>${esc(t('Warranty until'))}</span><input id="tx-warranty" type="date" value="${esc(d.warranty || '')}"></label></div><small class="fine">${esc(t('Home reminds you 2 days before the return window ends and a month before the warranty does.'))}</small></details>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
-    ${!isNew && d.type === 'expense' ? `<button class="btn ghost small" data-act="tx-splitf">${ICON.users}${esc(t('Split with friends'))}</button>` : ''}
+    ${!isNew && d.type === 'expense' && on('split') ? `<button class="btn ghost small" data-act="tx-splitf">${ICON.users}${esc(t('Split with friends'))}</button>` : ''}
     ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
     <div class="row2 sheetfoot">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
 }
@@ -291,6 +292,8 @@ export function openTxSheet(preset = {}) {
 }
 
 // ---- Budgets ----------------------------------------------------------------------------------------------------------
+/** A screen's parts marked <!--key-->…<!--/key--> are left out while that module is off. */
+const modular = html => html.replace(/<!--(\w+)-->([\s\S]*?)<!--\/\1-->/g, (m, k, part) => (on(k) ? part : ''));
 export const budgetsView = {
   title: 'Budgets',
   render() {
@@ -317,20 +320,21 @@ export const budgetsView = {
     // No budget yet: what the last 3 full months cost on average (months with spending), to the nearest RM 50.
     const pastYm = [1, 2, 3].map(k => addMonths(ym, -k)), spends = cached(monthSpends, txs, pastYm, sd), past = pastYm.map(m => spends[m].total).filter(Boolean);
     const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
-    return `<header class="top"><h1>${esc(t('Budgets'))}</h1>${scopeChip(sc, true)}<span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
+    // Modules: the budget part and the bills part each show only when their module is on (Settings → Features).
+    return modular(`<header class="top"><h1>${esc(t(on('budgets') ? 'Budgets' : 'Bills'))}</h1>${scopeChip(sc, true)}<span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
       ${scopeSwitch(sc, scopes())}
-      <section class="card"><label class="field"><span>${esc(sc === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"></span></label><p class="err bud-err" id="be-total" role="alert"></p>
+<!--budgets-->      <section class="card"><label class="field"><span>${esc(sc === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"></span></label><p class="err bud-err" id="be-total" role="alert"></p>
         ${avg && !B.total ? `<p class="fine">${esc(t('You spent about {0} a month lately.', fmtRM(avg)))} <button class="link" data-act="bud-use" data-v="${avg}">${esc(t('Use {0}', fmtRM(avg)))}</button></p>` : ''}<div id="bs-total">${bar(now.total, B.total, 'total')}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>
       <h2>${esc(t('By category'))}</h2><p class="fine">${esc(t('Set a limit for the categories you want to watch. Leave the rest empty.'))}</p>
       <ul class="list budgets">${active.map(row).join('')}</ul>
       ${idle.length ? `<details class="more-cats"><summary>${esc(idle.length === 1 ? t('1 more category') : t('{0} more categories', idle.length))}</summary><ul class="list budgets">${idle.map(row).join('')}</ul></details>` : ''}
-      <h2 id="bills">${esc(t('Regular bills'))}</h2>
+<!--/budgets--><!--bills-->      <h2 id="bills">${esc(t('Regular bills'))}</h2>
       <ul class="list">${bills.map(b => { const s = billStatus(b, tdy, S.tx); return `<li class="bill"><span class="grow"><b>${esc(b.name)}</b><small>${esc(billLine(b, s))}</small>
         ${s.paid ? `<span class="bstat"><span class="pill good">${esc(b.freq === 'weekly' ? t('Paid this week') : t('Paid for {0}', b.freq === 'yearly' ? s.date.slice(0, 4) : monShort(+s.date.slice(5, 7))))}</span></span>`
           : s.date ? `<span class="bstat"><button class="btn small${s.days < 0 ? '' : ' ghost'}" data-act="bill-paid" data-id="${esc(b.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button></span>` : ''}</span><button class="btn small ghost" data-act="bill-cal" data-id="${esc(b.id)}" aria-label="${esc(t('Add a reminder to my calendar'))}">${ICON.bell}</button><button class="btn small ghost" data-act="bill-edit" data-id="${esc(b.id)}" aria-label="${esc(t('Edit'))}">…</button></li>`; }).join('') || `<li class="empty">${esc(t('No bills yet.'))}</li>`}</ul>
       ${cand.map(r => `<div class="card suggest">${ICON.bell}<span class="grow">${esc(t('{0} looks like a monthly bill ({1})', r.merchant, fmtRM(r.amount)))}</span><button class="btn small" data-act="bill-add-suggested" data-key="${esc(r.key)}">${esc(t('Add'))}</button><button class="icon-btn" data-act="dismiss" data-id="bill-sugg-${esc(r.key)}" aria-label="${esc(t('Not a bill'))}">${ICON.x}</button></div>`).join('')}
-      <button class="btn ghost wide" data-act="bill-edit">${ICON.plus}${esc(t('Add a bill'))}</button>`;
+      <button class="btn ghost wide" data-act="bill-edit">${ICON.plus}${esc(t('Add a bill'))}</button><!--/bills-->`);
   },
 };
 const billLine = (b, s) => [fmtRM(b.amount), b.freq === 'weekly' ? t('every week') : b.freq === 'yearly' ? t('every year') : t('every month on day {0}', b.day || 1),
