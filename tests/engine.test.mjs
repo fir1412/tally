@@ -378,3 +378,12 @@ test('default account: a Singapore receipt to the SGD account, ringgit never to 
   assert.equal(pick({ kind: 'quick', shop: 'Tol Duta', amount: 850 }), 'tng');                    // this shop's habit
   assert.equal(E.pickAccount({ accounts, txs: [...txs, x('mbb', { source: 'receipt', createdAt: 99 })], bal, kind: 'quick', amount: 500 }), 'cash');   // a scanned receipt isn't the everyday account
 });
+
+test('money received from a payer lands where that payer paid before', () => {
+  const accounts = [{ id: 'cash', kind: 'cash' }, { id: 'bank', kind: 'bank' }, { id: 'boost', kind: 'ewallet' }];
+  const txs = [{ id: '1', type: 'income', date: '2026-09-01', amount: 5000, accountId: 'boost', category: 'income', merchant: 'Lalamove job' },
+    { id: '2', type: 'income', date: '2026-09-02', amount: 5000, accountId: 'boost', category: 'income', merchant: 'Lalamove job' },
+    { id: '3', type: 'income', date: '2026-09-07', amount: 90000, accountId: 'bank', category: 'income', merchant: 'Lalamove minggu' }];
+  assert.equal(E.pickAccount({ accounts, txs, kind: 'income', shop: 'Lalamove minggu' }), 'bank');
+  assert.equal(E.pickAccount({ accounts, txs, kind: 'income' }), 'boost');
+});

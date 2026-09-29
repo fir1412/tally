@@ -476,7 +476,10 @@ export function pickAccount({ accounts: all, txs = [], bal = {}, kind = 'quick',
   const main = () => most(txs.filter(x => x.type === 'income' && x.category === 'salary'), bank) || most(txs, bank)
     || accounts.find(bank)?.id || accounts.find(notCash)?.id || accounts[0]?.id;
   if (kind === 'bill') return main();
-  if (kind === 'income') return most(txs.filter(x => x.type === 'income')) || main();
+  if (kind === 'income') {   // this payer's money landed here before ("Lalamove minggu" → Bank), else where income usually lands
+    const k = shop && shopWord(shop), inc = txs.filter(x => x.type === 'income');
+    return (k && (most(inc.filter(x => x.merchant && shopWord(x.merchant) === k)) || most(inc.filter(x => x.merchant && shopWord(x.merchant).split(' ')[0] === k.split(' ')[0])))) || most(inc) || main();
+  }
   // The receipt says how it was paid: VISA → the card (or the bank without one), MyDebit / NETS → the bank, TNG → the e-wallet, cash → cash.
   if (kind === 'receipt' && pay) {
     const want = pay === 'debit' ? 'bank' : pay;

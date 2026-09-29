@@ -785,3 +785,4 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 .view-review .grid2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }   /* Date and Paid from side by side while they fit; stacked at big text on a tablet */
 .seg { overflow-wrap: normal; hyphens: manual; }   /* "Dibelanjakan" stays one word; the row gives room instead */
 @media (max-width: 340px) { .segs .seg { font-size: min(var(--fs-md), 3.9vw); padding-inline: 6px; } }
+body.calc-on .fab { visibility: hidden; }   /* the calculator bar sits where the tabs were: no camera button peeking over it */

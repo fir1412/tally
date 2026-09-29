@@ -112,7 +112,7 @@ export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {
     onClose?.();
   };
   const f = sheet.querySelector('[autofocus]') || sheet.querySelector('input, select, textarea, button');
-  setTimeout(() => (f || sheet).focus({ preventScroll: true }), 30);
+  setTimeout(() => { if (wrap.isConnected && !wrap.classList.contains('out')) (f || sheet).focus({ preventScroll: true }); }, 30);   // not into a sheet already closing
   return sheet;
 }
 export function closeSheet() { sheetClose?.(); }
