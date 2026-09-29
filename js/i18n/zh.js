@@ -845,4 +845,8 @@ export default {
   "Use 6 digits, 0-9 and A-F, like #1E40AF": "请输入 6 位 0-9 和 A-F，例如 #1E40AF",
   "Week starts on": "每周开始于",
   "Your name": "你的名字",
+  "Try again": "再试一次",
+  "That photo is no longer on this phone.": "这张照片已不在这部手机上。",
+  "Undo did not work: {0}": "撤销失败：{0}",
+  "Phone storage is full: close Tally now and these photos are lost. Free some space.": "手机存储已满：现在关闭 Tally 会丢失这些照片。请清出一些空间。",
 };

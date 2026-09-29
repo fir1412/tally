@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors'];
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
 
 export async function load() {
   const mode = await db.init();
@@ -109,11 +109,8 @@ export async function saveTxs(list) {
 }
 /** Delete, returning an undo function. */
 export async function deleteTx(id) {
-  const old = S.tx.find(t => t.id === id);
-  if (!old) return () => {};
-  await db.del('tx', id);
-  S.tx = S.tx.filter(t => t.id !== id);
-  return async () => { await saveTx(old); };
+  if (!S.tx.some(t => t.id === id)) return () => {};
+  return deleteTxs([id]);   // one path, so a joint entry's delete marker is always written
 }
 export async function deleteTxs(ids) {
   const set = new Set(ids);
@@ -146,8 +143,8 @@ export async function deleteAccount(id) {
   await db.del('accounts', id);
   S.accounts = S.accounts.filter(a => a.id !== id);
 }
-export async function saveBill(b) {
-  b = { ...b, updatedAt: Date.now() };   // a spouse's copy of a joint bill merges by newest edit
+export async function saveBill(b, { edited = true } = {}) {
+  if (edited) b = { ...b, updatedAt: Date.now() };   // a spouse's copy of a joint bill merges by newest edit
   await db.put('recurring', b);
   const i = S.recurring.findIndex(x => x.id === b.id);
   if (i >= 0) S.recurring[i] = b; else S.recurring.push(b);

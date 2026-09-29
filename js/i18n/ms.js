@@ -845,4 +845,8 @@ export default {
   "Use 6 digits, 0-9 and A-F, like #1E40AF": "Guna 6 aksara, 0-9 dan A-F, seperti #1E40AF",
   "Week starts on": "Minggu bermula",
   "Your name": "Nama anda",
+  "Try again": "Cuba lagi",
+  "That photo is no longer on this phone.": "Gambar itu sudah tiada dalam telefon ini.",
+  "Undo did not work: {0}": "Buat asal tidak berjaya: {0}",
+  "Phone storage is full: close Tally now and these photos are lost. Free some space.": "Storan telefon penuh: jika Tally ditutup sekarang, gambar ini akan hilang. Kosongkan sedikit ruang.",
 };

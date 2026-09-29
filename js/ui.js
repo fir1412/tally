@@ -134,7 +134,7 @@ export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
   if (undo) {
     const b = document.createElement('button');
     b.className = 'tundo'; b.type = 'button'; b.textContent = t('Undo');
-    b.addEventListener('click', () => { hideToast(); undo(); });
+    b.addEventListener('click', () => { hideToast(); Promise.resolve().then(undo).catch(e => { console.error(e); toast(t('Undo did not work: {0}', e?.message || e), { k: 'bad' }); }); });
     el.append(' ', b);
   }
   el.classList.add('on');

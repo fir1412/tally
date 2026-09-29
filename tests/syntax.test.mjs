@@ -28,3 +28,10 @@ test('css: braces balance (an unclosed rule silently drops everything after it)'
   for (const ch of css) { if (ch === '\n') line++; if (ch === '{') depth++; if (ch === '}') depth--; assert.ok(depth >= 0, `extra } near line ${line}`); }
   assert.equal(depth, 0, 'a { is never closed');
 });
+
+test('every kv key the app writes is loaded back on start (state.js KV_KEYS)', () => {
+  const src = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  const keys = src('js/state.js').match(/const KV_KEYS = \[([^\]]*)\]/)[1];
+  const files = ['js', 'js/views'].flatMap(d => readdirSync(new URL(`../${d}/`, import.meta.url)).filter(f => f.endsWith('.js')).map(f => `${d}/${f}`));
+  for (const f of files) for (const [, k] of src(f).matchAll(/setKv\('(\w+)'/g)) assert.ok(keys.includes(`'${k}'`), `${f} writes kv '${k}' that is never loaded`);
+});

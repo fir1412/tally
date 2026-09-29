@@ -23,11 +23,14 @@ let current = null;   // {id, file?, status: 'reading'|'ready'|'error', draft, p
 let reading = false;
 
 // The photo being read stays listed until its draft is saved: closing the app mid-read must not lose it.
-const saveQueue = () => setKv('scanQueue', [...(current?.status === 'reading' ? [current.id] : []), ...queue.map(q => q.id)]);
+const saveQueue = () => setKv('scanQueue', [...(['reading', 'error'].includes(current?.status) ? [current.id] : []), ...queue.map(q => q.id)]);
 export async function enqueue(files) {
-  for (const f of files) { const id = uid('r'); queue.push({ id, file: f, status: 'waiting' }); await savePhoto(`q_${id}`, f); }
-  await saveQueue();
-  pump();
+  try {
+    let unsaved = 0;
+    for (const f of files) { const id = uid('r'); queue.push({ id, file: f, status: 'waiting' }); if (!(await savePhoto(`q_${id}`, f))) unsaved++; }
+    if (unsaved) toast(t('Phone storage is full: close Tally now and these photos are lost. Free some space.'), { k: 'bad' });
+    await saveQueue();
+  } finally { pump(); }   // read them now whatever happened to the saved copies
 }
 async function pump() {
   if (reading || current?.status === 'ready' || current?.status === 'reading') return;
@@ -49,7 +52,7 @@ async function pump() {
     current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
   }
   if (current?.status === 'error') await saveQueue();
-  deletePhotos([`q_${next.id}`]);   // read (or unreadable): the draft holds its own copy now
+  else deletePhotos([`q_${next.id}`]);   // read: the draft holds its own copy now; an unreadable one waits for Skip
   reading = false; refresh();
 }
 /** Photos being read or waiting (in memory only): an app update must not reload now. */
@@ -118,7 +121,7 @@ export const reviewView = {
       ${ocrReady() ? '' : `<div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
       ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}<button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
-      <section class="card"><p class="err">${esc(current.error)}</p><div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(waiting ? t('Next receipt') : t('Close'))}</button><button class="btn" data-act="scan">${esc(t('Try another photo'))}</button></div></section>`;
+      <section class="card"><p class="err">${esc(current.error)}</p><button class="btn wide" data-act="rv-retry">${esc(t('Try again'))}</button><div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(waiting ? t('Next receipt') : t('Close'))}</button><button class="btn" data-act="scan">${esc(t('Try another photo'))}</button></div></section>`;
     const d = current.draft, c = d.total != null ? check(d) : null, flagged = d.items.filter(i => i.flag).length;
     const old = !current.existing && d.date < addDays(today(), -60);
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
@@ -243,8 +246,13 @@ export const act = {
   'rv-skip': async () => {
     const d = current?.draft;
     if (d?.receiptId && !current.existing && !S.tx.some(x => x.receiptId === d.receiptId)) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind
+    if (current?.status === 'error') await deletePhotos([`q_${current.id}`]);   // the unreadable photo, now that the user let it go
     await finish();
     if (queue.length) pump(); else go('home');
+  },
+  'rv-retry': async () => {   // the photo was kept: read it again (the reader may have been offline)
+    const file = await getPhoto(`q_${current.id}`); if (!file) return toast(t('That photo is no longer on this phone.'), { k: 'warn' });
+    queue.unshift({ id: current.id, file, status: 'waiting' }); current = null; pump();
   },
   'rv-zoom': b => { const open = b.closest('figure').classList.toggle('zoom'); b.setAttribute('aria-expanded', open); },
   'rv-today': () => { current.draft.date = today(); current.draft.dateFound = true; persist(); render(); },
@@ -268,8 +276,10 @@ export const act = {
     b.disabled = true;
     const learnIt = $('#rv-learn')?.checked;
     const items = d.items.filter(i => i.name || i.cents).map(({ name, raw, cents, category, qty, unit }) => ({ name: name || raw || t('Item'), raw, cents, category, ...(qty ? { qty, unit } : {}) }));
-    const tx = { id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
-      category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
+    // Editing an entry keeps what the review doesn't show: who added it (a spouse's stays theirs), its bill, its source.
+    const was = current.existing ? S.tx.find(x => x.id === d.id) || {} : {};
+    const tx = { ...was, id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
+      category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop
