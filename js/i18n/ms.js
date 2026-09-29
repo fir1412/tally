@@ -1114,4 +1114,7 @@ export default {
   "Moving to a new phone? Back up instead: it keeps photos, budgets and settings too.": "Tukar telefon? Buat sandaran: ia turut menyimpan foto, bajet dan tetapan.",
   "Could not copy. Use Excel (.xlsx) and open it in Google Drive.": "Tidak dapat menyalin. Guna Excel (.xlsx) dan buka dalam Google Drive.",
   "Copied. In the new sheet, tap cell A1 and paste.": "Disalin. Dalam helaian baharu, ketik sel A1 dan tampal.",
+  "Download your receipt photos: one at a time, all the ones a search finds, or a year's tax-relief receipts in a folder per relief": "Muat turun foto resit anda: satu demi satu, semua yang dijumpai carian, atau resit pelepasan cukai setahun dalam folder bagi setiap pelepasan",
+  "Your data is never locked in: export to Excel, Google Sheets, CSV or QIF, and bring QIF files in from other money apps": "Data anda tidak pernah terkunci: eksport ke Excel, Google Sheets, CSV atau QIF, dan bawa masuk fail QIF daripada aplikasi wang lain",
+  "Category colour palettes in Settings, and better reading of kopitiam slips": "Palet warna kategori dalam Tetapan, dan bacaan slip kopitiam yang lebih baik",
 };

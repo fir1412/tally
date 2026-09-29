@@ -6,6 +6,11 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.7.0': [
+    "Download your receipt photos: one at a time, all the ones a search finds, or a year's tax-relief receipts in a folder per relief",
+    "Your data is never locked in: export to Excel, Google Sheets, CSV or QIF, and bring QIF files in from other money apps",
+    "Category colour palettes in Settings, and better reading of kopitiam slips",
+  ],
   '0.6.0': [
     "New Insights: a month-end forecast, your own price changes, spending by day and time, fixed vs flexible, eating out vs cooking, and expenses you may claim for tax relief",
     "Light and dark themes, your own accent and category colours (with a hexagon colour picker and hex codes), and a greeting with your name",

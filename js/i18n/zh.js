@@ -1114,4 +1114,7 @@ export default {
   "Moving to a new phone? Back up instead: it keeps photos, budgets and settings too.": "换新手机？请用备份：照片、预算和设置都会保留。",
   "Could not copy. Use Excel (.xlsx) and open it in Google Drive.": "无法复制。请用 Excel (.xlsx)，再在 Google 云端硬盘打开。",
   "Copied. In the new sheet, tap cell A1 and paste.": "已复制。在新表格中点 A1 单元格再粘贴。",
+  "Download your receipt photos: one at a time, all the ones a search finds, or a year's tax-relief receipts in a folder per relief": "下载收据照片：可逐张下载、下载搜索到的全部，或按减免项目分文件夹下载一整年的税务减免收据",
+  "Your data is never locked in: export to Excel, Google Sheets, CSV or QIF, and bring QIF files in from other money apps": "你的数据不会被锁住：可导出为 Excel、Google 表格、CSV 或 QIF，也可从其他记账应用导入 QIF 文件",
+  "Category colour palettes in Settings, and better reading of kopitiam slips": "设置中新增类别配色方案，咖啡店小票识别更准确",
 };

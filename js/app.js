@@ -13,7 +13,7 @@ import { applyLook, applySavedLook } from './colorpicker.js';
 
 applySavedLook();   // theme and accent before anything is drawn (the database copy is applied on every render)
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
 // Checking a receipt and Settings (with Welcome and imports) load the first time they are needed, not before Home
 // shows. sw.js still caches them for offline use.
 const LAZY = { review: () => import('./views/review.js'), setup: () => import('./views/setup.js') }, mods = {}, loading = {};
