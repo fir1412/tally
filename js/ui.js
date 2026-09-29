@@ -215,7 +215,7 @@ if (typeof document !== 'undefined') {
   const touch = matchMedia('(pointer: coarse)');
   const AMT = 'input[inputmode=decimal]:not([readonly])';
   const bar = Object.assign(document.createElement('div'), { className: 'calcbar', hidden: true });
-  bar.innerHTML = `${['+', '−', '×', '÷', '(', ')'].map(o => `<button type="button" tabindex="-1" data-op="${o}">${o}</button>`).join('')}<output aria-live="polite"></output>`;
+  bar.innerHTML = `${['+', '−', '×', '÷', '(', ')'].map(o => `<button type="button" tabindex="-1" data-op="${o}">${o}</button>`).join('')}<button type="button" tabindex="-1" class="calc-res" data-res aria-live="polite" hidden></button>`;
   document.body.append(bar);
   let field = null;
   const isSum = v => parseAmount(v) == null && calcAmount(v) != null;
@@ -232,7 +232,8 @@ if (typeof document !== 'undefined') {
     return (!!v && innerHeight - v.height * v.scale > 140) || full.h - innerHeight > 140;
   };
   const place = () => { const v = window.visualViewport; bar.style.top = `${(v ? v.offsetTop + v.height : innerHeight) - bar.offsetHeight}px`; };
-  const show = () => { bar.querySelector('output').textContent = field && isSum(field.value) ? `= ${fmtRM(calcAmount(field.value), { plain: true })}` : ''; };
+  // The result is a button: tap it and the sum becomes its answer in the field, ready for the next step ("= 28.00", then "×2").
+  const show = () => { const b = bar.querySelector('[data-res]'), sum = field && isSum(field.value); b.hidden = !sum; b.textContent = sum ? `= ${fmtRM(calcAmount(field.value), { plain: true })}` : ''; b.setAttribute('aria-label', sum ? t('Use the result {0}', b.textContent.slice(2)) : ''); };
   const syncBar = () => {
     const visible = !!field && field.isConnected && touch.matches && keyboardUp();   // no keyboard: the tabs stay free
     bar.hidden = !visible;
@@ -255,6 +256,10 @@ if (typeof document !== 'undefined') {
   document.addEventListener('pointerdown', () => { if (field && !field.isConnected) hide(); }, true);
   bar.addEventListener('pointerdown', e => e.preventDefault());   // keep the field focused and the keyboard up
   bar.addEventListener('click', e => {
+    if (e.target.closest('[data-res]') && field && isSum(field.value)) {
+      field.value = (calcAmount(field.value) / 100).toFixed(2); field.setSelectionRange?.(field.value.length, field.value.length);
+      field.dispatchEvent(new Event('input', { bubbles: true })); return;
+    }
     const op = e.target.closest('[data-op]')?.dataset.op; if (!op || !field) return;
     field.setRangeText(op, field.selectionStart ?? field.value.length, field.selectionEnd ?? field.value.length, 'end');
     field.dispatchEvent(new Event('input', { bubbles: true }));

@@ -1179,4 +1179,5 @@ export default {
   "Refunded": "已退款",
   "Refunded {0} on {1}": "{1} 已退款 {0}",
   "+ Add an account…": "+ 添加账户…",
+  "Use the result {0}": "使用结果 {0}",
 };

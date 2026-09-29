@@ -423,7 +423,7 @@ body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area
 .calcbar[hidden] { display: none; }
 body.calc-on .sheet, body.calc-on main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }   /* Save stays reachable above the bar */
 .calcbar button { min-width: 44px; min-height: 44px; border: 0; border-radius: 10px; background: var(--panel); color: var(--ink); font: 600 var(--fs-lg)/1 var(--mono); cursor: pointer; }
-.calcbar output { margin-left: auto; font-family: var(--mono); font-weight: 600; color: var(--accent); white-space: nowrap; }
+.calcbar .calc-res { margin-left: auto; padding-inline: 12px; font: 600 var(--fs-md)/1 var(--mono); color: var(--btn-ink); background: var(--btn); white-space: nowrap; }
 
 /* First reader download, and the photo tips */
 .dl { display: grid; gap: 6px; width: 100%; }
@@ -782,7 +782,7 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 .tabs > .tab { min-width: 0; } .tabs > .tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .hero .big { font-size: min(var(--fs-2xl), 10.5vw); }   /* the balance stays on one line, inside the screen */
 .demo-r span { min-width: 0; } .demo-r span i:first-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .demo-r span i:last-child { flex: none; }   /* a long name gives way; the price always shows */
-.calcbar output { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.calcbar .calc-res { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 420px) { .calcbar [data-op="("], .calcbar [data-op=")"] { display: none; } }   /* the result has room on a phone; ( ) still type from the keyboard */
 .bulkbar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; position: sticky; top: 0; z-index: 2; background: var(--bg); }
 .items-edit.selecting li { grid-template-columns: 32px 1fr 84px 44px; grid-template-areas: "pick name amt del" ". cat cat cat" ". raw raw raw"; } .ipick { grid-area: pick; width: 24px; height: 24px; align-self: center; }   /* the tick sits beside its own item

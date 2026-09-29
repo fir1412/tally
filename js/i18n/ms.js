@@ -1179,4 +1179,5 @@ export default {
   "Refunded": "Dibayar balik",
   "Refunded {0} on {1}": "Dibayar balik {0} pada {1}",
   "+ Add an account…": "+ Tambah akaun…",
+  "Use the result {0}": "Guna hasil {0}",
 };
