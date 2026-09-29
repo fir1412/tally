@@ -6,6 +6,15 @@ import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.6.0': [
+    "New Insights: a month-end forecast, your own price changes, spending by day and time, fixed vs flexible, eating out vs cooking, and expenses you may claim for tax relief",
+    "Light and dark themes, your own accent and category colours (with a hexagon colour picker and hex codes), and a greeting with your name",
+    "Receipts show the shop's name, not its company name (Luckin Coffee, not Hextar Luckin M Sdn Bhd), and Tally remembers names you correct",
+    "Better receipt reading: totals with cash rounding, more date formats, cleaner item names",
+    "A budget ring on Home, a weekly recap and small good-news finds; saving an entry feels quicker",
+    "The tour no longer darkens the screen: the button each tip talks about pulses instead",
+    "Safer data: imports save all or nothing, a photo that can't be read is kept to try again, and Tally opens faster offline",
+  ],
   '0.5.0': [
     'Bring your history from Money Manager (Realbyte, Excel or .mmbak), Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and AndroMoney: no column matching, and transfers, accounts and categories come across',
     'Learn Tally: short missions that show what Tally can do, each ticked off when you do it (Settings, and on Home while you are new)',

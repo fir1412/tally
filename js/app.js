@@ -15,7 +15,7 @@ import { applyLook, applySavedLook } from './colorpicker.js';
 
 applySavedLook();   // theme and accent before anything is drawn (the database copy is applied on every render)
 
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.6.0';
 const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView, learn: learn.learnView, badges: learn.badgesView };
 const ACT = { ...home.act, ...money.act, ...review.act, ...setup.act, ...learn.act };
 const INPUT = { ...money.input, ...setup.input, ...review.input, ...learn.input };

@@ -965,4 +965,11 @@ export default {
   "{0} over the limit": "超出上限 {0}",
   "{0} under budget": "低于预算 {0}",
   "{0} with receipt photo": "{0} 笔有收据照片",
+  "New Insights: a month-end forecast, your own price changes, spending by day and time, fixed vs flexible, eating out vs cooking, and expenses you may claim for tax relief": "新分析：月底预测、你常买东西的价格变化、按日期和时段的开销、固定与弹性开支、外食与自己煮，以及可能可申报减税的开销",
+  "Light and dark themes, your own accent and category colours (with a hexagon colour picker and hex codes), and a greeting with your name": "浅色和深色主题、自选强调色和类别颜色（六边形取色器和十六进制色码），以及带你名字的问候",
+  "Receipts show the shop's name, not its company name (Luckin Coffee, not Hextar Luckin M Sdn Bhd), and Tally remembers names you correct": "收据显示店名而不是公司名（Luckin Coffee，而不是 Hextar Luckin M Sdn Bhd），并记住你改过的名字",
+  "Better receipt reading: totals with cash rounding, more date formats, cleaner item names": "收据识别更准：含现金凑整的总额、更多日期格式、更干净的商品名",
+  "A budget ring on Home, a weekly recap and small good-news finds; saving an entry feels quicker": "主页的预算圆环、每周回顾和小小的好消息；保存记录更顺手",
+  "The tour no longer darkens the screen: the button each tip talks about pulses instead": "导览不再让屏幕变暗：每条提示说到的按钮会闪动提醒",
+  "Safer data: imports save all or nothing, a photo that can't be read is kept to try again, and Tally opens faster offline": "数据更安全：导入要么全部保存要么都不保存，读不出的照片会保留以便重试，离线打开更快",
 };

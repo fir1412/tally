@@ -965,4 +965,11 @@ export default {
   "{0} over the limit": "{0} melebihi had",
   "{0} under budget": "{0} bawah bajet",
   "{0} with receipt photo": "{0} dengan foto resit",
+  "New Insights: a month-end forecast, your own price changes, spending by day and time, fixed vs flexible, eating out vs cooking, and expenses you may claim for tax relief": "Analisis baharu: ramalan hujung bulan, perubahan harga barang anda, perbelanjaan mengikut hari dan masa, tetap vs fleksibel, makan di luar vs masak, dan perbelanjaan yang mungkin boleh dituntut untuk pelepasan cukai",
+  "Light and dark themes, your own accent and category colours (with a hexagon colour picker and hex codes), and a greeting with your name": "Tema cerah dan gelap, warna aksen dan kategori pilihan anda (dengan pemilih warna heksagon dan kod hex), serta ucapan dengan nama anda",
+  "Receipts show the shop's name, not its company name (Luckin Coffee, not Hextar Luckin M Sdn Bhd), and Tally remembers names you correct": "Resit menunjukkan nama kedai, bukan nama syarikat (Luckin Coffee, bukan Hextar Luckin M Sdn Bhd), dan Tally ingat nama yang anda betulkan",
+  "Better receipt reading: totals with cash rounding, more date formats, cleaner item names": "Bacaan resit lebih baik: jumlah dengan pembundaran tunai, lebih banyak format tarikh, nama item lebih kemas",
+  "A budget ring on Home, a weekly recap and small good-news finds; saving an entry feels quicker": "Cincin bajet di Utama, rumusan mingguan dan berita baik kecil; menyimpan rekod terasa lebih pantas",
+  "The tour no longer darkens the screen: the button each tip talks about pulses instead": "Lawatan tidak lagi menggelapkan skrin: butang yang diterangkan setiap tip akan berdenyut",
+  "Safer data: imports save all or nothing, a photo that can't be read is kept to try again, and Tally opens faster offline": "Data lebih selamat: import disimpan semua atau tiada, gambar yang tidak dapat dibaca disimpan untuk dicuba lagi, dan Tally dibuka lebih pantas tanpa internet",
 };
