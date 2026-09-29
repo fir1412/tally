@@ -3,6 +3,7 @@
 // balance. The change in balance says whether money came in or went out, which works for any column layout;
 // explicit markers (trailing "-", DR/CR, +/−) and words ("SALARY", "REFUND") cover lines without a balance.
 import { validIso, categorize } from './engine.js';
+import { cleanDesc } from './io.js';
 
 // Banks and e-wallets, matched on the statement text. Order matters: specific names before generic ones.
 export const PROVIDERS = [
@@ -125,7 +126,7 @@ export function parseStatement(lines) {
 /** Statement rows → Tally transactions for one account. */
 export function statementToTx(rows, { accountId, source = 'statement', now = Date.now() }) {
   return rows.map((r, i) => {
-    const merchant = r.desc.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ').trim().slice(0, 80);
+    const merchant = cleanDesc(r.desc.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ')).slice(0, 80);
     const type = r.amount > 0 ? 'income' : 'expense';
     return { id: `s${now.toString(36)}_${i}`, date: r.date, type, amount: Math.abs(r.amount), accountId, merchant,
       category: type === 'income' ? (/salary|gaji|payroll/i.test(r.desc) ? 'salary' : 'income') : categorize(merchant, merchant), note: '', source, createdAt: now };

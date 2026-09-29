@@ -88,13 +88,14 @@ const SHOPS = [
 /** Category for an item: the user's own rule first, then item words, then the shop's usual category. */
 export function categorize(name, merchant = '', rules = {}) {
   const k = itemKey(name);
-  if (k && rules[k]) return rules[k];
-  for (const [c, re] of WORDS) if (re.test(' ' + String(name ?? '') + ' ')) return c;
-  return shopCategory(merchant, rules);
+  if (k && Object.hasOwn(rules, k)) return rules[k];
+  const shop = shopCategory(merchant, rules);
+  for (const [c, re] of WORDS) if (re.test(' ' + String(name ?? '') + ' ')) return c === 'groceries' && shop === 'dining' ? 'dining' : c; // teh at a kopitiam is a meal
+  return shop;
 }
 export function shopCategory(merchant = '', rules = {}) {
   const mk = 'SHOP ' + itemKey(merchant);
-  if (rules[mk]) return rules[mk];
+  if (Object.hasOwn(rules, mk)) return rules[mk];
   for (const [c, re] of SHOPS) if (re.test(String(merchant ?? ''))) return c;
   return 'other';
 }
@@ -171,10 +172,10 @@ export function pace(budget, spent, today) {
 
 // ---- duplicates --------------------------------------------------------------------------------
 const shopWord = s => itemKey(s).split(' ').filter(w => w.length > 2 || /\p{Script=Han}/u.test(w)).slice(0, 2).join(' ');
-/** An existing transaction that is probably the same purchase (same amount, within 3 days, similar shop). */
+/** An existing transaction that is probably the same purchase: same day, same amount, same shop (or no shop). */
 export function findDuplicate(tx, txs) {
-  return txs.find(t => t.id !== tx.id && t.type === tx.type && t.amount === tx.amount && Math.abs(daysBetween(t.date, tx.date)) <= 3
-    && (!t.merchant || !tx.merchant || shopWord(t.merchant) === shopWord(tx.merchant) || t.date === tx.date)) || null;
+  return txs.find(t => t.id !== tx.id && t.type === tx.type && t.amount === tx.amount && t.date === tx.date
+    && (!t.merchant || !tx.merchant || shopWord(t.merchant) === shopWord(tx.merchant))) || null;
 }
 
 // ---- insights ---------------------------------------------------------------------------------
@@ -265,6 +266,10 @@ export function recurringCandidates(txs, known = []) {
     const amts = list.map(t => t.amount).sort((a, b) => a - b), mid = amts[Math.floor(amts.length / 2)];
     const close = list.filter(t => Math.abs(t.amount - mid) <= mid * 0.05);
     if (new Set(close.map(t => monthOf(t.date))).size < 3) continue;
+    // A bill comes on about the same day each month, costs RM 20 or more, and isn't a meal or groceries.
+    const days = close.map(t => +t.date.slice(8, 10)).sort((a, b) => a - b), mday = days[Math.floor(days.length / 2)];
+    if (mid < 2000 || close.filter(t => Math.abs(+t.date.slice(8, 10) - mday) <= 3).length < 3) continue;
+    if (close.every(t => ['dining', 'groceries'].includes(t.category) || (t.items || []).length)) continue;
     const lastTx = list.reduce((a, b) => (a.date > b.date ? a : b));
     out.push({ key: k, merchant: lastTx.merchant, amount: mid, category: lastTx.category || 'bills', day: +lastTx.date.slice(8, 10) });
   }
@@ -282,6 +287,10 @@ export const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${
  * weekend), within the same 90-minute window. → [{category, days, at: 'HH:MM' (median), count, amount (median)}]
  */
 export function habits(txs, today) {
+  // The latest 4 weeks that have timed spending: a break in logging doesn't wipe what Tally learned.
+  const last = txs.reduce((m, t) => (t.type === 'expense' && mins(t.time) != null && t.date <= today && t.date > m ? t.date : m), '');
+  if (!last) return [];
+  today = last;
   const from = addDays(today, -28);
   const groups = {};
   for (const t of txs) {

@@ -109,6 +109,9 @@ export function parseReceipt(text) {
     pendingName = null;
   }
   if (r.total === null) guessTotal(r, lines);
+  // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
+  if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
+  if (Math.abs(r.rounding ?? 0) > 5) r.rounding = null;
   r.check = checksum(r);
   return r;
 }

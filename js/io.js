@@ -187,6 +187,8 @@ export function fileDate(v) {
 
 // ---- rows → transactions ---------------------------------------------------------------------------
 const ALL_CATS = [...CATEGORIES, ...INCOME_CATEGORIES];
+/** Bank and wallet descriptions without their channel prefix: "CARD PURCHASE TESCO" → "TESCO". */
+export const cleanDesc = s => cleanText(s, 120).replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '').trim() || cleanText(s, 120);
 const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪/i;
 const TRANSFER_WORD = /transfer|pindahan|转账|轉帳|top ?up|reload/i;
 /** Another app's category name → ours: exact id/name, then words. catMap (from the mapping step) wins. */
@@ -244,9 +246,11 @@ export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import',
     const tword = cleanText(get('type'), 40);
     if (tword) type = TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
     type ||= 'expense'; // ponytail: transfers from other apps come in as expenses to review; their other side is unknown
-    const merchant = cleanText(map.merchant != null ? get('merchant') : get('note'), 80);
+    const merchant = cleanDesc(map.merchant != null ? get('merchant') : get('note')).slice(0, 80);
     const rawCat = get('category');
     let category = rawCat ? mapCategory(rawCat, catMap, merchant) : categorize(merchant, merchant);
+    // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
+    if (!tword && !signed && map.debit == null && map.credit == null && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = /salary|gaji|工资|薪/i.test(rawCat + ' ' + merchant) ? 'salary' : 'income';
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
     txs.push({ id: '', date, type, amount: amt, accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });

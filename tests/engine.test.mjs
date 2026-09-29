@@ -77,9 +77,10 @@ test('categorize: English, Malay, Chinese, shop fallback, and user rules win', (
   assert.equal(E.shopCategory('PETRONAS SS2'), 'transport');
 });
 
-test('findDuplicate: same amount within 3 days at a similar shop', () => {
+test('findDuplicate: same day, same amount, similar shop (a lunch repeated tomorrow is not a duplicate)', () => {
   const a = { id: 'a', type: 'expense', amount: 2555, date: '2026-09-01', merchant: 'RESTORAN MAJU JAYA' };
-  assert.equal(E.findDuplicate({ id: 'b', type: 'expense', amount: 2555, date: '2026-09-03', merchant: 'Restoran Maju Jaya SDN BHD' }, [a])?.id, 'a');
+  assert.equal(E.findDuplicate({ id: 'b', type: 'expense', amount: 2555, date: '2026-09-01', merchant: 'Restoran Maju Jaya SDN BHD' }, [a])?.id, 'a');
+  assert.equal(E.findDuplicate({ id: 'e', type: 'expense', amount: 2555, date: '2026-09-02', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
   assert.equal(E.findDuplicate({ id: 'c', type: 'expense', amount: 2555, date: '2026-09-09', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
   assert.equal(E.findDuplicate({ id: 'd', type: 'expense', amount: 2556, date: '2026-09-01', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
 });
