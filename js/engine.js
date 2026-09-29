@@ -124,12 +124,14 @@ const pad2 = n => String(n).padStart(2, '0');
  * 'YYYY-MM' the cycle starts in, so addMonths still steps through cycles. startDay 1 is the calendar month.
  */
 export function cycleOf(iso, startDay = 1) {
-  const sd = Math.min(28, Math.max(1, Math.trunc(startDay) || 1)), key = cycleKey(iso, sd);
-  return { key, start: `${key}-${pad2(sd)}`, end: addDays(`${addMonths(key, 1)}-${pad2(sd)}`, -1) };
+  const key = cycleKey(iso, startDay), next = addMonths(key, 1);
+  return { key, start: `${key}-${pad2(startOf(key, startDay))}`, end: addDays(`${next}-${pad2(startOf(next, startDay))}`, -1) };
 }
-export const cycleKey = (iso, sd = 1) => (+iso.slice(8, 10) >= sd ? iso.slice(0, 7) : addMonths(iso.slice(0, 7), -1));
-/** The cycle a key names: cycleSpan('2026-09', 25) → 25 Sep to 24 Oct. */
-export const cycleSpan = (key, sd = 1) => cycleOf(`${key}-${pad2(Math.min(28, Math.max(1, sd)))}`, sd);
+/** The day a payday month starts in `ym`: 1–28, or counted from the month's end (-1 the last day, -2 the second-last). */
+export const startOf = (ym, sd = 1) => (sd < 0 ? daysInMonth(ym) + Math.max(-3, Math.trunc(sd)) + 1 : Math.min(28, Math.max(1, Math.trunc(sd) || 1)));
+export const cycleKey = (iso, sd = 1) => (+iso.slice(8, 10) >= startOf(iso.slice(0, 7), sd) ? iso.slice(0, 7) : addMonths(iso.slice(0, 7), -1));
+/** The cycle a key names: cycleSpan('2026-09', 25) → 25 Sep to 24 Oct; cycleSpan('2026-09', -2) → 29 Sep to 29 Oct. */
+export const cycleSpan = (key, sd = 1) => cycleOf(`${key}-${pad2(startOf(key, sd))}`, sd);
 export const validIso = s => /^(19[89]\d|20\d\d)-\d{2}-\d{2}$/.test(String(s)) &&   // 1990–2099: a year typed as "26" (0026) is a slip
   !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
 
@@ -739,7 +741,10 @@ export function affordCheck({ price, balance, txs, today, startDay = 1, bills = 
   const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30);
   const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d > today && !billPaid(r, d, txs)).length * r.amount, 0);
   const sal = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).reduce((m, x) => (!m || x.date > m.date ? x : m), null);
-  const nm = sal && addMonths(sal.date.slice(0, 7), 1), next = sal && `${nm}-${pad2(Math.min(+sal.date.slice(8, 10), new Date(Date.UTC(+nm.slice(0, 4), +nm.slice(5, 7), 0)).getUTCDate()))}`,   // 31 Aug → 30 Sep
+  const sals = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date).sort().slice(-2);
+  const fromEnd = d => daysInMonth(d.slice(0, 7)) - +d.slice(8, 10), [p1, p2] = sals, nm = sal && addMonths(sal.date.slice(0, 7), 1);
+  const back = startDay < 0 ? -startDay - 1 : p1 && p2 && p1.slice(8) !== p2.slice(8) && fromEnd(p1) === fromEnd(p2) ? fromEnd(p2) : null;   // 29 Sep, 30 Oct: second-last day
+  const next = sal && `${nm}-${pad2(back != null ? daysInMonth(nm) - back : Math.min(+sal.date.slice(8, 10), daysInMonth(nm)))}`,   // 31 Aug → 30 Sep
     pay = next && next > today && next <= end ? sal.amount : 0;
   const left = balance + pay - upcoming - usual - price, over = budget ? Math.max(0, f.projected + price - budget) : 0;
   const ym = cycleKey(today, startDay), flow = cashFlow(txs, addMonths(ym, -1), 3, startDay).filter(m => m.income || m.expense);

@@ -162,7 +162,7 @@ export const settingsView = {
       ${featuresCard()}
       ${lookCard()}
       <section class="card"><h2>${esc(t('Budget month'))}</h2>
-        <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${startDay() === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>
+        <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${[...Array.from({ length: 28 }, (_, i) => [i + 1, String(i + 1)]), [-2, t('Second-last day')], [-1, t('Last day')]].map(([v, l]) => `<option value="${v}"${startDay() === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         <p class="fine">${esc(t('Paid on the 25th? Start your month on payday. Home, Budgets and Insights follow it.'))} ${esc(t('This month: {0}', fmtMonth(thisMonth(), startDay())))}</p></section>
       <section class="card" id="s-accounts"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
@@ -219,7 +219,7 @@ module: async el => { await setModules({ [el.dataset.k]: el.checked }); render()
     const say = (id, rm, cur) => { const s = $(id)?.closest('label').querySelector('span'); if (s) s.textContent = fx ? t(cur, el.value) : t(rm); };
     say('#ac-open', 'Balance when you started (RM)', 'Balance when you started ({0})'); say('#ac-now', 'Balance today (RM)', 'Balance today ({0})');
   },
-  'month-start': async el => { await setSetting('monthStart', Math.min(28, Math.max(1, +el.value || 1))); render(); },
+  'month-start': async el => { const v = +el.value; await setSetting('monthStart', v === -1 || v === -2 ? v : Math.min(28, Math.max(1, v || 1))); render(); },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
   'imp-accname': el => { IMP.accName = el.value; },

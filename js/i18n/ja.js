@@ -1312,4 +1312,6 @@ export default {
   "{0} left over the next 30 days, after this, your bills and your usual spending.": "この買い物、請求、いつもの支出を引いても、今後 30 日で {0} 残ります。",
   "Type a price: Tally checks it against your money, bills and usual spending.": "価格を入れると、Tally がお金・請求・いつもの支出と照らし合わせます。",
   "Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days": "買っても大丈夫？価格を入れると、今後 30 日のお金・請求・いつもの支出と照らし合わせます",
+  "Last day": "最終日",
+  "Second-last day": "最終日の前日",
 };

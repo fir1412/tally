@@ -1313,4 +1313,6 @@ export default {
   "{0} left over the next 30 days, after this, your bills and your usual spending.": "扣除这次购买、账单和平时开销后，未来 30 天还剩 {0}。",
   "Type a price: Tally checks it against your money, bills and usual spending.": "输入价格：Tally 会对照你的钱、账单和平时开销帮你看看。",
   "Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days": "我买得起吗？输入价格，Tally 会对照你未来 30 天的钱、账单和平时开销帮你看看",
+  "Last day": "最后一天",
+  "Second-last day": "倒数第二天",
 };

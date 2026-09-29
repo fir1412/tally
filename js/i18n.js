@@ -46,10 +46,10 @@ export function fmtDate(iso, { year = false } = {}) {
 }
 /** "Sep 2026"; with a month start day other than 1, the cycle the key names: "25 Sep – 24 Oct". */
 export function fmtMonth(ym, sd = 1) {
-  if (sd > 1) { const c = cycleSpan(ym, sd); return `${fmtDate(c.start)} – ${fmtDate(c.end)}`; }
+  if (sd !== 1) { const c = cycleSpan(ym, sd); return `${fmtDate(c.start)} – ${fmtDate(c.end)}`; }
   const [y, m] = ym.split('-').map(Number);
   return CJK() ? `${y}年${m}月` : `${(MON[lang] || MON.en)[m - 1]} ${y}`;
 }
 export const monShort = m => (CJK() ? `${m}月` : (MON[lang] || MON.en)[m - 1]);
 /** Column label for a month or cycle: "Sep", or "25 Sep" when months start on the 25th. */
-export const cycleShort = (ym, sd = 1) => (sd > 1 ? fmtDate(cycleSpan(ym, sd).start) : monShort(+ym.slice(5)));
+export const cycleShort = (ym, sd = 1) => (sd !== 1 ? fmtDate(cycleSpan(ym, sd).start) : monShort(+ym.slice(5)));

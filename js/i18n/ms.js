@@ -1313,4 +1313,6 @@ export default {
   "{0} left over the next 30 days, after this, your bills and your usual spending.": "{0} berbaki untuk 30 hari akan datang, selepas pembelian ini, bil dan perbelanjaan biasa anda.",
   "Type a price: Tally checks it against your money, bills and usual spending.": "Taip harga: Tally semak dengan wang, bil dan perbelanjaan biasa anda.",
   "Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days": "Mampukah saya? Taip harga dan Tally semak dengan wang, bil dan perbelanjaan biasa anda untuk 30 hari akan datang",
+  "Last day": "Hari terakhir",
+  "Second-last day": "Hari kedua terakhir",
 };
