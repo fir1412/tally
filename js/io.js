@@ -587,6 +587,7 @@ export function readBackup(text) {
     if (isObj(d.kv.shopNames)) kv.shopNames = Object.fromEntries(Object.entries(d.kv.shopNames).slice(0, 500).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
+    if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
   }
   return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30),
     gone: Object.fromEntries(list(d.gone, 1000).filter(g => Array.isArray(g) && okId(g[0]) && Number.isSafeInteger(g[1]) && g[1] > 0).map(([id, at]) => [id, Math.min(at, Date.now())])) } : {}) };
@@ -603,6 +604,7 @@ export function mergeBackup(local, incoming) {
     kv: {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
+      catColors: { ...(incoming.kv.catColors || {}), ...(local.kv.catColors || {}) },
       budgets: budgets && jb ? { ...budgets, joint: jb } : budgets,
       dismissed: [...new Set([...(local.kv.dismissed || []), ...(incoming.kv.dismissed || [])])].slice(-300),
     },

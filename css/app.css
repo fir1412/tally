@@ -22,11 +22,20 @@
   --display: "Bricolage Grotesque", var(--font);
   color-scheme: dark;
 }
+/* Light theme: chosen in Settings (html[data-theme="light"]), or the phone's own unless Dark is chosen. Every
+   light-only rule comes in this pair; js/colorpicker.js writes a chosen accent the same way. */
+:root[data-theme="light"] { --bg: #F3F5F9; --panel: #FFFFFF; --panel2: #EAEEF5; --ink: #0F172A; --mute: #55607A; --line: #D5DBE6;
+  --accent: #1E40AF; --accent-ink: #fff; --good: #047857; --warn: #9A5800; --bad: #B91C1C; --info: #1E40AF;
+  --btn: #1E40AF; --btn-ink: #fff; --danger-ink: #fff; --toast-accent: #93C5FD; --chart-good: #10B981; --chart-bad: #EF4444; color-scheme: light; }
 @media (prefers-color-scheme: light) {
-  :root { --bg: #F3F5F9; --panel: #FFFFFF; --panel2: #EAEEF5; --ink: #0F172A; --mute: #55607A; --line: #D5DBE6;
+  :root:not([data-theme="dark"]) { --bg: #F3F5F9; --panel: #FFFFFF; --panel2: #EAEEF5; --ink: #0F172A; --mute: #55607A; --line: #D5DBE6;
     --accent: #1E40AF; --accent-ink: #fff; --good: #047857; --warn: #9A5800; --bad: #B91C1C; --info: #1E40AF;
     --btn: #1E40AF; --btn-ink: #fff; --danger-ink: #fff; --toast-accent: #93C5FD; --chart-good: #10B981; --chart-bad: #EF4444; color-scheme: light; }
 }
+/* Compact: tighter spacing, same 44px targets. */
+:root[data-compact] { --sp-3: 8px; --sp-4: 12px; --sp-5: 18px; }
+:where(:root[data-compact]) .txrow { min-height: 48px; padding-block: 6px; }
+:where(:root[data-compact]) .card { padding: var(--sp-3) var(--sp-4); }
 @media (prefers-reduced-motion: reduce) { :root { --sheet-from: 0; --lift: 0; } }
 
 * { box-sizing: border-box; }
@@ -151,7 +160,6 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .tab.on { color: var(--accent); }
 .fab { width: 60px; height: 60px; margin-top: -26px; border-radius: 50%; border: 0; background: var(--btn); color: var(--btn-ink); display: grid; place-items: center; cursor: pointer;
   box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 16px -4px rgba(0,0,0,.35); }
-@media (prefers-color-scheme: light) { .fab { box-shadow: 0 1px 2px rgba(15,23,42,.12), 0 6px 16px -4px rgba(15,23,42,.25); } }
 .fab:active { transform: scale(.92); }
 .fab svg { width: 26px; height: 26px; }
 
@@ -303,7 +311,6 @@ body.tour-fab .fab { outline: 3px solid var(--warn); outline-offset: 4px; }
 .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: var(--sp-1) auto; }
 .sh-title { margin: 0; font-size: var(--fs-lg); } .sh-body { margin: 0; color: var(--mute); }
 #toast { position: fixed; left: 50%; transform: translate(-50%, 20px); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: min(560px, calc(100vw - 32px)); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; opacity: 0; pointer-events: none; z-index: 30; display: flex; gap: 10px; align-items: center; overflow: hidden;
-#toast { position: fixed; left: 50%; transform: translate(-50%, 20px); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; opacity: 0; pointer-events: none; z-index: 30; display: flex; gap: 10px; align-items: center; overflow: hidden;
   transition: transform 180ms var(--ease-in), opacity 180ms var(--ease-in); }
 #toast.on { opacity: 1; transform: translate(-50%, 0); transition: transform 280ms var(--ease-out), opacity 200ms var(--ease-out); }
 #toast svg { width: 18px; height: 18px; flex: none; color: var(--good); }
@@ -375,7 +382,15 @@ body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area
 @media (min-width: 768px) { .tabs .brand { display: block; } .tab.desk { display: flex; } }
 @media (max-width: 380px) { .grid2 { grid-template-columns: 1fr; } .hero .big { font-size: 2.1rem; } }
 /* Light-mode surfaces defined above their base rules would lose; kept last on purpose. */
-@media (prefers-color-scheme: light) { .scrim { background: rgba(15,23,42,.45); } .demo-r { box-shadow: 0 1px 0 #E2E5EC, 0 8px 20px rgba(15,23,42,.10); } }
+/* :where() keeps these at the base rule's weight, so .scrim.cam stays black. */
+:where(:root[data-theme="light"]) .scrim { background: rgba(15,23,42,.45); }
+:where(:root[data-theme="light"]) .demo-r { box-shadow: 0 1px 0 #E2E5EC, 0 8px 20px rgba(15,23,42,.10); }
+:where(:root[data-theme="light"]) .fab { box-shadow: 0 1px 2px rgba(15,23,42,.12), 0 6px 16px -4px rgba(15,23,42,.25); }
+@media (prefers-color-scheme: light) {
+  :where(:root:not([data-theme="dark"])) .scrim { background: rgba(15,23,42,.45); }
+  :where(:root:not([data-theme="dark"])) .demo-r { box-shadow: 0 1px 0 #E2E5EC, 0 8px 20px rgba(15,23,42,.10); }
+  :where(:root:not([data-theme="dark"])) .fab { box-shadow: 0 1px 2px rgba(15,23,42,.12), 0 6px 16px -4px rgba(15,23,42,.25); }
+}
 /* Review on tablet/desktop: the receipt stays beside the form it is checked against. */
 @media (min-width: 768px) {
   .view-review { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); column-gap: var(--sp-5); row-gap: var(--sp-4); align-content: start; }
@@ -428,6 +443,8 @@ input.switch::before { content: ''; position: absolute; top: 3px; left: 3px; wid
 input.switch:checked { background: var(--btn); box-shadow: none; }
 input.switch:checked::before { transform: translateX(20px); background: #fff; }
 .learn-spot { outline: 3px solid var(--warn); outline-offset: 3px; border-radius: 12px; animation: spot 1.1s ease-in-out 3; }
+input.switch:checked::before { transform: translateX(20px); background: var(--btn-ink); }
+.learn-spot { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; animation: spot 1.1s ease-in-out 3; }
 .fab.learn-spot { border-radius: 50%; }
 @keyframes spot { 50% { outline-offset: 7px; outline-color: color-mix(in srgb, var(--warn) 40%, transparent); } }
 .spot-tip { position: fixed; z-index: 31; padding: 6px 12px; border-radius: 10px; background: var(--warn); color: var(--bg); font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.3); animation: tip-in .3s var(--ease-out) both; }
@@ -530,3 +547,32 @@ input.switch:checked::before { transform: translateX(20px); background: #fff; }
 @media (prefers-reduced-motion: reduce) { .tips svg * { animation: none !important; } }
 
 .legal { display: flex; flex-wrap: wrap; gap: 0 var(--sp-4); }
+
+/* Appearance & personal (Settings) and the colour picker (js/colorpicker.js) */
+.segs.icons .seg { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.segs.icons .seg svg { width: 18px; height: 18px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.sw { width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--c); display: grid; place-items: center; color: var(--on, #fff); box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
+.sw svg { width: 20px; height: 20px; stroke-width: 3; }
+.sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
+.sw.more { background: conic-gradient(#E11D48, #F59E0B, #65A30D, #0D9488, #0284C7, #7C3AED, #DB2777, #E11D48); }
+.sw.more svg { color: #fff; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); }
+.lookrow { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lookrow > span { font-size: var(--fs-sm); color: var(--mute); display: flex; align-items: center; gap: var(--sp-2); }
+.lookrow > span svg { width: 16px; height: 16px; }
+.chips .chip.dotbtn { padding-left: var(--sp-1); }
+.dotbtn .dot { width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
+.cp-top { display: flex; gap: var(--sp-3); align-items: flex-end; }
+.cp-prev { display: flex; width: 112px; height: 56px; flex: none; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+.cp-prev i { flex: 1; display: grid; place-items: center; font: 700 var(--fs-lg)/1 var(--display); font-style: normal; }
+.cp-hex { flex: 1; } .cp-hex input { font-family: var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+.cp-msg { display: flex; gap: 6px; align-items: center; min-height: 1.5em; } .cp-msg svg { width: 16px; height: 16px; }
+.cp-wrap { overflow-x: auto; margin-inline: calc(-1 * var(--gutter) + 4px); padding: 2px; }
+.hc { display: block; width: 100%; min-width: 320px; max-width: 420px; height: auto; margin: 0 auto; touch-action: manipulation; }
+.hx { cursor: pointer; outline: none; stroke: rgba(128,128,128,.35); stroke-width: .4; }
+.hx-sel { fill: none; stroke: var(--ink); stroke-width: 2.2; pointer-events: none; paint-order: stroke; filter: drop-shadow(0 0 1.2px var(--bg)); }
+.hx-foc { fill: none; stroke: none; pointer-events: none; }
+.hc:focus-within .hx-foc { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 2.5; filter: drop-shadow(0 0 1.2px var(--bg)); }
+.cp-reset { align-self: flex-start; }
+.top .hi { font: 700 var(--fs-lg)/1.25 var(--display); letter-spacing: -.01em; white-space: normal; }
+#look .segs .seg { white-space: normal; line-height: 1.2; padding-inline: 4px; }   /* "Bahasa Melayu" at 130% on a phone */

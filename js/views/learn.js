@@ -40,9 +40,10 @@ const data = () => ({ tx: S.tx, recurring: S.recurring, accounts: S.accounts, se
 export const gameOn = () => settings().gamify === true;
 const game = () => {
   const s = settings(), p = progress(data());
-  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null };
+  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null, weekStart: weekStart() };
 };
-const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today());
+const weekStart = () => (settings().weekStart === 0 ? 0 : 1);   // 1 Monday, 0 Sunday (Settings)
+const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today(), weekStart());
 const meter = p => `<div class="meter" role="progressbar" aria-label="${esc(t('Missions done'))}" aria-valuemin="0" aria-valuemax="${p.total}" aria-valuenow="${p.n}"><i style="width:${Math.round(p.n / p.total * 100)}%"></i></div>`;
 const chip = (m, done) => `<span class="lic${done ? ' done' : ''}">${done ? `${ICON.check}<span class="sr">${esc(t('Done'))}</span>` : ICON[m.icon]}</span>`;
 

@@ -21,3 +21,10 @@ test('every app file is cached for offline use by the service worker', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   for (const f of walk('js')) assert.ok(sw.includes(`'./${f.replace(/\\/g, '/')}'`), `${f} missing from sw.js CORE`);
 });
+
+test('css: braces balance (an unclosed rule silently drops everything after it)', () => {
+  const css = readFileSync(new URL('../css/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0, line = 1;
+  for (const ch of css) { if (ch === '\n') line++; if (ch === '{') depth++; if (ch === '}') depth--; assert.ok(depth >= 0, `extra } near line ${line}`); }
+  assert.equal(depth, 0, 'a { is never closed');
+});
