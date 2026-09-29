@@ -175,7 +175,7 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .amt { white-space: nowrap; }
 .amt.income { color: var(--good); } .amt.transfer { color: var(--mute); }
 .day { font-size: var(--fs-xs); color: var(--mute); text-transform: uppercase; letter-spacing: .06em; margin: var(--sp-3) 0 0; }
-.filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-2); }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: var(--sp-2); }   /* 2 or 3 a row: no clipped "Accoun" at 360px */
 .filters .search { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-2); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 var(--sp-3); }
 .filters .search input { flex: 1; border: 0; background: none; min-height: 44px; outline: none; padding: 0; }
 .filters .search:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -803,6 +803,8 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .items-edit .rawbtn { background: none; border: 0; box-shadow: none; justify-self: start; width: auto; padding: 0 4px; min-height: 44px; min-width: 44px; }
 /* Type-first Home: typing and scanning side by side, right under the balance. */
 .addrow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.card.sample { flex-direction: row; gap: var(--sp-2); align-items: center; justify-content: space-between; flex-wrap: wrap; border: 2px dashed var(--accent); }   /* made-up data: impossible to mistake for your own */
+.card.sample p { margin: 0; flex: 1 1 14em; }
 .addrow.one { grid-template-columns: 1fr; }
 .addrow .btn { min-width: 0; white-space: normal; text-align: center; }
 .sublede { margin: 0; font-weight: 600; }

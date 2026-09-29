@@ -16,6 +16,7 @@ import { demoCard } from './home.js';
 import { badge } from './money.js';
 import { MODULES, PRESETS, on, setModules, presetNow } from '../features.js';
 import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
+import { sampleData } from '../sample.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
@@ -88,18 +89,19 @@ export const welcomeView = {
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
       <p class="sublede">${esc(t('No receipt? Just type the amount.'))}</p>
+      ${demoCard()}
       <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Kept on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
+      <button class="btn ghost wide" data-act="sample-go">${esc(t('Not sure yet? Look around with sample data'))}</button>
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
       <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
       <p class="fine maker">${esc(t("Made in Malaysia by one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell."))}</p>
       <p class="fine">${esc(t('By using Tally you agree to the Terms of use and have read the Privacy policy.'))}</p>
       <p class="legal">${legalLinks()}</p>
-      ${demoCard()}
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
-        <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your entries stay on this phone. They leave it only when you export, back up or share them, or add a reminder to Google Calendar.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></li>
+        <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your entries stay on this phone. They leave it only when you export, back up or share them, or add a reminder to Google Calendar.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button> · <button class="link" data-act="net-check">${esc(t('Check it yourself'))}</button></span></li>
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
         <li>${ICON.download}<span>${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</span></li>
       </ul>
@@ -133,7 +135,7 @@ function accountSheet(a = {}) {
 function accSub(a, by) {
   const kind = t(KIND[a.kind] || 'Bank account');
   const n = a.name.trim().toLowerCase(), k = kind.toLowerCase();
-  return [a.scope === 'joint' && t('Joint'), a.scope === 'business' && t('Business'), !(k.startsWith(n) || n.startsWith(k)) && kind, fmtAcct(a, by[a.id] || 0)].filter(Boolean).join(' · ');
+  return [a.scope === 'joint' && t('Joint'), a.scope === 'business' && t('Business'), !(k.startsWith(n) || n.startsWith(k)) && kind, (a.typed === false ? t('Not set') : fmtAcct(a, by[a.id] || 0))].filter(Boolean).join(' · ');
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
@@ -191,6 +193,7 @@ export const settingsView = {
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(lockOn() ? (settings().lock.cred ? t('On: PIN, fingerprint or face') : t('On: PIN')) : t('Off'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
+        <button class="btn ghost wide" data-act="net-check">${ICON.check}${esc(t('Check what Tally contacted'))}</button>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
         <p class="legal">${legalLinks()}</p></section>
       ${learnCard()}
@@ -679,7 +682,7 @@ export const act = {
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
       <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
-      <label class="field"${on('joint') ? '' : ' hidden'}><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <label class="field" hidden><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
@@ -691,7 +694,7 @@ export const act = {
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k !== 'joint' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k === 'cash' || k === 'bank' || v || (k === 'ewallet' && $('#sf-ewname').value.trim())) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -996,6 +999,32 @@ export const act = {
     try { await navigator.clipboard.writeText(toTSV(S.tx, S.accounts, catName)); } catch { return toast(t('Could not copy. Use Excel (.xlsx) and open it in Google Drive.'), { k: 'warn' }); }
     window.open('https://sheets.new', '_blank', 'noopener');
     toast(t('Copied. In the new sheet, tap cell A1 and paste.'), { k: 'good', icon: 'check' });
+  },
+  // Sample data: a made-up month to look around in; "Start for real" removes it (and anything added to its accounts).
+  'sample-go': async () => {
+    await addAll({ ...sampleData(today(), Date.now(), t('Cash')), recurring: [], kv: {} });
+    await setSetting('sample', true); await setSetting('onboarded', true);
+    go('home'); toast(t('This is made-up data. Try anything: nothing here is yours.'));
+  },
+  'sample-end': async () => {
+    const ids = new Set(S.accounts.filter(a => a.sample).map(a => a.id));
+    const gone = S.tx.filter(x => x.sample || ids.has(x.accountId) || ids.has(x.toAccountId));
+    if (gone.some(x => !x.sample) && !(await confirmSheet({ title: t('Remove the sample data?'), body: t('Entries you added to the sample accounts go too.'), ok: t('Remove') }))) return;
+    await deleteTxs(gone.map(x => x.id));
+    for (const id of ids) await deleteAccount(id).catch(() => {});
+    await setSetting('sample', false);
+    if (!S.accounts.length) await setSetting('onboarded', false);
+    go(S.accounts.length ? 'home' : 'welcome'); toast(t('Sample data removed. Your turn.'));
+  },
+  // What this page has contacted since it opened, from the browser's own record, so nobody has to take our word for it.
+  'net-check': () => {
+    const what = h => (h === location.host ? t("Tally's own files (the app itself)") : /(^|\.)google(usercontent)?\.com$/.test(h) ? t('Google: feedback you sent or a Sheets link you pasted') : h === 'api.frankfurter.dev' ? t('Exchange rate you asked for (no money data sent)') : t('Not expected: please tell us'));
+    const hosts = [...new Set(performance.getEntriesByType('resource').concat(performance.getEntriesByType('navigation')).map(e => { try { return new URL(e.name).host; } catch { return ''; } }).filter(Boolean))];
+    openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Check it yourself'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      <p class="sh-body">${esc(t('Every address this page has contacted since it opened, as recorded by your browser:'))}</p>
+      <ul class="list">${hosts.map(h => `<li><span class="grow"><b>${esc(h)}</b><small>${esc(what(h))}</small></span></li>`).join('')}</ul>
+      <p class="fine">${esc(t("Try this: turn on airplane mode, then add an entry or scan a receipt. Tally still works: it doesn't need the internet for your money."))}</p>
+      <p class="fine">${esc(t('Tally is open source: anyone can read the code on GitHub.'))}</p>`, { label: t('Check it yourself') });
   },
   'erase': async () => {
     if (!(await confirmSheet({ title: t('Erase everything?'), body: t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.'), ok: t('Erase everything'), danger: true }))) return;

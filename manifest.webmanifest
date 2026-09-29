@@ -35,6 +35,10 @@
   ],
   "id": "./",
   "lang": "en",
+  "shortcuts": [
+    { "name": "Add spending", "short_name": "Add", "url": "./#/add", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Scan a receipt", "short_name": "Scan", "url": "./#/scan", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ],
   "categories": [
     "finance",
     "productivity"

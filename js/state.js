@@ -1,5 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
+import { typedShift } from './io.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
@@ -174,6 +175,12 @@ export async function learn(itemName, category, merchant = null) {
 }
 
 // ---- accounts, bills, photos ----------------------------------------------------------------------------------
+/** A new entry dated before the day an account's balance was typed (an old receipt scanned today): that balance is
+ *  today's, so the money was already out of it. The starting balance moves instead, and today's stays as it was set. */
+export async function keepToday(tx) {
+  const shift = typedShift(S.accounts.filter(a => a.typed), S.tx.filter(x => x.id !== tx.id), [tx]);
+  for (const [id, d] of Object.entries(shift)) { const a = S.accounts.find(x => x.id === id); if (a) await saveAccount({ ...a, opening: (a.opening || 0) + d }); }
+}
 export async function saveAccount(a) {
   a = { ...a, updatedAt: Date.now() };
   await db.put('accounts', a);

@@ -41,7 +41,7 @@ export function forecastCard() {
       <div class="sbar">${parts.filter(p => p[1] > 0).map(([, v, k]) => `<i class="${k}" style="width:${w(v)}"></i>`).join('')}</div>
       ${B ? `<span class="mark${at > 70 ? ' end' : ''}" style="left:${at.toFixed(2)}%"><span>${esc(t('Budget'))} ${esc(short(B))}</span></span>` : ''}</div>
     <ul class="slegend">${parts.map(([l, v, k]) => `<li><span class="key ${k}"></span><span class="grow">${esc(l)}</span><span class="num">${esc(fmtRM(v))}</span></li>`).join('')}</ul>
-    ${f.safe != null ? `<p class="safe"><span class="lbl">${esc(t('Budget left per day'))}</span><b class="num">${esc(t('{0} a day', fmtRM(f.safe)))}</b><small>${esc(t('for {0} days, today included', f.daysLeft + 1))}</small></p>` : ''}
+    ${f.safe != null ? `<p class="safe"><span class="lbl">${esc(t('Budget left per day'))}</span><b class="num">${esc(t('{0} a day', fmtRM(f.safe)))}</b><small>${esc(f.daysLeft === 0 ? t('for today only') : t('for {0} days, today included', f.daysLeft + 1))}</small></p>` : ''}
     <p class="fine">${esc(t('Spent so far, bills still due, and your everyday pace. One-off big buys count once.'))}${f.early ? ` ${esc(t("Early in the month, last month's pace is used."))}` : ''}</p></section>`;
 }
 

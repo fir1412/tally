@@ -1,5 +1,5 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
+import { S, saveTx, keepToday, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
@@ -317,9 +317,10 @@ export const budgetsView = {
     const row = c => `<li><div class="brow"><button class="link" data-act="cat-show" data-c="${esc(c.id)}">${dot(c.id)}${esc(t(c.name))}</button>
         <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" aria-describedby="be-${esc(c.id)}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"></span></div><p class="err bud-err" id="be-${esc(c.id)}" role="alert"></p><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
     const bills = S.recurring.filter(b => inScope(b, sc));
-    // No budget yet: what the last 3 full months cost on average (months with spending), to the nearest RM 50.
-    const pastYm = [1, 2, 3].map(k => addMonths(ym, -k)), spends = cached(monthSpends, txs, pastYm, sd), past = pastYm.map(m => spends[m].total).filter(Boolean);
-    const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
+    // No budget yet: what the last 3 full months cost (the median), to the nearest RM 50.
+    const firstYm = txs.reduce((m, x) => (x.type === 'expense' && (!m || x.date < m) ? x.date : m), '') && cycleKey(txs.reduce((m, x) => (x.type === 'expense' && (!m || x.date < m) ? x.date : m), ''), sd);
+    const pastYm = [1, 2, 3].map(k => addMonths(ym, -k)).filter(m => m > firstYm), spends = cached(monthSpends, txs, pastYm, sd), past = pastYm.map(m => spends[m].total).filter(Boolean).sort((a, b) => a - b);
+    const avg = past.length ? Math.max(5000, Math.round(past[Math.floor(past.length / 2)] / 5000) * 5000) : 0;   // median: one big month doesn't set the bar
     // Modules: the budget part and the bills part each show only when their module is on (Settings → Features).
     return modular(`<header class="top"><h1>${esc(t(on('budgets') ? 'Budgets' : 'Bills'))}</h1>${scopeChip(sc, true)}<span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
       ${scopeSwitch(sc, scopes())}
@@ -441,6 +442,7 @@ export const act = {
     b.disabled = true;
     const x = { ...draft, createdAt: draft.createdAt || Date.now() };
     await saveTx(x);
+    if (isNew) await keepToday(x);   // an old receipt doesn't change the balance typed today
     await rateFrom(x);
     if (x.merchant && x.type === 'expense' && !x.items?.length) await learn(x.merchant, x.category);
     closeSheet(); landed(x.id); render();

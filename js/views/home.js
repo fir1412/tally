@@ -36,10 +36,11 @@ const dismissed = () => S.kv.dismissed || [];
 const MODULE_OF = { bills: 'bills', insight: 'insights', nudge: 'insights', stickers: 'stickers' };
 const shown = id => !(settings().homeHide || []).includes(id) && (!MODULE_OF[id] || on(MODULE_OF[id]));
 /** Days logged up to today (entries you made, and "nothing spent" check-ins): one sticker each. */
-const stickerDays = tdy => [...loggedDays(S.tx, settings().noSpend || [], settings().myName || '')].filter(d => d <= tdy).length;
+const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
+const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
 /** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
 function stickerCard(tdy) {
-  if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !loggedDays(S.tx, settings().noSpend || [], settings().myName || '').has(tdy)) return '';
+  if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !madeDays().has(tdy)) return '';
   const st = stickerState(stickerDays(tdy));
   return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stickerSvg(st.latest, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", t(st.latest[1])))}</b>
     <small>${esc(t('{0} of {1} in your book. One for each day you log; a missed day never takes one away.', st.got, BOOK))}</small></span></button>
@@ -142,7 +143,7 @@ const insightsOf = (txs, o) => insights({ txs, ...o }), findsOf = (txs, o) => ni
 const homeInsights = () => cached(insightsOf, booked(), { budgets: on('budgets') ? budgetsFor() : {}, today: today(), knownBills: S.recurring.map(b => b.key), startDay: startDay() });
 /** Spent in `ym` up to the same day of it as today is into this month. */
 const sameDayBefore = (txs, ym, sd, into, start) => monthSpend(txs.filter(x => cycleKey(x.date, sd) !== ym || daysBetween(start, x.date) <= into), ym, sd).total;
-const trendOf = (txs, accts, end, sd) => balanceTrend(accts, txs, end, 6, sd);
+const trendOf = (txs, accts, end, sd) => balanceTrend(accts.filter(a => a.typed !== false), txs, end, 6, sd);   // a balance never given is not in the chart (as on Home)
 /** Items bought in a month, by money: the five most. Codes and run-together OCR text are left out. */
 function topItemsOf(txs, M, sd) {
   const items = {};
@@ -187,6 +188,7 @@ export const homeView = {
     // An account whose starting balance was never given (left blank at the start, or skipped after an import) and that is
     // now below zero isn't really negative: its balance is unknown. It stays out of the total; Home says so instead.
     const all = balances(accts, upToday), unset = accts.filter(a => a.typed === false);
+    const used = new Set(upToday.flatMap(x => [x.accountId, x.toAccountId])), shownUnset = unset.filter(a => used.has(a.id));
     const bal = unset.length ? { ...balances(accts.filter(a => !unset.includes(a)), upToday), by: all.by } : all, sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = on('budgets') ? budgetsFor().total : 0;
     const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total }) : null;
     const lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, sd).start, tdy), lastStart = cycleSpan(lastYm, sd).start;
@@ -200,12 +202,12 @@ export const homeView = {
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
     const find = !fresh && !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(cached(findsOf, upToday, { today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)), ins: homeInsights() }), tdy);   // the price finds come from the insights the banner uses
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
-      ${scopeSwitch()}<div class="cols"><div class="col">
+      ${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button></section>` : ''}<div class="cols"><div class="col">
       <section class="hero">
         ${(n => (n ? `<span class="label">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
         <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
-        ${unset.length ? `<p class="fine">${esc(t('Balance not set: {0}', unset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(unset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
+        ${shownUnset.length ? `<p class="fine">${esc(t('Balance not set: {0}', shownUnset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(shownUnset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
@@ -223,7 +225,7 @@ export const homeView = {
       ${fresh ? [streakHome(), banner(null, true), backupBanner()].find(Boolean) || '' : [streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null)].join('')}
       ${S.tx.length >= 3 && on('learn') ? learnHome() : ''}
       </div><div class="col">
-      <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
+      <div class="rowb"><h2>${esc(t('Recent'))}</h2></div>
       ${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul><button class="btn ghost wide" data-act="go" data-to="activity">${esc(t('See all'))}</button>` : `<p class="empty">${esc(t('Nothing yet. Scan your first receipt: Tally splits it into items and categories for you.'))}</p>`}
       </div></div>`;
   },

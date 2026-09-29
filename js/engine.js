@@ -419,17 +419,18 @@ export function recurringCandidates(txs, known = []) {
   const run3 = months => months.some(m => months.includes(addMonths(m, 1)) && months.includes(addMonths(m, 2)));
   for (const [k, list] of Object.entries(groups)) {
     const months = new Set(list.map(t => monthOf(t.date))).size;
-    if (known.includes(k) || months < 3) continue;
+    if (known.includes(k) || months < 2) continue;
     const amts = list.map(t => t.amount).sort((a, b) => a - b), mid = amts[Math.floor(amts.length / 2)];
     // Everyday places (ride-hailing, food delivery, supermarkets, online shops, "makan", or 3+ visits a month) are a bill
     // only when nearly every payment there is the same amount, about once a month (a subscription, an instalment).
     const everyday = list.length > months * 3 || EVERYDAY.test(list[0].merchant) || ['dining', 'groceries', 'shopping', 'transport'].includes(shopCategory(list[0].merchant));
     const close = list.filter(t => Math.abs(t.amount - mid) <= mid * (everyday ? 0.01 : 0.05));
     if (everyday && close.length < list.length * 0.8) continue;
-    if (new Set(close.map(t => monthOf(t.date))).size < 3) continue;
+    const need = everyday ? 3 : 2;
+    if (months < need || new Set(close.map(t => monthOf(t.date))).size < need) continue;
     // A bill comes on about the same day each month, costs RM 20 or more, and isn't a meal or groceries.
     const days = close.map(t => +t.date.slice(8, 10)).sort((a, b) => a - b), mday = days[Math.floor(days.length / 2)];
-    if (mid < 2000 || close.filter(t => Math.abs(+t.date.slice(8, 10) - mday) <= 3).length < 3) continue;
+    if (mid < 2000 || close.filter(t => Math.abs(+t.date.slice(8, 10) - mday) <= 3).length < need) continue;
     if (close.every(t => ['dining', 'groceries', 'transport'].includes(t.category) || (t.items || []).length)) continue;
     // Three months in a row, still going (seen in the last 45 days), and not an instalment that has ended ("12/12").
     const lastTx = list.reduce((a, b) => (a.date > b.date ? a : b));

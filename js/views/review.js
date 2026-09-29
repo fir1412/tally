@@ -1,6 +1,6 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, defaultAccount } from '../state.js';
+import { S, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
@@ -394,6 +394,7 @@ export const act = {
     const tx = { ...was, id: d.id, date: d.date, time: d.time, type: d.refund ? 'income' : 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
       category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn, refundOf: d.refundOf || refundTarget(d) } : { cat: undefined }), ...(d.remindReturn && d.returnDays ? { returnBy: returnDate(d) } : {}), ...(d.remindWarranty && d.warrantyMonths ? { warranty: warrantyDate(d) } : {}), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
+    if (!current.existing) await keepToday(tx);   // an old receipt doesn't change the balance typed today
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop
       await setKv('shopNames', Object.fromEntries([...Object.entries(S.kv.shopNames || {}), [itemKey(d.readName), tx.merchant.slice(0, 80)]].slice(-500)));

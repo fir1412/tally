@@ -259,7 +259,7 @@ const HEAD = {
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
   type: [/^(type|jenis|类型|類型|income ?\/ ?expense|expense ?\/ ?income|in ?\/ ?out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr ?\/ ?cr|cr ?\/ ?dr|debit ?\/ ?credit|credit ?\/ ?debit|d ?\/ ?c|c ?\/ ?d|masuk ?\/ ?keluar)$/i, null],
   category: [/^(category|categories|kategori|类别|類別|分类|分類)$/i, /categor|kategori|类别|類別|分类|分類/i],
-  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?|vendor|transaction|transaction details|particulars|what|bill|spent on|for|butiran transaksi)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
+  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?|vendor|transaction|transaction details|particulars|what|bill|spent on|for|butiran transaksi|source|sumber|来源|來源)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
   note: [/^(notes?|nota|memo|remarks?|备注|備註|comments?)$/i, /note|nota|memo|keterangan|butiran|备注|備註|details|remark|catatan/i],
   account: [/^(account|akaun|账户|帳戶|wallet|dompet|paid (by|with|from|using)|pay(ment)? (by|method|mode)|payment (method|mode|type)|method|bayar (guna|dengan|melalui)|kaedah (bayaran|pembayaran)|付款方式|支付方式|who paid|paid by|dibayar oleh|bayar oleh|pembayar|付款人|付款者)$/i, null],
   amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total|cost|kos|rm|myr|ringgit)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
@@ -297,14 +297,17 @@ export function reshape(rows, tab = '') {
     if (starts.length < 2) continue;
     const blocks = starts.map((s, k) => ({ s, e: k + 1 < starts.length ? starts[k + 1] : r.length }));
     if (!blocks.every(({ s, e }) => { const m = guessMapping(r.slice(s, e)); return m.date != null && money(m) != null; })) continue;
-    const head = r.slice(blocks[0].s, blocks[0].e).filter(Boolean), title = clean(rows[h - 1]), out = [[...head, 'Type']];
-    for (const { s, e } of blocks) {
-      const names = r.slice(s, e).map(x => x.toLowerCase()), word = title.slice(s, e).find(Boolean) || title[s - 1] || '';
+    // Columns by what they mean (the Expenses block's Item and the Income block's Source are both the description).
+    const KEYS = [['date', 'Date'], ['amount', 'Amount'], ['debit', 'Money out'], ['credit', 'Money in'], ['merchant', 'Description'], ['category', 'Category'], ['note', 'Note'], ['account', 'Account']];
+    const maps = blocks.map(({ s, e }) => guessMapping(r.slice(s, e))), keys = KEYS.filter(([k]) => maps.some(m => m[k] != null));
+    const title = clean(rows[h - 1]), out = [[...keys.map(([, label]) => label), 'Type']];
+    blocks.forEach(({ s, e }, b) => {
+      const word = title.slice(s, e).find(Boolean) || title[s - 1] || '';
       for (const row of rows.slice(h + 1)) {
-        const cells = head.map(n => { const j = names.indexOf(n.toLowerCase()); return j >= 0 ? row[s + j] ?? '' : ''; });
+        const cells = keys.map(([k]) => (maps[b][k] != null ? row[s + maps[b][k]] ?? '' : ''));
         if (cells.some(c => cleanText(c))) out.push([...cells, word]);
       }
-    }
+    });
     return [...rows.slice(0, h), ...out];
   }
   const h = headerRow(rows), head = clean(rows[h]), m = guessMapping(head), body = rows.slice(h + 1);

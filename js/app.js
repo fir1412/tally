@@ -68,6 +68,8 @@ function focusAfterRender(app, previous, routeChanged) {
 
 export function render() {
   let r = route();
+  // Home-screen shortcuts (manifest): #/add opens the add sheet, #/scan the camera, both over Home.
+  if ((r === 'add' || r === 'scan') && S.accounts.length) { const act = r === 'add' ? 'tx-new' : on('receipts') ? 'scan' : 'tx-new'; history.replaceState(history.state, '', '#/home'); r = 'home'; setTimeout(() => own(ACT, act)?.({ dataset: {} }), 0); }
   if (!own(VIEWS, r)) r = 'home';   // unknown routes (#/constructor too) show Home
   if (!S.accounts.length && !['welcome', 'settings'].includes(r)) { r = 'welcome'; history.replaceState(null, '', '#/welcome'); }
   if ((r === 'insights' && !on('insights')) || (r === 'budgets' && !on('budgets') && !on('bills'))) { r = 'home'; history.replaceState(history.state, '', '#/home'); }   // a module that is off
