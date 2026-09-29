@@ -149,13 +149,25 @@ Change : 0.10`);
   assert.equal(parseReceipt('Kopi O 2.50\nItem 2 TotalwithGST@6% 2.50\nTOTAL 2.50\nCash 5.00').items.length, 1);
 });
 
-test('items typed by hand: name then price, price then name, colons, lines without a price skipped', () => {
-  assert.deepEqual(parseItemLines('Samsung phone 1299\nIkan kembung 25.50\nRM 8 sayur\nTeh ais: 2.5\nno price here\n\n12.00'),
-    [{ name: 'Samsung phone', cents: 129900 }, { name: 'Ikan kembung', cents: 2550 }, { name: 'sayur', cents: 800 }, { name: 'Teh ais', cents: 250 }]);
+test('items typed by hand: name then price, price then name, colons, lines without a name or price reported', () => {
+  assert.deepEqual(parseItemLines('Samsung phone 1299\nIkan kembung 25.50\nRM 8 sayur\nTeh ais: 2.5\nno price here\n\n12.00'), {
+    items: [{ name: 'Samsung phone', cents: 129900 }, { name: 'Ikan kembung', cents: 2550 }, { name: 'sayur', cents: 800 }, { name: 'Teh ais', cents: 250 }],
+    skipped: ['no price here', '12.00'] });
+});
+
+test('typed items: quantities and sums worked out, "8.-" is RM 8', () => {
+  const r = parseItemLines('Eggs 2x6.20\nTelur 6.20x2\nTeh ais 2@2.50\nKuih 3*1.20\nRoti 4.5+2\n鸡蛋 2x6.20\nSayur 8.-\nMilo 2 x 3.50');
+  assert.deepEqual(r.items, [
+    { name: 'Eggs', cents: 1240, qty: 2, unit: 620 }, { name: 'Telur', cents: 1240, qty: 2, unit: 620 }, { name: 'Teh ais', cents: 500, qty: 2, unit: 250 },
+    { name: 'Kuih', cents: 360, qty: 3, unit: 120 }, { name: 'Roti', cents: 650 }, { name: '鸡蛋', cents: 1240, qty: 2, unit: 620 },
+    { name: 'Sayur', cents: 800 }, { name: 'Milo', cents: 700, qty: 2, unit: 350 }]);
+  assert.deepEqual(r.skipped, []);
+  assert.deepEqual(parseItemLines('Redmi Note 13 1299\nPhone 1,299').items, [{ name: 'Redmi Note 13', cents: 129900 }, { name: 'Phone', cents: 129900 }]);
+  assert.deepEqual(parseItemLines('Ikan 0\nsayur').skipped, ['Ikan 0', 'sayur']);
 });
 
 test('typed items: a market list on one line, Chinese commas, thousands separators', () => {
-  assert.deepEqual(parseItemLines('鱼 25, 菜 8, 猪肉 30'), [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '猪肉', cents: 3000 }]);
-  assert.deepEqual(parseItemLines('鱼 25，菜 8、豆腐 3.50'), [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '豆腐', cents: 350 }]);
-  assert.deepEqual(parseItemLines('Phone 1,299\nLaptop RM 3,499.90\nIkan 25,50'), [{ name: 'Phone', cents: 129900 }, { name: 'Laptop', cents: 349990 }, { name: 'Ikan', cents: 2550 }]);
+  assert.deepEqual(parseItemLines('鱼 25, 菜 8, 猪肉 30').items, [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '猪肉', cents: 3000 }]);
+  assert.deepEqual(parseItemLines('鱼 25，菜 8、豆腐 3.50').items, [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '豆腐', cents: 350 }]);
+  assert.deepEqual(parseItemLines('Phone 1,299\nLaptop RM 3,499.90\nIkan 25,50').items, [{ name: 'Phone', cents: 129900 }, { name: 'Laptop', cents: 349990 }, { name: 'Ikan', cents: 2550 }]);
 });

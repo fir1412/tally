@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue'];
@@ -13,6 +13,7 @@ export async function load() {
   S.kv.budgets ||= { total: 0, byCat: {} };
   S.kv.rules ||= {};
   S.kv.customCats ||= [];
+  for (const c of S.kv.customCats) if (/^#0ea5e9$/i.test(c.color)) c.color = nextColor(S.kv.customCats.map(x => x.color));   // the old first colour looked like Electronics and Bills
   S.kv.dismissed ||= [];
   S.accounts.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return mode;
@@ -76,7 +77,7 @@ export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(
 export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats, CATEGORIES.at(-1)];
 export const allCats = () => [...expenseCats(), ...INCOME_CATEGORIES];
 export const cat = id => allCats().find(c => c.id === id) || CATEGORIES.at(-1);
-export async function addCategory(name, color) {
+export async function addCategory(name, color = nextColor(S.kv.customCats.map(x => x.color))) {
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color };
   await setKv('customCats', [...S.kv.customCats, c]);
   return c;

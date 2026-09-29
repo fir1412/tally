@@ -3,18 +3,21 @@
 export const CATEGORIES = [
   { id: 'groceries', name: 'Groceries', color: '#65A30D' },
   { id: 'dining', name: 'Dining', color: '#F59E0B' },
-  { id: 'transport', name: 'Transport', color: '#3B82F6' },
+  { id: 'transport', name: 'Transport', color: '#2563EB' },
   { id: 'bills', name: 'Bills', color: '#06B6D4' },
   { id: 'household', name: 'Household', color: '#A16207' },
-  { id: 'health', name: 'Health', color: '#14B8A6' },
+  { id: 'health', name: 'Health', color: '#E11D48' },
   { id: 'personal', name: 'Personal care', color: '#EC4899' },
   { id: 'kids', name: 'Kids', color: '#8B5CF6' },
-  { id: 'electronics', name: 'Electronics', color: '#0EA5E9' },
+  { id: 'electronics', name: 'Electronics', color: '#0D9488' },
   { id: 'shopping', name: 'Shopping', color: '#F97316' },
   { id: 'fun', name: 'Entertainment', color: '#D946EF' },
   { id: 'education', name: 'Education', color: '#6366F1' },
   { id: 'other', name: 'Other', color: '#64748B' },
 ];
+/** Colours for categories the user adds, none close to a built-in one; the first not yet used is taken. */
+export const CUSTOM_COLORS = ['#EAB308', '#22C55E', '#FB7185', '#0369A1', '#A3E635', '#C084FC', '#78716C', '#F87171', '#2DD4BF', '#9A3412'];
+export const nextColor = (used = []) => { const u = new Set(used.map(c => String(c).toLowerCase())); return CUSTOM_COLORS.find(c => !u.has(c.toLowerCase())) || CUSTOM_COLORS[u.size % CUSTOM_COLORS.length]; };
 export const INCOME_CATEGORIES = [
   { id: 'salary', name: 'Salary', color: '#059669' },
   { id: 'allowance', name: 'Allowance', color: '#10B981' },
@@ -350,7 +353,7 @@ export function recurringCandidates(txs, known = []) {
     if (!run3([...new Set(close.map(t => monthOf(t.date)))]) || daysBetween(lastTx.date, latest) > 45) continue;
     const inst = `${lastTx.note || ''} ${lastTx.merchant}`.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\b/);
     if (inst && +inst[1] >= +inst[2] && +inst[2] > 1) continue;
-    out.push({ key: k, merchant: lastTx.merchant, amount: mid, category: lastTx.category || 'bills', day: +lastTx.date.slice(8, 10) });
+    out.push({ key: k, merchant: lastTx.merchant, amount: mid, category: lastTx.category || 'bills', day: +lastTx.date.slice(8, 10), months: new Set(close.map(t => monthOf(t.date))).size });
   }
   return out;
 }
