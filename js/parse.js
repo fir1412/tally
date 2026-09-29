@@ -21,9 +21,9 @@ const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|ju
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
 const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
-const TAX = /\bsst\b|\bgst\b|service\s*tax|sales\s*tax|\btax\b|cukai/i;
+const TAX = /\bsst\b|\bgst\b|\bvat\b|service\s*tax|sales\s*tax|\btax\b|cukai/i;
 const ROUNDING = /round|pelarasan|bundar/i;
-const DISCOUNT = /disc(ount)?|diskaun|potongan|saving|voucher|baucar|coupon|kupon|promo|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
+const DISCOUNT = /disc(ount)?|\bdsc\b|diskaun|potongan|saving|voucher|baucar|coupon|kupon|promo|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
 // Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
 const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|restaurant|supermarket|hypermarket|pharmacy|farmasi|\bkedai\b|\bmart\b|\bstore\b|bakery|\bcafe\b/i;
 /** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
