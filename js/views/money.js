@@ -207,6 +207,7 @@ function sheetHtml() {
     ${refundsOf(d)}
     ${d.type === 'expense' ? `<details class="more"${d.returnBy || d.warranty ? ' open' : ''}><summary>${esc(t('Return or warranty reminder'))}</summary><div class="row2"><label class="field"><span>${esc(t('Return by'))}</span><input id="tx-return" type="date" value="${esc(d.returnBy || '')}"></label><label class="field"><span>${esc(t('Warranty until'))}</span><input id="tx-warranty" type="date" value="${esc(d.warranty || '')}"></label></div><small class="fine">${esc(t('Home reminds you 2 days before the return window ends and a month before the warranty does.'))}</small></details>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
+    ${!isNew && d.type === 'expense' ? `<button class="btn ghost small" data-act="tx-splitf">${ICON.users}${esc(t('Split with friends'))}</button>` : ''}
     ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
     <div class="row2 sheetfoot">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
 }
@@ -383,6 +384,7 @@ export const act = {
   'sheet-close': () => closeSheet(),
   'cat-show': b => showCategory(b.dataset.c, b.dataset.m || undefined),
   'tx-open': b => { const x = S.tx.find(y => y.id === b.dataset.id); if (!x) return; draft = structuredClone(x); catPicked = accPicked = true; catInView(openSheet(sheetHtml(), { label: t('Transaction') })); },
+  'tx-splitf': async () => { const x = S.tx.find(y => y.id === draft.id); if (!x) return; closeSheet(); (await import('./splitbill.js')).openSplit(x); },
   'tx-type': b => {
     readForm(); draft.type = b.dataset.type;
     if (!accPicked && draft.type !== 'transfer') { const id = defaultAccount(draft.type === 'income' ? 'income' : 'quick', { amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel) sel.value = id; }   // money in lands where income usually does
