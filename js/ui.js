@@ -191,19 +191,25 @@ if (typeof document !== 'undefined') {
   document.body.append(bar);
   let field = null;
   const isSum = v => parseAmount(v) == null && calcAmount(v) != null;
-  let fullViewport = window.visualViewport?.height || innerHeight;
+  // Is the on-screen keyboard up? It shrinks the visible area below the page (Chrome and Safari's default), so compare
+  // the two now (pinch-zoom aside) instead of a height remembered earlier, which a rotation or first load makes stale.
+  // Browsers that shrink the page itself are caught by the remembered full height, measured again after a rotation.
+  let full = { h: innerHeight, o: screen.orientation?.angle ?? 0 };
+  const keyboardUp = () => {
+    const v = window.visualViewport, o = screen.orientation?.angle ?? 0;
+    if (o !== full.o) full = { h: innerHeight, o };
+    return (!!v && innerHeight - v.height * v.scale > 140) || full.h - innerHeight > 140;
+  };
   const place = () => { const v = window.visualViewport; bar.style.top = `${(v ? v.offsetTop + v.height : innerHeight) - bar.offsetHeight}px`; };
   const show = () => { bar.querySelector('output').textContent = field && isSum(field.value) ? `= ${fmtRM(calcAmount(field.value), { plain: true })}` : ''; };
   const syncBar = () => {
-    const v = window.visualViewport;
-    const keyboardOpen = fullViewport - (v?.height || innerHeight) > 140;
-    const visible = !!field && field.isConnected && touch.matches && keyboardOpen;
+    const visible = !!field && field.isConnected && touch.matches && keyboardUp();   // no keyboard: the tabs stay free
     bar.hidden = !visible;
     document.body.classList.toggle('calc-on', visible);
     if (visible) { place(); show(); }
   };
   // The room left for the bar goes a moment later, so the tap that left the field (on Save) lands where it aimed.
-  const hide = () => { field = null; bar.hidden = true; setTimeout(() => { if (!field) { document.body.classList.remove('calc-on'); fullViewport = window.visualViewport?.height || innerHeight; } }, 400); };
+  const hide = () => { field = null; bar.hidden = true; setTimeout(() => { if (!field) { document.body.classList.remove('calc-on'); full = { h: innerHeight, o: screen.orientation?.angle ?? 0 }; } }, 400); };
   document.addEventListener('focusin', e => {
     if (!e.target.matches?.(AMT)) return hide();
     field = e.target;
@@ -222,7 +228,8 @@ if (typeof document !== 'undefined') {
     field.setRangeText(op, field.selectionStart ?? field.value.length, field.selectionEnd ?? field.value.length, 'end');
     field.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  window.visualViewport?.addEventListener('resize', () => { if (field) syncBar(); else fullViewport = window.visualViewport.height; });
+  window.visualViewport?.addEventListener('resize', () => { if (field) syncBar(); else full = { h: innerHeight, o: screen.orientation?.angle ?? 0 }; });
+  addEventListener('resize', () => field && syncBar());   // the page itself resized (keyboard in some browsers, rotation)
   window.visualViewport?.addEventListener('scroll', () => field && syncBar());
 }
 
