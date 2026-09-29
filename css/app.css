@@ -389,10 +389,6 @@ body.calc-on .sheet, body.calc-on main { padding-bottom: calc(120px + env(safe-a
 .dl progress::-webkit-progress-bar { background: var(--panel2); border-radius: 99px; }
 .dl progress::-webkit-progress-value { background: var(--accent); border-radius: 99px; transition: width .2s var(--ease-std); }
 .dl progress::-moz-progress-bar { background: var(--accent); border-radius: 99px; }
-.tips { counter-reset: tip; list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-3); }
-.tips li { counter-increment: tip; display: grid; grid-template-columns: 28px 1fr; column-gap: var(--sp-3); }
-.tips li::before { content: counter(tip); grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font: 600 var(--fs-xs)/1 var(--mono); }
-.tips b { font-family: var(--display); } .tips span { color: var(--mute); font-size: var(--fs-sm); }
 /* Learn Tally (missions) and Streaks and badges (off unless turned on). */
 .lic { width: 36px; height: 36px; flex: none; border-radius: 10px; display: grid; place-items: center; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .lic.done { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
@@ -469,3 +465,34 @@ input.switch:checked::before { transform: translateX(20px); background: #fff; }
 .cam-shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid #fff; background: #fff; box-shadow: inset 0 0 0 4px #000; cursor: pointer; transition: transform 120ms var(--ease-std); }
 .cam-shutter:active { transform: scale(.92); } .cam-shutter:disabled { opacity: .4; }
 .cam-ic[hidden] { display: none; }
+
+/* Photo tips: looping scenes. Each element's resting style is the good end state, so reduced motion shows that. */
+.tips { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4) var(--sp-3); }
+.tips li { display: grid; gap: 2px; align-content: start; }
+.tips svg { width: 100%; height: auto; border-radius: 12px; margin-bottom: 6px; }
+.tips b { font-family: var(--display); font-size: var(--fs-sm); line-height: 1.25; } .tips span { color: var(--mute); font-size: var(--fs-xs); line-height: 1.35; }
+.tips svg * { transform-box: fill-box; transform-origin: center; }
+.tp-bg { fill: var(--panel2); } .tp-table { fill: #060B16; }
+.tp-r rect { fill: #F8FAFC; } .tp-r path { fill: none; stroke: #94A3B8; stroke-width: 2; stroke-linecap: round; } .tp-r .tp-ink { stroke: #334155; stroke-width: 3; }
+.tp-frame { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.tp-snug { animation: tp-snug 2.8s var(--ease-out) infinite; }
+@keyframes tp-snug { 0% { transform: scale(1.5); opacity: 0; } 45%, 100% { transform: none; opacity: 1; } }
+.tp-shadow { fill: #0F172A; opacity: 0; animation: tp-shadow 3s ease-in-out infinite; }
+@keyframes tp-shadow { 0%, 25% { opacity: .6; } 60%, 100% { opacity: 0; } }
+.tp-sun circle { fill: #F59E0B; } .tp-sun path { stroke: #F59E0B; stroke-width: 2.5; stroke-linecap: round; }
+.tp-sun { animation: tp-sun 3s ease-in-out infinite; }
+@keyframes tp-sun { 0%, 25% { opacity: .25; transform: scale(.7); } 60%, 100% { opacity: 1; transform: none; } }
+.tp-phone rect { fill: none; stroke: var(--ink); stroke-width: 3; }
+.tp-phone { animation: tp-wobble 3s ease-in-out infinite; }
+@keyframes tp-wobble { 0% { transform: rotate(-9deg) translate(-5px, 3px); } 15% { transform: rotate(7deg) translate(4px, -2px); } 30% { transform: rotate(-4deg); } 45%, 100% { transform: none; } }
+.tp-focus { fill: none; stroke: #F59E0B; stroke-width: 2.5; animation: tp-focus 3s ease-out infinite; }
+@keyframes tp-focus { 0%, 45% { opacity: 0; transform: scale(1.8); } 60%, 100% { opacity: 1; transform: none; } }
+.tp-edge { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 100; animation: tp-edge 3s ease-in-out infinite; }
+@keyframes tp-edge { 0%, 15% { stroke-dashoffset: 100; } 65%, 100% { stroke-dashoffset: 0; } }
+.tp-long { transform: scale(.48); animation: tp-long 3s var(--ease-out) infinite; }
+@keyframes tp-long { 0%, 15% { transform: none; } 60%, 100% { transform: scale(.48); } }
+.tp-fade .tp-r path { animation: tp-fade 3.6s ease-in infinite; }
+@keyframes tp-fade { 0%, 10% { opacity: 1; } 80%, 100% { opacity: .08; } }
+.tp-clock circle { fill: none; stroke: var(--mute); stroke-width: 2; } .tp-hand { stroke: var(--mute); stroke-width: 2; stroke-linecap: round; transform-origin: 50% 100%; animation: tp-tick 3.6s linear infinite; }
+@keyframes tp-tick { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tips svg * { animation: none !important; } }

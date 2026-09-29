@@ -181,18 +181,31 @@ function updateStatus() { // re-render only the status line so typing keeps focu
 }
 
 const mostSpent = items => { const by = {}; for (const i of items) by[i.category] = (by[i.category] || 0) + i.cents; return Object.entries(by).sort((a, b) => b[1] - a[1])[0][0]; };
-/** How to take a photo Tally reads well. Shown before the first scan, and from the scan screens. */
+/** How to take a photo Tally reads well: small looping scenes, a few words each. Shown before the first scan, and from the scan screens. */
+const paper = (x, y, w, h) => {
+  let rows = ''; for (let r = y + 14; r < y + h - 11; r += 7) rows += `M${x + 5} ${r}h${Math.round(w * .5)}M${x + w - 11} ${r}h6`;
+  return `<g class="tp-r"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/><path class="tp-ink" d="M${x + w / 2 - 8} ${y + 7}h16M${x + 5} ${y + h - 6}h${w - 10}"/><path d="${rows}"/></g>`;
+};
+const frame = '<path class="tp-frame" d="M38 14V6h8M74 6h8v8M82 66v8h-8M46 74h-8v-8"/>';
+const TIP_ART = [
+  `${paper(46, 10, 28, 60)}<g class="tp-snug">${frame}</g>`,
+  `${paper(46, 10, 28, 60)}<ellipse class="tp-shadow" cx="68" cy="44" rx="22" ry="28"/><g class="tp-sun"><circle cx="18" cy="18" r="6"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4M8 8l3 3M25 25l3 3M8 28l3-3M25 11l3-3"/></g>`,
+  `${paper(46, 12, 28, 56)}<g class="tp-phone"><rect x="36" y="4" width="48" height="72" rx="7"/></g><rect class="tp-focus" x="52" y="32" width="16" height="16" rx="2"/>`,
+  `<rect class="tp-table" width="120" height="80"/>${paper(46, 10, 28, 60)}<rect class="tp-edge" x="43" y="7" width="34" height="66" rx="3" pathLength="100"/>`,
+  `<g class="tp-long">${paper(46, -30, 28, 140)}</g>${frame}`,
+  `<g class="tp-fade">${paper(46, 10, 28, 60)}</g><g class="tp-clock"><circle cx="98" cy="18" r="9"/><path class="tp-hand" d="M98 18v-6"/></g>`,
+];
 export function photoTips({ thenScan = false } = {}) {
   const tips = [
-    [t('Whole receipt, flat'), t('Lay it flat and fit it all in: the shop name at the top and the TOTAL at the bottom. Smooth out folds and creases.')],
-    [t('Good light, no shadow'), t('Daylight or a bright room. Keep your own shadow off it, and skip the flash on shiny paper.')],
-    [t('Straight above, held still'), t('Hold the phone level over the receipt and tap to focus. Tally straightens a small tilt by itself; blur it can\'t fix.')],
-    [t('Dark table, pale receipt'), t('A darker background shows the edges of the paper, which helps the reader find the text.')],
-    [t('Very long receipt?'), t('Step back until it all fits; the text only needs to stay readable. A screenshot of an e-receipt (Grab, Shopee, online banking) works too.')],
-    [t('Scan it soon'), t('Thermal receipts fade within weeks. A photo today keeps the details, and the photo is saved with the entry.')],
+    [t('Fit it all in'), t('Shop name to TOTAL, flat')],
+    [t('Bright, no shadow'), t('No flash on shiny paper')],
+    [t('Hold still'), t('Straight above, tap to focus')],
+    [t('Dark background'), t('Pale receipt, dark table')],
+    [t('Long receipt?'), t('Step back until it fits')],
+    [t('Scan it soon'), t('Receipts fade in weeks')],
   ];
   const el = openSheet(`<h2 class="sh-title">${esc(t('Tips for a clear photo'))}</h2>
-    <ol class="tips">${tips.map(([h, b]) => `<li><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
+    <ol class="tips">${tips.map(([h, b], i) => `<li><svg viewBox="0 0 120 80" aria-hidden="true"><rect class="tp-bg" width="120" height="80"/>${TIP_ART[i]}</svg><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
     ${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}`, { label: t('Tips for a clear photo') });
   el.addEventListener('click', e => {
     const b = e.target.closest('[data-x]'); if (!b) return;
