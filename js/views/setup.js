@@ -208,7 +208,7 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="update-check">${esc(t('Check for updates'))}</button>
         <p class="fine">${esc(t('Tell the developer about a bug or an idea. Sent: your message, the contact you add, and app and device details. Nothing about your money.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
-      <p class="fine center">Tally ${APP_VERSION}</p>`;
+      <p class="fine center">Tally ${APP_VERSION} · <a class="link" href="https://github.com/tallymy/tallymy.github.io/commits/main" target="_blank" rel="noopener">${esc(t("Every change, with its code"))}</a></p>`;
   },
 };
 export const input = {
@@ -370,6 +370,8 @@ function accPlan() {
   }
   return { values, lookup, blanks };
 }
+/** An existing account the file goes into whose balance was never given and that has no entries yet: the file sets it. */
+const unsetTarget = () => IMP.accountId !== 'new' && S.accounts.find(a => a.id === IMP.accountId && a.typed === false && !S.tx.some(x => x.accountId === a.id || x.toAccountId === a.id));
 /** The rows as they will be imported, with the sheet's choices applied, what is already here, and a new account's opening balance. */
 function impPlan() {
   const acc = accPlan();
@@ -378,7 +380,7 @@ function impPlan() {
   // Day and month may be swapped only if every such date could be read the other way round, and there are several.
   const swapped = future >= 3 && later.every(x => +x.date.slice(8, 10) <= 12);
   const names = Object.fromEntries([...S.accounts.map(a => [a.id, a.name]), [IMP.newId, newAccName()], ...acc.values.map(a => [a.id, a.v])]);
-  return { txs, ...splitDups(S.tx, txs, names), skipped, future, swapped, acc, loose, adjustments, adjusted, openKnown, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
+  return { txs, ...splitDups(S.tx, txs, names), skipped, future, swapped, acc, loose, adjustments, adjusted, openKnown, opening: (IMP.accountId === 'new' || unsetTarget()) && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
 }
 function showMapping() {
   const { header, map, rows } = IMP;
@@ -724,7 +726,8 @@ export const act = {
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account'), biz: t('Business') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || k === 'bank' || v || (k === 'ewallet' && $('#sf-ewname').value.trim())) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' || k === 'biz' ? 'bank' : k, scope: k === 'joint' ? 'joint' : k === 'biz' ? 'business' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
+    // a Bank only when one is given: "no bank on my phone" means none
+    for (const [k, v] of vals) if (k === 'cash' || v || (k === 'ewallet' && $('#sf-ewname').value.trim())) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' || k === 'biz' ? 'bank' : k, scope: k === 'joint' ? 'joint' : k === 'biz' ? 'business' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -854,12 +857,14 @@ export const act = {
       staged.push({ id: IMP.newId, name: newAccName(), kind: newKind(), opening: opening ?? adjusted[''] ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
       made.push(IMP.newId);
     }
+    const unset = unsetTarget(), bumped = [];
+    if (unset && opening != null) { staged.push({ ...unset, opening, typed: true, updatedAt: now }); bumped.push(unset); }   // Undo puts it back as it was
     for (const [n, a] of acc.values.entries()) if (a.isNew && fresh.some(x => x.accountId === a.id || x.toAccountId === a.id)) {
       staged.push({ id: a.id, name: a.v, kind: a.kind, opening: adjusted[a.v.toLowerCase()] || 0, createdAt: now + n + 1 }); made.push(a.id);
     }
     // An adjustment has no transaction row. Remember its source so a repeated file cannot move the balance twice.
     const adjustmentKey = IMP.sourceKey;
-    const seenAdjustments = settings().importAdjustments || [], bumped = [];
+    const seenAdjustments = settings().importAdjustments || [];
     const bump = (id, d) => { const a = S.accounts.find(x => x.id === id); if (!a || !d) return; if (!bumped.some(x => x.id === id)) bumped.push(a); const i = staged.findIndex(x => x.id === id), prior = i >= 0 ? staged[i] : a; const next = { ...prior, opening: (prior.opening || 0) + d, updatedAt: now }; if (i >= 0) staged[i] = next; else staged.push(next); };
     // Mostly already here (the same ledger from another format): its corrections are already in those openings too.
     if (!seenAdjustments.includes(adjustmentKey) && dups.length <= fresh.length) {

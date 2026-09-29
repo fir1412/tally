@@ -1353,4 +1353,5 @@ export default {
   "Erase everything here": "ここのデータをすべて消去",
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "tallymy.github.io でバックアップを復元してから行ってください。このアドレスから Tally のデータ、設定、オフライン用ファイルを削除します。もう一方のアプリには触れません。",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "この古いアドレスは別のアプリとサイトを共有しているため、データは新しいアドレスの方が安全です。3 ステップで移しましょう：",
+  "Every change, with its code": "すべての変更とそのコード",
 };

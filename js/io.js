@@ -699,7 +699,7 @@ export function typedShift(accounts, existing, rows) {
   const made = a => { const d = new Date(a.createdAt); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
   const on = (x, id) => x.accountId === id || x.toAccountId === id, out = {};
   for (const a of accounts) {
-    if (!(a.createdAt > 0) || a.outside) continue;
+    if (!(a.createdAt > 0) || a.outside || a.typed === false) continue;   // never given: no balance to keep
     const day = made(a);
     if (!a.typed && existing.some(x => on(x, a.id) && x.date < day && (x.source === 'import' || x.source === 'statement'))) continue;
     const net = rows.filter(x => on(x, a.id) && x.date < day).reduce((s, x) => s + (x.type === 'income' || (x.type === 'transfer' && x.toAccountId === a.id) ? x.amount : -x.amount), 0);

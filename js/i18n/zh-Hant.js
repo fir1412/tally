@@ -1353,4 +1353,5 @@ export default {
   "Erase everything here": "清除這裡的所有資料",
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "請在 tallymy.github.io 恢復備份之後再做。這會刪除這個網址上 Tally 的資料、設定和離線檔案；不會動另一個應用的任何東西。",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "這個舊網址和另一個應用共用同一個站點，所以你的資料放在新網址更安全。分三步搬過去：",
+  "Every change, with its code": "每一次改動及其代碼",
 };

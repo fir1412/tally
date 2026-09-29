@@ -3,7 +3,7 @@
 **▶ Open the app: https://tallymy.github.io/** (on Android, open it in Chrome, then ⋮ → Install app)
 
 Snap any receipt and see what you actually spent on, item by item. A free money manager for Malaysia that keeps
-everything on your phone: no account, no ads, no tracking. English, Bahasa Melayu and 简体中文.
+everything on your phone: no account, no ads, no tracking. English, Bahasa Melayu, 简体中文, 繁體中文 and 日本語.
 
 - **Receipts, item by item:** snap receipts with the camera inside Tally (several in a row, with a light for dim
   places and animated tips for a clear photo) or pick them from the gallery; they're read on the phone (PaddleOCR, works
@@ -30,13 +30,14 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
 - **Learn by doing:** Learn Tally is a list of short missions (scan a receipt, set a budget, back up…) that tick
   themselves off as you use the app. Streaks and badges for good money habits are there too, off unless you turn them on.
 - **Locked when you want:** a PIN, plus fingerprint or face where the phone has one.
-- **Your data stays yours:** export to CSV for Excel or Sheets; back up to a file (optionally with receipt photos)
-  and restore on a new phone.
+- **Your data stays yours:** export to Excel, Google Sheets, CSV or QIF; back up to a file (optionally with receipt
+  photos, optionally with a password) and restore on a new phone. Optional encryption of the data on the phone.
 
 ## Privacy
 
-Everything is stored in the browser on your device (IndexedDB). The only things that ever leave it are a feedback
-message you choose to send and a Google Sheets link you choose to paste. See [privacy.html](privacy.html),
+Everything is stored in the browser on your device (IndexedDB), encrypted if you turn that on. Tally goes online only
+for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you choose to send, and a
+Google Calendar reminder you add. "Check it yourself" in the app lists what the page contacted. See [privacy.html](privacy.html),
 [terms.html](terms.html) and [SECURITY.md](SECURITY.md).
 
 ## Run locally

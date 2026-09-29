@@ -1354,4 +1354,5 @@ export default {
   "Erase everything here": "Padam semuanya di sini",
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "Lakukan ini hanya selepas sandaran anda dipulihkan di tallymy.github.io. Ini memadam data, tetapan dan fail luar talian Tally dari alamat ini; tiada apa-apa milik aplikasi lain.",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "Alamat lama ini berkongsi laman dengan aplikasi lain, jadi data anda lebih selamat di alamat baharu. Pindahkan dalam tiga langkah:",
+  "Every change, with its code": "Setiap perubahan, dengan kodnya",
 };
