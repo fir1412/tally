@@ -2,7 +2,7 @@
 // app version, device type and current screen is sent; never amounts, receipts, shops or accounts.
 import { settings, setKv, S } from './state.js';
 import { esc, openSheet, closeSheet, toast } from './ui.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
 
 const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdBFMgKhs2fdfxXI-YDY5Y_f8bZOkZuzWj5TLr9e3Q76j9qQQ/formResponse';
 const F = { type: 'entry.1958468497', message: 'entry.150873038', contact: 'entry.2067027879', info: 'entry.60151135' };
@@ -17,7 +17,7 @@ export function appInfo(version) {
   const br = /EdgA?\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /Firefox|FxiOS/.test(ua) ? 'Firefox' : /CriOS|Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : 'Other';
   const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone ? 'installed' : 'browser';
   const screen = location.hash.replace(/^#\/?/, '').split('/')[0] || 'home';
-  return `Tally ${version} · ${os} · ${br} · ${installed} · ${innerWidth}px · #/${screen} · ${settings().lang || 'en'}`;
+  return `Tally ${version} · ${os} · ${br} · ${installed} · ${innerWidth}px · #/${screen} · ${getLang()}`;
 }
 
 async function post(item) {

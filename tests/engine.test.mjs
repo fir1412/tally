@@ -121,3 +121,23 @@ test('habits: weekday lunch around 12:30 is found; nudge after it passes unlogge
   assert.equal(E.dueNudge(hs, txs, '2026-09-28T13:30', ['dining|weekday|2026-09-28']), null); // dismissed today
   assert.deepEqual(E.habits(txs.map(t => ({ ...t, time: undefined })), '2026-09-28'), []); // no times, no habits
 });
+
+test('a phone and wet-market food in one mall payment sort into Electronics and Groceries; bills and medicine stay put', () => {
+  const at = n => E.categorize(n, 'Mid Valley Megamall');
+  assert.deepEqual(['iPhone 16 Pro', 'Samsung charger', 'Ikan kembung', 'Udang besar', 'Sayur bayam'].map(at), ['electronics', 'electronics', 'groceries', 'groceries', 'groceries']);
+  assert.equal(E.categorize('Maxis phone bill'), 'bills');
+  assert.equal(E.categorize('Panadol tablet'), 'health');
+  assert.equal(E.shopCategory('Senheng Electric'), 'electronics');
+});
+
+test('bill suggestions: not fuel, not an instalment that has ended, not one that stopped months ago', () => {
+  const tx = (d, merchant, amount, category = 'bills', note = '') => ({ id: d + merchant, type: 'expense', date: d, merchant, amount, category, note });
+  const months = ['2026-06', '2026-07', '2026-08', '2026-09'];
+  const txs = [
+    ...months.map(m => tx(`${m}-05`, 'Unifi', 12900)),
+    ...months.map(m => tx(`${m}-10`, 'Shell Fuel', 15000, 'transport')),
+    ...months.map((m, i) => tx(`${m}-15`, 'Harvey Norman', 25000, 'shopping', `Instalment ${9 + i}/12`)),
+    ...['2026-01', '2026-02', '2026-03'].map(m => tx(`${m}-20`, 'Old Gym', 15000, 'fun')),
+  ];
+  assert.deepEqual(E.recurringCandidates(txs).map(r => r.merchant), ['Unifi']);
+});

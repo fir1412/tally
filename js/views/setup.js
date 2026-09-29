@@ -1,9 +1,9 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
-import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
@@ -63,7 +63,8 @@ function accountSheet(a = {}) {
 /** "Bank account · RM 1,200.00", without repeating a type the name already says ("Cash · Cash"). */
 function accSub(a, by) {
   const kind = t(KIND[a.kind] || 'Bank account');
-  return [kind.toLowerCase() !== a.name.trim().toLowerCase() && kind, fmtRM(by[a.id] || 0)].filter(Boolean).join(' · ');
+  const n = a.name.trim().toLowerCase(), k = kind.toLowerCase();
+  return [!(k.startsWith(n) || n.startsWith(k)) && kind, fmtRM(by[a.id] || 0)].filter(Boolean).join(' · ');
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
@@ -89,7 +90,7 @@ export const settingsView = {
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
-        <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a></section>
+        <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a> · <a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></section>
       <section class="card"><h2>${esc(t('Help and feedback'))}</h2>
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
@@ -103,6 +104,8 @@ export const input = {
   'text-size': async el => { await setSetting('textSize', +el.value); document.documentElement.style.fontSize = `${el.value}%`; },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
+  'imp-accname': el => { IMP.accName = el.value; },
+  'imp-future': el => { IMP.skipFuture = el.checked; showMapping(); },
   'imp-cat': el => { IMP.catMap[el.dataset.src] = el.value; },
 };
 
@@ -120,7 +123,7 @@ function importSheet() {
     <p class="err" id="imp-err" role="alert"></p>`, { label: t('Import') });
   $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); });
 }
-const newAccName = () => cleanText(String(IMP?.name || '').replace(/\.[a-z0-9]{2,5}$/i, ''), 40) || t('Imported');
+const newAccName = () => cleanText(IMP?.accName || '', 40) || cleanText(String(IMP?.name || '').replace(/\.[a-z0-9]{2,5}$/i, ''), 40) || t('Imported');
 const impAccount = () => (IMP.accountId === 'new' ? IMP.newId : IMP.accountId);
 const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else toast(m, { k: 'bad' }); };
 async function ensureAccount() {
@@ -135,33 +138,46 @@ async function importFile(f) {
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
     if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) return await importMoneyManager(buf);
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
+    if (zipAt === 0) {
+      const z = await unzip(buf, n => n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n)).catch(() => ({}));
+      if (z[BACKUP_JSON]) return await restoreText(new TextDecoder().decode(z[BACKUP_JSON]), z);
+    }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
     startMapping(await fileToRows(f.name, buf), f.name);
   } catch (e) { impErr(t(e.message)); }
 }
 async function startMapping(rows, name) {
-  if (rows.length < 2) return impErr(t('That file has no rows to import. Check you picked the right sheet.'));
-  const header = rows[0].map(h => cleanText(h, 40));
-  await ensureAccount();
-  IMP = { rows: rows.slice(1), header, map: guessMapping(header), accountId: S.accounts[0].id, newId: uid('a'), catMap: {}, name };
+  const h = headerRow(rows);
+  if (rows.length < h + 2) return impErr(t('That file has no rows to import. Check you picked the right sheet.'));
+  const header = rows[h].map(x => cleanText(x, 40));
+  // Another app's history or a bank's statement is its own account by default (Round 2: imports landed in Cash).
+  IMP = { rows: rows.slice(h + 1), header, map: guessMapping(header), accountId: 'new', newId: uid('a'), accName: '', catMap: {}, name, skipFuture: true };
   showMapping();
+}
+/** The rows as they will be imported, with the sheet's choices applied, and a new account's opening balance. */
+function impPlan() {
+  const { txs: all, skipped } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), catMap: IMP.catMap });
+  const tdy = today(), future = all.filter(x => x.date > tdy).length;
+  return { txs: IMP.skipFuture ? all.filter(x => x.date <= tdy) : all, skipped, future, opening: IMP.accountId === 'new' ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
 }
 function showMapping() {
   const { header, map, rows } = IMP;
   const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
-  const { txs, skipped } = rowsToTx(rows, map, { accountId: impAccount(), catMap: IMP.catMap });
+  const { txs, skipped, future, opening } = impPlan();
   // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
   const dates = txs.map(x => x.date).sort(), sum = k => txs.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
-  const future = txs.filter(x => x.date > today()).length;
   const srcCats = map.category != null ? [...new Set(rows.map(r => cleanText(r[map.category], 60)).filter(Boolean))].slice(0, 40) : [];
   const cats = [...expenseCats(), ...INCOME_CATEGORIES];
   openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(t('{0} rows', rows.length))}</p>
-    <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}</div>
-    <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('New account: {0}', newAccName()))}</option></select></label>
+    <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}${col('balance', t('Balance'))}</div>
+    <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('A new account'))}</option></select></label>
+    ${IMP.accountId === 'new' ? `<label class="field"><span>${esc(t('Name of the new account'))}</span><input data-input="imp-accname" maxlength="40" value="${esc(newAccName())}"></label>
+      ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}
     ${srcCats.length ? `<details open><summary>${esc(t('Their categories → Tally categories'))}</summary><div class="grid2">${srcCats.map(s => `<label class="field"><span>${esc(s)}</span><select data-input="imp-cat" data-src="${esc(s)}">${cats.map(c => `<option value="${esc(c.id)}"${(IMP.catMap[s] || mapCategory(s)) === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>`).join('')}</div></details>` : ''}
     <p class="${txs.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', txs.length))}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>
     ${txs.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
-    ${future ? `<p class="warnbox">${ICON.alert}${esc(t('{0} rows are dated in the future. Check the date column: day and month may be swapped.', future))}</p>` : ''}
+    ${future ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('{0} rows are dated after today. If that looks wrong, check the date column: day and month may be swapped.', future))}
+      <label class="check"><input type="checkbox" data-input="imp-future"${IMP.skipFuture ? ' checked' : ''}> ${esc(t('Leave them out'))}</label></span></div>` : ''}
     <ul class="list preview">${txs.slice(0, 5).map(x => `<li class="rowb"><span>${esc(fmtDate(x.date))}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${txs.length ? '' : 'disabled'}>${esc(t('Import {0}', txs.length))}</button></div>`, { label: t('Import') });
 }
@@ -245,7 +261,7 @@ async function reencode(blob) {
 }
 
 // ---- restore -------------------------------------------------------------------------------------------------------------
-async function restoreText(text) {
+async function restoreText(text, zip = {}) {
   let data;
   try { data = readBackup(text); } catch (e) { return impErr(t(e.message)); }
   const choice = S.tx.length || S.accounts.length ? await new Promise(res => {
@@ -259,9 +275,21 @@ async function restoreText(text) {
   await setSetting('onboarded', true);
   if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
   closeSheet(); go('home'); render();
+  // Photos from a photo backup: only ones a restored transaction points at.
+  const wanted = new Set(data.tx.map(x => x.receiptId).filter(Boolean));
+  for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' })); }
   toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
 }
 
+/** The backup, as JSON, or with photos as a zip holding the same JSON plus photos/<id>.jpg. */
+async function backupBlob(withPhotos) {
+  const { name, text } = backupFile();
+  if (!withPhotos) return { name, blob: new Blob([text], { type: 'application/json' }) };
+  const files = [{ name: BACKUP_JSON, data: new TextEncoder().encode(text) }];
+  for (const id of new Set(S.tx.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); }
+  return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files) };
+}
+const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
 const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } }) });
 async function backedUp(msg) {
   await setKv('lastBackup', `${today()}T${nowTime()}`);
@@ -285,7 +313,8 @@ export const act = {
     openSheet(`<h2 class="sh-title">${esc(t('Your accounts'))}</h2><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>
       <label class="field"><span>${esc(t('Cash in wallet (RM)'))}</span><input id="sf-cash" inputmode="decimal" placeholder="0.00" autofocus></label>
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
-      <label class="field"><span>${esc(t('E-wallet, e.g. Touch \'n Go (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
@@ -294,7 +323,8 @@ export const act = {
     b.disabled = true;
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet') };
     let n = 0;
-    for (const [k, v] of vals) if (k !== 'ewallet' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k, opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
+    names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
+    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k, opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -332,8 +362,8 @@ export const act = {
   },
   'imp-go': async b => {
     b.disabled = true;
-    if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: 'bank', opening: 0, createdAt: Date.now() });
-    const { txs } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), catMap: IMP.catMap });
+    const { txs, opening } = impPlan(), m = IMP.map;
+    if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash', opening: opening ?? 0, createdAt: Date.now() });
     return commitImport(txs, IMP.name || t('file'), undefined, IMP.accountId === 'new' ? IMP.newId : null);
   },
   'mm-go': async b => {
@@ -380,20 +410,22 @@ export const act = {
   'backup': () => {
     const { name, text } = backupFile(), canShare = !!navigator.canShare?.({ files: [new File([''], name, { type: 'application/json' })] });
     openSheet(`<h2 class="sh-title">${esc(t('Back up'))}</h2>
-      <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories. Photos stay on this phone.', S.tx.length))}</p>
+      <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories.', S.tx.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
+      ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
       ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
   },
   'bk-share': async () => {
-    const { name, text } = backupFile();
-    try { if (!(await shareFile(name, text))) return act['bk-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; } // closed the share sheet: nothing sent
+    const { name, blob } = await backupBlob($('#bk-photos')?.checked);
+    try { if (!(await shareFile(name, blob, blob.type))) return act['bk-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; } // closed the share sheet: nothing sent
     await backedUp(t('Sent {0}. Check it arrived before you rely on it.', name));
   },
-  'bk-save': async () => {
-    const { name, text } = backupFile();
-    download(name, text, 'application/json');
+  'bk-save': async b => {
+    b.disabled = true;
+    const { name, blob } = await backupBlob($('#bk-photos')?.checked);
+    download(name, blob, blob.type);
     await backedUp(t('Saved {0} to your Downloads folder.', name));
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),

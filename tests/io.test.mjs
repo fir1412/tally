@@ -112,3 +112,30 @@ test('backup round trip; hostile or broken entries dropped; merge keeps local', 
   assert.equal(merged.tx[0].note, 'local edit');
   assert.equal(merged.kv.rules.TEH, 'groceries');
 });
+
+test('statement Balance column gives a new account its opening balance, oldest-first or newest-first', () => {
+  const rows = [['Date', 'Description', 'Debit', 'Credit', 'Balance'], ['01/09/2026', 'CARD PURCHASE NASI LEMAK ANTARABANGSA', '59.53', '', '4,140.47'], ['03/09/2026', 'JOMPAY PETRONAS', '202.69', '', '3,937.78'], ['05/09/2026', 'SALARY', '', '3,000.00', '6,937.78'], ['09/10/2026', 'FPX TNB', '100.00', '', '6,837.78']];
+  const map = IO.guessMapping(rows[0]);
+  assert.equal(map.balance, 4);
+  const { txs } = IO.rowsToTx(rows.slice(1), map, { accountId: 'a' });
+  assert.equal(txs[0].merchant, 'Nasi Lemak Antarabangsa');   // shouting bank text reads as a name
+  assert.equal(IO.openingFromBalance(rows.slice(1), map, txs, '2026-09-29'), 420000);   // 4,140.47 + 59.53
+  const desc = [rows[0], ...rows.slice(1).reverse()];
+  assert.equal(IO.openingFromBalance(desc.slice(1), map, IO.rowsToTx(desc.slice(1), map, { accountId: 'a' }).txs, '2026-09-29'), 420000);
+  assert.equal(IO.openingFromBalance(rows.slice(1), { ...map, balance: undefined }, txs, '2026-09-29'), null);
+  assert.equal(IO.cleanDesc('DUITNOW QR TNB'), 'TNB');
+});
+
+test('title rows above the header are skipped', () => {
+  const rows = IO.parseCSV('Family Budget 2026,,,\nPrepared by Priya,,,\n,,,\nDate,Category,Amount (RM),Notes\n01/07/2026,Bills,159.73,Unifi\n');
+  assert.equal(IO.headerRow(rows), 2);   // the blank row is dropped by the parser
+  assert.equal(IO.headerRow([['Date', 'Amount'], ['01/07/2026', '5.00']]), 0);
+});
+
+test('photo backup zip: written stored, read back byte for byte', async () => {
+  const photo = new Uint8Array(5000).map((_, i) => (i * 31) & 255);
+  const blob = IO.zipStore([{ name: IO.BACKUP_JSON, data: new TextEncoder().encode('{"app":"tally"}') }, { name: 'photos/p_1.jpg', data: photo }]);
+  const out = await IO.unzip(await blob.arrayBuffer(), () => true);
+  assert.equal(new TextDecoder().decode(out[IO.BACKUP_JSON]), '{"app":"tally"}');
+  assert.deepEqual([...out['photos/p_1.jpg']], [...photo]);
+});

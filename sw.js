@@ -1,7 +1,7 @@
 // Offline cache (adapted from we go gim). Bump VERSION whenever app files change.
-const VERSION = 'tally-v13';
+const VERSION = 'tally-v14';
 const CORE = [
-  './', './index.html', './privacy.html', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
+  './', './index.html', './privacy.html', './terms.html', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
   './js/app.js', './js/state.js', './js/db.js', './js/engine.js', './js/ui.js', './js/io.js', './js/i18n.js', './js/parse.js',
   './js/align.js', './js/scan.js', './js/ocr-worker.js', './js/calendar.js', './js/mmimport.js', './js/statement.js', './js/feedback.js', './js/tour.js',
   './js/views/home.js', './js/views/money.js', './js/views/review.js', './js/views/setup.js', './js/i18n/ms.js', './js/i18n/zh.js',

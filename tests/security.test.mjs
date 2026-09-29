@@ -24,7 +24,7 @@ test('page policy: no eval, no inline or third-party scripts, network limited to
 });
 
 test('no inline scripts in any page', () => {
-  for (const f of ['index.html', 'privacy.html', '404.html']) assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(read(f)), f);
+  for (const f of ['index.html', 'privacy.html', 'terms.html', '404.html']) assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(read(f)), f);
 });
 
 test('network calls: only the feedback form and a pasted Google Sheets link', () => {

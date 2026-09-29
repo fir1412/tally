@@ -9,7 +9,7 @@ import * as setup from './views/setup.js';
 import { flushFeedback } from './feedback.js';
 import { onboarding, registerSW } from './tour.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView };
 const ACT = { ...home.act, ...money.act, ...review.act, ...setup.act };
 const INPUT = { ...money.input, ...setup.input, ...review.input };

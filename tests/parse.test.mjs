@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, parseDate } from '../js/parse.js';
+import { parseReceipt, parseDate, parseItemLines } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -124,4 +124,32 @@ test('time of purchase: 24h, AM/PM, glued to the date; plain prices and phone nu
   assert.equal(parseTime('Nasi Lemak 12.90'), null);
   assert.equal(parseTime('Tel: 03-2161 5678'), null);
   assert.equal(parseReceipt('KEDAI\n28/09/2026 12:41\nTeh 2.00\nTotal 2.00').time, '12:41');
+});
+
+test('misread "lnclusive" total, zero discount, cash and change after it, code-qty-price rows, printed company name', () => {
+  const r = parseReceipt(`ah seng
+KEDAI RUNCIT JAYA SDN.BHD
+Date:13/03/2018
+2587 1.00 PCS 48.00 50.88 SR
+HAMMER 20OZ
+5736 1.00SET 47.17 50.00 SR
+SCREW SET 12PCS
+Total Qty 2 100.88
+Total Sales (Excluding GST) 95.17
+Discount 0.00
+Total GST 5.71
+Roundlng 0.02
+Total Sales(lnclusive of GsT) : 100.90
+CASH: 101.00
+Change : 0.10`);
+  assert.equal(r.merchant, 'KEDAI RUNCIT JAYA SDN BHD');   // the handwritten name above is not the shop
+  assert.equal(r.total, 10090);
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['HAMMER 20OZ', 5088], ['SCREW SET 12PCS', 5000]]);
+  assert.ok(r.check.ok);
+  assert.equal(parseReceipt('Kopi O 2.50\nItem 2 TotalwithGST@6% 2.50\nTOTAL 2.50\nCash 5.00').items.length, 1);
+});
+
+test('items typed by hand: name then price, price then name, colons, lines without a price skipped', () => {
+  assert.deepEqual(parseItemLines('Samsung phone 1299\nIkan kembung 25.50\nRM 8 sayur\nTeh ais: 2.5\nno price here\n\n12.00'),
+    [{ name: 'Samsung phone', cents: 129900 }, { name: 'Ikan kembung', cents: 2550 }, { name: 'sayur', cents: 800 }, { name: 'Teh ais', cents: 250 }]);
 });

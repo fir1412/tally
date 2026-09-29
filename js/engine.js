@@ -1,17 +1,18 @@
 // Pure money logic: no DOM, no storage. Every amount is integer sen (RM 1.00 = 100).
 
 export const CATEGORIES = [
-  { id: 'groceries', name: 'Groceries', color: '#10B981' },
+  { id: 'groceries', name: 'Groceries', color: '#65A30D' },
   { id: 'dining', name: 'Dining', color: '#F59E0B' },
   { id: 'transport', name: 'Transport', color: '#3B82F6' },
-  { id: 'bills', name: 'Bills', color: '#6366F1' },
-  { id: 'household', name: 'Household', color: '#14B8A6' },
-  { id: 'health', name: 'Health', color: '#EF4444' },
+  { id: 'bills', name: 'Bills', color: '#06B6D4' },
+  { id: 'household', name: 'Household', color: '#A16207' },
+  { id: 'health', name: 'Health', color: '#14B8A6' },
   { id: 'personal', name: 'Personal care', color: '#EC4899' },
-  { id: 'kids', name: 'Kids', color: '#A855F7' },
+  { id: 'kids', name: 'Kids', color: '#8B5CF6' },
+  { id: 'electronics', name: 'Electronics', color: '#0EA5E9' },
   { id: 'shopping', name: 'Shopping', color: '#F97316' },
-  { id: 'fun', name: 'Entertainment', color: '#8B5CF6' },
-  { id: 'education', name: 'Education', color: '#0EA5E9' },
+  { id: 'fun', name: 'Entertainment', color: '#D946EF' },
+  { id: 'education', name: 'Education', color: '#6366F1' },
   { id: 'other', name: 'Other', color: '#64748B' },
 ];
 export const INCOME_CATEGORIES = [
@@ -70,10 +71,11 @@ const WORDS = [
   ['health', /panadol|claritin|vitamin|ubat|medicine|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
   ['personal', /shampoo|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|洗发|洗髮|牙膏|沐浴/i],
   ['dining', /nasi|mee |mee$|mi goreng|roti canai|teh |kopi|coffee|latte|milo ais|ais |burger|pizza|chicken rice|laksa|satay|restoran|restaurant|cafe|kafe|food|makan|drink|minum|set meal|meal|kfc|mcd|mamak|饭|面|粉|咖啡|茶|奶茶|套餐|饮料|點心|点心|包子|炒/i],
-  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|daging|beef|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬/i],
+  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬/i],
   ['household', /sabun|soap|detergent|tissue|tisu|bleach|sponge|mop|broom|penyapu|plastic|beg |bag|towel|tuala|bateri|battery|mentol|bulb|span|kitchen|dapur|pinggan|cawan|cup|peg|hanger|clorox|dynamo|downy|breeze|glad|ziploc|纸巾|紙巾|洗衣|清洁|清潔|垃圾袋|电池|電池|毛巾/i],
   ['transport', /petrol|ron ?9[57]|v-?power|diesel|primax|parking|letak kereta|toll|tol |grab|touch ?n ?go|lrt|mrt|bus|teksi|taxi|fuel|汽油|停车|停車|过路费/i],
   ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|digi|umobile|internet|astro|insurance|insurans|takaful|loan|pinjaman|电费|電費|水费|水費|保险|保險/i],
+  ['electronics', /\b(hand)?phone\b|telefon|iphone|ipad|samsung|xiaomi|redmi|huawei|oppo|vivo|realme|honor|charger|pengecas|\bcable\b|kabel|earphone|earbud|headphone|headset|airpods|power ?bank|laptop|notebook|macbook|\bmonitor\b|keyboard|\bmouse\b|printer|cartridge|sd card|memory card|pendrive|thumb ?drive|\busb\b|hdmi|speaker|\btv\b|television|smart ?watch|camera|console|playstation|\bps5\b|nintendo|electronic|elektronik|手机|手機|充电|耳机|耳機|电脑|電腦|平板/i],
   ['education', /book|buku|pen |pencil|pensel|stationery|alat tulis|tuition|tuisyen|yuran|fee|书|書|文具|补习|補習/i],
   ['fun', /cinema|wayang|gsc|tgv|netflix|spotify|game|karaoke|bowling|concert|电影|電影/i],
 ];
@@ -84,6 +86,7 @@ const SHOPS = [
   ['household', /mr\.? ?d\.?i\.?y|daiso|ikea|eco-?shop|kedai perkakasan|hardware|五金/i],
   ['groceries', /speedmart|mydin|aeon|tesco|lotus|giant|jaya grocer|village grocer|econsave|nsk|hero|family ?mart|7-eleven|99 |mart|grocer|pasar|supermarket|runcit|超市|杂货|雜貨/i],
   ['kids', /toys|mothercare|anakku|baby/i],
+  ['electronics', /senheng|harvey norman|courts|machines|switch|all ?it|urban republic|thunder match|\bsamsung\b|apple store|electronic|电器|電器/i],
 ];
 /** Category for an item: the user's own rule first, then item words, then the shop's usual category. */
 export function categorize(name, merchant = '', rules = {}) {
@@ -197,18 +200,17 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
     if (spent > b) out.push({ id: `over-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} is over budget', label], body: ['Spent {0} of {1}.', fmtRM(spent), fmtRM(b)] });
     else if (p.over && p.pct >= 0.5) out.push({ id: `pace-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} at {1}% with {2} days left', label, Math.round(p.pct * 100), p.daysLeft], body: ["At this pace you'll spend {0}, {1} over.", fmtRM(p.projected), fmtRM(p.projected - b)] });
   }
-  // Unusual week: a category this week at 2x or more its usual week (needs 4+ earlier weeks of data).
+  // Unusual week: a category this week at 2x or more its usual week. "Usual" = the average over the weeks of the
+  // last 12 that have any spending at all (4+ needed), so an old or stray receipt can't stretch the history.
   const weekStart = addDays(today, -6);
-  const first = txs.reduce((m, t) => (t.date < m ? t.date : m), today);
-  const weeks = Math.floor(daysBetween(first, weekStart) / 7);
-  if (weeks >= 4) {
-    const span = Math.min(weeks, 12);
-    const inRange = (a, b) => txs.filter(t => t.type === 'expense' && t.date >= a && t.date <= b);
+  const inRange = (a, b) => txs.filter(t => t.type === 'expense' && t.date >= a && t.date <= b);
+  const active = Array.from({ length: 12 }, (_, k) => addDays(weekStart, -7 * (k + 1))).filter(s => inRange(s, addDays(s, 6)).length).length;
+  if (active >= 4) {
     const sum = list => { const by = {}; for (const t of list) for (const x of breakdown(t)) by[x.category] = (by[x.category] || 0) + x.cents; return by; };
     const thisWeek = sum(inRange(weekStart, today));
-    const before = sum(inRange(addDays(weekStart, -7 * span), addDays(weekStart, -1)));
+    const before = sum(inRange(addDays(weekStart, -7 * 12), addDays(weekStart, -1)));
     for (const [c, v] of Object.entries(thisWeek)) {
-      const avg = (before[c] || 0) / span;
+      const avg = (before[c] || 0) / active;
       if (avg > 0 && v >= 2 * avg && v - avg >= 2000) out.push({ id: `week-${c}-${today}`, kind: 'unusual', level: 'info', cat: c, title: ['{0} this week is {1}× your usual week', { cat: c }, (v / avg).toFixed(1)], body: ['{0} vs about {1} a week.', fmtRM(v), fmtRM(Math.round(avg))] });
     }
   }
@@ -260,7 +262,8 @@ export function recurringCandidates(txs, known = []) {
     const k = shopWord(t.merchant);
     if (k) (groups[k] ||= []).push(t);
   }
-  const out = [];
+  const out = [], latest = txs.reduce((m, t) => (t.date > m ? t.date : m), '');
+  const run3 = months => months.some(m => months.includes(addMonths(m, 1)) && months.includes(addMonths(m, 2)));
   for (const [k, list] of Object.entries(groups)) {
     if (known.includes(k) || new Set(list.map(t => monthOf(t.date))).size < 3) continue;
     const amts = list.map(t => t.amount).sort((a, b) => a - b), mid = amts[Math.floor(amts.length / 2)];
@@ -269,8 +272,12 @@ export function recurringCandidates(txs, known = []) {
     // A bill comes on about the same day each month, costs RM 20 or more, and isn't a meal or groceries.
     const days = close.map(t => +t.date.slice(8, 10)).sort((a, b) => a - b), mday = days[Math.floor(days.length / 2)];
     if (mid < 2000 || close.filter(t => Math.abs(+t.date.slice(8, 10) - mday) <= 3).length < 3) continue;
-    if (close.every(t => ['dining', 'groceries'].includes(t.category) || (t.items || []).length)) continue;
+    if (close.every(t => ['dining', 'groceries', 'transport'].includes(t.category) || (t.items || []).length)) continue;
+    // Three months in a row, still going (seen in the last 45 days), and not an instalment that has ended ("12/12").
     const lastTx = list.reduce((a, b) => (a.date > b.date ? a : b));
+    if (!run3([...new Set(close.map(t => monthOf(t.date)))]) || daysBetween(lastTx.date, latest) > 45) continue;
+    const inst = `${lastTx.note || ''} ${lastTx.merchant}`.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\b/);
+    if (inst && +inst[1] >= +inst[2] && +inst[2] > 1) continue;
     out.push({ key: k, merchant: lastTx.merchant, amount: mid, category: lastTx.category || 'bills', day: +lastTx.date.slice(8, 10) });
   }
   return out;

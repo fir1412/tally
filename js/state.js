@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft'];
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue'];
 
 export async function load() {
   const mode = await db.init();
@@ -27,6 +27,8 @@ const pad = n => String(n).padStart(2, '0');
 const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const today = () => (/^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : local(new Date()));
 export const nowTime = () => (/^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now') : `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`);
+/** Transactions up to today. Rows dated later (a statement's future lines) count from their own day, everywhere. */
+export const booked = () => { const d = today(); return S.tx.filter(x => x.date <= d); };
 export const nowLocal = () => `${today()}T${nowTime()}`;
 export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 

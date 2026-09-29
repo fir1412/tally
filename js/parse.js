@@ -9,17 +9,22 @@ const COUNT = /\b(ite[mn]|qty)\s*\(s\)|\bno\.?\s*of\s*items|\bitem\s*count/i; //
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
-const TOTAL = /[o0]ta[l1i]?(?![a-z])|t[o0]t[ai][l1](?![a-z])|totalamount|totalamt|jumlah|amount\s*due|\bnett?\b|grand/i;
+const TOTAL = /[o0]ta[l1i]?(?![a-z])|t[o0]t[ai][l1](?![a-z])|t[o0]ta[l1](?=with|incl|[il1]ncl|amt|amount|sales|rm|myr)|jumlah|amount\s*due|\bnett?\b|grand/i;
 const PAYMENT = /\b(cash|tunai|change|baki|tender|visa|master|card|credit|debit|paid|payment|e-?wallet|grabpay|boost|tng|touch\s*n)/i;
 // "Total Qty", "Total Items", "Total Saving", "Total 0% supplies" (a group total), "Item 2 Total with GST"
 const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|saving|disc)|^(qty|items?)\b|saving|excl|suppl/i;
 // A line that says both "total" and "tax"/"rounding" is the total only when it says so ("incl", "payment"...)
-const TOTAL_WINS = /incl|inclusive|including|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
+const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
 const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan/i;
 const TAX = /\bsst\b|\bgst\b|service\s*tax|sales\s*tax|\btax\b|cukai/i;
 const ROUNDING = /round|pelarasan|bundar/i;
+const DISCOUNT = /disc(ount)?|diskaun|potongan|saving/i;
+// Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
+const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|restaurant|supermarket|hypermarket|pharmacy|farmasi|\bkedai\b|\bmart\b|\bstore\b|bakery|\bcafe\b/i;
+/** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
+const bareName = s => s.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/\b(pcs?|set|units?|ea|nos?|btl|pkt|x)\b/gi, ' ').replace(/\s+/g, ' ').trim();
 // Year may be glued to the time by OCR: "25/12/20188:13PM", "01/03/1819:14"
 const DATE = /(?<!\d)(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2}|\d{2})(?=\d{1,2}:\d{2}|\D|$)|\b(\d{4})-(\d{2})-(\d{2})\b/g;
 
@@ -68,6 +73,20 @@ export function parseDate(line) {
   return null; // rejects 31/02, 13/13
 }
 
+/**
+ * Items typed by hand, one per line: "Phone 1299", "Ikan kembung 25.50", "RM 8 sayur", "Teh ais: 2.5".
+ * → [{name, cents}]; lines without a price are skipped.
+ */
+export function parseItemLines(text) {
+  const cents = s => { const [a, b = ''] = s.split(/[.,]/); return +a * 100 + +(b + '00').slice(0, 2); };
+  return String(text ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const tail = l.match(/^(.*?\S)[\s:=\-–]*(?:RM|MYR)?\s*(\d{1,6}(?:[.,]\d{1,2})?)$/i);   // name then price
+    const head = l.match(/^(?:RM|MYR)?\s*(\d{1,6}(?:[.,]\d{1,2})?)[\s:=\-–]+(\D.*)$/i);      // price then name
+    const [name, price] = tail ? [tail[1], tail[2]] : head ? [head[2], head[1]] : [];
+    return name && /\p{L}/u.test(name) ? { name: name.replace(/[\s:=\-–]+$/, '').slice(0, 80), cents: cents(price) } : null;
+  }).filter(x => x && x.cents > 0);
+}
+
 export function parseReceipt(text) {
   const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
@@ -75,6 +94,8 @@ export function parseReceipt(text) {
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
   const below = namesBelow(lines);
 
+  const co = lines.slice(0, 6).find(l => COMPANY.test(l));
+  if (co) r.merchant = co.replace(/\s*sdn\.?\s*bhd/i, ' SDN BHD').replace(/([A-Za-z])\(/g, '$1 (').replace(/\)([A-Za-z])/g, ') $1').trim();
   for (const line of lines) {
     if (!r.merchant && /[a-z]{3}/i.test(line)) r.merchant = line;
     if (!r.date) r.date = parseDate(line);
@@ -100,9 +121,10 @@ export function parseReceipt(text) {
     else if (TOTAL.test(key) && NOT_TOTAL.test(key)) { /* a count or group total: skip */ }
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
     else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
+    else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
     else if (r.subtotal === null && r.total === null && !COUNT.test(label)) { // items stop at the subtotal or first real total
       const name = label.replace(QTY, '').trim();
-      const qtyOnly = !/[a-z]{2}/i.test(name);
+      const qtyOnly = !/[a-z]{2}/i.test(bareName(name));   // "2587 1.00 PCS 48.00": code, qty and price; the name is elsewhere
       // Number-only line: its name is the line above, or (code-qty-price layout) the line below, filled in above
       r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents });
     }
@@ -134,7 +156,7 @@ function guessTotal(r, lines) {
 }
 
 const isText = l => l !== undefined && /[a-z]{2}/i.test(l) && !AMOUNT.test(l);
-const isQtyOnly = l => { const m = l.match(AMOUNT); return !!m && !/[a-z]{2}/i.test(l.slice(0, m.index).replace(QTY, '')); };
+const isQtyOnly = l => { const m = l.match(AMOUNT); return !!m && !/[a-z]{2}/i.test(bareName(l.slice(0, m.index).replace(QTY, ''))); };
 
 // One layout per receipt: are item names printed above or below number-only lines? Vote over the receipt.
 // Tie: if the first number-only line is also the first money line, the text above it is the header, so names are below.

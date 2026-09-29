@@ -152,17 +152,26 @@ const HEAD = {
   note: /note|nota|memo|description|keterangan|butiran|备注|備註|details|remark/i,
   merchant: /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima/i,
   account: /^(account|akaun|账户|帳戶|wallet|dompet)$/i,
+  balance: /^(running |closing |available )?(balance|baki)|余额|餘額/i,
 };
 /** Which column holds what: {date, amount | debit+credit, type?, category?, note?, merchant?, account?} as indexes. */
 export function guessMapping(header) {
   const h = header.map(x => cleanText(x));
   const m = {}; const used = [];
-  for (const k of ['date', 'debit', 'credit', 'type', 'category', 'merchant', 'note', 'account', 'amount']) {
+  for (const k of ['date', 'balance', 'debit', 'credit', 'type', 'category', 'merchant', 'note', 'account', 'amount']) {
     const i = h.findIndex((x, j) => HEAD[k].test(x) && !used.includes(j));
     if (i >= 0) { m[k] = i; used.push(i); }
   }
   if (m.amount != null && (m.debit == null) !== (m.credit == null)) { delete m.debit; delete m.credit; } // one-sided: use amount
   return m;
+}
+
+/** The header row: the first of the top 10 rows that names two or more columns, so title rows above it
+ *  ("Family Budget 2026", "Prepared by…") are skipped. 0 when none does. */
+export function headerRow(rows) {
+  const named = r => Object.keys(guessMapping((r || []).map(x => cleanText(x, 40)))).length;
+  const i = rows.slice(0, 10).findIndex(r => named(r) >= 2);
+  return i < 0 ? 0 : i;
 }
 
 // ---- dates in files -----------------------------------------------------------------------------
@@ -188,7 +197,10 @@ export function fileDate(v) {
 // ---- rows → transactions ---------------------------------------------------------------------------
 const ALL_CATS = [...CATEGORIES, ...INCOME_CATEGORIES];
 /** Bank and wallet descriptions without their channel prefix: "CARD PURCHASE TESCO" → "TESCO". */
-export const cleanDesc = s => cleanText(s, 120).replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '').trim() || cleanText(s, 120);
+/** Shouting bank text reads as a name: "NASI LEMAK ANTARABANGSA" → "Nasi Lemak Antarabangsa"; short codes (TNB, KFC, MR DIY) stay. */
+const unshout = s => (/[a-z]/.test(s) ? s : s.replace(/[A-Z]{4,}/g, w => w[0] + w.slice(1).toLowerCase()));
+export const cleanDesc = s => unshout(cleanDesc0(s));
+const cleanDesc0 = s => cleanText(s, 120).replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '').trim() || cleanText(s, 120);
 const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪/i;
 const TRANSFER_WORD = /transfer|pindahan|转账|轉帳|top ?up|reload/i;
 /** Another app's category name → ours: exact id/name, then words. catMap (from the mapping step) wins. */
@@ -227,6 +239,19 @@ export function importIds(txs, prefix) {
  * A type column (income/expense) wins over the sign. With no type column: if any amount is negative the file is
  * signed (negative = spent, positive = received); if none is, every amount is spending (most money apps).
  */
+/**
+ * Opening balance for a new account from a statement's Balance column: the balance on the last row up to `upTo`,
+ * minus everything imported up to then. Works for oldest-first and newest-first files. null without a balance column.
+ */
+export function openingFromBalance(rows, map, txs, upTo) {
+  if (map.balance == null || map.date == null) return null;
+  const dated = rows.map((r, i) => ({ i, date: fileDate(r[map.date]), bal: fileAmount(r[map.balance]) })).filter(x => x.date && x.bal != null && x.date <= upTo);
+  if (!dated.length) return null;
+  const asc = dated[0].date <= dated.at(-1).date;
+  const last = dated.reduce((a, b) => (b.date > a.date || (b.date === a.date && asc) ? b : a));
+  const net = txs.filter(x => x.date <= upTo).reduce((s, x) => s + (x.type === 'income' ? x.amount : -x.amount), 0);
+  return last.bal - net;
+}
 export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import', idPrefix = 'i', now = Date.now() } = {}) {
   const txs = [], skipped = [];
   const signed = map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0);
@@ -327,6 +352,28 @@ export function mergeBackup(local, incoming) {
 }
 
 // ---- browser-only helpers ---------------------------------------------------------------------------
+// ---- zip (write) ---------------------------------------------------------------------------------------------------
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = d => { let c = ~0; for (let i = 0; i < d.length; i++) c = CRC[(c ^ d[i]) & 255] ^ (c >>> 8); return ~c >>> 0; };
+/** [{name, data: Uint8Array}] → a zip Blob, stored without compression (receipt photos are JPEG already). */
+export function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let off = 0;
+  for (const f of files.slice(0, 65000)) {
+    const name = enc.encode(f.name), n = f.data.length, crc = crc32(f.data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    parts.push(h, name, f.data); central.push(c, name);
+    off += 30 + name.length + n;
+  }
+  const size = central.reduce((s, x) => s + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, central.length / 2, true); e.setUint16(10, central.length / 2, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, e], { type: 'application/zip' });
+}
+export const BACKUP_JSON = 'tally-backup.json';
+
 export function download(name, text, type = 'text/plain') {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = Object.assign(document.createElement('a'), { href: url, download: name });

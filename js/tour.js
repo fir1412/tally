@@ -1,11 +1,20 @@
 // First-run tour, What's new after an update, install prompt and update check (pattern from we go gim).
 import { S, settings, setKv } from './state.js';
 import { t } from './i18n.js';
-import { esc, ICON, openSheet, closeSheet, toast } from './ui.js';
+import { esc, ICON, openSheet, closeSheet, toast, hideToast } from './ui.js';
 import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.3.0': [
+    'Type your own breakdown: one item per line ("Phone 1299", "Ikan 25") and each is sorted into its category, including the new Electronics',
+    'The receipt photo is shown while you check it, and old receipts say which month they will be filed under',
+    'Receipts waiting to be read and the one you are checking survive closing the app',
+    'Imports go into their own account, match the balance on your statement, and can leave out rows dated after today',
+    'Budgets update as you type; the month table has 6 or 12 months, money in and net, and each amount opens its transactions',
+    'Backups can include receipt photos; Activity can show only entries with a photo',
+    'Better receipt reading: totals with GST, cash and change lines, and shop names',
+  ],
   '0.2.0': [
     'Send feedback from Settings: bugs and ideas go straight to the developer',
     'A quick tour for new users, and this list after each update',
@@ -29,6 +38,7 @@ const skipTour = () => new URLSearchParams(location.search).has('notour');   // 
 /** Walk through the tabs. The sheet stays open while the screen behind it changes. */
 export function showTour(start = 0) {
   let i = start;
+  hideToast();   // an import's toast shouldn't sit over the tour
   const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { if (!settings().tourDone) seen(); } });
   const paint = () => {
     const [tab, icon, title, body] = TOUR[i];
@@ -60,7 +70,7 @@ export const newSince = from => Object.entries(WHATS_NEW).filter(([v]) => !from 
 
 export function showWhatsNew(from = '') {
   const items = newSince(from);
-  const el = openSheet(`<div class="tour"><div class="tour-ic">${ICON.bell}</div><p class="lbl">${esc(t('Tally {0}', APP_VERSION))}</p><h2 class="sh-title">${esc(t("What's new"))}</h2>
+  const el = openSheet(`<div class="tour"><div class="tour-ic">${ICON.sparkles}</div><p class="lbl">${esc(t('Tally {0}', APP_VERSION))}</p><h2 class="sh-title">${esc(t("What's new"))}</h2>
     <ul class="newlist">${items.map(x => `<li>${esc(t(x))}</li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-t="tour">${esc(t('Take the tour'))}</button><button class="btn" data-t="ok" autofocus>${esc(t('Got it'))}</button></div></div>`,
   { label: t("What's new"), onClose: () => seen() });
