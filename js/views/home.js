@@ -1,13 +1,14 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
 import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
-import { esc, ICON, lineChart, pairBars, donut, openSheet, toast } from '../ui.js';
+import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
-import { render } from '../app.js';
+import { render, go } from '../app.js';
 import { txRow, catLabel, dot, openTxSheet, scopeSwitch } from './money.js';
 import { learnHome, streakHome } from './learn.js';
+import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
 export function fill([tpl, ...vals]) {
@@ -44,7 +45,7 @@ function backupBanner() {
   return '';
 }
 /** The one other banner Home shows, most important first: a bill due, cash below zero, days not logged, a habit nudge, an insight. */
-function banner() {
+function banner(skip = null) {
   const tdy = today();
   if (location.host === 'fir1412.github.io') return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(t('Tally has moved to tallymy.github.io'))}</b><small>${esc(t('Back up here, then open the new address and restore the file there. This address will stop getting updates.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><a class="btn small ghost" href="https://tallymy.github.io/" rel="noopener">${esc(t('Open the new address'))}</a></span></div>`;
@@ -66,14 +67,56 @@ function banner() {
   const nudge = shown('nudge') && dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
-  const ins = shown('insight') && insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id));
+  const ins = shown('insight') && insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id) && i.id !== skip);
   if (ins) return `<div class="banner ${ins.level}">${ins.level === 'warn' ? ICON.alert : ICON.chart}<span class="grow"><b>${esc(fill(ins.title))}</b><small>${esc(fill(ins.body))}</small></span>
     <span class="bactions"><button class="btn small ghost" data-act="go" data-to="insights">${esc(t('More'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(ins.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
   return '';
 }
 
+/** The month ring: what's left of the budget (or this month against last), coloured by pace. Tap: Budgets. */
+function ringHtml(rg, { spent, B, before, lastYm, sd, word }) {
+  const pct = rg.mode === 'budget' ? Math.round(rg.frac * 100) : Math.round(spent / before * 100);
+  const label = rg.mode === 'budget' ? `${spent > B ? t('Over by {0}', fmtRM(spent - B)) : t('{0} left', fmtRM(B - spent))} · ${word}` : t('{0}% of what you had spent by this point in {1}', pct, fmtMonth(lastYm, sd));
+  return `<button class="ring ${rg.tone}" data-act="go" data-to="budgets" aria-label="${esc(label)}"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="19" pathLength="100"/>${rg.frac > 0 ? `<circle class="arc" cx="22" cy="22" r="19" pathLength="100" style="--f:${(rg.frac * 100).toFixed(1)}"/>` : ''}</svg>
+    <span class="rtxt" aria-hidden="true"><b class="num">${pct}%</b><small>${esc(rg.mode === 'budget' ? t('left') : t('of {0}', cycleShort(lastYm, sd)))}</small></span></button>`;
+}
+/** Once a week: last week looked back on, from its first open until dismissed. Tap: Insights. */
+function recapCard(r) {
+  const id = `wk-${r.start}`, mx = Math.max(...r.days, 1);
+  const good = r.good?.kind === 'cheapest' ? t('Cheapest {0} week in a month', catLabel(r.good.cat)) : r.good?.kind === 'less' ? t('{0} less than a usual week', fmtRM(r.good.by)) : '';
+  return `<section class="card recap"><button class="recap-go" data-act="recap-go" data-id="${esc(id)}">
+    <span class="lbl">${esc(t('Last week'))}</span>
+    <span class="rrow"><span class="grow"><b class="num">${esc(fmtRM(r.total))}</b>${r.usual ? `<small>${esc(t('usual {0}', fmtRM(r.usual)))}</small>` : ''}</span>
+      <span class="wbars" aria-hidden="true">${r.days.map(v => `<i style="--h:${Math.max(4, Math.round(v / mx * 100))}%"${v ? '' : ' class="nil"'}></i>`).join('')}</span></span>
+    ${r.top ? `<span class="rtop">${dot(r.top.cat)}<span class="grow">${esc(catLabel(r.top.cat))}</span><span class="num">${esc(fmtRM(r.top.cents))}</span></span>` : ''}
+    ${good ? `<span class="rgood">${ICON.sparkles}<span class="grow">${esc(good)}</span></span>` : ''}</button>
+    <button class="icon-btn rx" data-act="dismiss" data-id="${esc(id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></section>`;
+}
+/** Now and then (never more than once a day), one piece of good news from the data. */
+function findCard(f, tdy) {
+  const [text, sub] = f.kind === 'price' ? [fill(f.ins.title), fill(f.ins.body)] : f.kind === 'catdown' ? [t('{0} down {1}% on last month', catLabel(f.cat), f.pct), t('So far this month, against the same point last month.')]
+    : f.kind === 'bill' ? [t('{0} paid on time', f.name), ''] : [t('Nothing spent yesterday'), ''];
+  const to = f.kind === 'catdown' ? `data-act="cat-show" data-c="${esc(f.cat)}"` : `data-act="go" data-to="${f.kind === 'bill' ? 'budgets' : f.kind === 'nospend' ? 'badges' : 'insights'}"`;
+  return `<div class="banner good find">${ICON.sparkles}<button class="grow find-go" ${to}><b>${esc(text)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</button><button class="icon-btn" data-act="dismiss" data-id="find-${esc(tdy)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>`;
+}
+let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
 export const homeView = {
   title: 'Home',
+  /** A save just made lands here: its row flashes, the balance and month count to their new values, the ring moves. */
+  after() {
+    const was = onScreen; onScreen = drawn;
+    if (!landing.id || Date.now() - landing.at > 4000) return;
+    const id = landing.id; landing.id = null;
+    const row = document.querySelector(`.txrow[data-id="${CSS.escape(id)}"]`); if (row) row.dataset.new = '';
+    if (!was) return;
+    const big = $('.hero .big'), sp = $('.card.month .spent'), arc = $('.ring .arc');
+    if (was.bal !== drawn.bal) { countUp(big, was.bal, drawn.bal); replay(big, 'land'); }
+    if (was.spent !== drawn.spent) { countUp(sp, was.spent, drawn.spent); replay(sp, 'land'); }
+    if (arc && was.frac != null && was.frac !== drawn.frac) {   // from where it was to where it is now (CSS transition)
+      arc.style.setProperty('--f', (was.frac * 100).toFixed(1)); void arc.getBoundingClientRect();
+      arc.closest('.ring').classList.add('moving'); requestAnimationFrame(() => arc.style.setProperty('--f', (drawn.frac * 100).toFixed(1)));
+    }
+  },
   render() {
     const tdy = today(), sd = startDay(), ym = thisMonth();
     const upToday = booked(), accts = scopedAccounts();
@@ -83,6 +126,13 @@ export const homeView = {
     const sameDay = upToday.filter(x => cycleKey(x.date, sd) !== lastYm || daysBetween(lastStart, x.date) <= into);
     const before = monthSpend(sameDay, lastYm, sd).total, diff = spent - before;
     const recent = [...booked()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt).slice(0, 8);
+    const word = p && (spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'));
+    const rg = ring({ budget: B, spent, before, p });
+    drawn = { bal: bal.total, spent, frac: rg?.frac };
+    // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
+    const ws = settings().weekStart === 0 ? 0 : 1, rc = shown('insight') && weekRecap(upToday, tdy, ws);
+    const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
+    const find = !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(niceFinds({ txs: upToday, today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)) }), tdy);
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1>${greeting() ? `<span class="grow"><b class="hi">${esc(greeting())}</b><small>${esc(fmtDate(tdy, { year: true }))}</small></span>` : `<span class="fine">${esc(fmtDate(tdy, { year: true }))}</span>`}<button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
@@ -91,14 +141,16 @@ export const homeView = {
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtRM(bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
       </section>
       <section class="card month">
-        <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym, sd)))}</span>${p ? `<span class="pill ${spent > B ? 'bad' : p.over ? 'warn' : 'good'}">${esc(spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'))}</span>` : `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>`}</div>
+        <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym, sd)))}</span>${p ? `<span class="pill ${rg.tone}">${esc(word)}</span>` : `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>`}</div>
+        <div class="mrow">${rg ? ringHtml(rg, { spent, B, before, lastYm, sd, word }) : ''}<div class="grow">
         <div class="rowb"><b class="spent num">${esc(fmtRM(spent))}</b>${B ? `<span class="fine">${esc(t('of {0}', fmtRM(B)))}</span>` : ''}</div>
         ${before && diff ? `<p class="delta ${diff > 0 ? 'bad' : 'good'}">${esc(diff > 0 ? t('{0} more than this point in {1}', fmtRM(diff), fmtMonth(lastYm, sd)) : t('{0} less than this point in {1}', fmtRM(-diff), fmtMonth(lastYm, sd)))}</p>` : ''}
-        ${B ? `<div class="meter ${spent > B ? 'bad' : p.over ? 'warn' : 'good'}"><i style="width:${Math.min(100, Math.round(spent / B * 100))}%"></i></div>` : ''}
+        </div></div>
       </section>
+      ${recap}${find ? findCard(find, tdy) : ''}
       ${streakHome()}
       ${backupBanner()}
-      ${banner()}
+      ${banner(find?.kind === 'price' ? find.id : null)}
       ${learnHome()}
       </div><div class="col">
       <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
@@ -182,6 +234,7 @@ export const act = {
   'cash-gift': b => openTxSheet({ type: 'income', category: 'family', accountId: b.dataset.to }),
   'gap-add': b => openTxSheet({ date: b.dataset.d, time: '' }),
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
+  'recap-go': async b => { await dismiss(b.dataset.id); go('insights'); },
   'nudge-add': b => openTxSheet({ category: b.dataset.c, amount: +b.dataset.a, ...(b.dataset.at ? { time: b.dataset.at } : {}) }),
   'ins-span': b => { SPAN = +b.dataset.n; render(); },
   'ins-month': b => { M = addMonths(M, +b.dataset.d); if (M > thisMonth()) M = thisMonth(); render(); },

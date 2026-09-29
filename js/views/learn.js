@@ -2,7 +2,7 @@
 // turned on). Missions tick themselves off after any screen, tap or field that could have done one (pattern from we go gim).
 import { S, settings, setSetting, today, startDay, budgetsFor } from '../state.js';
 import { t, fmtDate, getLang } from '../i18n.js';
-import { esc, ICON, toast, sheetOpen } from '../ui.js';
+import { esc, ICON, toast, sheetOpen, burst, haptic, replay } from '../ui.js';
 import { render, go, route } from '../app.js';
 import { progress, doneByData, missionFor, byUser } from '../learn.js';
 import { streak, loggedDays, earned, BADGES } from '../gamify.js';
@@ -58,13 +58,15 @@ export function learnHome() {
     <div class="row2"><button class="btn small" data-act="learn-go" data-id="${p.next.id}">${esc(t('Show me'))}</button><button class="btn small ghost" data-act="go" data-to="learn">${esc(t('All missions'))}</button></div>
     <button class="link lhide" data-act="learn-hide">${esc(t('Not now'))}</button></section>`;
 }
+/** The flame grows with the streak: full size at 30 days. */
+const flame = n => (0.8 + Math.min(n, 30) / 30 * 0.5).toFixed(2);
 /** Home, when streaks are on: the streak, and a way to count a day with nothing spent. */
 export function streakHome() {
   if (!gameOn()) return '';
   const st = myStreak();
   const sub = [st.loggedToday ? t('Logged today') : st.streak ? t('Add something today to keep it going') : t('Add what you spend today, or mark a day with nothing spent'),
     st.best > st.streak && t('Best: {0} days', st.best), st.rest && t('Rest day used this week')].filter(Boolean).join(' · ');
-  return `<section class="streak"><a href="#/badges" class="streak-go">${ICON.flame}<span class="grow"><b>${esc(st.streak ? t('{0}-day logging streak', st.streak) : t('Start a logging streak'))}</b><small>${esc(sub)}</small></span></a>
+  return `<section class="streak${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><a href="#/badges" class="streak-go">${ICON.flame}<span class="grow"><b>${esc(st.streak ? t('{0}-day logging streak', st.streak) : t('Start a logging streak'))}</b><small>${esc(sub)}</small></span></a>
     ${st.loggedToday ? '' : `<button class="btn small ghost" data-act="no-spend">${esc(t('Nothing spent today'))}</button>`}</section>`;
 }
 export function settingsCard() {
@@ -109,7 +111,7 @@ export const badgesView = {
     }).join('');
     const n = Object.keys(got).length;
     return `${head(t('Streaks and badges'))}
-      <section class="card streakcard"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}${st.best ? ` · ${esc(t('Best: {0} days', st.best))}` : ''}</small></span></div>
+      <section class="card streakcard${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}${st.best ? ` · ${esc(t('Best: {0} days', st.best))}` : ''}</small></span></div>
         <ol class="week" aria-label="${esc(t('Last 7 days'))}">${week}</ol>
         <p class="fine">${esc(st.rest ? t('Rest day used this week. Another missed day starts the streak again.') : t('One rest day a week: missing a single day will not break your streak.'))}</p>
         ${st.loggedToday ? '' : `<button class="btn ghost wide" data-act="no-spend">${ICON.leaf}${esc(t('Nothing spent today'))}</button>`}</section>
@@ -136,16 +138,42 @@ async function tick(ids) {
   redraw();
   quiet(() => toast(p.all ? t('All {0} missions done. You know Tally inside out.', p.total) : t('Learned: {0} · {1} of {2}', TEXT[shown[0]]()[0], p.n, p.total), { k: 'good', icon: 'check' }));
 }
+const MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
+const flameEl = () => document.querySelector('.streak-go > svg, .sbig > svg');
 async function celebrate() {
-  const seen = new Set(settings().badgesSeen || []), fresh = Object.keys(earned(game())).filter(id => !seen.has(id));
+  const s = settings(), tdy = today(), st = myStreak();
+  // The day's check-in (the first entry of the day, or Nothing spent today): the flame flares once.
+  if (st.loggedToday && s.checkedIn !== tdy) {
+    await setSetting('checkedIn', tdy);
+    replay(flameEl()?.closest('.streak, .streakcard'), 'flare');
+    if (MILESTONES.includes(st.streak)) {   // once a day at most: this runs on the day's check-in only
+      haptic(); burst(flameEl(), 22);
+      if (![7, 30].includes(st.streak)) quiet(() => toast(t('{0}-day logging streak', st.streak), { k: 'good', icon: 'flame', cheer: true }));   // 7 and 30 have badges
+    }
+  }
+  const seen = new Set(s.badgesSeen || []), fresh = Object.keys(earned(game())).filter(id => !seen.has(id));
   if (!fresh.length) return;
   await setSetting('badgesSeen', [...seen, ...fresh]);
   const names = fresh.map(id => BTEXT[id]()[0]);
   quiet(() => {
-    toast(names.length === 1 ? t('New badge: {0}', names[0]) : t('New badges: {0}', names.join(', ')), { k: 'good', icon: 'award' });
-    const el = document.getElementById('toast');   // a small shine on the toast; none with reduced motion (CSS)
-    el?.classList.remove('cheer'); void el?.offsetWidth; el?.classList.add('cheer');
+    toast(names.length === 1 ? t('New badge: {0}', names[0]) : t('New badges: {0}', names.join(', ')), { k: 'good', icon: 'award', cheer: true });
+    haptic(); burst(document.querySelector('#toast svg'), 22);
   });
+}
+
+// ---- first times: the first entry, receipt, budget and backup get a warm word, once each (always on) -------------------
+const FIRSTS = {
+  entry: [() => S.tx.filter(x => x.source === 'quick' || (x.source === 'receipt' && !x.receiptId)).length === 1, () => t('Your first entry. Nice start!')],
+  receipt: [() => S.tx.filter(x => x.source === 'receipt' && x.receiptId).length === 1, () => t('Your first receipt, item by item. Nice!')],
+  budget: [() => true, () => t('Your first budget. Tally keeps an eye on the pace.')],   // the caller knows there was none before
+  backup: [() => true, () => t('Your first backup. Your data is safe.')],
+};
+/** The warm word for a first time, once (stored), or null. The caller shows it in place of its usual toast, with cheer. */
+export function firstWord(key) {
+  const got = settings().firsts || {}, [really, text] = FIRSTS[key];
+  if (got[key] || !really()) return null;
+  setSetting('firsts', { ...got, [key]: today() }).catch(console.error);
+  return text();
 }
 let checkT = null, tableIO = null;
 /** What the data already shows is ticked without a toast: on the first start with this list, and after a restore. */
@@ -237,7 +265,8 @@ export const act = {
   'no-spend': async () => {
     const d = today();
     await setSetting('noSpend', [...(settings().noSpend || []).filter(x => x !== d), d].slice(-400));
-    render(); toast(t('Marked: nothing spent today. Your streak keeps going.'), { k: 'good', icon: 'check' });
+    render(); haptic(); toast(t('Marked: nothing spent today. Your streak keeps going.'), { k: 'good', icon: 'check' });
+    burst(flameEl());
   },
 };
 export const input = { gamify: el => gamify(el.checked) };

@@ -12,8 +12,8 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
   Lines Tally isn't sure about are flagged, and it checks that the items add up before you save.
 - **Or type the breakdown:** "Phone 1299", "Ikan kembung 25.50", one per line, and each item is sorted into its
   category (Electronics, Groceries…). Your corrections are remembered.
-- **Money at a glance:** balance across cash, bank, e-wallet and card accounts; this month against the same point
-  last month; budgets per category with a pace warning; insights such as unusual weeks and repeat items; a
+- **Money at a glance:** balance across cash, bank, e-wallet and card accounts; a ring for what's left this month,
+  coloured by pace; this month against the same point last month; a look back at last week, and now and then a nice find; budgets per category with a pace warning; insights such as unusual weeks and repeat items; a
   6- or 12-month category table with money in and net. Months can start on payday, any amount field takes sums
   (12.50+8*2), and an account can be set to what your bank shows today.
 - **Habits and bills:** Tally learns when you usually spend (lunch around 12:35 on weekdays) and nudges you to log
@@ -70,6 +70,7 @@ outside the repo.
 | `js/i18n.js`, `js/i18n/` | English, Malay and Chinese |
 | `js/tour.js`, `js/feedback.js` | First-run tour, What's new, updates; in-app feedback |
 | `js/learn.js`, `js/gamify.js` | Learn Tally mission rules; logging streak and badge rules (pure, tested) |
+| `js/delight.js` | Home's month ring, weekly recap and nice finds (pure, tested) |
 | `js/views/*.js` | Home & Insights, Activity & Budgets, Review receipt, Welcome & Settings, Learn Tally & Badges |
 | `sw.js` | Offline cache |
 | `models/`, `vendor/`, `fonts/` | OCR models, bundled libraries and fonts (see `THIRD_PARTY_NOTICES.md`) |

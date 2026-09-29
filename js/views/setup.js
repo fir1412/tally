@@ -1,7 +1,7 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
-import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
+import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor } from '../engine.js';
 import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow } from '../io.js';
@@ -10,7 +10,7 @@ import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKin
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
-import { settingsCard as learnCard, tickQuietly, gameOn } from './learn.js';
+import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
@@ -37,6 +37,7 @@ function lookCard() {
     <div class="lookrow"><span>${esc(t('Start screen'))}</span><div class="segs">${seg('set-start', 'home', s.start !== 'activity', t('Home'))}${seg('set-start', 'activity', s.start === 'activity', t('Activity'))}</div></div>
     ${gameOn() ? `<div class="lookrow"><span>${esc(t('Week starts on'))}</span><div class="segs">${seg('set-week', 1, s.weekStart !== 0, t('Monday'))}${seg('set-week', 0, s.weekStart === 0, t('Sunday'))}</div></div>` : ''}
     <label class="toggle"><span class="grow"><b>${esc(t('Compact'))}</b></span><input type="checkbox" class="switch" role="switch" data-input="compact"${s.compact ? ' checked' : ''}></label>
+    ${'vibrate' in navigator ? `<label class="toggle"><span class="grow"><b>${esc(t('Haptics'))}</b><small>${esc(t('A short tap when something is saved'))}</small></span><input type="checkbox" class="switch" role="switch" data-input="haptics"${s.haptics !== false ? ' checked' : ''}></label>` : ''}
     <details class="more-cats"><summary>${esc(t('Home cards'))}</summary>${HOME_CARDS().map(([k, l, i]) => `<label class="toggle"><span class="lic">${i}</span><span class="grow"><b>${esc(l)}</b></span><input type="checkbox" class="switch" role="switch" data-input="home-card" data-k="${k}"${(k === 'learn' ? !s.learnHidden : !hide.includes(k)) ? ' checked' : ''}></label>`).join('')}</details></section>`;
 }
 const pickAccent = async () => {
@@ -170,6 +171,7 @@ export const input = {
   'imp-joint': el => { IMP.joint = el.checked; },
   'my-name': el => setSetting('myName', cleanText(el.value, 30)),
   compact: async el => { await setSetting('compact', el.checked); applyLook(settings()); },
+  haptics: async el => { await setSetting('haptics', el.checked); haptic(); },
   'home-card': async el => {
     const k = el.dataset.k;
     if (k === 'learn') return setSetting('learnHidden', !el.checked);
@@ -499,8 +501,10 @@ async function importJoint(data, zip = {}) {
   toast(t('{0} joint entries added or updated from {1}', m.tx.length, from), { k: 'good', icon: 'check' });
 }
 async function backedUp(msg) {
+  const first = !S.kv.lastBackup;
   await setKv('lastBackup', `${today()}T${nowTime()}`);
-  closeSheet(); render(); toast(msg, { k: 'good', icon: 'check' });
+  const w = first && firstWord('backup');
+  closeSheet(); render(); toast(w || msg, { k: 'good', icon: 'check', cheer: !!w });
 }
 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
