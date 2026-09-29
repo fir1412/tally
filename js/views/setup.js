@@ -67,6 +67,8 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 
 
 // ---- Welcome ----------------------------------------------------------------------------------------------------------
+/** Exchange rates, asked for only when the person taps "Get today's rate" (ECB rates; see privacy.html). */
+const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
 const legalLinks = () => `<a class="link" href="privacy${getLang() === 'en' ? '' : '.' + getLang()}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a>`;
 export const welcomeView = {
@@ -108,7 +110,7 @@ function accountSheet(a = {}) {
     <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}"${isNew ? ' autofocus' : ''}></label>
     ${isNew ? '' : `<label class="field"><span>${esc(isFx(a) ? t('Balance today ({0})', cur) : t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
     <div class="grid2"><label class="field"><span>${esc(t('Currency'))}</span><select id="ac-cur" data-input="ac-cur">${['MYR', ...Object.keys(FX_START)].map(c => `<option${cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>
-      <label class="field" id="ac-rate-f"${isFx(a) ? '' : ' hidden'}><span>${esc(t('RM for 1 {0}', isFx(a) ? a.currency : 'SGD'))}</span><input id="ac-rate" inputmode="decimal" value="${isFx(a) ? rateOf(a) : ''}"></label></div>
+      <label class="field" id="ac-rate-f"${isFx(a) ? '' : ' hidden'}><span>${esc(t('RM for 1 {0}', isFx(a) ? a.currency : 'SGD'))}</span><input id="ac-rate" inputmode="decimal" value="${isFx(a) ? rateOf(a) : ''}"><button type="button" class="link" data-act="rate-get">${esc(t("Get today's rate"))}</button><small class="fine" id="rate-src" role="status"></small></label></div>
     <p class="fine" id="ac-cur-note"${isFx(a) ? '' : ' hidden'}>${esc(t('Amounts in this account stay in its own currency. Totals, budgets and insights count them in RM at this rate. A transfer to or from an RM account updates it.'))}</p>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(isFx(a) ? t('Balance when you started ({0})', cur) : t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
@@ -750,6 +752,18 @@ export const act = {
   'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
   'set-accent': async b => { await setSetting('accent', b.dataset.v === baseAccent() ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
   'accent-custom': () => pickAccent(),
+  // Only on this tap does Tally go online for a rate: the European Central Bank's, via frankfurter.dev (nothing about the
+  // person or their money is sent). It fills the field; the person can still type their bank's own rate.
+  'rate-get': async () => {
+    const cur = $('#ac-cur')?.value, out = $('#rate-src'); if (!cur || cur === 'MYR') return;
+    out.textContent = t('Getting the rate…');
+    try {
+      const rateUrl = `${RATE_API}?from=${encodeURIComponent(cur === 'BND' ? 'SGD' : cur)}&to=MYR`;   // the Brunei dollar is pegged 1:1 to the Singapore dollar
+      const res = await fetch(rateUrl, { credentials: 'omit' });
+      const j = await res.json(), r = +j?.rates?.MYR; if (!res.ok || !(r > 0)) throw new Error();
+      $('#ac-rate').value = String(+r.toFixed(r < 0.01 ? 7 : 4)); out.textContent = t("European Central Bank rate for {0}. Change it to your bank's rate if you like.", fmtDate(j.date, { year: true }));
+    } catch { out.textContent = t('Could not get the rate (offline?). Type the rate from your bank app.'); }
+  },
   // The whole app's colours; a palette brings its own accent, so a hand-picked one is cleared (it can be picked again after).
   'set-app-palette': async b => { await setSetting('appPalette', b.dataset.v === 'tally' ? null : b.dataset.v); await setSetting('accent', null); render(); $(`[data-act="set-app-palette"][data-v="${b.dataset.v}"]`)?.focus(); },
   // A palette colours every category at once (one picked by hand later still wins for that category); Undo puts back the old ones.

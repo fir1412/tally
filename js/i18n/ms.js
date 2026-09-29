@@ -1188,4 +1188,8 @@ export default {
   "Warranty until": "Waranti hingga",
   "{0}: return or exchange by {1}": "{0}: pulangkan atau tukar sebelum {1}",
   "{0}: warranty ends {1}": "{0}: waranti tamat {1}",
+  "Could not get the rate (offline?). Type the rate from your bank app.": "Tidak dapat kadar (luar talian?). Taip kadar daripada aplikasi bank anda.",
+  "European Central Bank rate for {0}. Change it to your bank's rate if you like.": "Kadar Bank Pusat Eropah untuk {0}. Tukar kepada kadar bank anda jika mahu.",
+  "Get today's rate": "Dapatkan kadar hari ini",
+  "Getting the rate…": "Mendapatkan kadar…",
 };

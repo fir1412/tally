@@ -18,22 +18,24 @@ const read = f => readFileSync(join(ROOT, f), 'utf8');
 const jsFiles = dir => readdirSync(join(ROOT, dir)).flatMap(f => { const p = join(dir, f); return statSync(join(ROOT, p)).isDirectory() ? jsFiles(p) : p.endsWith('.js') ? [p] : []; });
 const csp = html => html.match(/Content-Security-Policy" content="([^"]+)"/)?.[1] || '';
 
-test('page policy: no eval, no inline or third-party scripts, network limited to Google Forms/Sheets', () => {
+test('page policy: no eval, no inline or third-party scripts, network limited to Google Forms/Sheets and the tap-only rate lookup', () => {
   const d = Object.fromEntries(csp(read('index.html')).split(';').map(s => s.trim().split(/\s+/)).map(([k, ...v]) => [k, v]));
   assert.deepEqual(d['script-src'], ["'self'", "'wasm-unsafe-eval'"]);   // WebAssembly for OCR/sql.js, never JS eval
   assert.deepEqual(d['object-src'], ["'none'"]);
   assert.deepEqual(d['form-action'], ["'none'"]);
   assert.deepEqual(d['base-uri'], ["'self'"]);
-  assert.deepEqual(d['connect-src'], ["'self'", 'https://docs.google.com', 'https://*.googleusercontent.com']);
+  assert.deepEqual(d['connect-src'], ["'self'", 'https://docs.google.com', 'https://*.googleusercontent.com', 'https://api.frankfurter.dev']);
 });
 
 test('no inline scripts in any page', () => {
   for (const f of ['index.html', 'privacy.html', 'terms.html', '404.html']) assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(read(f)), f);
 });
 
-test('network calls: only the feedback form and a pasted Google Sheets link', () => {
+test('network calls: only the feedback form, a pasted Google Sheets link and a tapped exchange-rate lookup', () => {
   const calls = jsFiles('js').flatMap(f => [...read(f).matchAll(/\bfetch\(([^,)]+)/g)].map(m => `${f.replace(/\\/g, '/')}:${m[1].trim()}`));
-  assert.deepEqual(calls.sort(), ['js/feedback.js:FORM', 'js/scan.js:url', 'js/views/setup.js:url']);
+  assert.deepEqual(calls.sort(), ['js/feedback.js:FORM', 'js/scan.js:url', 'js/views/setup.js:rateUrl', 'js/views/setup.js:url']);
+  assert.ok(read('js/views/setup.js').includes("const RATE_API = 'https://api.frankfurter.dev/v1/latest';"));   // one rate, no data about the person
+  assert.ok(read('js/views/setup.js').includes("'rate-get': async () => {"));   // only from the button
   // the reader's own files, from this site only
   assert.match(read('js/scan.js'), /\.map\(\(\[p, n\]\) => \[new URL\(p, import\.meta\.url\)\.href, n\]\)/);
   assert.ok(!/https?:/.test(read('js/scan.js').match(/const FILES = \[[\s\S]*?\]\.map/)[0]));

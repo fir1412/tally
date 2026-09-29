@@ -1188,4 +1188,8 @@ export default {
   "Warranty until": "保修至",
   "{0}: return or exchange by {1}": "{0}：请在 {1} 前退换",
   "{0}: warranty ends {1}": "{0}：保修于 {1} 结束",
+  "Could not get the rate (offline?). Type the rate from your bank app.": "无法获取汇率（离线？）。请输入银行应用里的汇率。",
+  "European Central Bank rate for {0}. Change it to your bank's rate if you like.": "{0} 的欧洲央行汇率。可改成你银行的汇率。",
+  "Get today's rate": "获取今日汇率",
+  "Getting the rate…": "正在获取汇率…",
 };
