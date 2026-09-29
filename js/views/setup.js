@@ -52,11 +52,12 @@ export const welcomeView = {
 };
 
 function accountSheet(a = {}) {
-  const isNew = !a.id;
+  const isNew = !a.id, now = isNew ? null : balances([a], S.tx, today()).by[a.id];
   openSheet(`<h2 class="sh-title">${esc(isNew ? t('Add an account') : t('Edit account'))}</h2>
     <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}" autofocus></label>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>
+    ${isNew ? '' : `<label class="field"><span>${esc(t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}"><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
     <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my spouse)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
@@ -88,6 +89,9 @@ export const settingsView = {
         <label class="field"><span>${esc(t('Your name for joint entries'))}</span><input data-input="my-name" maxlength="30" value="${esc(settings().myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
+      <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
+        <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0"></progress><span id="ocr-pct" class="fine num"></span></div>
+        <button class="btn ghost wide" data-act="reader-get">${ICON.download}${esc(t('Download the receipt reader now'))}</button></section>
       <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
         <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div>
@@ -400,6 +404,14 @@ async function backedUp(msg) {
 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
+  'reader-get': async b => {
+    b.disabled = true; $('#reader-dl').hidden = false;
+    const { loadOcr } = await import('../scan.js');
+    await import('./review.js');   // its progress listener fills the bar
+    await loadOcr();
+    $('#reader-dl').hidden = true; $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
+    toast(t('The receipt reader is ready on this phone and works offline.'), { k: 'good', icon: 'check' });
+  },
   feedback: () => openFeedback(APP_VERSION),
   'lock-set': () => lockSheet(render),
   'lock-off': async () => { if (await confirmSheet({ title: t('Turn off the lock?'), body: t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') })) { await lockOff(); render(); } },
@@ -436,7 +448,12 @@ export const act = {
   },
   'acc-edit': b => accountSheet(S.accounts.find(a => a.id === b.dataset.id) || {}),
   'acc-save': async b => {
-    const name = $('#ac-name').value.trim(), opening = $('#ac-open').value.trim() ? calcAmount($('#ac-open').value) : 0;
+    const name = $('#ac-name').value.trim(), nowEl = $('#ac-now');
+    let opening = $('#ac-open').value.trim() ? calcAmount($('#ac-open').value) : 0;
+    // A new balance for today moves the starting balance by the difference (like Money Manager's corrections on import).
+    const target = nowEl?.value.trim() ? calcAmount(nowEl.value) : null, was = nowEl ? +nowEl.dataset.now : null;
+    if (nowEl && nowEl.value.trim() && target == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
+    if (target != null && target !== was) opening = (S.accounts.find(a => a.id === b.dataset.id)?.opening || 0) + target - was;
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
     const old = S.accounts.find(a => a.id === b.dataset.id);

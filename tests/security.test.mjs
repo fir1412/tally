@@ -33,7 +33,10 @@ test('no inline scripts in any page', () => {
 
 test('network calls: only the feedback form and a pasted Google Sheets link', () => {
   const calls = jsFiles('js').flatMap(f => [...read(f).matchAll(/\bfetch\(([^,)]+)/g)].map(m => `${f.replace(/\\/g, '/')}:${m[1].trim()}`));
-  assert.deepEqual(calls.sort(), ['js/feedback.js:FORM', 'js/views/setup.js:url']);
+  assert.deepEqual(calls.sort(), ['js/feedback.js:FORM', 'js/scan.js:url', 'js/views/setup.js:url']);
+  // the reader's own files, from this site only
+  assert.match(read('js/scan.js'), /\.map\(\(\[p, n\]\) => \[new URL\(p, import\.meta\.url\)\.href, n\]\)/);
+  assert.ok(!/https?:/.test(read('js/scan.js').match(/const FILES = \[[\s\S]*?\]\.map/)[0]));
   assert.match(read('js/feedback.js'), /const FORM = 'https:\/\/docs\.google\.com\/forms\//);
   assert.match(read('js/views/setup.js'), /const url = sheetCsvUrl\(/);
   assert.match(read('js/views/setup.js'), /credentials: 'omit'/);

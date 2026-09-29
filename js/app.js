@@ -1,5 +1,5 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, settings, onRemoteChange, onSaveFailed, storageMode, persistStorage } from './state.js';
+import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage } from './state.js';
 import { gate, watch } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
@@ -64,7 +64,11 @@ window.addEventListener('hashchange', () => {
 
 // Global actions used by every view.
 Object.assign(ACT, {
-  scan: () => $('#scan-input').click(),
+  scan: async () => {
+    if (settings().photoTipsSeen) return $('#scan-input').click();
+    await setSetting('photoTipsSeen', true);
+    review.photoTips({ thenScan: true });
+  },
   go: b => go(b.dataset.to),
   back: b => (cameFrom() ? history.back() : go(b.dataset.to || 'home')),
 });

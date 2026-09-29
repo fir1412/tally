@@ -2,13 +2,21 @@
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
 import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
-import { esc, ICON, toast, confirmSheet, $, $$ } from '../ui.js';
+import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$ } from '../ui.js';
 import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
-import { readReceipt, loadOcr, ocrReady } from '../scan.js';
+import { readReceipt, loadOcr, ocrReady, ocrProgress, OCR_BYTES } from '../scan.js';
 import { render, go } from '../app.js';
 import { accName } from './money.js';
 
+// The first download's progress, drawn in place so the bar moves without redrawing the screen.
+let dlPct = 0, dlText = '';
+const mb = n => (n / 1048576).toFixed(1);
+ocrProgress((got, total) => {
+  dlPct = Math.round(got / total * 100); dlText = t('{0} of {1} MB', mb(got), mb(total));
+  const bar = document.getElementById('ocr-prog'), txt = document.getElementById('ocr-pct');
+  if (bar) bar.value = dlPct; if (txt) txt.textContent = dlText;
+});
 const queue = [];     // files waiting to be read
 let current = null;   // {id, file?, status: 'reading'|'ready'|'error', draft, photo, ms, error}
 let reading = false;
@@ -96,11 +104,13 @@ export const reviewView = {
     const waiting = queue.length;
     if (!current) return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card center">${ICON.camera}<p>${esc(t('Take a photo of a receipt, or pick one or more from your gallery. They are read on this phone and never uploaded.'))}</p>
-      <button class="btn wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button></section>`;
+      <button class="btn wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button>
+      <button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
       <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
       <section class="card center" aria-busy="true"><p>${esc(ocrReady() ? t('Reading the receipt on this phone. This takes a few seconds.') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>
-      ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}</section>`;
+      ${ocrReady() ? '' : `<div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
+      ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}<button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card"><p class="err">${esc(current.error)}</p><div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(waiting ? t('Next receipt') : t('Close'))}</button><button class="btn" data-act="scan">${esc(t('Try another photo'))}</button></div></section>`;
     const d = current.draft, c = d.total != null ? check(d) : null, flagged = d.items.filter(i => i.flag).length;
@@ -108,7 +118,7 @@ export const reviewView = {
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
     const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', fmtRM(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
-      : d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))}</p>`
+      : d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))} <button class="link" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></p>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
       : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
     const maths = [[t('Items'), itemsSum(d)], [t('Service'), d.service], [t('Tax'), d.taxIncluded ? 0 : d.tax], [t('Rounding'), d.rounding]].filter(([, v]) => v).map(([k, v]) => `${k} ${fmtRM(v, { plain: true })}`).join(' + ');
@@ -170,7 +180,27 @@ function updateStatus() { // re-render only the status line so typing keeps focu
 }
 
 const mostSpent = items => { const by = {}; for (const i of items) by[i.category] = (by[i.category] || 0) + i.cents; return Object.entries(by).sort((a, b) => b[1] - a[1])[0][0]; };
+/** How to take a photo Tally reads well. Shown before the first scan, and from the scan screens. */
+export function photoTips({ thenScan = false } = {}) {
+  const tips = [
+    [t('Whole receipt, flat'), t('Lay it flat and fit it all in: the shop name at the top and the TOTAL at the bottom. Smooth out folds and creases.')],
+    [t('Good light, no shadow'), t('Daylight or a bright room. Keep your own shadow off it, and skip the flash on shiny paper.')],
+    [t('Straight above, held still'), t('Hold the phone level over the receipt and tap to focus. Tally straightens a small tilt by itself; blur it can\'t fix.')],
+    [t('Dark table, pale receipt'), t('A darker background shows the edges of the paper, which helps the reader find the text.')],
+    [t('Very long receipt?'), t('Step back until it all fits; the text only needs to stay readable. A screenshot of an e-receipt (Grab, Shopee, online banking) works too.')],
+    [t('Scan it soon'), t('Thermal receipts fade within weeks. A photo today keeps the details, and the photo is saved with the entry.')],
+  ];
+  const el = openSheet(`<h2 class="sh-title">${esc(t('Tips for a clear photo'))}</h2>
+    <ol class="tips">${tips.map(([h, b]) => `<li><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
+    ${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}`, { label: t('Tips for a clear photo') });
+  el.addEventListener('click', e => {
+    const b = e.target.closest('[data-x]'); if (!b) return;
+    closeSheet();
+    if (b.dataset.x === 'scan') $('#scan-input').click();   // still inside the tap, so the camera may open
+  });
+}
 export const act = {
+  'photo-tips': () => photoTips(),
   'rv-skip': async () => {
     const d = current?.draft;
     if (d?.receiptId && !current.existing && !S.tx.some(x => x.receiptId === d.receiptId)) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind

@@ -17,9 +17,31 @@ function call(raw) {
 }
 function reset() { worker?.terminate(); worker = null; loading = null; ready = false; for (const p of pending.values()) p.reject(new Error('reset')); pending.clear(); }
 export const ocrReady = () => ready;
+// What the reader needs, with sizes for when a server sends no Content-Length. ponytail: update the sizes with the vendor files.
+const FILES = [['../vendor/ocr.js', 10373807], ['../vendor/ort-wasm-simd-threaded.wasm', 14239897], ['../vendor/ort-wasm-simd-threaded.mjs', 24381],
+  ['../models/ch_PP-OCRv4_det_infer.onnx', 4745517], ['../models/ch_PP-OCRv4_rec_infer.onnx', 10822323], ['../models/ppocr_keys_v1.txt', 26249]].map(([p, n]) => [new URL(p, import.meta.url).href, n]);
+export const OCR_BYTES = FILES.reduce((s, [, n]) => s + n, 0);
+let onProgress = () => {};
+/** Called with (bytes so far, total) while the reader downloads. */
+export const ocrProgress = f => { onProgress = f; };
+/** Is the reader already saved on this phone? (Only knowable where the service worker keeps it.) */
+export const ocrSaved = async () => 'caches' in globalThis && !!(await caches.match(FILES[4][0]).catch(() => null));
+async function prefetch() {
+  let done = 0;
+  for (const [url, size] of FILES) {
+    if ('caches' in globalThis && await caches.match(url).catch(() => null)) { done += size; onProgress(done, OCR_BYTES); continue; }
+    const res = await fetch(url);
+    if (!res.ok || !res.body) throw new Error('The receipt reader could not be downloaded. Check the connection and try again.');
+    const reader = res.body.getReader(), start = done;
+    for (;;) { const { done: end, value } = await reader.read(); if (end) break; done += value.length; onProgress(Math.min(done, OCR_BYTES), OCR_BYTES); }
+    done = start + size;
+  }
+  onProgress(OCR_BYTES, OCR_BYTES);
+}
 /** Start the OCR worker and load the models once (about 1 s from cache, longer on the first download). */
 export function loadOcr() {
   loading ||= (async () => {
+    await prefetch();
     worker = new Worker(new URL('./ocr-worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }) => { const p = pending.get(data.id); if (!p) return; pending.delete(data.id); data.error ? p.reject(new Error(data.error)) : p.resolve(data); };
     worker.onerror = e => { e.preventDefault?.(); const err = new Error(e.message || 'The receipt reader failed to start.'); for (const p of pending.values()) p.reject(err); pending.clear(); reset(); };
