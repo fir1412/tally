@@ -1,16 +1,17 @@
 // Pure money logic: no DOM, no storage. Every amount is integer sen (RM 1.00 = 100).
 
+// The most used categories take the Okabe–Ito colours: still told apart with red-green colour blindness.
 export const CATEGORIES = [
-  { id: 'groceries', name: 'Groceries', color: '#65A30D' },
-  { id: 'dining', name: 'Dining', color: '#F59E0B' },
-  { id: 'transport', name: 'Transport', color: '#2563EB' },
-  { id: 'bills', name: 'Bills', color: '#06B6D4' },
+  { id: 'groceries', name: 'Groceries', color: '#009E73' },
+  { id: 'dining', name: 'Dining', color: '#E69F00' },
+  { id: 'transport', name: 'Transport', color: '#0072B2' },
+  { id: 'bills', name: 'Bills', color: '#56B4E9' },
   { id: 'household', name: 'Household', color: '#A16207' },
-  { id: 'health', name: 'Health', color: '#E11D48' },
+  { id: 'health', name: 'Health', color: '#CC79A7' },
   { id: 'personal', name: 'Personal care', color: '#EC4899' },
   { id: 'kids', name: 'Kids', color: '#8B5CF6' },
   { id: 'electronics', name: 'Electronics', color: '#0D9488' },
-  { id: 'shopping', name: 'Shopping', color: '#F97316' },
+  { id: 'shopping', name: 'Shopping', color: '#D55E00' },
   { id: 'fun', name: 'Entertainment', color: '#D946EF' },
   { id: 'education', name: 'Education', color: '#6366F1' },
   { id: 'other', name: 'Other', color: '#64748B' },
