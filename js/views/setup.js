@@ -1,5 +1,5 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, allCats } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
@@ -13,7 +13,9 @@ import { dailyEvent, ics, googleUrl } from '../calendar.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, iosBrowser } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
-import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName } from '../colorpicker.js';
+import { badge } from './money.js';
+import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
+import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
@@ -27,12 +29,13 @@ const setSize = async n => { await setSetting('textSize', n); document.documentE
 const seg = (act, v, on, label, icon = '') => `<button class="seg${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"${icon ? ` aria-label="${esc(label)}" title="${esc(label)}"` : ''}>${icon || esc(label)}</button>`;
 const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles], ['stickers', t('Sticker book'), ICON.award]];
 function lookCard() {
-  const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || ACCENTS[0], hide = s.homeHide || [];
+  const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || baseAccent(), hide = s.homeHide || [];
   const themes = [['system', t('Same as phone'), ICON.phone], ['light', t('Light theme'), ICON.sun], ['dark', t('Dark theme'), ICON.moon]];
   const sw = (hex, label) => `<li><button class="sw" style="--c:${hex};--on:${onColor(hex)}" data-act="set-accent" data-v="${hex}" aria-pressed="${acc === hex}" aria-label="${esc(label)}" title="${esc(label)}">${acc === hex ? ICON.check : ''}</button></li>`;
   return `<section class="card" id="look"><h2>${esc(t('Appearance & personal'))}</h2>${langButtons()}
     <div class="lookrow"><span>${ICON.sun}${esc(t('Theme'))} · ${esc(themes.find(x => x[0] === theme)[1])}</span><div class="segs icons" role="group" aria-label="${esc(t('Theme'))}">${themes.map(([v, l, i]) => seg('set-theme', v, theme === v, l, i)).join('')}</div></div>
-    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(ACCENTS[0], `${colourName(ACCENTS[0])} (${t('Default')})`)}${ACCENTS.slice(1).map(h => sw(h, colourName(h))).join('')}${ACCENTS.includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
+    <div class="lookrow"><span>${ICON.palette}${esc(t('App colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('App colours'))}">${Object.entries(APP_PALETTES).map(([id, p]) => { const on = (s.appPalette || 'tally') === id, sf = p[themeNow()]; return `<button class="pal apal${on ? ' on' : ''}" data-act="set-app-palette" data-v="${id}" aria-pressed="${on}"><span class="apv" aria-hidden="true" style="background:${sf[0]}"><i style="background:${sf[2]}"></i><b style="background:${p.accent}"></b></span>${esc(t(p.name))}</button>`; }).join('')}</div></div>
+    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(baseAccent(), `${colourName(baseAccent())} (${t('Default')})`)}${ACCENTS.filter(h => h !== baseAccent()).map(h => sw(h, colourName(h))).join('')}${[baseAccent(), ...ACCENTS].includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
       <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>
     <div class="lookrow"><span>${ICON.palette}${esc(t('Category colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('Category colours'))}">${PALETTES.map(([id, name, cols]) => { const on = (s.palette || 'tally') === id; return `<button class="pal${on ? ' on' : ''}" data-act="set-palette" data-v="${id}" aria-pressed="${on}"${id === 'tally' ? ` title="${esc(t('Colour-blind safe'))}"` : ''}><span class="pdots" aria-hidden="true">${(cols || CATEGORIES.map(c => c.color)).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('')}</span>${esc(t(name))}</button>`; }).join('')}</div></div>
     <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(s.textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label>
@@ -49,10 +52,12 @@ const PALETTES = [['tally', 'Tally'],
   ['soft', 'Soft', ['#5B84B1', '#D07A5A', '#6E9B69', '#9A78B8', '#B8923F', '#4F9696', '#BD6E8F', '#7F7F4F', '#6E71B8', '#A8754C']],
   ['vivid', 'Vivid', ['#D62828', '#E07000', '#1F8A7D', '#2F6FE0', '#8338EC', '#E0005F', '#06875F', '#B35C00', '#1D3557', '#9D0208']],
   ['earth', 'Earth', ['#6B705C', '#BC6C25', '#588157', '#7F5539', '#8A7152', '#3A5A40', '#9C6644', '#936F4E', '#606C38', '#283618']]];
+/** The accent that comes with the app colours (the design blue for Tally's own). */
+const baseAccent = () => APP_PALETTES[settings().appPalette]?.accent || ACCENTS[0];
 const pickAccent = async () => {
-  const h = await pickColor({ value: parseHex(settings().accent) || ACCENTS[0], title: t('Accent colour'), reset: ACCENTS[0] });
+  const h = await pickColor({ value: parseHex(settings().accent) || baseAccent(), title: t('Accent colour'), reset: baseAccent() });
   if (!h) return;
-  await setSetting('accent', h === ACCENTS[0] ? null : h);
+  await setSetting('accent', h === baseAccent() ? null : h);
   render(); $('[data-act="accent-custom"]')?.focus();
 };
 /** Add a category: its name, and a colour from the picker (the sheet comes back with the name kept). */
@@ -163,7 +168,7 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
         <p class="fine">${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</p>
         <button class="btn ghost wide" data-act="export-open">${ICON.download}${esc(t('Export'))}</button></section>
-      <section class="card" id="s-cats"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-color" data-c="${esc(c.id)}" aria-label="${esc(t('Colour: {0}', t(c.name)))}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button></li>`).join('')}</ul>
+      <section class="card" id="s-cats"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-edit" data-c="${esc(c.id)}" aria-label="${esc(t('Icon and colour: {0}', t(c.name)))}">${badge(c)}${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
         <label class="toggle"><span class="grow"><b>${esc(t('Only my categories'))}</b><small>${esc(t("Hide Tally's categories and stop its guesses. Things go to Other until you pick a category; Tally then remembers."))}</small></span><input type="checkbox" class="switch" data-input="own-cats"${settings().ownCats ? ' checked' : ''}></label>
         ${rules.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
@@ -561,7 +566,7 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
 }
 const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
-const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
@@ -689,17 +694,36 @@ export const act = {
     if (!(await confirmSheet({ title: t('Forget everything Tally learned?'), body: t('Items and shops you filed yourself will be guessed afresh. Your entries keep their categories.'), ok: t('Forget'), danger: true }))) return;
     await setKv('rules', {}); render(); toast(t('Forgotten.'));
   },
+  // A category's look: its icon (tap one; the built-in one again resets it) and, from here, its colour.
+  'cat-edit': b => {
+    const c = expenseCats().find(x => x.id === b.dataset.c); if (!c) return;
+    const icon = () => S.kv.catIcons[c.id] || DEFAULT_ICON[c.id] || c.icon || 'tag';
+    const el = openSheet(`<h2 class="sh-title">${badge(cat(c.id))} ${esc(t(c.name))}</h2><p class="fine">${esc(t('Icon'))}</p>
+      <div class="icgrid" role="group" aria-label="${esc(t('Icon'))}">${Object.keys(CAT_ICONS).map((k, i) => `<button class="icbtn" data-x="${k}" aria-pressed="${icon() === k}" aria-label="${esc(t('Icon {0}', i + 1))}">${catIcon({ icon: k })}</button>`).join('')}</div>
+      <div class="row2 sheetfoot"><button class="btn ghost" data-x="colour">${esc(t('Change colour'))}</button><button class="btn" data-x="done">${esc(t('Done'))}</button></div>`, { label: t(c.name) });
+    el.addEventListener('click', async e => {
+      const x = e.target.closest('[data-x]')?.dataset.x; if (!x) return;
+      if (x === 'done') { closeSheet(); render(); return; }
+      if (x === 'colour') { closeSheet(); render(); return act['cat-color'](b); }
+      const custom = S.kv.customCats.find(y => y.id === c.id);
+      await setCatIcon(c.id, x === (DEFAULT_ICON[c.id] || custom?.icon || 'tag') ? null : x);
+      for (const btn of el.querySelectorAll('.icbtn')) btn.setAttribute('aria-pressed', btn.dataset.x === x);
+      el.querySelector('.sh-title .cbadge')?.replaceWith(Object.assign(document.createElement('span'), { innerHTML: badge(cat(c.id)) }).firstChild);
+    });
+  },
   'cat-color': async b => {
     const c = expenseCats().find(x => x.id === b.dataset.c); if (!c) return;
     const base = [...CATEGORIES, ...S.kv.customCats].find(x => x.id === c.id)?.color;
     const h = await pickColor({ value: c.color, title: t(c.name), reset: base });
     if (!h) return;
     await setCatColor(c.id, h === base ? null : h);
-    render(); $(`[data-act="cat-color"][data-c="${CSS.escape(c.id)}"]`)?.focus();
+    render(); $(`[data-act="cat-edit"][data-c="${CSS.escape(c.id)}"]`)?.focus();
   },
   'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
-  'set-accent': async b => { await setSetting('accent', b.dataset.v === ACCENTS[0] ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
+  'set-accent': async b => { await setSetting('accent', b.dataset.v === baseAccent() ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
   'accent-custom': () => pickAccent(),
+  // The whole app's colours; a palette brings its own accent, so a hand-picked one is cleared (it can be picked again after).
+  'set-app-palette': async b => { await setSetting('appPalette', b.dataset.v === 'tally' ? null : b.dataset.v); await setSetting('accent', null); render(); $(`[data-act="set-app-palette"][data-v="${b.dataset.v}"]`)?.focus(); },
   // A palette colours every category at once (one picked by hand later still wins for that category); Undo puts back the old ones.
   'set-palette': async b => {
     const p = PALETTES.find(x => x[0] === b.dataset.v); if (!p) return;

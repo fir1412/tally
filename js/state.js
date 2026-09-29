@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
 
 export async function load() {
   const mode = await db.init();
@@ -17,6 +17,7 @@ export async function load() {
   for (const c of S.kv.customCats) if (/^#0ea5e9$/i.test(c.color)) c.color = nextColor(S.kv.customCats.map(x => x.color));   // the old first colour looked like Electronics and Bills
   S.kv.dismissed ||= [];
   S.kv.catColors ||= {};
+  S.kv.catIcons ||= {};
   S.accounts.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return mode;
 }
@@ -109,7 +110,9 @@ export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(
 
 // ---- categories ---------------------------------------------------------------------------------------------------
 /** A category with the colour chosen for it in Settings (kv catColors: {id: '#RRGGBB'}), if any. */
-const tint = c => (S.kv.catColors?.[c.id] ? { ...c, color: S.kv.catColors[c.id] } : c);
+const tint = c => (S.kv.catColors?.[c.id] || S.kv.catIcons?.[c.id] ? { ...c, ...(S.kv.catColors?.[c.id] ? { color: S.kv.catColors[c.id] } : {}), ...(S.kv.catIcons?.[c.id] ? { icon: S.kv.catIcons[c.id] } : {}) } : c);   // and the icon (kv catIcons: {id: key})
+/** A category's icon (a key of caticons.js CAT_ICONS), or its built-in one again. */
+export const setCatIcon = (id, key) => { const m = { ...S.kv.catIcons }; if (key) m[id] = key; else delete m[id]; return setKv('catIcons', m); };
 export const expenseCats = () => [...(S.kv.settings?.ownCats ? [] : CATEGORIES.slice(0, -1)), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
 export const incomeCats = () => [...INCOME_CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind === 'income'), INCOME_CATEGORIES.at(-1)].map(tint);
 export const allCats = () => [...expenseCats(), ...incomeCats()];
@@ -120,7 +123,7 @@ export function setCatColor(id, hex) {
 }
 let catIdx = null;   // cat() runs for every row drawn and searched: look it up, don't rebuild the list each time
 export const cat = id => {
-  if (catIdx?.cc !== S.kv.customCats || catIdx.cl !== S.kv.catColors) { const m = new Map(); for (const c of allCats()) if (!m.has(c.id)) m.set(c.id, c); catIdx = { cc: S.kv.customCats, cl: S.kv.catColors, m }; }
+  if (catIdx?.cc !== S.kv.customCats || catIdx.cl !== S.kv.catColors || catIdx.ci !== S.kv.catIcons) { const m = new Map(); for (const c of allCats()) if (!m.has(c.id)) m.set(c.id, c); catIdx = { cc: S.kv.customCats, cl: S.kv.catColors, ci: S.kv.catIcons, m }; }
   return catIdx.m.get(id) || CATEGORIES.at(-1);
 };
 /** A category of the user's own: spending, or with kind 'income' a kind of money in (a side business, rental). */
@@ -203,7 +206,7 @@ export async function sweepPhotos() {
 }
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
-const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames', 'catColors'];
+const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames', 'catColors', 'catIcons'];
 const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
 /** Replace everything with a backup, all or nothing: old photos and the settings a backup carries go too. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {

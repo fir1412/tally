@@ -189,3 +189,12 @@ test('Excel (.xlsx) and QIF exports read back: transfers, items, income, both ac
   assert.deepEqual(q.bal, { cash: -1060 + 10000, maybank: 350000 - 10000 });
   assert.equal(q.txs.find(t => t.type === 'income').date, '2026-09-13');   // month first
 });
+
+test('OFX bank downloads (SGML and XML) import with signed amounts and ISO dates', async () => {
+  const sgml = 'OFXHEADER:100\nDATA:OFXSGML\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>MYR<BANKACCTFROM><BANKID>MBB<ACCTID>5140123<ACCTTYPE>SAVINGS</BANKACCTFROM><BANKTRANLIST>\n<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260903120000[+8:MYT]<TRNAMT>-45.20<FITID>1<NAME>PETRONAS CHERAS<MEMO>POS</STMTTRN>\n<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260925<TRNAMT>3500.00<FITID>2<NAME>SALARY ACME</STMTTRN>\n</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>';
+  const q = run(await IO.fileToRows('bank.ofx', new TextEncoder().encode(sgml)), 'bank.ofx');
+  assert.equal(q.preset.id, 'qif');
+  assert.deepEqual(q.txs.map(t => [t.date, t.type, t.amount, t.merchant]).sort(), [['2026-09-03', 'expense', 4520, 'Petronas Cheras'], ['2026-09-25', 'income', 350000, 'Salary Acme']]);
+  const xml = '<?xml version="1.0"?><?OFX OFXHEADER="200"?><OFX><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CCACCTFROM><ACCTID>4111</ACCTID></CCACCTFROM><BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT</TRNTYPE><DTPOSTED>20260910</DTPOSTED><TRNAMT>-12.90</TRNAMT><NAME>TEALIVE</NAME></STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>';
+  assert.deepEqual(IO.ofxToRows(xml).slice(1), [['2026-09-10', '-12.90', 'TEALIVE', '', '', '4111']]);
+});

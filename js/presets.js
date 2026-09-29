@@ -17,7 +17,7 @@ export const PRESETS = [
 
   // QIF (GnuCash, HomeBank, Quicken, Moneydance, Money Manager Ex; Tally's own QIF export), turned into rows by
   // io.js qifToRows. Signed amounts, US month-first dates, a transfer's other account in brackets: "[Maybank]".
-  { id: 'qif', signed: true, mdy: true, name: 'QIF', need: ['date', 'amount', 'payee', 'category', 'memo', 'qif account'],
+  { id: 'qif', signed: true, mdy: true, name: 'QIF / OFX', need: ['date', 'amount', 'payee', 'category', 'memo', 'qif account'],
     cols: { date: ['date'], amount: ['amount'], merchant: ['payee'], category: ['category'], note: ['memo'], account: ['qif account'] },
     transfer: c => { const m = String(c.get('category') ?? '').trim().match(/^\[(.+)\]$/); return m && { to: m[1] }; } },
 

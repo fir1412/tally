@@ -1,6 +1,7 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
 import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate } from './engine.js';
+import { CAT_ICONS } from './caticons.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
 
@@ -218,6 +219,7 @@ export async function fileToRows(name, buf) {
   }
   if (b[0] === 0xd0 && b[1] === 0xcf) throw new Error('Old Excel files (.xls) are not supported. Open it and save as .xlsx or CSV.');
   const text = decodeBytes(b);
+  if (/^\s*(OFXHEADER|<\?xml[^>]*>\s*<\?OFX|<OFX>)/i.test(text.replace(/^﻿/, ''))) return ofxToRows(text);
   return /^\s*!(type|account|option|clear)\b/i.test(text.replace(/^﻿/, '')) ? qifToRows(text) : parseCSV(text);
 }
 
@@ -674,6 +676,20 @@ export function toQIF(txs, accounts, catName = catNameOf) {
   }
   return out.join('\n') + '\n';
 }
+/** An OFX / QFX bank download (SGML 1.x or XML 2.x) as the same rows as a QIF file: one per <STMTTRN>, the account from
+ *  ACCTID, dates YYYYMMDD made ISO (so month-first never applies), amounts already signed. */
+export function ofxToRows(text) {
+  const rows = [['Date', 'Amount', 'Payee', 'Category', 'Memo', 'QIF account']];
+  const tag = (s, k) => (s.match(new RegExp(`<${k}>([^<\\r\\n]*)`, 'i'))?.[1] || '').trim();
+  for (const stmt of String(text).split(/<(?:STMTRS|CCSTMTRS)>/i).slice(1)) {
+    const acc = tag(stmt, 'ACCTID');
+    for (const tr of stmt.split(/<STMTTRN>/i).slice(1)) {
+      const d = tag(tr, 'DTPOSTED').match(/^(\d{4})(\d{2})(\d{2})/);
+      if (d) rows.push([`${d[1]}-${d[2]}-${d[3]}`, tag(tr, 'TRNAMT'), tag(tr, 'NAME') || tag(tr, 'PAYEE'), '', tag(tr, 'MEMO'), acc]);
+    }
+  }
+  return rows;
+}
 /** A QIF file (from GnuCash, HomeBank, Quicken…) as rows, header first, for the 'qif' preset: one row per entry or split. */
 export function qifToRows(text) {
   const rows = [['Date', 'Amount', 'Payee', 'Category', 'Memo', 'QIF account']];
@@ -751,6 +767,7 @@ export function readBackup(text) {
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
+    if (isObj(d.kv.catIcons)) kv.catIcons = Object.fromEntries(Object.entries(d.kv.catIcons).slice(0, 100).filter(([k, v]) => cat(k) === k && Object.hasOwn(CAT_ICONS, v)));
   }
   return { accounts, tx, recurring, kv, settings: backupSettings(d.kv?.settings), dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30),
     gone: Object.fromEntries(list(d.gone, 1000).filter(g => Array.isArray(g) && okId(g[0]) && Number.isSafeInteger(g[1]) && g[1] > 0).map(([id, at]) => [id, Math.min(at, Date.now())])) } : {}) };
@@ -777,6 +794,7 @@ export function mergeBackup(local, incoming) {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
       catColors: { ...(incoming.kv.catColors || {}), ...(local.kv.catColors || {}) },
+      catIcons: { ...(incoming.kv.catIcons || {}), ...(local.kv.catIcons || {}) },
       budgets: budgets && jb ? { ...budgets, joint: jb } : budgets,
       dismissed: [...new Set([...(local.kv.dismissed || []), ...(incoming.kv.dismissed || [])])].slice(-300),
     },

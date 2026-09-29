@@ -56,21 +56,37 @@ export const GREYS = Array.from({ length: 2 * RINGS + 1 }, (_, i) => toHex([0, 0
 /** Accent presets; the first is the design system's blue (the default, drawn by css/app.css's own tokens). */
 export const ACCENTS = ['#1E40AF', '#0284C7', '#0D9488', '#059669', '#B45309', '#C2410C', '#E11D48', '#DB2777', '#7C3AED'];
 const accentVars = (a, m) => `--accent:${readable(a, SURFACES[m])};--btn:${a};--btn-ink:${onColor(a)};`;
+/** Whole-app colours: the surfaces (bg, panel, panel2) for dark and light, and the accent that comes with them (an accent
+ *  picked by hand still wins). Text and lines are worked out to stay readable (4.5:1) on every surface. */
+export const APP_PALETTES = {
+  tally: { name: 'Tally', dark: ['#0F172A', '#192134', '#1F2A42'], light: ['#F3F5F9', '#FFFFFF', '#EAEEF5'], accent: '#1E40AF' },
+  kopi: { name: 'Kopi', dark: ['#1A1410', '#251D17', '#30261E'], light: ['#F7F2EC', '#FFFFFF', '#EFE5D9'], accent: '#B45309' },
+  pandan: { name: 'Pandan', dark: ['#0D1A14', '#14261D', '#1B3226'], light: ['#F0F7F2', '#FFFFFF', '#DFEEE4'], accent: '#047857' },
+  laut: { name: 'Ocean', dark: ['#0A1A20', '#11262E', '#17323B'], light: ['#EEF6F8', '#FFFFFF', '#DAEBF0'], accent: '#0E7490' },
+  bunga: { name: 'Hibiscus', dark: ['#1C1016', '#281820', '#34202B'], light: ['#FBF1F4', '#FFFFFF', '#F2DFE6'], accent: '#BE185D' },
+  arang: { name: 'Charcoal', dark: ['#111111', '#1B1B1B', '#262626'], light: ['#F4F4F5', '#FFFFFF', '#E6E6E9'], accent: '#52525B' },
+};
+const surfaceVars = (m, s) => { const ink = m === 'dark' ? '#EEF2FA' : '#0F172A';
+  return `--bg:${s[0]};--panel:${s[1]};--panel2:${s[2]};--ink:${readable(ink, s, 7)};--mute:${readable(mix(ink, s[0], 0.42), s)};--line:${m === 'dark' ? 'rgba(255,255,255,.1)' : mix(s[2], '#000000', 0.1)};`; };
+const paletteCss = p => `:root{${surfaceVars('dark', p.dark)}}:root[data-theme="light"]{${surfaceVars('light', p.light)}}@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${surfaceVars('light', p.light)}}}`;
+/** Put a <style> with this id in <head> (css text), or take it out (null). */
+const styleTag = (id, css) => { let st = document.getElementById(id); if (!css) return st?.remove(); if (!st) { st = document.createElement('style'); st.id = id; document.head.append(st); } if (st.textContent !== css) st.textContent = css; };
 /** The CSS for a chosen accent, in the same shape as the theme tokens (forced theme, or the system's). */
 export const accentCss = a => `:root{${accentVars(a, 'dark')}}:root[data-theme="light"]{${accentVars(a, 'light')}}@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${accentVars(a, 'light')}}}`;
 export const themeNow = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
 const LOOK = 'tally-look';   // a copy in localStorage, so the look is right before the database opens
 /** Apply settings {theme, accent, compact} to the page. Called before the first paint and on every render. */
 export function applyLook(s = {}) {
-  const html = document.documentElement, theme = ['light', 'dark'].includes(s.theme) ? s.theme : '', a = s.accent && parseHex(s.accent);
+  const html = document.documentElement, theme = ['light', 'dark'].includes(s.theme) ? s.theme : '';
+  const pid = Object.hasOwn(APP_PALETTES, s.appPalette) ? s.appPalette : 'tally', pal = APP_PALETTES[pid];
+  SURFACES.dark = pal.dark; SURFACES.light = pal.light;   // accents are made readable on the palette's own surfaces
+  const a = (s.accent && parseHex(s.accent)) || (pid !== 'tally' ? pal.accent : null);
   if (theme) html.dataset.theme = theme; else delete html.dataset.theme;
   html.toggleAttribute('data-compact', s.compact === true);
-  for (const m of document.querySelectorAll('meta[name="theme-color"]')) { m.dataset.c ||= m.content; m.content = theme ? SURFACES[theme][0] : m.dataset.c; }
-  let st = document.getElementById('accent-css');
-  if (a && !st) { st = document.createElement('style'); st.id = 'accent-css'; document.head.append(st); }
-  if (a && st.dataset.a !== a) { st.textContent = accentCss(a); st.dataset.a = a; }
-  if (!a) st?.remove();
-  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: a || '', compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = SURFACES[theme || (/light/.test(m.media) ? 'light' : 'dark')][0];
+  styleTag('palette-css', pid === 'tally' ? null : paletteCss(pal));
+  styleTag('accent-css', a ? accentCss(a) : null);   // after the palette, so it wins
+  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: s.accent || '', appPalette: pid, compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
 }
 export function applySavedLook() { try { applyLook(JSON.parse(localStorage.getItem(LOOK)) || {}); } catch { /* none saved */ } }
 

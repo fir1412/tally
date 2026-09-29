@@ -6,6 +6,8 @@ import { firstWord } from './learn.js';
 import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
+import { catIcon } from '../caticons.js';
+import { onColor } from '../colorpicker.js';
 import { render, go } from '../app.js';
 
 export const accName = id => S.accounts.find(a => a.id === id)?.name || t('Deleted account');
@@ -14,6 +16,8 @@ const accOf = id => S.accounts.find(a => a.id === id);
 const amtLabel = (id, key = 'Amount ({0})') => { const a = accOf(id); return isFx(a) ? t(key, a.currency) : key === 'Amount ({0})' ? t('Amount (RM)') : t(key, 'RM'); };
 export const catLabel = id => t(cat(id).name);
 export const dot = c => `<span class="dot" style="background:${esc(cat(c).color)}" aria-hidden="true"></span>`;
+/** A category's icon on its colour: entries, category chips and Settings. `c`: a category or its id. */
+export const badge = c => { const k = typeof c === 'string' ? cat(c) : c; return `<span class="cbadge" style="--c:${esc(k.color)};--on:${onColor(k.color)}" aria-hidden="true">${catIcon(k)}</span>`; };
 const scopeName = sc => ({ me: t('Me'), joint: t('Joint'), business: t('Business'), all: t('All') })[sc];
 /** Me · Joint · All, on Home, Activity, Insights and Budgets once a joint account exists (Budgets: Me · Joint, see budScope). */
 export const scopeSwitch = (sc = scope(), keys = [...scopes(), 'all']) => (scopes().length > 1 ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${keys.map(k => `<button class="seg${sc === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${sc === k}">${esc(scopeName(k))}</button>`).join('')}</div>` : '');
@@ -30,7 +34,7 @@ export function txRow(x) {
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="dot tdot" aria-hidden="true"></span>' : dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="cbadge tbadge" aria-hidden="true">' + ICON.swap + '</span>' : badge(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(x.type === 'transfer' || x.fx != null ? fmtAcct(accOf(x.accountId), x.fx ?? x.amount) : fmtRM(x.amount))}</span></button></li>`;
 }
 
@@ -40,7 +44,7 @@ const F = { q: '', month: '', acc: '', cat: '', photo: false, ids: null, idsLabe
 const latestFirst = txs => [...txs].sort((a, b) => byDate(b.date, a.date) || byDate(b.time || '', a.time || '') || b.createdAt - a.createdAt);
 const cycleKeys = (txs, sd) => [...new Set(txs.map(x => cycleKey(x.date, sd)))].sort().reverse();
 function matches(x) {
-  if (F.month && cycleKey(x.date, startDay()) !== F.month) return false;
+  if (F.month && (F.month.startsWith('y') ? x.date.slice(0, 4) !== F.month.slice(1) : cycleKey(x.date, startDay()) !== F.month)) return false;   // "y2026": the whole year
   if (F.acc && x.accountId !== F.acc && x.toAccountId !== F.acc) return false;
   if (F.cat && x.category !== F.cat && !(x.items || []).some(i => i.category === F.cat)) return false;
   if (F.photo && !x.receiptId) return false;
@@ -57,7 +61,9 @@ export const activityView = {
     const sd = startDay(), months = cached(cycleKeys, scopedTx(), sd);
     const shown = list.slice(0, F.limit);
     const photos = (F.q || F.month || F.acc || F.cat || F.photo || F.ids) && new Set(list.map(x => x.receiptId).filter(Boolean)).size;   // a search ("panadol", "klinik") or a filter picks which to download
-    const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + (F.cat && x.items?.length ? x.items.filter(i => i.category === F.cat).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
+    // Only what was searched for: "diapers" this year is the diaper lines of each receipt, not the whole receipts.
+    const q = F.q.toLowerCase(), hit = i => (!F.cat || i.category === F.cat) && (!q || String(i.name || '').toLowerCase().includes(q));
+    const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + ((F.cat || q) && x.items?.some(hit) ? x.items.filter(hit).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
     let html = '', day = '';
     for (const x of shown) {
       if (x.date !== day) { if (day) html += '</ul>'; day = x.date; html += `<h3 class="day">${x.date > tdy ? `<span class="pill">${esc(t('Upcoming'))}</span> ` : ''}${esc(fmtDate(x.date, { year: x.date.slice(0, 4) !== tdy.slice(0, 4) }))}</h3><ul class="list">`; }
@@ -67,7 +73,7 @@ export const activityView = {
     return `<header class="top"><h1>${esc(t('Activity'))}</h1>${scopeChip()}<button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
       ${scopeSwitch()}<div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
-        <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m, sd))}</option>`).join('')}</select>
+        <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${[...new Set(months.map(m => m.slice(0, 4)))].map(y => `<option value="y${y}"${F.month === `y${y}` ? ' selected' : ''}>${esc(t('All of {0}', y))}</option>`).join('')}${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m, sd))}</option>`).join('')}</select>
         <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
@@ -171,7 +177,7 @@ function sheetHtml() {
     ${d.type === 'expense' && !d.items?.length ? `<button class="btn small ghost wide" id="tx-words" data-act="tx-split">${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
-    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
+    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}">${badge(c)}${esc(t(c.name))}</button>`).join('')}</div>`}
     ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
@@ -423,7 +429,7 @@ export const act = {
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
   'tx-photo-dl': () => downloadReceipts([{ tx: draft }]),
   'act-dl': () => {
-    const list = cached(latestFirst, scopedTx()).filter(matches), what = F.ids ? F.idsLabel : F.q || (F.month && fmtMonth(F.month, startDay())) || '';
+    const list = cached(latestFirst, scopedTx()).filter(matches), what = F.ids ? F.idsLabel : F.q || (F.month && (F.month.startsWith('y') ? F.month.slice(1) : fmtMonth(F.month, startDay()))) || '';
     return downloadReceipts(list.map(tx => ({ tx })), `tally-receipts ${what || today()}`.trim());
   },
   'act-photo': () => { F.photo = !F.photo; F.limit = 200; refilter(); },
