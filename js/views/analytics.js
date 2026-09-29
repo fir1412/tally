@@ -1,9 +1,9 @@
 // Insights analytics: the month-end forecast (this month, near the top) and cards below it, each closed to one line
 // with its headline figure. Sums come from engine.js; every chart has its numbers in text next to it or in a hidden table.
-import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat } from '../state.js';
+import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, cycleShort, getLang } from '../i18n.js';
 import { esc, short } from '../ui.js';
-import { fmtRM, addDays, addMonths, cycleSpan, monthIncome, monthSpend, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
+import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
 import { catLabel, showIds } from './money.js';
 
 const OPEN = new Set();   // cards opened stay open across re-renders (a scope or month change)
@@ -20,11 +20,13 @@ function split(parts, label) {
 const hbars = (rows, max) => `<ol class="hbars">${rows.map(r => `<li><span class="grow">${esc(r.name)}</span><span class="num">${esc(r.text)}</span><i style="width:${Math.max(3, Math.round(r.v / (max || 1) * 100))}%" aria-hidden="true"></i></li>`).join('')}</ol>`;
 const weekStart = () => (settings().weekStart === 0 ? 0 : 1);
 const dayName = (w, style = 'short') => new Intl.DateTimeFormat(getLang() === 'zh' ? 'zh-CN' : getLang(), { weekday: style, timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + w)));   // 1 Jan 2023 was a Sunday
-const billShops = () => { const known = S.recurring.filter(b => inScope(b)).map(b => b.key); return [...known, ...recurringCandidates(booked(), known).map(r => r.key)]; };
+const billShops = () => { const known = S.recurring.filter(b => inScope(b)).map(b => b.key); return [...known, ...cached(recurringCandidates, booked(), known).map(r => r.key)]; };
+// Worked out once per data change (state.js cached): these take the transactions first.
+const forecastOf = (txs, o) => forecast({ txs, ...o });
 
 // ---- 3. month-end forecast ---------------------------------------------------------------------------------------------------
 export function forecastCard() {
-  const B = budgetsFor().total, f = forecast({ txs: booked(), today: today(), startDay: startDay(), budget: B, bills: S.recurring.filter(b => inScope(b)) });
+  const B = budgetsFor().total, f = cached(forecastOf, booked(), { today: today(), startDay: startDay(), budget: B, bills: S.recurring.filter(b => inScope(b)) });
   const head = `<span class="lbl">${esc(t('Month-end forecast'))}</span>`;
   if (!f.spent && !f.rate) return `<section class="card fcast">${head}${later(t('Appears after a few days of spending.'))}</section>`;
   const pace = f.projected - f.spent - f.upcoming, max = Math.max(f.projected, B) || 1, at = Math.min(100, B / max * 100);
@@ -43,9 +45,9 @@ export function forecastCard() {
 
 // ---- 4. fixed vs flexible ----------------------------------------------------------------------------------------------------
 function fixedCard(M) {
-  const sd = startDay(), ff = fixedFlexible(booked(), M, sd, billShops()), tdy = today();
+  const sd = startDay(), ff = cached(fixedFlexible, booked(), M, sd, billShops()), tdy = today();
   const known = S.recurring.filter(b => inScope(b) && billStatus(b, tdy, S.tx).next).map(b => ({ name: b.name, v: perMonth(b) }));
-  const found = recurringCandidates(booked(), S.recurring.map(b => b.key)).map(r => ({ name: r.merchant, v: r.amount }));
+  const found = cached(recurringCandidates, booked(), S.recurring.map(b => b.key)).map(r => ({ name: r.merchant, v: r.amount }));
   const regular = [...known, ...found].sort((a, b) => b.v - a.v), perMo = regular.reduce((s, r) => s + r.v, 0);
   const body = ff.fixed + ff.flexible ? split([{ label: t('Bills and subscriptions'), v: ff.fixed, color: 'var(--warn)' }, { label: t('Day to day'), v: ff.flexible, color: 'var(--accent)' }], t('Fixed and flexible spending')) : later(t('No spending in {0}.', fmtMonth(M, sd)));
   return card('fixed', t('Fixed vs flexible'), ff.fixed + ff.flexible ? t('Fixed {0} · flexible {1}', fmtRM(ff.fixed), fmtRM(ff.flexible)) : t('No spending yet'), `${body}
@@ -55,8 +57,8 @@ function fixedCard(M) {
 // ---- 5. when and where -------------------------------------------------------------------------------------------------------
 const SLOTS = () => [t('Morning'), t('Afternoon'), t('Evening'), t('Late night')];
 function whenCard(M) {
-  const sd = startDay(), span = cycleSpan(M, sd), days = dailySpend(booked(), M, sd), ws = weekStart();
-  const end = M === thisMonth() ? today() : span.end, wg = whenGrid(booked(), addDays(end, -89), end), shops = topShops(booked(), M, sd);
+  const sd = startDay(), span = cycleSpan(M, sd), days = cached(dailySpend, booked(), M, sd), ws = weekStart();
+  const end = M === thisMonth() ? today() : span.end, wg = cached(whenGrid, booked(), addDays(end, -89), end), shops = cached(topShops, booked(), M, sd);
   const lead = (new Date(`${span.start}T00:00:00Z`).getUTCDay() - ws + 7) % 7, order = Array.from({ length: 7 }, (_, i) => (ws + i) % 7);
   const spentDays = days.filter(d => d.v);
   const cal = spentDays.length ? `<div class="cal" aria-hidden="true">${order.map(w => `<span class="wd">${esc(dayName(w, 'narrow'))}</span>`).join('')}${'<span></span>'.repeat(lead)}${days.map(d => `<span class="d l${d.level}"><b>${+d.date.slice(8)}</b><small>${d.v ? esc(short(d.v)) : ''}</small></span>`).join('')}</div>
@@ -90,8 +92,9 @@ function rateBars(rows, label) {
   return `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`${label}: ${rows.map(r => `${r.label} ${r.rate == null ? '–' : pct(r.rate)}`).join(', ')}`)}">${g}</svg>`;
 }
 function payCard(M) {
-  const sd = startDay(), mix = paymentMix(booked(), S.accounts, M, sd);
-  const months = Array.from({ length: 6 }, (_, k) => addMonths(M, k - 5)).map(m => { const i = monthIncome(booked(), m, sd), o = monthSpend(booked(), m, sd).total; return { m, label: cycleShort(m, sd), rate: savingsRate(i, o), i, o }; });
+  const sd = startDay(), mix = cached(paymentMix, booked(), S.accounts, M, sd);
+  const yms = Array.from({ length: 6 }, (_, k) => addMonths(M, k - 5)), ins = cached(monthIncomes, booked(), yms, sd), outs = cached(monthSpends, booked(), yms, sd);
+  const months = yms.map(m => { const i = ins[m], o = outs[m].total; return { m, label: cycleShort(m, sd), rate: savingsRate(i, o), i, o }; });
   const now = months.at(-1), has = months.some(r => r.i || r.o);
   const head = now.rate == null ? t('No money in yet this month') : now.rate >= 0 ? t('Kept {0}% of money in', Math.round(now.rate * 100)) : t('Spent {0} more than came in', fmtRM(now.o - now.i));
   const parts = Object.entries(KINDS).map(([k, [n, c]]) => ({ label: t(n), v: mix[k] || 0, color: c })).filter(p => p.v);
@@ -102,7 +105,7 @@ function payCard(M) {
 
 // ---- 7. eating out vs cooking --------------------------------------------------------------------------------------------------
 function foodCard(M) {
-  const sd = startDay(), f = foodSplit(booked(), M, sd), year = M.slice(0, 4), tx = taxPaid(booked(), year), out = f.dining + f.delivery;
+  const sd = startDay(), f = cached(foodSplit, booked(), M, sd), year = M.slice(0, 4), tx = cached(taxPaid, booked(), year), out = f.dining + f.delivery;
   const body = f.groceries + out ? split([{ label: t('Groceries (cooking)'), v: f.groceries, color: cat('groceries').color }, { label: t('Dining out'), v: f.dining, color: cat('dining').color }, { label: t('Delivery'), v: f.delivery, color: '#DB2777' }], t('Food')) : later(t('Appears after some food spending.'));
   return card('food', t('Eating out vs cooking'), f.groceries + out ? t('Eating out {0} · cooking {1}', fmtRM(out), fmtRM(f.groceries)) : t('No food spending yet'), `${body}
     <p class="fine">${esc(t('Delivery: GrabFood, foodpanda, ShopeeFood and the like.'))}</p>
@@ -116,7 +119,7 @@ function spark(points) {
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${xy.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${xy.at(-1)[0].toFixed(1)}" cy="${xy.at(-1)[1].toFixed(1)}" r="3" fill="var(--accent)"/></svg>`;
 }
 function pricesCard() {
-  const hist = priceHistory(booked()), b = basketIndex(hist, today());
+  const hist = cached(priceHistory, booked()), b = basketIndex(hist, today());
   const head = b ? t('Your basket {0} since {1}', pct(b.pct), fmtDate(b.since)) : hist.length ? t('{0} items you buy often', hist.length) : t('Not enough receipts yet');
   const rows = hist.slice(0, 6).map(h => {
     const first = h.points[0].unit, last = h.points.at(-1).unit, ch = (last - first) / first;
@@ -130,7 +133,7 @@ function pricesCard() {
 // ---- 1. LHDN tax relief ----------------------------------------------------------------------------------------------------------
 const reliefYear = M => M.slice(0, 4);
 function reliefCard(M) {
-  const year = reliefYear(M), lines = taxRelief(booked(), year), got = lines.filter(l => l.entries.length), total = got.reduce((s, l) => s + l.total, 0);
+  const year = reliefYear(M), lines = cached(taxRelief, booked(), year), got = lines.filter(l => l.entries.length), total = got.reduce((s, l) => s + l.total, 0);
   const rows = got.map(l => `<li><button class="rbtn" data-act="relief-show" data-id="${esc(l.id)}" data-y="${year}"><span class="rowb"><b>${esc(t(l.name))}</b><span class="num">${esc(fmtRM(l.total))}</span></span>
     <small>${esc(l.entries.length === 1 ? t('1 entry') : t('{0} entries', l.entries.length))} · ${esc(t('{0} with receipt photo', l.proof))}</small></button></li>`).join('');
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
@@ -158,7 +161,7 @@ export function analyticsCards(M) {
 export const act = {
   acard: b => { const d = b.parentElement, id = b.dataset.id; d.open = !d.open; if (d.open) OPEN.add(id); else OPEN.delete(id); },
   'relief-show': b => {
-    const l = taxRelief(booked(), b.dataset.y).find(x => x.id === b.dataset.id);
+    const l = cached(taxRelief, booked(), b.dataset.y).find(x => x.id === b.dataset.id);
     if (l) showIds(l.entries.map(e => e.id), `${t(l.name)} ${b.dataset.y}`);
   },
 };

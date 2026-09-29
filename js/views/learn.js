@@ -181,14 +181,19 @@ export async function tickQuietly() {
   const got = settings().learn || {}, fresh = doneByData(data()).filter(id => !got[id]);
   if (fresh.length || !settings().learn) await setSetting('learn', { ...got, ...Object.fromEntries(fresh.map(id => [id, today()])) });
 }
+let celebrated = [];   // what streaks and badges were last worked out from: they change only after a save
 async function check() {
   if (!S.accounts.length && !settings().learn) return;
   if (!settings().learn) { await tickQuietly(); redraw(); }
   else await tick(doneByData(data()));
-  if (gameOn()) await celebrate();
+  const from = [S.tx, S.kv.settings, S.kv.budgets, S.kv.lastBackup, today()];
+  if (gameOn() && from.some((x, i) => x !== celebrated[i])) { celebrated = from; await celebrate(); }
 }
 /** After every screen, tap or field: look for missions done and badges earned (a moment later, once saves are in). */
-const soon = () => { clearTimeout(checkT); checkT = setTimeout(() => check().catch(console.error), 600); };
+const soon = () => {
+  if (settings().learn && progress(data()).all && !gameOn()) return;   // every mission stored and no badges: nothing to look for
+  clearTimeout(checkT); checkT = setTimeout(() => check().catch(console.error), 600);
+};
 export function afterRender() {
   soon();
   tableIO?.disconnect(); tableIO = null;

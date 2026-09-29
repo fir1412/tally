@@ -1,8 +1,8 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth } from '../state.js';
+import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -65,10 +65,10 @@ function banner(skip = null) {
   const lastDay = booked().reduce((m, x) => (x.date > m ? x.date : m), ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
   if (shown('gap') && S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
-  const nudge = shown('nudge') && dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
+  const nudge = shown('nudge') && dueNudge(cached(habits, booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
-  const ins = shown('insight') && insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id) && i.id !== skip);
+  const ins = shown('insight') && homeInsights().find(i => !dismissed().includes(i.id) && i.id !== skip);
   if (ins) return `<div class="banner ${ins.level}">${ins.level === 'warn' ? ICON.alert : ICON.chart}<span class="grow"><b>${esc(fill(ins.title))}</b><small>${esc(fill(ins.body))}</small></span>
     <span class="bactions"><button class="btn small ghost" data-act="go" data-to="insights">${esc(t('More'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(ins.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
   return '';
@@ -100,6 +100,18 @@ function findCard(f, tdy) {
   const to = f.kind === 'catdown' ? `data-act="cat-show" data-c="${esc(f.cat)}"` : `data-act="go" data-to="${f.kind === 'bill' ? 'budgets' : f.kind === 'nospend' ? 'badges' : 'insights'}"`;
   return `<div class="banner good find">${ICON.sparkles}<button class="grow find-go" ${to}><b>${esc(text)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</button><button class="icon-btn" data-act="dismiss" data-id="find-${esc(tdy)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>`;
 }
+// Worked out once per data change (state.js cached): these take the transactions first.
+const insightsOf = (txs, o) => insights({ txs, ...o }), findsOf = (txs, o) => niceFinds({ txs, ...o });
+const homeInsights = () => cached(insightsOf, booked(), { budgets: budgetsFor(), today: today(), knownBills: S.recurring.map(b => b.key), startDay: startDay() });
+/** Spent in `ym` up to the same day of it as today is into this month. */
+const sameDayBefore = (txs, ym, sd, into, start) => monthSpend(txs.filter(x => cycleKey(x.date, sd) !== ym || daysBetween(start, x.date) <= into), ym, sd).total;
+const trendOf = (txs, accts, end, sd) => balanceTrend(accts, txs, end, 6, sd);
+/** Items bought in a month, by money: the five most. Codes and run-together OCR text are left out. */
+function topItemsOf(txs, M, sd) {
+  const items = {};
+  for (const x of txs) if (x.type === 'expense' && cycleKey(x.date, sd) === M) for (const i of x.items || []) { const k = itemKey(i.name); if (!k || /\d{5,}/.test(i.name) || /[A-Za-z]{16,}/.test(i.name)) continue; (items[k] ||= { name: i.name, n: 0, v: 0 }); items[k].n++; items[k].v += i.cents; }
+  return Object.values(items).sort((a, b) => b.v - a.v).slice(0, 5);
+}
 let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
 export const homeView = {
   title: 'Home',
@@ -121,19 +133,18 @@ export const homeView = {
   render() {
     const tdy = today(), sd = startDay(), ym = thisMonth();
     const upToday = booked(), accts = scopedAccounts();
-    const bal = balances(accts, upToday), sp = monthSpend(upToday, ym, sd), spent = sp.total, B = budgetsFor().total;
+    const bal = balances(accts, upToday), sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = budgetsFor().total;
     const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total }) : null;
     const lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, sd).start, tdy), lastStart = cycleSpan(lastYm, sd).start;
-    const sameDay = upToday.filter(x => cycleKey(x.date, sd) !== lastYm || daysBetween(lastStart, x.date) <= into);
-    const before = monthSpend(sameDay, lastYm, sd).total, diff = spent - before;
-    const recent = [...booked()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt).slice(0, 8);
+    const before = cached(sameDayBefore, upToday, lastYm, sd, into, lastStart), diff = spent - before;
+    const recent = cached(newest, upToday, 8);
     const word = p && (spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'));
     const rg = ring({ budget: B, spent, before, p });
     drawn = { bal: bal.total, spent, frac: rg?.frac };
     // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
-    const ws = settings().weekStart === 0 ? 0 : 1, rc = shown('insight') && weekRecap(upToday, tdy, ws);
+    const ws = settings().weekStart === 0 ? 0 : 1, rc = shown('insight') && cached(weekRecap, upToday, tdy, ws);
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
-    const find = !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(niceFinds({ txs: upToday, today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)) }), tdy);
+    const find = !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(cached(findsOf, upToday, { today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)), ins: homeInsights() }), tdy);   // the price finds come from the insights the banner uses
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1>${greeting() ? `<span class="grow"><b class="hi">${esc(greeting())}</b><small>${esc(fmtDate(tdy, { year: true }))}</small></span>` : `<span class="fine">${esc(fmtDate(tdy, { year: true }))}</span>`}<button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
@@ -174,27 +185,25 @@ export const insightsView = {
   render() {
     const tdy = today(), cur = thisMonth(), sd = startDay();
     if (!M || M > cur) M = cur;
-    const now = monthSpend(booked(), M, sd), prev = monthSpend(booked(), addMonths(M, -1), sd);
+    const all = booked(), now = cached(monthSpend, all, M, sd), prev = cached(monthSpend, all, addMonths(M, -1), sd);
     const parts = Object.entries(now.byCat).map(([c, v]) => ({ id: c, name: catLabel(c), color: cat(c).color, v })).sort((a, b) => b.v - a.v);
     const d = donut(parts, `${esc(fmtRM(now.total))}<small>${esc(t('spent'))}</small>`);
     const change = [...new Set([...Object.keys(now.byCat), ...Object.keys(prev.byCat)])].map(c => ({ c, d: (now.byCat[c] || 0) - (prev.byCat[c] || 0) })).filter(x => x.d).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 5);
-    const flowRaw = cashFlow(booked(), M, 6, sd);
+    const flowRaw = cached(cashFlow, all, M, 6, sd);
     const flow = flowRaw.map(f => ({ label: cycleShort(f.ym, sd), a: f.income, b: f.expense }));
     const trendEnd = M === cur ? tdy : cycleSpan(M, sd).end;
-    const trend = balanceTrend(scopedAccounts(), booked(), trendEnd, 6, sd);
-    const items = {};
-    for (const x of booked()) if (x.type === 'expense' && cycleKey(x.date, sd) === M) for (const i of x.items || []) { const k = itemKey(i.name); if (!k || /\d{5,}/.test(i.name) || /[A-Za-z]{16,}/.test(i.name)) continue; (items[k] ||= { name: i.name, n: 0, v: 0 }); items[k].n++; items[k].v += i.cents; }
-    const topItems = Object.values(items).sort((a, b) => b.v - a.v).slice(0, 5);
-    const all0 = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: sd }).filter(i => !dismissed().includes(i.id));
+    const trend = cached(trendOf, all, scopedAccounts(), trendEnd, sd);
+    const topItems = cached(topItemsOf, all, M, sd);
+    const all0 = cached(insightsOf, all, { budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: sd }).filter(i => !dismissed().includes(i.id));
     const feed = all0.filter(i => !i.rec), recs = all0.filter(i => i.rec).sort((a, b) => b.rec.months - a.rec.months);   // most months seen first
-    const hs = habits(booked(), tdy);
+    const hs = cached(habits, all, tdy);
     const total = now.total || 1;
     // Six months side by side, like the spreadsheet many people are moving from.
     // Months side by side, like the spreadsheet many people are moving from. Leading months with nothing in them are dropped.
     let tMonths = Array.from({ length: SPAN }, (_, k) => addMonths(M, k - SPAN + 1));
-    const all = booked(), spendOf = m => monthSpend(all, m, sd);
-    while (tMonths.length > 1 && !spendOf(tMonths[0]).total && !monthIncome(all, tMonths[0], sd)) tMonths = tMonths.slice(1);
-    const tSpend = tMonths.map(spendOf), tIn = tMonths.map(m => monthIncome(all, m, sd));
+    const spends = cached(monthSpends, all, tMonths, sd), ins = cached(monthIncomes, all, tMonths, sd);   // one pass for all the months
+    while (tMonths.length > 1 && !spends[tMonths[0]].total && !ins[tMonths[0]]) tMonths = tMonths.slice(1);
+    const tSpend = tMonths.map(m => spends[m]), tIn = tMonths.map(m => ins[m]);
     const catSum = c => tSpend.reduce((s, x) => s + (x.byCat[c] || 0), 0);
     const tCats = [...new Set(tSpend.flatMap(s => Object.keys(s.byCat)))].sort((a, b) => catSum(b) - catSum(a));
     const cell = v => (v ? esc(fmtRM(v, { plain: true })) : '<span class="nil">–</span>');

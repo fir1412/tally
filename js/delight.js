@@ -55,11 +55,11 @@ export function weekRecap(txs, today, ws = 1) {
  * {kind: 'price', ins} an item cheaper than last time (the engine's insight), {kind: 'catdown', cat, pct} a category
  * well below the same point last month, {kind: 'bill', name} a bill marked paid on or before its day this week,
  * {kind: 'nospend'} yesterday checked in as a day with nothing spent.
- * d: { txs, today, startDay, noSpend: [days], bills }
+ * d: { txs, today, startDay, noSpend: [days], bills, ins (insights() for these txs and today, when already worked out) }
  */
-export function niceFinds({ txs, today, startDay = 1, noSpend = [], bills = [] }) {
+export function niceFinds({ txs, today, startDay = 1, noSpend = [], bills = [], ins = insights({ txs, today, startDay }) }) {
   const out = [];
-  for (const i of insights({ txs, today, startDay })) if (i.kind === 'price' && i.level === 'good') out.push({ id: i.id, kind: 'price', ins: i });
+  for (const i of ins) if (i.kind === 'price' && i.level === 'good') out.push({ id: i.id, kind: 'price', ins: i });
   // Categories at 80% or less of the same point last month (a week in, and RM 20 or more last month).
   const ym = cycleKey(today, startDay), lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, startDay).start, today);
   if (into >= 7) {

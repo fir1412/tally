@@ -5,8 +5,6 @@ import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
 import * as home from './views/home.js';
 import * as money from './views/money.js';
-import * as review from './views/review.js';
-import * as setup from './views/setup.js';
 import * as learn from './views/learn.js';
 import { flushFeedback } from './feedback.js';
 import { onboarding, registerSW } from './tour.js';
@@ -16,9 +14,16 @@ import { applyLook, applySavedLook } from './colorpicker.js';
 applySavedLook();   // theme and accent before anything is drawn (the database copy is applied on every render)
 
 export const APP_VERSION = '0.6.0';
-const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView, learn: learn.learnView, badges: learn.badgesView };
-const ACT = { ...home.act, ...money.act, ...review.act, ...setup.act, ...learn.act };
-const INPUT = { ...money.input, ...setup.input, ...review.input, ...learn.input };
+// Checking a receipt and Settings (with Welcome and imports) load the first time they are needed, not before Home
+// shows. sw.js still caches them for offline use.
+const LAZY = { review: () => import('./views/review.js'), setup: () => import('./views/setup.js') }, mods = {}, loading = {};
+const VIEWS = { home: () => home.homeView, insights: () => home.insightsView, activity: () => money.activityView, budgets: () => money.budgetsView, review: () => mods.review?.reviewView, settings: () => mods.setup?.settingsView, welcome: () => mods.setup?.welcomeView, learn: () => learn.learnView, badges: () => learn.badgesView };
+const LAZY_VIEW = { review: 'review', settings: 'setup', welcome: 'setup' };
+const ACT = { ...home.act, ...money.act, ...learn.act };
+const INPUT = { ...money.input, ...learn.input };
+/** A lazy module, loaded once; its buttons and fields start working as it arrives. */
+const need = name => (loading[name] ||= LAZY[name]().then(m => { mods[name] = m; Object.assign(ACT, m.act); Object.assign(INPUT, m.input); return m; }, e => { delete loading[name]; throw e; }));
+const needAll = () => Promise.all(Object.keys(LAZY).map(need));
 
 export const route = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
 export function go(r) { if (route() === r) render(); else location.hash = `#/${r}`; }
@@ -44,7 +49,7 @@ export function render() {
   let r = route();
   if (!own(VIEWS, r)) r = 'home';   // unknown routes (#/constructor too) show Home
   if (!S.accounts.length && !['welcome', 'settings'].includes(r)) { r = 'welcome'; history.replaceState(null, '', '#/welcome'); }
-  const view = VIEWS[r];
+  const view = VIEWS[r]();
   applyLook(settings());
   const tabs = [['home', ICON.home, t('Home')], ['activity', ICON.list, t('Activity')], null, ['insights', ICON.chart, t('Insights')], ['budgets', ICON.wallet, t('Budgets')]];
   const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}"><span class="brand" aria-hidden="true">Tally</span>${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
@@ -54,6 +59,11 @@ export function render() {
     id: active.id, tag: active.tagName, data: { ...active.dataset }, href: active.getAttribute('href'),
     selection: typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null,
   } : null;
+  if (!view) {   // its code is still loading: a moment's placeholder, then the screen
+    app.innerHTML = `<main id="view" class="view-${r}"><p class="loading">Tally…</p></main>${nav}`;
+    need(LAZY_VIEW[r]).then(() => render(), err => toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }));
+    return;
+  }
   app.innerHTML = `<main id="view" class="view-${r}">${view.render()}</main>${nav}`;
   renderedRoute = r;
   view.after?.();
@@ -66,7 +76,8 @@ export function render() {
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
-  const fn = own(ACT, b.dataset.act);
+  let fn = own(ACT, b.dataset.act);
+  if (!fn && Object.keys(mods).length < Object.keys(LAZY).length) { e.preventDefault(); await needAll().catch(console.error); fn = own(ACT, b.dataset.act); }   // Back up on Home: Settings' code first
   if (!fn) return;
   e.preventDefault();
   // Anything slower than 150 ms shows it is working on the button pressed (not once a sheet has opened over it).
@@ -101,12 +112,12 @@ Object.assign(ACT, {
   scan: async () => {
     if (settings().photoTipsSeen) return startScan(scanned);
     await setSetting('photoTipsSeen', true);
-    review.photoTips({ thenScan: true });
+    (await need('review')).photoTips({ thenScan: true });
   },
   go: b => go(b.dataset.to),
   back: b => (cameFrom() ? history.back() : go(b.dataset.to || 'home')),
 });
-export const scanned = files => { review.enqueue(files); go('review'); };
+export const scanned = async files => { (await need('review')).enqueue(files); go('review'); };
 document.addEventListener('change', e => {
   if (e.target.id !== 'scan-input') return;
   const files = [...e.target.files];
@@ -133,8 +144,8 @@ async function takeShared() {
   for (const k of keys) { const r = await c.match(k); files.push(new File([await r.blob()], decodeURIComponent(r.headers.get('x-name') || 'shared'), { type: r.headers.get('content-type') || '' })); }
   await caches.delete('tally-share');
   const photos = files.filter(f => f.type.startsWith('image/')), other = files.filter(f => !f.type.startsWith('image/'));
-  if (other.length) setTimeout(() => setup.importFile(other[0]), 400);   // one import at a time
-  else if (photos.length) { review.enqueue(photos); history.replaceState(null, '', '#/review'); }
+  if (other.length) setTimeout(async () => (await need('setup')).importFile(other[0]), 400);   // one import at a time
+  else if (photos.length) { (await need('review')).enqueue(photos); history.replaceState(null, '', '#/review'); }
 }
 export const refresh = () => { if (!sheetOpen()) render(); };
 (async () => {
@@ -153,7 +164,8 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     if (!location.hash && settings().start === 'activity') { history.replaceState(null, '', '#/activity'); shown = 'activity'; }   // start screen
     await takeShared();
-    const resumed = await review.restoreDraft();
+    if (!S.accounts.length) await need('setup');   // Welcome shows at once
+    const resumed = S.kv.reviewDraft?.draft || S.kv.scanQueue?.length ? await (await need('review')).restoreDraft() : false;   // nothing to resume: its code can wait
     if (resumed) { history.replaceState(null, '', '#/review'); toast(resumed === 'items' ? t('Picked up the items you were adding') : t('Picked up the receipt you were checking')); }
     await money.postBills().catch(console.error);   // bills that add themselves, up to today
     watch(async () => { if (await money.postBills().catch(() => 0)) refresh(); });
@@ -161,6 +173,6 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     entering(); render();   // opening the app plays the same entrance as a screen change (the month ring fills)
     if (!resumed) onboarding();
     flushFeedback().catch(() => {});
-    registerSW(() => sheetOpen() || review.busy());
+    registerSW(() => sheetOpen() || !!mods.review?.busy());
   } catch (err) { recovery(err); }
 })();

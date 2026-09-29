@@ -37,7 +37,21 @@ const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate(
 export const today = () => (/^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : local(new Date()));
 export const nowTime = () => (/^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now') : `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`);
 /** Transactions up to today, in the current scope. Rows dated later (a statement's future lines) count from their own day, everywhere. */
-export const booked = () => { const d = today(); return scopedTx().filter(x => x.date <= d); };
+export const booked = () => { const d = today(), all = scopedTx(); return keep('booked', all, d, () => all.filter(x => x.date <= d)); };
+
+// ---- worked out once per data change -----------------------------------------------------------------------------
+// S.tx is replaced, never changed in place, by every save, delete, import and restore, so a result kept with the
+// array it came from can't go stale. Screens pass S.tx, scopedTx() or booked() (the same array until the data changes).
+const memo = new WeakMap(), last = {};
+const keep = (name, src, key, fn) => { const m = last[name]; if (m?.src === src && m.key === key) return m.v; const v = fn(); last[name] = { src, key, v }; return v; };
+/** fn(txs, ...args) worked out once per txs array and arguments (JSON), so a re-render or a month tap skips it. Never change what it returns. */
+export function cached(fn, txs, ...args) {
+  let byFn = memo.get(txs); if (!byFn) memo.set(txs, byFn = new Map());
+  let m = byFn.get(fn); if (!m) byFn.set(fn, m = new Map());
+  const k = JSON.stringify(args);
+  if (!m.has(k)) m.set(k, fn(txs, ...args));
+  return m.get(k);
+}
 
 // ---- scope: Me · Joint · All (a couple's joint accounts next to personal ones) ---------------------------------
 export const jointIds = () => new Set(S.accounts.filter(a => a.scope === 'joint').map(a => a.id));
@@ -51,7 +65,7 @@ export function inScope(x, sc = scope(), joint = jointIds()) {
   const want = sc === 'joint';
   return joint.has(x.accountId) === want || (x.toAccountId != null && joint.has(x.toAccountId) === want);
 }
-export const scopedTx = () => { const sc = scope(), j = jointIds(); return sc === 'all' || !j.size ? S.tx : S.tx.filter(x => inScope(x, sc, j)); };
+export const scopedTx = () => { const sc = scope(), j = jointIds(); return sc === 'all' || !j.size ? S.tx : keep('scoped', S.tx, `${sc}|${[...j]}`, () => S.tx.filter(x => inScope(x, sc, j))); };
 export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || (a.scope === 'joint') === (sc === 'joint')); };
 /** Budgets for the scope: personal ones as before, joint ones in budgets.joint, All = both added up (read-only). */
 export function budgetsFor(sc = scope()) {
@@ -84,7 +98,11 @@ export function setCatColor(id, hex) {
   if (hex) m[id] = hex; else delete m[id];
   return setKv('catColors', m);
 }
-export const cat = id => allCats().find(c => c.id === id) || CATEGORIES.at(-1);
+let catIdx = null;   // cat() runs for every row drawn and searched: look it up, don't rebuild the list each time
+export const cat = id => {
+  if (catIdx?.cc !== S.kv.customCats || catIdx.cl !== S.kv.catColors) { const m = new Map(); for (const c of allCats()) if (!m.has(c.id)) m.set(c.id, c); catIdx = { cc: S.kv.customCats, cl: S.kv.catColors, m }; }
+  return catIdx.m.get(id) || CATEGORIES.at(-1);
+};
 export async function addCategory(name, color = nextColor(S.kv.customCats.map(x => x.color))) {
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color };
   await setKv('customCats', [...S.kv.customCats, c]);
@@ -98,7 +116,7 @@ export async function saveTx(tx) {
   tx = stamp(tx);
   await db.put('tx', tx);
   const i = S.tx.findIndex(t => t.id === tx.id);
-  if (i >= 0) S.tx[i] = tx; else S.tx.push(tx);
+  S.tx = i >= 0 ? S.tx.map((t, k) => (k === i ? tx : t)) : [...S.tx, tx];   // a new array: results kept for the old one (cached) are dropped
   return tx;
 }
 export async function saveTxs(list) {

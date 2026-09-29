@@ -1,9 +1,9 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount, saveTxs, deleteTxs, startDay, thisMonth } from '../state.js';
+import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount, saveTxs, deleteTxs, startDay, thisMonth, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
+import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -25,6 +25,9 @@ export function txRow(x) {
 
 // ---- Activity ------------------------------------------------------------------------------------------------------
 const F = { q: '', month: '', acc: '', cat: '', photo: false, ids: null, idsLabel: '', limit: 200 };
+/** Newest first (date, then time, then the last added): sorted once per data change, not on every keystroke. */
+const latestFirst = txs => [...txs].sort((a, b) => byDate(b.date, a.date) || byDate(b.time || '', a.time || '') || b.createdAt - a.createdAt);
+const cycleKeys = (txs, sd) => [...new Set(txs.map(x => cycleKey(x.date, sd)))].sort().reverse();
 function matches(x) {
   if (F.month && cycleKey(x.date, startDay()) !== F.month) return false;
   if (F.acc && x.accountId !== F.acc && x.toAccountId !== F.acc) return false;
@@ -39,8 +42,8 @@ function matches(x) {
 export const activityView = {
   title: 'Activity',
   render() {
-    const list = scopedTx().filter(matches).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.createdAt - a.createdAt);
-    const sd = startDay(), months = [...new Set(scopedTx().map(x => cycleKey(x.date, sd)))].sort().reverse();
+    const list = cached(latestFirst, scopedTx()).filter(matches);
+    const sd = startDay(), months = cached(cycleKeys, scopedTx(), sd);
     const shown = list.slice(0, F.limit);
     const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + (F.cat && x.items?.length ? x.items.filter(i => i.category === F.cat).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
     let html = '', day = '';
@@ -203,7 +206,7 @@ export function openTxSheet(preset = {}) {
 export const budgetsView = {
   title: 'Budgets',
   render() {
-    const sd = startDay(), ym = thisMonth(), tdy = today(), now = monthSpend(booked(), ym, sd), B = budgetsFor(), ro = scope() === 'all' ? ' disabled' : '';
+    const sd = startDay(), ym = thisMonth(), tdy = today(), now = cached(monthSpend, booked(), ym, sd), B = budgetsFor(), ro = scope() === 'all' ? ' disabled' : '';
     const bar = (spent, budget, c) => {
       if (!budget) return `<span class="fine">${esc(t('{0} spent', fmtRM(spent)))}</span>`;
       const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] }), pct = Math.min(100, Math.round(spent / budget * 100));
@@ -212,9 +215,10 @@ export const budgetsView = {
       return `<div class="meter ${state}" role="img" aria-label="${esc(`${pct}%`)}"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;
     };
     // Cumulative spend this month vs the budget line.
-    let run = 0; const series = [];
-    for (let iso = cycleSpan(ym, sd).start; iso <= tdy; iso = addDays(iso, 1)) { run += booked().filter(x => x.type === 'expense' && x.date === iso).reduce((s, x) => s + x.amount, 0); series.push({ date: iso, v: run }); }
-    const cand = recurringCandidates(booked(), S.recurring.map(b => b.key).filter(Boolean)).filter(r => !S.kv.dismissed.includes(`bill-sugg-${r.key}`));
+    let run = 0; const series = [], start = cycleSpan(ym, sd).start, day = {};
+    for (const x of booked()) if (x.type === 'expense' && x.date >= start && x.date <= tdy) day[x.date] = (day[x.date] || 0) + x.amount;
+    for (let iso = start; iso <= tdy; iso = addDays(iso, 1)) { run += day[iso] || 0; series.push({ date: iso, v: run }); }
+    const cand = cached(recurringCandidates, booked(), S.recurring.map(b => b.key).filter(Boolean)).filter(r => !S.kv.dismissed.includes(`bill-sugg-${r.key}`));
     // Categories with spending or a limit first (most spent on top); the rest fold away.
     const spentOn = c => now.byCat[c.id] || 0, cats = [...expenseCats()].sort((a, b) => spentOn(b) - spentOn(a));
     const active = cats.filter(c => spentOn(c) || B.byCat[c.id]), idle = cats.filter(c => !spentOn(c) && !B.byCat[c.id]);
@@ -222,7 +226,7 @@ export const budgetsView = {
         <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" aria-describedby="be-${esc(c.id)}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"${ro}></span></div><p class="err bud-err" id="be-${esc(c.id)}" role="alert"></p><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
     const bills = S.recurring.filter(b => inScope(b));
     // No budget yet: what the last 3 full months cost on average (months with spending), to the nearest RM 50.
-    const past = [1, 2, 3].map(k => monthSpend(booked(), addMonths(ym, -k), sd).total).filter(Boolean);
+    const pastYm = [1, 2, 3].map(k => addMonths(ym, -k)), spends = cached(monthSpends, booked(), pastYm, sd), past = pastYm.map(m => spends[m].total).filter(Boolean);
     const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
     return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
       ${scopeSwitch()}${ro ? `<p class="fine">${esc(t('All shows your budgets and the joint ones added up. Pick Me or Joint to change them.'))}</p>` : ''}
