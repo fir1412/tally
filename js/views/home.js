@@ -2,7 +2,7 @@
 import { S, today, nowLocal, setKv, cat } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, addMonths, addDays, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey } from '../engine.js';
 import { habitEvent, ics, googleUrl } from '../calendar.js';
 import { download } from '../io.js';
 import { render } from '../app.js';
@@ -24,13 +24,18 @@ const habitText = h => t(h.days === 'weekend' ? '{0} on weekends around {1}' : '
 const dismissed = () => S.kv.dismissed || [];
 const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), id].slice(-300));
 
-/** The one banner Home shows, most important first: backup, a habit nudge, a bill due, then an insight. */
-function banner() {
+/** The backup reminder has its own slot (it used to hide nudges for weeks). */
+function backupBanner() {
   const tdy = today(), last = S.kv.lastBackup;
   if (S.tx.length >= 10 && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
     return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. A backup file keeps it safe if the phone is lost.'))}</small></span>
       <span class="bactions"><button class="btn small" data-act="go" data-to="settings">${esc(t('Back up'))}</button><button class="btn small ghost" data-act="dismiss" data-id="backup-${tdy}">${esc(t('Later'))}</button></span></div>`;
   }
+  return '';
+}
+/** The one other banner Home shows, most important first: a habit nudge, a bill due, then an insight. */
+function banner() {
+  const tdy = today();
   const nudge = dueNudge(habits(S.tx, tdy), S.tx, nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
@@ -48,16 +53,15 @@ export const homeView = {
   title: 'Home',
   render() {
     const tdy = today(), ym = monthOf(tdy);
-    const bal = balances(S.accounts, S.tx), prevEnd = balances(S.accounts, S.tx, addDays(`${ym}-01`, -1)).total;
-    const diff = bal.total - prevEnd, spent = monthSpend(S.tx, ym).total, B = S.kv.budgets.total;
+    const upToday = S.tx.filter(x => x.date <= tdy); // rows dated after today (from a statement) wait for their day
+    const bal = balances(S.accounts, upToday), spent = monthSpend(upToday, ym).total, B = S.kv.budgets.total;
     const p = B ? pace(B, spent, tdy) : null;
     const recent = [...S.tx].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt).slice(0, 8);
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="fine">${esc(fmtDate(tdy, { year: true }))}</span><button class="icon-btn" data-act="go" data-to="settings" aria-label="${esc(t('Settings'))}">${ICON.gear}</button></header>
       <div class="cols"><div class="col">
       <section class="hero">
-        <span class="label">${esc(t('Current balance'))} · ${esc(t('{0} accounts', S.accounts.length))}</span>
+        <span class="label">${esc(t('Current balance'))} · ${esc(S.accounts.length === 1 ? t('1 account') : t('{0} accounts', S.accounts.length))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>
-        <span class="fine ${diff >= 0 ? 'good' : 'bad'}">${diff >= 0 ? '▲' : '▼'} ${esc(fmtRM(Math.abs(diff)))} ${esc(t('this month'))}</span>
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${S.accounts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtRM(bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
       </section>
       <section class="card month">
@@ -65,10 +69,10 @@ export const homeView = {
         <div class="rowb"><b class="num">${esc(fmtRM(spent))}</b>${B ? `<span class="fine">${esc(t('of {0}', fmtRM(B)))}</span>` : ''}</div>
         ${B ? `<div class="meter ${spent > B ? 'bad' : p.over ? 'warn' : 'good'}"><i style="width:${Math.min(100, Math.round(spent / B * 100))}%"></i></div>` : ''}
       </section>
+      ${backupBanner()}
       ${banner()}
-      <div class="row2"><button class="btn" data-act="scan">${ICON.camera}${esc(t('Scan receipt'))}</button><button class="btn ghost" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
       </div><div class="col">
-      <h2>${esc(t('Recent'))}</h2>
+      <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
       ${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul><button class="btn ghost wide" data-act="go" data-to="activity">${esc(t('See all'))}</button>` : `<p class="empty">${esc(t('Nothing yet. Scan your first receipt: Tally splits it into items and categories for you.'))}</p>`}
       </div></div>`;
   },
@@ -97,7 +101,7 @@ export const insightsView = {
     const total = now.total || 1;
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
-      ${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}"><span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
+      ${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
         ${i.rec ? `<button class="btn small" data-act="go" data-to="budgets">${esc(t('Add'))}</button>` : ''}${i.cat && i.cat !== 'total' ? `<button class="btn small ghost" data-act="cat-show" data-c="${esc(i.cat)}">${esc(t('See'))}</button>` : ''}<button class="icon-btn" data-act="dismiss" data-id="${esc(i.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></li>`).join('')}</ul>` : ''}
       <section class="card">
         <h2>${esc(t('Where the money went'))}</h2>

@@ -33,16 +33,16 @@ export function lineChart(series, { goal = null, height = 160, label = 'chart', 
   if (pts.length > 1) g += `<polygon points="${pts[0][0].toFixed(1)},${(H - B).toFixed(1)} ${line} ${pts.at(-1)[0].toFixed(1)},${(H - B).toFixed(1)}" fill="var(--${k})" opacity=".14"/><polyline points="${line}" fill="none" stroke="var(--${k})" stroke-width="2.5" stroke-linejoin="round"/>`;
   pts.forEach((p, i) => { g += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 2.5}" fill="var(--${k})"><title>${esc(fmtDate(series[i].date))}: ${esc(fmtRM(series[i].v))}</title></circle>`; });
   const lp = pts.at(-1);
-  g += `<text x="${Math.min(lp[0], W - R)}" y="${Math.max(12, lp[1] - 9).toFixed(1)}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">${esc(fmtRM(series.at(-1).v))}</text>`;
+  g += `<text class="endlabel" x="${Math.min(lp[0], W - R)}" y="${Math.max(12, lp[1] - 9).toFixed(1)}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">${esc(fmtRM(series.at(-1).v))}</text>`;
   g += `<text x="${L}" y="${H - 5}" font-size="11" fill="var(--mute)">${esc(fmtDate(series[0].date))}</text>`;
   if (series.length > 1) g += `<text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="11" fill="var(--mute)">${esc(fmtDate(series.at(-1).date))}</text>`;
   return `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}</svg>`;
 }
 /** Grouped bars: data [{label, a, b}] (sen), two series with names and colour tokens. */
-export function pairBars(data, { names = ['a', 'b'], ks = ['good', 'bad'], height = 150, label = 'chart' } = {}) {
+export function pairBars(data, { names = ['a', 'b'], ks = ['chart-good', 'chart-bad'], height = 150, label = 'chart' } = {}) {
   const W = 340, H = height, L = 8, R = 8, T = 18, B = 22;
   const mx = Math.max(1, ...data.flatMap(d => [d.a, d.b])), bw = (W - L - R) / data.length;
-  let g = '';
+  let g = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>`; // empty months read as zero
   data.forEach((d, i) => {
     [d.a, d.b].forEach((v, j) => {
       const h = v / mx * (H - T - B), w = bw * 0.32, x = L + i * bw + bw * 0.16 + j * w, y = H - B - h;
@@ -86,7 +86,9 @@ export function openSheet(html, { onClose, label = 'Dialog' } = {}) {
   });
   if (!history.state?.sheet) history.pushState({ sheet: true }, ''); // Android back closes the sheet
   sheetClose = () => {
-    wrap.remove(); sheetClose = null;
+    sheetClose = null;
+    wrap.classList.add('out'); wrap.style.pointerEvents = 'none';   // exit animation, then gone
+    setTimeout(() => wrap.remove(), 200);
     staleHref = history.state?.sheet ? location.href : null;
     app?.removeAttribute('inert');
     if (opener?.isConnected) opener.focus({ preventScroll: true });
@@ -118,10 +120,12 @@ export function confirmSheet({ title, body = '', ok = t('Confirm'), danger = fal
 }
 let toastT;
 /** Short message in a live region; optional Undo. */
-export function toast(msg, { undo = null, k = 'ink' } = {}) {
+export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
   let el = $('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
   el.textContent = msg;
+  if (icon) el.insertAdjacentHTML('afterbegin', ICON[icon] || '');
+  el.classList.toggle('has-undo', !!undo);
   el.style.setProperty('--k', `var(--${k})`);
   if (undo) {
     const b = document.createElement('button');

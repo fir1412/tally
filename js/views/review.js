@@ -21,7 +21,7 @@ async function pump() {
   if (reading || current?.status === 'ready' || current?.status === 'reading') return;
   const next = queue.shift();
   if (!next) { current = null; return; }
-  current = { ...next, status: 'reading' };
+  current = { ...next, status: 'reading', thumb: URL.createObjectURL(next.file) };
   reading = true; refresh();
   try {
     if (!ocrReady()) await loadOcr();
@@ -36,6 +36,7 @@ async function pump() {
 const refresh = () => { if (location.hash.startsWith('#/review')) render(); };
 
 /** Parsed receipt → editable transaction draft, with categories guessed from the user's rules and shop words. */
+const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price looks wrong') : t('Hard to read: check the name and price'));
 function toDraft(r) {
   const merchant = (r.merchant || '').slice(0, 80);
   const last = [...S.tx].sort((a, b) => b.createdAt - a.createdAt)[0];
@@ -63,7 +64,8 @@ export const reviewView = {
       <section class="card center">${ICON.camera}<p>${esc(t('Take a photo of a receipt, or pick one or more from your gallery. They are read on this phone and never uploaded.'))}</p>
       <button class="btn wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button></section>`;
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
-      <section class="card center" aria-busy="true"><div class="spinner" aria-hidden="true"></div><p>${esc(ocrReady() ? t('Reading the receipt on this phone. This takes a few seconds.') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>
+      <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
+      <section class="card center" aria-busy="true"><p>${esc(ocrReady() ? t('Reading the receipt on this phone. This takes a few seconds.') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>
       ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}</section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card"><p class="err">${esc(current.error)}</p><div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(waiting ? t('Next receipt') : t('Close'))}</button><button class="btn" data-act="scan">${esc(t('Try another photo'))}</button></div></section>`;
@@ -73,6 +75,7 @@ export const reviewView = {
     const status = d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))}</p>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
       : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
+    const maths = [[t('Items'), itemsSum(d)], [t('Service'), d.service], [t('Tax'), d.taxIncluded ? 0 : d.tax], [t('Rounding'), d.rounding]].filter(([, v]) => v).map(([k, v]) => `${k} ${fmtRM(v, { plain: true })}`).join(' + ');
     return `<header class="top"><h1>${esc(t('Review receipt'))}</h1>${waiting ? `<span class="fine">${esc(t('{0} more waiting', waiting))}</span>` : ''}</header>
       ${dup ? `<p class="warnbox">${ICON.alert}${esc(t('Looks like you already added this: {0} on {1}.', fmtRM(dup.amount), fmtDate(dup.date)))}</p>` : ''}
       <section class="card">
@@ -81,9 +84,10 @@ export const reviewView = {
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
         <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
       </section>
-      <div id="rv-status">${status}</div>
+      ${current.thumb ? `<details class="receipt-thumb"><summary class="sr">${esc(t('Receipt photo'))}</summary><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></details>` : ''}
+      <div id="rv-status">${status}${d.total != null && c && !c.ok && maths ? `<p class="maths">${esc(maths)} ≠ ${esc(fmtRM(d.total, { plain: true }))}</p>` : ''}</div>
       <h2>${esc(t('Items'))} <span class="fine">${esc(flagged ? t('{0} to check', flagged) : '')}</span></h2>
-      <ul class="list items-edit">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}">
+      <ul class="list items-edit">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}"${i.flag ? ` data-why="${esc(flagWhy(i))}"` : ''}>
         <input class="iname" value="${esc(i.name)}" maxlength="80" aria-label="${esc(t('Item name'))}" data-input="rv-item" data-n="${n}" data-k="name" placeholder="${esc(t('Item name'))}">
         <input class="iamt" inputmode="decimal" value="${(i.cents / 100).toFixed(2)}" aria-label="${esc(t('Price'))}" data-input="rv-item" data-n="${n}" data-k="cents">
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
@@ -126,6 +130,8 @@ export const act = {
     const d = current.draft;
     if (!d.total || d.total <= 0) { toast(t('Type the total from the receipt first.'), { k: 'warn' }); $('#rv-total')?.focus(); return; }
     if (!validIso(d.date)) { toast(t('Pick a date.'), { k: 'warn' }); return; }
+    if (d.totalGuessed && !(await confirmSheet({ title: t('Is {0} the total?', fmtRM(d.total)), body: t('Tally guessed this total. Check it against the receipt.'), ok: t('Yes, save') }))) { $('#rv-total')?.focus(); return; }
+    if (!d.dateFound && !(await confirmSheet({ title: t('Use today as the date?'), body: t('No date was found on the receipt.'), ok: t('Yes, save') }))) { $('#rv-date')?.focus(); return; }
     if (d.items.length && !check(d).ok && !(await confirmSheet({ title: t('Items do not add up'), body: t('The difference is spread across the items by size, so your categories stay close. Save anyway?'), ok: t('Save anyway') }))) return;
     b.disabled = true;
     const learnIt = $('#rv-learn')?.checked;
@@ -135,7 +141,8 @@ export const act = {
     if (current.photo) { tx.receiptId = tx.receiptId || uid('p'); await savePhoto(tx.receiptId, current.photo); }
     await saveTx(tx);
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
-    toast(t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)));
+    toast(t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)), { icon: 'check' });
+    if (current.thumb) URL.revokeObjectURL(current.thumb);
     current = null;
     if (queue.length) { pump(); render(); } else go('home');
   },

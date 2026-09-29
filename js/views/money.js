@@ -16,7 +16,7 @@ export function txRow(x) {
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.items?.length ? ` · ${esc(t('receipt'))}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('receipt'))}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(fmtRM(x.amount))}</span></button></li>`;
 }
 
@@ -80,7 +80,7 @@ function sheetHtml() {
   const accOpts = sel => S.accounts.map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
   return `<h2 class="sh-title">${esc(isNew ? t('Add') : t('Edit'))}</h2>
     <div class="segs" role="group" aria-label="${esc(t('Type'))}">${seg}</div>
-    <label class="field big"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" inputmode="decimal" autocomplete="off" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : 'autofocus'} placeholder="0.00"></label>
+    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" inputmode="decimal" autocomplete="off" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
     <p class="err" id="tx-err" role="alert"></p>
     ${d.type === 'transfer' ? '' : `<div class="chips" role="radiogroup" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" role="radio" aria-checked="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
     <div class="grid2">
@@ -93,6 +93,7 @@ function sheetHtml() {
     ${d.items?.length ? `<details class="items"><summary>${esc(t('{0} items from the receipt', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
+    ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
 }
 function readForm() {
@@ -185,9 +186,11 @@ export const act = {
     await saveTx(x);
     if (x.merchant && x.type === 'expense' && !x.items?.length) await learn(x.merchant, x.category);
     closeSheet(); render();
-    toast(isNew ? t('Added {0}', fmtRM(x.amount)) : t('Saved'));
+    toast(isNew ? t('Added {0}', fmtRM(x.amount)) : t('Saved'), { icon: 'check' });
   },
+  'tx-again': () => { readForm(); const { type, amount, category, accountId, merchant } = draft; closeSheet(); setTimeout(() => openTxSheet({ type, amount, category, accountId, merchant }), 220); },
   'tx-del': async () => {
+    if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtRM(draft.amount)}`, ok: t('Delete'), danger: true }))) return;
     const undo = await deleteTx(draft.id);
     closeSheet(); render();
     toast(t('Deleted'), { undo: async () => { await undo(); render(); } });

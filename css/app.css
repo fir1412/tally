@@ -278,6 +278,6 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
   .view-insights .chartsvg { max-height: 220px; }
   .welcome { max-width: 560px; margin: 0 auto; }
 }
-.tabs .brand { display: none; }
-@media (min-width: 1024px) { .tabs .brand { display: block; } }
+.tabs .brand, .tab.desk { display: none; }
+@media (min-width: 1024px) { .tabs .brand { display: block; } .tab.desk { display: flex; } }
 @media (max-width: 380px) { .grid2 { grid-template-columns: 1fr; } .hero .big { font-size: 2.1rem; } }

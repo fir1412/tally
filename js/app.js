@@ -20,8 +20,8 @@ export function render() {
   if (!S.accounts.length && !['welcome', 'settings'].includes(r)) { r = 'welcome'; history.replaceState(null, '', '#/welcome'); }
   const view = VIEWS[r] || VIEWS.home;
   const tabs = [['home', ICON.home, t('Home')], ['activity', ICON.list, t('Activity')], null, ['insights', ICON.chart, t('Insights')], ['budgets', ICON.wallet, t('Budgets')]];
-  const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}">${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
-    : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}</nav>`;
+  const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}"><span class="brand" aria-hidden="true">Tally</span>${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
+    : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}<a href="#/settings" class="tab desk${r === 'settings' ? ' on' : ''}">${ICON.gear}<span>${esc(t('Settings'))}</span></a></nav>`;
   $('#app').innerHTML = `<main id="view" class="view-${r}">${view.render()}</main>${nav}`;
   view.after?.();
   document.title = `Tally · ${t(view.title || 'Home')}`;
@@ -43,7 +43,14 @@ for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   const fn = el && INPUT[el.dataset.input];
   if (fn && (ev === 'input') === typing(el)) fn(el, e);
 });
-window.addEventListener('hashchange', () => { if (sheetOpen()) closeSheet(); render(); window.scrollTo(0, 0); });
+// Screen change: entrance motion plays once (html[data-enter]), and browsers with View Transitions crossfade.
+window.addEventListener('hashchange', () => {
+  if (sheetOpen()) closeSheet();
+  const html = document.documentElement;
+  html.dataset.enter = ''; clearTimeout(window.__enterT); window.__enterT = setTimeout(() => delete html.dataset.enter, 800);
+  const run = () => { render(); window.scrollTo(0, 0); };
+  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(run); else run();
+});
 
 // Global actions used by every view.
 Object.assign(ACT, {
