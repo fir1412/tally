@@ -7,10 +7,10 @@ import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGOR
 import { fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
-import { render, go, APP_VERSION } from '../app.js';
+import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { dailyEvent, ics, googleUrl } from '../calendar.js';
-import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, iosBrowser } from '../tour.js';
+import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, holdUpdates, iosBrowser } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
 import { badge } from './money.js';
@@ -80,6 +80,14 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 
 // ---- Welcome ----------------------------------------------------------------------------------------------------------
 /** Exchange rates, asked for only when the person taps "Get today's rate" (ECB rates; see privacy.html). */
+// The commit this copy was built from (build.txt, written at deploy and kept in the offline cache with the code).
+let build = '';
+const buildLink = () => (build ? ` · <a class="link" href="https://github.com/tallymy/tallymy.github.io/tree/${build}" target="_blank" rel="noopener" aria-label="${esc(t('The code of this version: {0}', build.slice(0, 7)))}">${build.slice(0, 7)}</a>` : '');
+fetch('./build.txt').then(r => (r.ok ? r.text() : '')).then(s => {
+  if (!/^[0-9a-f]{40}\s*$/.test(s)) return;
+  build = s.trim(); const el = document.getElementById('build'); if (el) el.innerHTML = buildLink();
+}).catch(() => {});
+const mailLink = () => `<a class="link" href="mailto:${CONTACT}">${CONTACT}</a>`;
 const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
 const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a><a class="link" href="licences.html" target="_blank" rel="noopener">${esc(t('Licences'))}</a>`;
@@ -98,7 +106,7 @@ export const welcomeView = {
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
       <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
-      <p class="fine maker">${esc(t("Made in Malaysia by one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell."))}</p>
+      <p class="fine maker">${esc(t("Made in Malaysia by {0}, one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell.", MAKER))} ${mailLink()}</p>
       <p class="fine">${esc(t('By using Tally you agree to the Terms of use and have read the Privacy policy.'))}</p>
       <p class="legal">${legalLinks()}</p>
       <ul class="points">
@@ -179,7 +187,7 @@ export const settingsView = {
       <section class="card" id="backup"><h2 id="s-backup">${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
         <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div>
-        <p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></p>
+        <p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes your Tally entries, accounts and receipt photos from this phone. Back up first.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></p>
         ${storage.persisted == null ? '' : `<p class="fine">${esc(storage.persisted ? t('Storage: protected. The browser will not clear Tally to free up space.') : t('If the phone runs out of space, the browser may clear Tally. A backup file keeps you safe.'))}</p>`}</section>
       <section class="card" id="s-data"><h2>${esc(t('Import & export'))}</h2><p class="fine">${esc(t('From Money Manager, Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney, Excel, CSV, a bank statement, or Google Sheets.'))}</p>
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
@@ -193,27 +201,30 @@ export const settingsView = {
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.'))}</p>
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(!lockOn() ? t('Off') : settings().lock.kind === 'pass' ? t('On: password') : settings().lock.cred && !encOn() ? t('On: PIN, fingerprint or face') : t('On: PIN'))}</small></span>
-          <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
+          <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change the lock') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         ${lockOn() && storageMode() === 'indexeddb' ? `<div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Encrypt data on this phone'))}</b><small>${esc(encOn() ? t('On') : t('Off'))}</small></span><button class="btn small ghost" data-act="${encOn() ? 'enc-off' : 'enc-on'}">${esc(encOn() ? t('Turn off') : t('Turn on'))}</button></div>` : ''}
         <p class="fine">${esc(!lockOn() ? t('A privacy lock for people who pick up your phone. Turn it on to encrypt your data too.') : !encOn() ? t('A privacy lock for people who pick up your phone. Your data is not encrypted.')
           : settings().lock.kind === 'pass' ? t('Your entries and photos are encrypted with your password. Without it no one can read them, not even from a copy of the phone.')
           : t('Your entries and photos are encrypted with your PIN. Someone with a copy of the phone could try every 4–6 digit PIN on a computer; a password of 8 or more characters stops that.'))}</p>
         <button class="btn ghost wide" data-act="net-check">${ICON.check}${esc(t('Check what Tally contacted'))}</button>
-        <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
+        <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t("Erase Tally's data"))}</button>
         <p class="legal">${legalLinks()}</p></section>
       ${learnCard()}
       <section class="card" id="s-help"><h2>${esc(t('Help and feedback'))}</h2>
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
         <button class="btn ghost wide" data-act="update-check">${esc(t('Check for updates'))}</button>
+        <label class="toggle"><span class="grow"><b>${esc(t('Ask before updating'))}</b><small>${esc(t('A new version waits until you tap Update now, so you can read its changes first.'))}</small></span><input type="checkbox" class="switch" data-input="ask-update"${settings().askUpdate ? ' checked' : ''}></label>
         <p class="fine">${esc(t('Tell the developer about a bug or an idea. Sent: your message, the contact you add, and app and device details. Nothing about your money.'))}</p>
-        <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
-      <p class="fine center">Tally ${APP_VERSION} · <a class="link" href="https://github.com/tallymy/tallymy.github.io/commits/main" target="_blank" rel="noopener">${esc(t("Every change, with its code"))}</a></p>`;
+        <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button>
+        <p class="fine center">${esc(t('Or email the developer ({0}):', MAKER))} ${mailLink()}</p></section>
+      <p class="fine center">Tally ${APP_VERSION}<span id="build">${buildLink()}</span> · <a class="link" href="https://github.com/tallymy/tallymy.github.io/commits/main" target="_blank" rel="noopener">${esc(t("Every change, with its code"))}</a></p>`;
   },
 };
 export const input = {
 module: async el => { await setModules({ [el.dataset.k]: el.checked }); render(); $(`[data-input="module"][data-k="${el.dataset.k}"]`)?.focus(); },
   'text-size': el => setSize(+el.value),
+  'ask-update': async el => { await setSetting('askUpdate', el.checked); await holdUpdates(el.checked); },
   'own-cats': async el => { await setSetting('ownCats', el.checked); ownCategories(el.checked); render(); toast(el.checked ? t('Only your categories now. Add yours above.') : t("Tally's categories are back.")); },
   'ac-cur': el => {   // another currency: its rate, starting from a rough one to change
     const fx = el.value !== 'MYR', f = $('#ac-rate-f');
@@ -386,7 +397,7 @@ function showMapping() {
   const { header, map, rows } = IMP;
   const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
   const { fresh, dups, skipped, future, swapped, opening, acc, loose, adjustments } = impPlan(), moved = fresh.filter(x => x.type === 'transfer').length;
-  const reloads = planMoves(fresh, [...S.accounts, { id: IMP.newId, kind: newKind() }, ...acc.values], '').reloads.length, kept = Object.keys(typedShift(S.accounts, S.tx, fresh)).length;
+  const reloads = planMoves(fresh, [...S.accounts, { id: IMP.newId, kind: newKind() }, ...acc.values], '').reloads.length, kept = Object.keys(typedShift(S.accounts, S.tx, fresh, today())).length;
   // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
   const dates = fresh.map(x => x.date).sort(), sum = k => fresh.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
   const choices = catChoices(), cats = [...expenseCats(), ...INCOME_CATEGORIES], tabs = IMP.tabs;
@@ -448,7 +459,7 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   const kept = new Set(save.map(x => x.id)), gone = replaced.filter(x => !kept.has(x.id)).map(x => x.id);
   const used = new Set(save.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
   const stagedAccounts = accounts.filter(a => !newAccounts.includes(a.id) || used.has(a.id));
-  const was = new Set(replaced.map(x => x.id)), shift = typedShift(S.accounts, S.tx, save.filter(x => !was.has(x.id))), shifted = S.accounts.filter(a => shift[a.id]);
+  const was = new Set(replaced.map(x => x.id)), shift = typedShift(S.accounts, S.tx, save.filter(x => !was.has(x.id)), today()), shifted = S.accounts.filter(a => shift[a.id]);
   for (const a of shifted) { const i = stagedAccounts.findIndex(x => x.id === a.id), base = i >= 0 ? stagedAccounts[i] : a, next = { ...base, opening: (base.opening || 0) + shift[a.id], updatedAt: Date.now() }; if (i >= 0) stagedAccounts[i] = next; else stagedAccounts.push(next); }
   const first = !settings().onboarded;
   const stagedKv = { ...kv, ...(first ? { settings: { ...(kv.settings || settings()), onboarded: true } } : {}) };
@@ -567,7 +578,7 @@ async function restoreText(text, zip = {}) {
   if (data.joint) return importJoint(data, zip);
   const choice = S.tx.length || S.accounts.length ? await new Promise(res => {
     openSheet(`<h2 class="sh-title">${esc(t('Restore backup'))}</h2><p class="sh-body">${esc(t('The backup has {0} transactions. This phone has {1}.', data.tx.length, S.tx.length))}</p>
-      <button class="btn wide" data-x="merge">${esc(t('Merge (keep both, recommended)'))}</button><button class="btn ghost danger wide" data-x="replace">${esc(t('Replace everything on this phone'))}</button><button class="btn ghost wide" data-x="no">${esc(t('Cancel'))}</button>`, { label: t('Restore backup'), onClose: () => res('no') })
+      <button class="btn wide" data-x="merge">${esc(t('Merge (keep both, recommended)'))}</button><button class="btn ghost danger wide" data-x="replace">${esc(t("Replace Tally's data on this phone"))}</button><button class="btn ghost wide" data-x="no">${esc(t('Cancel'))}</button>`, { label: t('Restore backup'), onClose: () => res('no') })
       .addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { res(b.dataset.x); closeSheet(); } });
   }) : 'replace';
   if (choice === 'no') return;
@@ -674,7 +685,7 @@ export const act = {
   'remind-google': async () => { const ev = await dailyReminder(); window.open(googleUrl(ev), '_blank', 'noopener'); },
   'remind-ics': async () => { download('tally-daily-reminder.ics', ics([await dailyReminder()]), 'text/calendar'); toast(t('Open the file to add the reminder to your calendar.'), { k: 'good', icon: 'check' }); },
   feedback: () => openFeedback(APP_VERSION),
-  'lock-set': async () => { if (lockOn() && !(await askCode(t('Change PIN')))) return; lockSheet(render); },
+  'lock-set': async () => { if (lockOn() && !(await askCode(t('Change the lock')))) return; lockSheet(render); },
   'lock-off': async () => {
     if (!(await confirmSheet({ title: t('Turn off the lock?'), body: encOn() ? t('Anyone with your phone will be able to open Tally, and your data will no longer be encrypted.') : t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') }))) return;
     const code = await askCode(t('Turn off the lock?')); if (!code) return;
@@ -953,8 +964,9 @@ export const act = {
     const li = (icon, s) => `<li>${icon}<span>${esc(s)}</span></li>`;
     openSheet(`<h2 class="sh-title">${esc(t('How your data is kept'))}</h2>
       <ul class="points">
-        ${li(ICON.wallet, t('Only on this phone. No Tally server: no one can bring it back, not even us.'))}
-        ${li(ICON.alert, t('Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.'))}
+        ${li(ICON.wallet, t('Only on this phone, in the storage of the browser Tally runs in. It is not copied to a server or to your other devices: no one can bring it back, not even us.'))}
+        ${li(ICON.check, t('What is kept: your accounts, entries, receipt photos, budgets, bills, categories and settings.'))}
+        ${li(ICON.alert, t("Deleted by: uninstalling Tally, clearing the browser's data for Tally, cleaner apps, a phone reset."))}
         ${iosBrowser() ? li(ICON.plusSquare, t("On iPhone, keep Tally on the Home Screen: Safari clears web apps it hasn't seen for 7 days.")) : ''}
         ${li(ICON.check, t('Safe: closing, restarting, updates, offline.'))}
         ${li(ICON.upload, t('New phone? Back up, then restore there.'))}
@@ -1064,7 +1076,7 @@ export const act = {
       <p class="fine"><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Tally is open source: anyone can read the code on GitHub.'))}</a></p>`, { label: t('Check it yourself') });
   },
   'erase': async () => {
-    if (!(await confirmSheet({ title: t('Erase everything?'), body: t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.'), ok: t('Erase everything'), danger: true }))) return;
-    await eraseAll(); go('welcome'); toast(t('Everything was erased.'));
+    if (!(await confirmSheet({ title: t("Erase all of Tally's data?"), body: t('This deletes only Tally\'s own data: your accounts, entries, receipt photos, budgets, bills, categories and settings, kept in the storage of the browser Tally runs in on this phone. Other apps, your gallery, your files and the rest of the phone are not touched. It cannot be undone. Back up first if you might want them.'), ok: t("Erase Tally's data"), danger: true }))) return;
+    await eraseAll(); go('welcome'); toast(t("Tally's data was erased."));
   },
 };

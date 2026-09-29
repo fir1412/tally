@@ -1,7 +1,7 @@
 // Offline cache (adapted from we go gim). Bump VERSION whenever app files change.
-const VERSION = 'tally-v32';
+const VERSION = 'tally-v33';
 const CORE = [
-  './', './index.html', './privacy.html', './privacy.ms.html', './privacy.zh.html', './privacy.zh-Hant.html', './privacy.ja.html', './terms.html', './terms.ms.html', './terms.zh.html', './terms.zh-Hant.html', './terms.ja.html', './licences.html', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
+  './', './index.html', './privacy.html', './privacy.ms.html', './privacy.zh.html', './privacy.zh-Hant.html', './privacy.ja.html', './terms.html', './terms.ms.html', './terms.zh.html', './terms.zh-Hant.html', './terms.ja.html', './licences.html', './build.txt', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
   './js/app.js', './js/state.js', './js/db.js', './js/engine.js', './js/ui.js', './js/io.js', './js/i18n.js', './js/parse.js', './js/brands.js',
   './js/align.js', './js/scan.js', './js/ocr-worker.js', './js/calendar.js', './js/mmimport.js', './js/statement.js', './js/presets.js', './js/feedback.js', './js/tour.js', './js/lock.js', './js/camera.js', './js/colorpicker.js', './js/learn.js', './js/gamify.js', './js/delight.js', './js/stickers.js', './js/features.js', './js/caticons.js', './js/sample.js',
   './js/views/home.js', './js/views/money.js', './js/views/review.js', './js/views/setup.js', './js/views/learn.js', './js/views/analytics.js', './js/views/splitbill.js', './js/i18n/ms.js', './js/i18n/zh.js', './js/i18n/zh-Hant.js', './js/i18n/ja.js',
@@ -9,6 +9,7 @@ const CORE = [
 // The OCR engine, models and sql.js (~45 MB) rarely change: their own cache survives app updates.
 // Bump ASSETS if one of them changes.
 const ASSETS = 'tally-assets-v1';
+const HOLD = 'tally-hold';   // there when the user chose "Ask before updating": a new version waits for their OK
 const isAsset = url => /\/(vendor|models|fonts)\//.test(url.pathname);
 const corePaths = new Set(CORE.map(path => new URL(path, self.registration.scope).pathname));
 const cacheable = (url, res) => res.ok && !(
@@ -26,12 +27,13 @@ self.addEventListener('install', e => {
     }));
     const cache = await caches.open(VERSION);
     await Promise.all(files.map(([url, res]) => cache.put(url, res)));
-    await self.skipWaiting();
+    if (!(await caches.has(HOLD))) await self.skipWaiting();
   })().catch(error => { console.error('Tally offline update failed', error); throw error; }));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('tally-') && ![VERSION, ASSETS, 'tally-share'].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('tally-') && ![VERSION, ASSETS, HOLD, 'tally-share'].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+self.addEventListener('message', e => { if (e.data === 'skip') self.skipWaiting(); });   // "Update now"
 const keyFor = url => url.origin + url.pathname;
 const saving = new Map();   // asset path → the cache write in progress
 const SHARED = 'tally-share';   // files shared into Tally, waiting for the page to pick them up

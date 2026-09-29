@@ -184,7 +184,7 @@ export async function learn(itemName, category, merchant = null) {
 /** A new entry dated before the day an account's balance was typed (an old receipt scanned today): that balance is
  *  today's, so the money was already out of it. The starting balance moves instead, and today's stays as it was set. */
 export async function keepToday(tx) {
-  const shift = typedShift(S.accounts.filter(a => a.typed), S.tx.filter(x => x.id !== tx.id), [tx]);
+  const shift = typedShift(S.accounts.filter(a => a.typed), S.tx.filter(x => x.id !== tx.id), [tx], today());
   for (const [id, d] of Object.entries(shift)) { const a = S.accounts.find(x => x.id === id); if (a) await saveAccount({ ...a, opening: (a.opening || 0) + d }); }
 }
 export async function saveAccount(a) {

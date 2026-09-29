@@ -165,10 +165,10 @@ export function gate() {
       setTimeout(() => el.querySelector('#lock-pin')?.focus(), 30);
     };
     const forgot = (confirm = false) => {
-      el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h2>${esc(confirm ? t('Erase everything?') : t('Forgot your PIN?'))}</h2>
-        <p>${esc(confirm ? t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.') : t('Tally keeps no copy of your PIN, so it cannot be shown or reset. You can still get in with your fingerprint or face if you set it up, or erase everything and start again (a backup file can be restored afterwards).'))}</p>
+      el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h2>${esc(confirm ? t("Erase all of Tally's data?") : (pass ? t('Forgot your password?') : t('Forgot your PIN?')))}</h2>
+        <p>${esc(confirm ? t('This deletes only Tally\'s own data: your accounts, entries, receipt photos, budgets, bills, categories and settings, kept in the storage of the browser Tally runs in on this phone. Other apps, your gallery, your files and the rest of the phone are not touched. It cannot be undone. Back up first if you might want them.') : lock.enc ? t('Tally keeps no copy of it, so it cannot be shown or reset, and your encrypted data cannot be recovered without it. You can erase Tally\'s data and start again (a backup file can be restored afterwards).') : pass ? t('Tally keeps no copy of your password, so it cannot be shown or reset. You can still get in with your fingerprint or face if you set it up, or erase Tally\'s data and start again (a backup file can be restored afterwards).') : t('Tally keeps no copy of your PIN, so it cannot be shown or reset. You can still get in with your fingerprint or face if you set it up, or erase Tally\'s data and start again (a backup file can be restored afterwards).'))}</p>
         ${!confirm && bio ? `<button class="btn wide" data-l="bio">${esc(t('Use fingerprint or face'))}</button>` : ''}
-        <button class="btn ${confirm ? 'danger' : 'ghost danger'} wide" data-l="${confirm ? 'erase-yes' : 'erase'}">${esc(t('Erase everything'))}</button>
+        <button class="btn ${confirm ? 'danger' : 'ghost danger'} wide" data-l="${confirm ? 'erase-yes' : 'erase'}">${esc(t("Erase Tally's data"))}</button>
         <button class="btn ghost wide" data-l="back">${esc(t('Back'))}</button></div>`;
     };
     const guard = pinGuard(pin => checkPin(pin, lock), st);
@@ -182,12 +182,12 @@ export function gate() {
       if (r !== 'wrong') return;
       tries.set([st.fails, st.until]);
       el.querySelector('#lock-pin').value = '';
-      err(st.fails >= 5 ? t('Too many tries. Wait {0} seconds.', 30 * (st.fails - 4)) : t('That PIN is not right.'));
+      err(st.fails >= 5 ? t('Too many tries. Wait {0} seconds.', 30 * (st.fails - 4)) : pass ? t('That password is not right.') : t('That PIN is not right.'));
     };
     el.addEventListener('click', async e => {
       const k = e.target.closest('[data-l]')?.dataset.l;
       if (k === 'pin') tryPin();
-      else if (k === 'bio') { if (bio && await bioCheck(lock.cred)) done(); else if (el.querySelector('#lock-err')) err(t('Not recognised. Use your PIN.')); }
+      else if (k === 'bio') { if (bio && await bioCheck(lock.cred)) done(); else if (el.querySelector('#lock-err')) err(pass ? t('Not recognised. Use your password.') : t('Not recognised. Use your PIN.')); }
       else if (k === 'forgot') forgot();
       else if (k === 'erase') forgot(true);
       else if (k === 'back') main();
@@ -214,15 +214,15 @@ export function watch(onResume) {
 /** Set or change the PIN (and fingerprint). `after` runs once saved. */
 export async function lockSheet(after) {
   const bio = (await bioAvailable()) && !encOn();   // encrypted: only the PIN or password can unlock the key
-  const el = openSheet(`<h2 class="sh-title">${esc(lockOn() ? t('Change PIN') : t('Lock Tally'))}</h2>
+  const el = openSheet(`<h2 class="sh-title">${esc(lockOn() ? t('Change the lock') : t('Lock Tally'))}</h2>
     <p class="sh-body">${esc(encOn() ? t('Tally will ask for it when it opens and after it has been in the background for a minute. Your data stays encrypted; it is locked with the new one from now on.') : t('Tally will ask for a PIN when it opens and after it has been in the background for a minute. This is a privacy lock: it keeps people who pick up your phone out of Tally, but the data on the phone is not encrypted.'))}</p>
     <label class="check"><input type="checkbox" id="pin-pass"${settings().lock?.kind === 'pass' ? ' checked' : ''}> ${esc(t('Use a password (8 or more characters) instead of a PIN'))}</label>
     <label class="field"><span id="pin1-l">${esc(t('New PIN (4 to 6 digits)'))}</span><input id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" autofocus></label>
     <label class="field"><span>${esc(t('Enter it again'))}</span><input id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password"></label>
     ${bio ? `<label class="check"><input type="checkbox" id="pin-bio"${!lockOn() || settings().lock.cred ? ' checked' : ''}> ${esc(t('Also unlock with fingerprint or face'))}</label>` : ''}
-    <p class="fine">${esc(t('If you forget the PIN, the only way back in is your fingerprint or face (if set) or erasing everything. Keep a backup.'))}</p>
+    <p class="fine">${esc(encOn() ? t('If you forget it, your encrypted data cannot be recovered: the only way back in is erasing everything. Keep a backup.') : t('If you forget it, the only way back in is your fingerprint or face (if set) or erasing everything. Keep a backup.'))}</p>
     <p class="err" id="pin-err" role="alert"></p>
-    <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="yes">${esc(t('Turn on the lock'))}</button></div>`, { label: t('Lock Tally') });
+    <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="yes">${esc(lockOn() ? t('Save') : t('Turn on the lock'))}</button></div>`, { label: t('Lock Tally') });
   el.addEventListener('click', async e => {
     const x = e.target.closest('[data-x]')?.dataset.x;
     if (x === 'no') return closeSheet();
@@ -234,11 +234,12 @@ export async function lockSheet(after) {
     let cred = null;
     if (el.querySelector('#pin-bio')?.checked) cred = settings().lock?.cred || await bioRegister().catch(() => null);
     const key = db.getKey();
-    if (encOn() && !key) return err(t('Could not unlock the data with this PIN.'));
+    if (encOn() && !key) return err(t('Could not unlock the data. Close Tally, open it again and retry.'));
     const made = await makeLock(p1, cred, kind), next = encOn() ? encLock(made, await wrapDek(key, p1)) : made;
     await setSetting('lock', next);
     closeSheet(); after?.();
-    toast(el.querySelector('#pin-bio')?.checked && !cred ? t('PIN lock on. Fingerprint or face could not be set up; use the PIN.') : t('Tally is locked with your PIN'), { k: 'good', icon: 'check' });
+    const pw = kind === 'pass';
+    toast(el.querySelector('#pin-bio')?.checked && !cred ? (pw ? t('Password lock on. Fingerprint or face could not be set up; use the password.') : t('PIN lock on. Fingerprint or face could not be set up; use the PIN.')) : pw ? t('Tally is locked with your password') : t('Tally is locked with your PIN'), { k: 'good', icon: 'check' });
   });
 }
 export async function lockOff(code) { if (encOn()) await encryptOff(code); return setSetting('lock', null); }

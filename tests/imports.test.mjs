@@ -178,6 +178,8 @@ test('balances typed at setup stay: older imported rows shift the opening, newer
   // Marked typed (Start fresh, or its balance confirmed after an import): a second, older import is shifted too.
   const again = IO.typedShift([{ ...accounts[1], typed: true }], existing, rows);
   assert.deepEqual(again, { hist: 900 });
+  // The phone's day moved back (time zone, or a pinned day): an entry made today isn't "before the account was made".
+  assert.deepEqual(IO.typedShift([accounts[2]], [], [{ date: '2026-09-19', type: 'expense', amount: 50, accountId: 'cash' }], '2026-09-19'), {});
   assert.equal(IO.readBackup(IO.makeBackup({ accounts: [{ id: 'x', name: 'X', kind: 'bank', typed: true, createdAt: 1 }], tx: [], recurring: [], kv: {} })).accounts[0].typed, true);
 });
 

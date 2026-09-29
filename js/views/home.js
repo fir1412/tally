@@ -41,7 +41,7 @@ const movedCard = () => `<section class="card moved"><h2>${esc(t('Tally has move
   <p>${esc(t('This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:'))}</p>
   <ol><li><button class="btn small" data-act="backup">${esc(t('1. Back up here'))}</button></li>
   <li><a class="btn small ghost" href="${NEW_HOME}" target="_blank" rel="noopener">${esc(t('2. Open the new address and restore the backup'))}</a></li>
-  <li><button class="btn small ghost danger" data-act="old-erase">${esc(t('3. Erase everything here'))}</button></li></ol></section>`;
+  <li><button class="btn small ghost danger" data-act="old-erase">${esc(t("3. Erase Tally's data here"))}</button></li></ol></section>`;
 /** The answer and the sums behind it. */
 function affordHtml(r) {
   const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
@@ -79,7 +79,7 @@ function backupBanner() {
   if (S.tx.length && (S.tx.length >= NEW || (start < Infinity && daysBetween(dayOf(start), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
     // The first month it's a quiet reminder (orange on day 3 scared people off); after that, or once a backup is 2 weeks old, a warning.
     const calm = !last && start < Infinity && daysBetween(dayOf(start), tdy) < 30;
-    return `<div class="banner ${calm ? 'info' : 'warn'}">${calm ? ICON.lock : ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. Uninstalling Tally or clearing browser data deletes it; a backup file keeps it safe.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></small></span>
+    return `<div class="banner ${calm ? 'info' : 'warn'}">${calm ? ICON.lock : ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t("Your Tally data is kept only in this browser's storage on this phone. Uninstalling Tally or clearing the browser's data for Tally deletes it; a backup file keeps it safe."))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></small></span>
       <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><button class="btn small ghost" data-act="dismiss" data-id="backup-${tdy}">${esc(t('Later'))}</button></span></div>`;
   }
   return '';
@@ -349,7 +349,7 @@ export const act = {
   },
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
   'old-erase': async () => {
-    if (!(await confirmSheet({ title: t('Erase everything at this old address?'), body: t('Only do this after your backup is restored at tallymy.github.io. This deletes Tally\'s data, settings and offline files from this address; nothing of the other app.'), ok: t('Erase everything here'), danger: true }))) return;
+    if (!(await confirmSheet({ title: t("Erase Tally's data at this old address?"), body: t('Only do this after your backup is restored at tallymy.github.io. This deletes Tally\'s data, settings and offline files from this address; nothing of the other app.'), ok: t("Erase Tally's data here"), danger: true }))) return;
     await wipeSite(); location.replace(NEW_HOME);
   },
   'afford': () => {

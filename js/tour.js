@@ -191,7 +191,14 @@ export async function checkForUpdates() {
   const reg = await navigator.serviceWorker?.getRegistration?.();
   if (!reg) return 'unsupported';
   await reg.update();
+  reg.waiting?.postMessage('skip');   // held by "Ask before updating": tapping Check for updates is the OK
   return reg.installing || reg.waiting ? 'updating' : 'latest';
+}
+/** "Ask before updating": the marker sw.js looks for when a new version installs. Off lets a waiting one in. */
+export async function holdUpdates(on) {
+  if (!globalThis.caches) return;
+  await (on ? caches.open('tally-hold') : caches.delete('tally-hold')).catch(() => {});
+  if (!on) (await navigator.serviceWorker?.getRegistration?.())?.waiting?.postMessage('skip');
 }
 /** Register the service worker; reload once when a new version takes over, never mid-typing, mid-review or with a sheet open. */
 export function registerSW(blocked) {
@@ -200,6 +207,10 @@ export function registerSW(blocked) {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
     // An installed app can stay open for days: look for updates whenever it comes back to the front.
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    holdUpdates(!!settings().askUpdate);
+    const offer = () => { if (settings().askUpdate && reg.waiting && navigator.serviceWorker.controller) toast(t('A new version of Tally is ready'), { undo: () => reg.waiting?.postMessage('skip'), undoLabel: t('Update now') }); };
+    offer();
+    reg.addEventListener('updatefound', () => reg.installing?.addEventListener('statechange', e => { if (e.target.state === 'installed') offer(); }));
   }).catch(() => {});
   const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;

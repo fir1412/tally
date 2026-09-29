@@ -3,7 +3,7 @@
 ## Reporting a problem
 
 Please report security issues privately through **GitHub → Security → Report a vulnerability** on this repository
-(private vulnerability reporting), not in a public issue. Include the steps to reproduce and the build you tested
+(private vulnerability reporting), or email fir1412dev@gmail.com, not in a public issue. Include the steps to reproduce and the build you tested
 (Settings shows the version). You'll get a reply within 7 days. There is no bug bounty.
 
 Supported: the live build at https://tallymy.github.io/ (the Play Store app wraps the same site, so it is
@@ -75,6 +75,9 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 
 - Bump `VERSION` in `sw.js` for every release, and `ASSETS` whenever anything in `vendor/`, `models/` or `fonts/`
   changes (a pdf.js, sql.js or OCR security update reaches installed copies only then: those files are cache-first).
+- Deploy with `.personas/deploy.sh`: it commits `build.txt` (the hash of the code commit), which Settings shows
+  beside the version and links to on GitHub. "Ask before updating" (Settings) holds a new version until the user taps
+  Update now (`tally-hold` cache marker; `sw.js` skips `skipWaiting` while it is there).
 - Push only `main` (never `--all` or `--mirror`); keep the `tallymy` account single-purpose, with 2FA.
 
 ## Known limits and follow-ups

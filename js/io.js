@@ -694,13 +694,14 @@ export const asTransfer = ([o, i]) => ({ ...o, type: 'transfer', toAccountId: i.
  * imported rows dated before the day the account was made are already inside that figure. → {accountId: sen to add
  * to its opening} so today's balance stays what the user typed. Accounts from before the flag existed count as typed
  * unless they already hold imported rows from before they were made (then they are an app's history: left alone).
+ * `today`: the app's day; an account can't be made later than it (a phone clock or time zone that moved back).
  */
-export function typedShift(accounts, existing, rows) {
+export function typedShift(accounts, existing, rows, today = '9999-12-31') {
   const made = a => { const d = new Date(a.createdAt); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
   const on = (x, id) => x.accountId === id || x.toAccountId === id, out = {};
   for (const a of accounts) {
     if (!(a.createdAt > 0) || a.outside || a.typed === false) continue;   // never given: no balance to keep
-    const day = made(a);
+    const day = made(a) < today ? made(a) : today;
     if (!a.typed && existing.some(x => on(x, a.id) && x.date < day && (x.source === 'import' || x.source === 'statement'))) continue;
     const net = rows.filter(x => on(x, a.id) && x.date < day).reduce((s, x) => s + (x.type === 'income' || (x.type === 'transfer' && x.toAccountId === a.id) ? x.amount : -x.amount), 0);
     if (net) out[a.id] = -net;
