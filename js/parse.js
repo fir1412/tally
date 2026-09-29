@@ -173,7 +173,9 @@ export function shopName(lines) {
 
 export function parseReceipt(text) {
   text = String(text ?? '').normalize('NFKC');   // the Chinese model returns full-width digits: "27/09/２0２6"
-  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim())
+    .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
+    .filter(Boolean);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
   let pendingName = null; // name line waiting for a "2 x 3.50  7.00" line
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
@@ -287,7 +289,7 @@ export function dropSummaryLines(items) {
 }
 /** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no unit price behind ("(4.50/ea)"), no glued quantity ("1x Teh O",
  *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
-export const cleanName = n => n.replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
+export const cleanName = n => n.replace(/\s+(unit|units|pkt|pkts|pck|ea)$/i, '').replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
   .replace(/(?<=[A-Za-z])0(?![\d.,])|(?<![\dA-Za-z.])0(?=[A-Za-z]{2})/g, 'O')
   .replace(/(?<=\d[0O]*)O(?=[0O]*(?:\d|ML|G|KG|L|S|PCS|PC|X)\b)/g, '0').trim() || n;   // and O inside a number back to 0: "1OS", "50OML", "5OPCS"   // "20OZ" keeps its digits
 /**

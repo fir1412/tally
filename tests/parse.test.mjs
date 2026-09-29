@@ -277,3 +277,9 @@ test('typed items on one line with spaces only are split after each price, never
   assert.deepEqual(r('100 Plus 2.50'), [['100 Plus', 250]]);
   assert.deepEqual(r('rm 8 sayur'), [['sayur', 800]]);
 });
+
+test('Village Grocer slips: "Barcode: 955…" lines are never names, unit words come off, OCR C-for-G still finds the brand', () => {
+  const r = parseReceipt('VILLAGE CROCER @ LEISURE MALL\nDate: 29/09/26 6:42\nBarcode: 9555C39200019\nNUTRIPLUS EGGS OMEGA unit 8.00 Z\nBarcode: 6936489102239\nDURIAN SWEET POTATO pkt 8.80\nTotal RM 16.80');
+  assert.equal(r.merchant, 'Village Grocer');
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['NUTRIPLUS EGGS OMEGA', 800], ['DURIAN SWEET POTATO', 880]]);
+});

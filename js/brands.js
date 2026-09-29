@@ -24,8 +24,8 @@ export const BRANDS = [
   [/popeyes/i, 'Popeyes'], [/grab\s*food/i, 'GrabFood'], [/\byour grab e-?receipt\b|^grab\s*(car|taxi|bike|express|mart)\b/i, 'Grab'], [/food\s*panda/i, 'foodpanda'], [/shopee\s*food/i, 'ShopeeFood'],
   // Groceries and convenience
   [/99\s*speed\s*[mh]art|\bspeed\s*mart/i, '99 Speedmart'], [/lotus'?s|ek-chor/i, "Lotus's"], [/\btesco\b/i, 'Tesco'], [/aeon\s*big/i, 'AEON BiG'],
-  [/\baeon\b/i, 'AEON'], [/\bgiant\b|gch\s*retail/i, 'Giant'], [/\bmydin\b/i, 'Mydin'], [/jaya\s*grocer/i, 'Jaya Grocer'],
-  [/village\s*grocer/i, 'Village Grocer'], [/\bnsk\s*(trade|grocer)/i, 'NSK'], [/econsave/i, 'Econsave'], [/hero\s*market/i, 'HeroMarket'],
+  [/\baeon\b/i, 'AEON'], [/\bgiant\b|gch\s*retail/i, 'Giant'], [/\bmydin\b/i, 'Mydin'], [/jaya\s*[gc]rocer/i, 'Jaya Grocer'],
+  [/village\s*[gc]rocer/i, 'Village Grocer'], [/\bnsk\s*(trade|grocer)/i, 'NSK'], [/econsave/i, 'Econsave'], [/hero\s*market/i, 'HeroMarket'],
   [/7\s*-?\s*eleven|seven\s*eleven/i, '7-Eleven'], [/\bmy\s*news\b|mynews/i, 'myNEWS'], [/\bkk\s*super\s*mart/i, 'KK Super Mart'],
   [/\bcu\s*(mart|again)\b|mycu\s*retai|^cu\s*[-–]\s/i, 'CU'], [/emart\s*24/i, 'emart24'], [/cold\s*storage/i, 'Cold Storage'],
   [/ben'?s\s*independent/i, "Ben's Independent Grocer"],
