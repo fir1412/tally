@@ -6,6 +6,7 @@ import * as home from './views/home.js';
 import * as money from './views/money.js';
 import * as review from './views/review.js';
 import * as setup from './views/setup.js';
+import { flushFeedback } from './feedback.js';
 
 export const APP_VERSION = '0.1.0';
 const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView };
@@ -83,6 +84,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     render();
+    flushFeedback().catch(() => {});
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
   } catch (err) { recovery(err); }
 })();

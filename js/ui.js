@@ -160,6 +160,7 @@ export const ICON = {
   search: I('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>'),
   clock: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>'),
   check: I('<path d="M5 12l5 5 9-10"/>'),
+  chat: I('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
   swap: I('<path d="M7 7h13l-3-3M17 17H4l3 3"/>'),
   receipt: I('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
 };

@@ -6,6 +6,7 @@ import { fmtRM, parseAmount, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from
 import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
+import { openFeedback } from '../feedback.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
@@ -64,7 +65,10 @@ export const settingsView = {
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
-        <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button></section>
+        <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
+        <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a></section>
+      <section class="card"><h2>${esc(t('Help Tally get better'))}</h2><p class="fine">${esc(t('Tell the developer about a bug or an idea. Only your message is sent.'))}</p>
+        <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
       <p class="fine center">Tally ${APP_VERSION}</p>`;
   },
 };
@@ -224,6 +228,7 @@ async function restoreText(text) {
 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
+  feedback: () => openFeedback(APP_VERSION),
   'set-lang': async b => { await setSetting('lang', b.dataset.l); await setLang(b.dataset.l); render(); },
   'start-fresh': () => {
     openSheet(`<h2 class="sh-title">${esc(t('Your accounts'))}</h2><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>
