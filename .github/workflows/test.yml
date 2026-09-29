@@ -1,0 +1,15 @@
+# Every push and pull request runs the unit tests (no install needed: the tests use only Node and the vendored files).
+# A red run here means: don't rely on what just deployed; fix or revert before the next release.
+name: tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm test

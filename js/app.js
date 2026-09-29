@@ -1,5 +1,5 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage } from './state.js';
+import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos } from './state.js';
 import { gate, watch } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
@@ -179,6 +179,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
     await gate();   // app lock: nothing is shown before the PIN
     onRemoteChange(async () => { await load(); refresh(); });
+    setTimeout(() => sweepPhotos().catch(() => {}), 8000);   // photos of entries deleted before this start (after their Undo was over)
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     if (!location.hash && settings().start === 'activity') { history.replaceState(null, '', '#/activity'); shown = 'activity'; }   // start screen

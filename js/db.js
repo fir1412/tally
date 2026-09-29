@@ -84,6 +84,11 @@ function tx(store, mode, fn) {
 }
 const reqP = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
+/** The keys of a store without loading its records (the photos are big). */
+export async function keys(store) {
+  if (!idb) return Object.keys(mem[store]);
+  return tx(store, 'readonly', os => reqP(os.getAllKeys()));
+}
 export async function all(store) {
   if (!idb) return Object.values(mem[store]);
   return tx(store, 'readonly', os => reqP(os.getAll()));

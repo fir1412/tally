@@ -182,6 +182,14 @@ export async function deleteBill(id) { await db.del('recurring', id); S.recurrin
 export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).then(() => true, () => false);
 export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
+/** A deleted entry's receipt photo stays for its Undo; the next start removes photos nothing uses any more (no entry,
+ *  no receipt being checked, no photo waiting to be read). Deleting an entry then deletes its photo from the phone. */
+export async function sweepPhotos() {
+  const used = new Set([...S.tx.map(t => t.receiptId), S.kv.reviewDraft?.draft?.receiptId].filter(Boolean));
+  const gone = (await db.keys('receipts').catch(() => [])).filter(k => !used.has(k) && !String(k).startsWith('q_'));
+  if (gone.length) await deletePhotos(gone);
+  return gone.length;
+}
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
 const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames', 'catColors'];
