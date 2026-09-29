@@ -217,7 +217,8 @@ export async function fileToRows(name, buf) {
     try { return await xlsxToRows(buf); } catch { throw new Error('This Excel file could not be read. Save it as .xlsx or CSV and try again.'); }
   }
   if (b[0] === 0xd0 && b[1] === 0xcf) throw new Error('Old Excel files (.xls) are not supported. Open it and save as .xlsx or CSV.');
-  return parseCSV(decodeBytes(b));
+  const text = decodeBytes(b);
+  return /^\s*!(type|account|option|clear)\b/i.test(text.replace(/^﻿/, '')) ? qifToRows(text) : parseCSV(text);
 }
 
 // ---- guessing columns ---------------------------------------------------------------------
@@ -608,17 +609,88 @@ const q = v => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}
 export const safeText = v => (/^[=+\-@\t\r]/.test(String(v ?? '')) ? `'${v}` : String(v ?? ''));
 /** One CSV row, quoted and safe to open in a spreadsheet. */
 export const csvLine = cells => cells.map(c => q(safeText(c))).join(',');
-export function toCSV(txs, accounts, catName = id => ALL_CATS.find(c => c.id === id)?.name || id || '') {
+const catNameOf = id => ALL_CATS.find(c => c.id === id)?.name || id || '';
+/** Every entry as spreadsheet rows, header first, one row per receipt item; amounts are numbers in RM. CSV, Excel and
+ *  Google Sheets exports share it, and the 'tally' preset reads any of them back. */
+export function txRows(txs, accounts, catName = catNameOf) {
   const acc = Object.fromEntries(accounts.map(a => [a.id, a.name]));
-  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time'].join(',')];   // read back by the 'tally' preset
+  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time']];
   for (const t of [...txs].sort((a, b) => a.date.localeCompare(b.date))) {
-    const head = [t.date, t.type], acct = [safeText(acc[t.accountId] || ''), safeText(acc[t.toAccountId] || '')];
+    const head = [t.date, t.type], acct = [acc[t.accountId] || '', acc[t.toAccountId] || ''];
     // Tax, service charge and rounding spread over the items, so the rows add up to what was paid (as in Insights).
     const extra = t.items?.length ? allocate(t.items.map(i => i.cents), t.amount - t.items.reduce((a, i) => a + i.cents, 0)) : [];
-    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, ((it.cents + extra[n]) / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || ''), t.time || ''].map(q).join(','));
-    else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, safeText(catName(t.category)), safeText(t.merchant || ''), '', safeText(t.note || ''), t.time || ''].map(q).join(','));
+    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, (it.cents + extra[n]) / 100, ...acct, catName(it.category), t.merchant || '', it.name || '', t.note || '', t.time || '']);
+    else rows.push([...head, t.amount / 100, ...acct, catName(t.category), t.merchant || '', '', t.note || '', t.time || '']);
   }
-  return '﻿' + rows.join('\n'); // BOM: Excel opens Malay and Chinese text as UTF-8
+  return rows;
+}
+const cell = c => (typeof c === 'number' ? c.toFixed(2) : safeText(c));
+export const toCSV = (txs, accounts, catName) => '﻿' + txRows(txs, accounts, catName).map(r => r.map(c => q(cell(c))).join(',')).join('\n');   // BOM: Excel opens Malay and Chinese text as UTF-8
+/** Tab-separated, for pasting into Google Sheets (formula-safe like the CSV; a tab or line break in a note becomes a space). */
+export const toTSV = (txs, accounts, catName) => txRows(txs, accounts, catName).map(r => r.map(c => cell(c).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n');
+
+/** Rows → a small .xlsx (one sheet, text inline, amounts as numbers) that Excel, Google Sheets, Numbers and LibreOffice open. */
+export function toXlsx(rows, sheet = 'Tally') {
+  const x = s => String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const ref = (i, y) => `${String.fromCharCode(65 + i)}${y + 1}`;   // ponytail: columns A-Z; txRows has 10
+  const data = rows.map((r, y) => `<row r="${y + 1}">${r.map((c, i) => (typeof c === 'number' ? `<c r="${ref(i, y)}"><v>${c}</v></c>` : `<c r="${ref(i, y)}" t="inlineStr"><is><t xml:space="preserve">${x(c)}</t></is></c>`)).join('')}</row>`).join('');
+  const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', R = 'http://schemas.openxmlformats.org', enc = s => new TextEncoder().encode(X + s);
+  return zipStore([
+    { name: '[Content_Types].xml', data: enc(`<Types xmlns="${R}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`) },
+    { name: '_rels/.rels', data: enc(`<Relationships xmlns="${R}/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`) },
+    { name: 'xl/workbook.xml', data: enc(`<workbook xmlns="${R}/spreadsheetml/2006/main" xmlns:r="${R}/officeDocument/2006/relationships"><sheets><sheet name="${x(sheet)}" sheetId="1" r:id="rId1"/></sheets></workbook>`) },
+    { name: 'xl/_rels/workbook.xml.rels', data: enc(`<Relationships xmlns="${R}/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`) },
+    { name: 'xl/worksheets/sheet1.xml', data: enc(`<worksheet xmlns="${R}/spreadsheetml/2006/main"><sheetData>${data}</sheetData></worksheet>`) },
+  ]);
+}
+
+/** QIF, the old standard desktop money apps import (GnuCash, HomeBank, Quicken, Moneydance, Money Manager Ex): a section
+ *  per account in its own currency, dates MM/DD/YYYY, spending negative, a receipt's items as splits, transfers as [Account]. */
+export function toQIF(txs, accounts, catName = catNameOf) {
+  const line = s => String(s ?? '').replace(/[\r\n]+/g, ' ').trim(), cat = c => line(catName(c)).replace(/[:/]/g, ' ');
+  const name = Object.fromEntries(accounts.map(a => [a.id, line(a.name)])), m = c => (c / 100).toFixed(2);
+  const out = [];
+  for (const a of accounts) {
+    const mine = txs.filter(t => t.accountId === a.id || (t.type === 'transfer' && t.toAccountId === a.id)).sort((x, y) => x.date.localeCompare(y.date));
+    if (!mine.length) continue;
+    const type = a.kind === 'card' ? 'CCard' : a.kind === 'cash' ? 'Cash' : 'Bank';
+    out.push('!Account', `N${name[a.id]}`, `T${type}`, '^', `!Type:${type}`);
+    for (const t of mine) {
+      const into = t.type === 'transfer' && t.toAccountId === a.id, cents = into ? t.toAmount ?? t.amount : t.fx ?? t.amount;
+      out.push(`D${t.date.slice(5, 7)}/${t.date.slice(8, 10)}/${t.date.slice(0, 4)}`, `T${t.type === 'income' || into ? '' : '-'}${m(cents)}`);
+      if (t.merchant) out.push(`P${line(t.merchant)}`);
+      if (t.note) out.push(`M${line(t.note)}`);
+      out.push(t.type === 'transfer' ? `L[${name[into ? t.accountId : t.toAccountId] || ''}]` : `L${cat(t.category)}`);
+      if (t.items?.length > 1 && t.fx == null) {
+        const extra = allocate(t.items.map(i => i.cents), t.amount - t.items.reduce((s, i) => s + i.cents, 0)), sign = t.type === 'income' ? '' : '-';
+        t.items.forEach((it, n) => out.push(`S${cat(it.category)}`, `E${line(it.name)}`, `$${sign}${m(it.cents + extra[n])}`));
+      }
+      out.push('^');
+    }
+  }
+  return out.join('\n') + '\n';
+}
+/** A QIF file (from GnuCash, HomeBank, Quicken…) as rows, header first, for the 'qif' preset: one row per entry or split. */
+export function qifToRows(text) {
+  const rows = [['Date', 'Amount', 'Payee', 'Category', 'Memo', 'QIF account']];
+  let acc = '', inAcc = false, skip = false, r = {}, splits = [];
+  for (const raw of String(text).replace(/^﻿/, '').split(/\r?\n/)) {
+    const k = raw[0], v = raw.slice(1).trim();
+    if (k === '!') { const h = raw.trim().toLowerCase(); inAcc = h === '!account'; skip = /^!type:(invst|cat|class|memorized|prices|security)/.test(h); r = {}; splits = []; continue; }
+    if (k === '^') {
+      if (inAcc) inAcc = false;
+      else if (!skip && r.D) {
+        const date = r.D.replace(/\s+/g, '').replace("'", '/');   // "12/31'25"
+        if (splits.length) for (const s of splits) rows.push([date, s.$ ?? '', r.P || '', s.S || '', s.E || r.M || '', acc]);
+        else rows.push([date, r.T ?? r.U ?? '', r.P || '', r.L || '', r.M || '', acc]);
+      }
+      r = {}; splits = []; continue;
+    }
+    if (inAcc) { if (k === 'N') acc = v; continue; }
+    if (skip || !k) continue;
+    if (k === 'S') splits.push({ S: v }); else if ((k === 'E' || k === '$') && splits.length) splits.at(-1)[k] = v; else r[k] = v;
+  }
+  return rows;
 }
 
 // ---- backup ------------------------------------------------------------------------------------------

@@ -568,6 +568,13 @@ input.switch:checked::before { transform: translateX(20px); background: var(--bt
 .sw.more svg { color: #fff; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); }
 .lookrow { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lookrow > span { font-size: var(--fs-sm); color: var(--mute); display: flex; align-items: center; gap: var(--sp-2); }
+.palettes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.pal { display: grid; justify-items: center; gap: 4px; min-height: 44px; padding: var(--sp-2); border-radius: 12px; border: 2px solid transparent; background: var(--panel2); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.pal.on { border-color: var(--accent); }
+.pal:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pdots { display: flex; gap: 3px; }
+.pdots i { width: 12px; height: 12px; border-radius: 50%; }
+.exports b { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .lookrow > span svg { width: 16px; height: 16px; }
 .chips .chip.dotbtn { padding-left: var(--sp-1); }
 .dotbtn .dot { width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }

@@ -1,10 +1,10 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, allCats } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -34,6 +34,7 @@ function lookCard() {
     <div class="lookrow"><span>${ICON.sun}${esc(t('Theme'))} · ${esc(themes.find(x => x[0] === theme)[1])}</span><div class="segs icons" role="group" aria-label="${esc(t('Theme'))}">${themes.map(([v, l, i]) => seg('set-theme', v, theme === v, l, i)).join('')}</div></div>
     <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(ACCENTS[0], `${colourName(ACCENTS[0])} (${t('Default')})`)}${ACCENTS.slice(1).map(h => sw(h, colourName(h))).join('')}${ACCENTS.includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
       <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>
+    <div class="lookrow"><span>${ICON.palette}${esc(t('Category colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('Category colours'))}">${PALETTES.map(([id, name, cols]) => { const on = (s.palette || 'tally') === id; return `<button class="pal${on ? ' on' : ''}" data-act="set-palette" data-v="${id}" aria-pressed="${on}"${id === 'tally' ? ` title="${esc(t('Colour-blind safe'))}"` : ''}><span class="pdots" aria-hidden="true">${(cols || CATEGORIES.map(c => c.color)).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('')}</span>${esc(t(name))}</button>`; }).join('')}</div></div>
     <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(s.textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Your name'))}</span><input data-input="my-name" maxlength="30" value="${esc(s.myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
     <div class="lookrow"><span>${esc(t('Start screen'))}</span><div class="segs">${seg('set-start', 'home', s.start !== 'activity', t('Home'))}${seg('set-start', 'activity', s.start === 'activity', t('Activity'))}</div></div>
@@ -42,6 +43,12 @@ function lookCard() {
     ${'vibrate' in navigator ? `<label class="toggle"><span class="grow"><b>${esc(t('Haptics'))}</b><small>${esc(t('A short tap when something is saved'))}</small></span><input type="checkbox" class="switch" role="switch" data-input="haptics"${s.haptics !== false ? ' checked' : ''}></label>` : ''}
     <details class="more-cats"><summary>${esc(t('Home cards'))}</summary>${HOME_CARDS().map(([k, l, i]) => `<label class="toggle"><span class="lic">${i}</span><span class="grow"><b>${esc(l)}</b></span><input type="checkbox" class="switch" role="switch" data-input="home-card" data-k="${k}"${(k === 'learn' ? !s.learnHidden : !hide.includes(k)) ? ' checked' : ''}></label>`).join('')}</details></section>`;
 }
+// Whole sets of category colours. Tally's own (Okabe-Ito) stays apart for red-green colour blindness; the others keep
+// about 3:1 against the light background so bars and dots still read.
+const PALETTES = [['tally', 'Tally'],
+  ['soft', 'Soft', ['#5B84B1', '#D07A5A', '#6E9B69', '#9A78B8', '#B8923F', '#4F9696', '#BD6E8F', '#7F7F4F', '#6E71B8', '#A8754C']],
+  ['vivid', 'Vivid', ['#D62828', '#E07000', '#1F8A7D', '#2F6FE0', '#8338EC', '#E0005F', '#06875F', '#B35C00', '#1D3557', '#9D0208']],
+  ['earth', 'Earth', ['#6B705C', '#BC6C25', '#588157', '#7F5539', '#8A7152', '#3A5A40', '#9C6644', '#936F4E', '#606C38', '#283618']]];
 const pickAccent = async () => {
   const h = await pickColor({ value: parseHex(settings().accent) || ACCENTS[0], title: t('Accent colour'), reset: ACCENTS[0] });
   if (!h) return;
@@ -146,9 +153,10 @@ export const settingsView = {
         <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div>
         <p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></p>
         ${storage.persisted == null ? '' : `<p class="fine">${esc(storage.persisted ? t('Storage: protected. The browser will not clear Tally to free up space.') : t('If the phone runs out of space, the browser may clear Tally. A backup file keeps you safe.'))}</p>`}</section>
-      <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager, Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney, Excel, CSV, a bank statement, or Google Sheets.'))}</p>
+      <section class="card" id="s-data"><h2>${esc(t('Import & export'))}</h2><p class="fine">${esc(t('From Money Manager, Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney, Excel, CSV, a bank statement, or Google Sheets.'))}</p>
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
-        <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
+        <p class="fine">${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</p>
+        <button class="btn ghost wide" data-act="export-open">${ICON.download}${esc(t('Export'))}</button></section>
       <section class="card" id="s-cats"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-color" data-c="${esc(c.id)}" aria-label="${esc(t('Colour: {0}', t(c.name)))}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
         <label class="toggle"><span class="grow"><b>${esc(t('Only my categories'))}</b><small>${esc(t("Hide Tally's categories and stop its guesses. Things go to Other until you pick a category; Tally then remembers."))}</small></span><input type="checkbox" class="switch" data-input="own-cats"${settings().ownCats ? ' checked' : ''}></label>
@@ -682,6 +690,14 @@ export const act = {
   'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
   'set-accent': async b => { await setSetting('accent', b.dataset.v === ACCENTS[0] ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
   'accent-custom': () => pickAccent(),
+  // A palette colours every category at once (one picked by hand later still wins for that category); Undo puts back the old ones.
+  'set-palette': async b => {
+    const p = PALETTES.find(x => x[0] === b.dataset.v); if (!p) return;
+    const before = { ...S.kv.catColors }, was = settings().palette || null;
+    const apply = async (colors, id) => { await setKv('catColors', colors); await setSetting('palette', id); render(); $(`[data-act="set-palette"][data-v="${id || 'tally'}"]`)?.focus(); };
+    await apply(p[2] ? Object.fromEntries(allCats().map((c, i) => [c.id, p[2][i % p[2].length]])) : {}, p[2] ? p[0] : null);
+    toast(t('Category colours changed.'), { undo: () => apply(before, was) });
+  },
   'set-start': async b => { await setSetting('start', b.dataset.v === 'activity' ? 'activity' : null); render(); },
   'set-week': async b => { await setSetting('weekStart', +b.dataset.v === 0 ? 0 : 1); render(); },
   'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
@@ -857,6 +873,25 @@ export const act = {
     closeSheet(); toast(t('Download started. Check your Downloads folder for {0}.', name), { k: 'good', icon: 'check' }); warnMissingPhotos(missing);
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),
+  // Every entry in formats other apps open, so nobody is tied to Tally. Tally reads each of them back too.
+  'export-open': () => {
+    const row = (act, label, sub) => `<li><button class="rbtn" data-act="${act}"><span class="rowb"><b>${ICON.download}${esc(label)}</b></span><small>${esc(sub)}</small></button></li>`;
+    openSheet(`<h2 class="sh-title">${esc(t('Export'))}</h2><ul class="relief exports">
+      ${row('export-xlsx', t('Excel (.xlsx)'), t('Excel, Numbers, LibreOffice. Google Drive opens it in Sheets.'))}
+      ${row('export-sheets', t('Google Sheets'), t('Copies your entries and opens a new sheet: paste in cell A1.'))}
+      ${row('export-csv', 'CSV', t('Most money apps and spreadsheets with an import.'))}
+      ${row('export-qif', 'QIF', t('GnuCash, HomeBank, Moneydance, Money Manager Ex.'))}</ul>
+      <p class="fine">${esc(t('Moving to a new phone? Back up instead: it keeps photos, budgets and settings too.'))}</p>
+      <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Close'))}</button></div>`, { label: t('Export') });
+  },
+  'export-xlsx': () => download(`tally-${today()}.xlsx`, toXlsx(txRows(S.tx, S.accounts, catName)), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+  'export-qif': () => download(`tally-${today()}.qif`, toQIF(S.tx, S.accounts, catName), 'application/qif'),
+  // No Google sign-in (nothing leaves the phone by itself): the rows go on the clipboard and a blank sheet opens for pasting.
+  'export-sheets': async () => {
+    try { await navigator.clipboard.writeText(toTSV(S.tx, S.accounts, catName)); } catch { return toast(t('Could not copy. Use Excel (.xlsx) and open it in Google Drive.'), { k: 'warn' }); }
+    window.open('https://sheets.new', '_blank', 'noopener');
+    toast(t('Copied. In the new sheet, tap cell A1 and paste.'), { k: 'good', icon: 'check' });
+  },
   'erase': async () => {
     if (!(await confirmSheet({ title: t('Erase everything?'), body: t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.'), ok: t('Erase everything'), danger: true }))) return;
     await eraseAll(); go('welcome'); toast(t('Everything was erased.'));

@@ -15,6 +15,12 @@ export const PRESETS = [
     type: c => ({ income: 'income', expense: 'expense' })[low(c.get('type'))] || null,
     transfer: c => low(c.get('type')) === 'transfer' && { dir: 'out', to: c.raw('to account') } },
 
+  // QIF (GnuCash, HomeBank, Quicken, Moneydance, Money Manager Ex; Tally's own QIF export), turned into rows by
+  // io.js qifToRows. Signed amounts, US month-first dates, a transfer's other account in brackets: "[Maybank]".
+  { id: 'qif', signed: true, mdy: true, name: 'QIF', need: ['date', 'amount', 'payee', 'category', 'memo', 'qif account'],
+    cols: { date: ['date'], amount: ['amount'], merchant: ['payee'], category: ['category'], note: ['memo'], account: ['qif account'] },
+    transfer: c => { const m = String(c.get('category') ?? '').trim().match(/^\[(.+)\]$/); return m && { to: m[1] }; } },
+
   // Money Manager by Realbyte (com.realbyteapps.moneymanagerfree), "Export to Excel". Columns per the Ivy Wallet
   // importer (github.com/Ivy-Apps/ivy-wallet, CSVMapper.moneyManager: date 0, account 1, category 2, note 4, type 6,
   // description 7, amount 8, currency 9) and vaultix-by-xanny's parser (github.com/ramadiaz/vaultix-by-xanny,

@@ -171,3 +171,21 @@ test('Money Lover: loans are not bills, Exclude Report rows are corrections', ()
   assert.deepEqual(r.txs.map(t => [t.type, t.category]), [['expense', 'other'], ['income', 'income']]);
   assert.equal(r.opening.cash, -2345);   // the excluded row moves the opening balance instead
 });
+
+test('Excel (.xlsx) and QIF exports read back: transfers, items, income, both accounts', async () => {
+  const acc = [{ id: 'a', name: 'Cash', kind: 'cash' }, { id: 'b', name: 'Maybank', kind: 'bank' }];
+  const tx = [{ date: '2026-09-01', time: '12:30', type: 'expense', amount: 1060, accountId: 'a', category: 'groceries', merchant: 'Mydin <&>', note: 'line\nbreak', items: [{ name: 'Milo', cents: 700, category: 'groceries' }, { name: 'Sabun', cents: 300, category: 'household' }] },
+    { date: '2026-09-02', type: 'transfer', amount: 10000, accountId: 'b', toAccountId: 'a', category: 'other' },
+    { date: '2026-09-13', type: 'income', amount: 350000, accountId: 'b', category: 'salary', merchant: 'Acme' }];
+  const buf = async blob => new Uint8Array(await blob.arrayBuffer());
+  const x = run(await IO.fileToRows('tally.xlsx', await buf(IO.toXlsx(IO.txRows(tx, acc)))), 'tally.xlsx');
+  assert.equal(x.preset.id, 'tally');
+  assert.deepEqual(x.bal, { cash: -1060 + 10000, maybank: 350000 - 10000 });
+  const qif = IO.toQIF(tx, acc);
+  assert.match(qif, /!Account\nNCash\nTCash\n\^\n!Type:Cash\nD09\/01\/2026\nT-10\.60\nPMydin <&>\nMline break\nLGroceries\nSGroceries\nEMilo\n\$-7\.42/);
+  const q = run(await IO.fileToRows('tally.qif', new TextEncoder().encode(qif)), 'tally.qif');
+  assert.equal(q.preset.id, 'qif');
+  assert.deepEqual(q.txs.filter(t => t.type === 'transfer').map(t => t.amount), [10000]);   // both halves, one transfer
+  assert.deepEqual(q.bal, { cash: -1060 + 10000, maybank: 350000 - 10000 });
+  assert.equal(q.txs.find(t => t.type === 'income').date, '2026-09-13');   // month first
+});
