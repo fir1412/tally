@@ -778,3 +778,5 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 .demo-r span { min-width: 0; } .demo-r span i:first-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .demo-r span i:last-child { flex: none; }   /* a long name gives way; the price always shows */
 .calcbar output { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 420px) { .calcbar [data-op="("], .calcbar [data-op=")"] { display: none; } }   /* the result has room on a phone; ( ) still type from the keyboard */
+.bulkbar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; position: sticky; top: 0; z-index: 2; background: var(--bg); }
+.items-edit.selecting li { grid-template-columns: 28px 1fr auto; } .ipick { width: 24px; height: 24px; }

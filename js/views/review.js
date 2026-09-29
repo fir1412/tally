@@ -96,6 +96,7 @@ function toDraft(r) {
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const meal = c => (r.meal && c === 'groceries' ? 'dining' : c);   // a restaurant bill: its dishes are dining
   const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: meal(categorize(i.name, merchant, S.kv.rules)), flag: !!i.flag }));
+  items.forEach((i, n) => { if (i.cents < 0 && n > 0) i.category = items[n - 1].category; });   // money off belongs to the item it sits under
   const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
@@ -169,9 +170,9 @@ export const reviewView = {
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
     const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', fmtRM(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
-      : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('No total found. Type the total from the receipt.'))}<button class="link tipsrow" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></span></div>`
+      : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(d.items.length ? t('No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.') : t('No total found. Type the total from the receipt.'))}<span class="bactions"><button class="btn small ghost" data-act="scan">${ICON.camera}${esc(t('Retake'))}</button><button class="link tipsrow" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></span></span></div>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
-      : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
+      : `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}${gapOf(d) > 0 ? `<button class="btn small ghost" data-act="rv-gapitem">${ICON.plus}${esc(t('Missed an item of {0}?', fmtRM(gapOf(d))))}</button>` : ''}</span></div>`;
     const gap = !current.manual && c && !c.ok && d.items.length ? gapOf(d) : 0;
     const gapLine = gap > 0 ? `<div class="gapline"><b class="grow">${esc(t('Not itemised'))}</b><span class="amt">${esc(fmtRM(gap))}</span>
       <select class="icat" data-input="rv-f" data-k="gapCat" aria-label="${esc(`${t('Not itemised')}: ${t('Category')}`)}">${catOpts(gapCat(d))}</select></div>` : '';
@@ -191,8 +192,9 @@ export const reviewView = {
       </section>
       ${current.thumb ? `<figure class="receipt-thumb"><button class="thumb-btn" data-act="rv-zoom" aria-expanded="false" aria-label="${esc(t('Show the whole receipt'))}"><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></button></figure>` : ''}
       <div id="rv-status">${status}${d.total != null && c && !c.ok && maths ? `<p class="maths">${esc(maths)} ≠ ${esc(fmtRM(d.total, { plain: true }))}</p>` : ''}</div>
-      <h2>${esc(t('Items'))} <span class="fine">${esc(flagged ? t('{0} to check', flagged) : '')}</span></h2>
-      <ul class="list items-edit">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}" style="--i:${Math.min(n, 12)}"${i.flag ? ` data-why="${esc(flagWhy(i))}"` : ''}>
+      <div class="rowb"><h2>${esc(t('Items'))} <span class="fine">${esc(flagged ? t('{0} to check', flagged) : '')}</span></h2>${d.items.length > 2 ? `<button class="btn small ghost" data-act="rv-select" aria-pressed="${!!current.selecting}">${esc(current.selecting ? t('Done') : t('Select'))}</button>` : ''}</div>
+      ${current.selecting ? `<div class="bulkbar"><span class="fine grow">${esc(t('{0} selected', current.picked?.size || 0))}</span><select id="rv-bulkcat" aria-label="${esc(t('Category'))}">${catOpts('')}</select><button class="btn small" data-act="rv-bulkcat">${esc(t('Set'))}</button></div>` : ''}
+      <ul class="list items-edit${current.selecting ? ' selecting' : ''}">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}" style="--i:${Math.min(n, 12)}"${i.flag ? ` data-why="${esc(flagWhy(i))}"` : ''}>${current.selecting ? `<input type="checkbox" class="ipick" data-input="rv-pick" data-n="${n}"${current.picked?.has(n) ? ' checked' : ''} aria-label="${esc(t('Select {0}', i.name || t('item')))}">` : ''}
         <input class="iname" value="${esc(i.name)}" maxlength="80" aria-label="${esc(t('Item name'))}" data-input="rv-item" data-n="${n}" data-k="name" placeholder="${esc(t('Item name'))}">
         <input class="iamt" inputmode="decimal" value="${(i.cents / 100).toFixed(2)}" aria-label="${esc(t('Price'))}" data-input="rv-item" data-n="${n}" data-k="cents">
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
@@ -210,6 +212,7 @@ export const reviewView = {
 };
 
 export const input = {
+  'rv-pick': el => { const s = current.picked ||= new Set(), n = +el.dataset.n; if (el.checked) s.add(n); else s.delete(n); const c = $('.bulkbar .fine'); if (c) c.textContent = t('{0} selected', s.size); },
   'rv-refund': el => { const d = current?.draft; if (d) { d.refund = el.checked; if (el.checked) d.accountId = $('#rv-acc')?.value || d.accountId; persist(); } },
   'rv-f': el => {
     const d = current?.draft; if (!d) return;
@@ -315,6 +318,10 @@ export const act = {
     if (skipped.length) toast(t('Added {0}. Could not read: {1}. Add a price, like "Phone 1299".', n === 1 ? t('1 item') : t('{0} items', n), skipped.join(', ')), { k: 'warn' });
     else toast(n === 1 ? t('Added 1 item') : t('Added {0} items', n), { k: 'good', icon: 'check' });
   },
+  'rv-gapitem': () => { const d = current.draft; d.items.push({ name: '', raw: '', cents: gapOf(d), category: gapCat(d), flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },   // the gap as an item: only its name to type
+  // Many items at once (a 40-line grocery receipt): tick them, pick one category.
+  'rv-select': () => { current.selecting = !current.selecting; current.picked = new Set(); render(); },
+  'rv-bulkcat': () => { const c = $('#rv-bulkcat')?.value, d = current.draft; if (!c || !current.picked?.size) return; for (const n of current.picked) if (d.items[n]) { d.items[n].category = c; d.items[n].changed = true; } current.selecting = false; persist(); render(); toast(t('Category set for {0} items', current.picked.size), { icon: 'check' }); },
   'rv-add': () => { current.draft.items.push({ name: '', raw: '', cents: 0, category: current.draft.category, flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },
   'rv-del': b => { current.draft.items.splice(+b.dataset.n, 1); persist(); render(); },
   'rv-save': async b => {

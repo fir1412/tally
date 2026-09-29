@@ -1071,4 +1071,12 @@ export default {
   "Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.": "会被删除：卸载、清除浏览数据、清理应用、重置手机。",
   "Safe: closing, restarting, updates, offline.": "不影响：关闭、重启、更新、离线。",
   "New phone? Back up, then restore there.": "换手机？先备份，再在新手机恢复。",
+  "Category set for {0} items": "已为 {0} 项设置类别",
+  "Missed an item of {0}?": "漏了一项 {0}？",
+  "No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.": "没找到总额：收据底部可能被截掉了。请输入总额，或重拍一次。",
+  "Retake": "重拍",
+  "Select": "选择",
+  "Select {0}": "选择 {0}",
+  "Set": "设置",
+  "{0} selected": "已选 {0} 项",
 };

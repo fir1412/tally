@@ -1071,4 +1071,12 @@ export default {
   "Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.": "Dipadam oleh: nyahpasang, kosongkan data pelayaran, aplikasi pembersih, set semula telefon.",
   "Safe: closing, restarting, updates, offline.": "Selamat: tutup, mula semula, kemas kini, tanpa internet.",
   "New phone? Back up, then restore there.": "Telefon baharu? Sandarkan, kemudian pulihkan di sana.",
+  "Category set for {0} items": "Kategori ditetapkan untuk {0} barang",
+  "Missed an item of {0}?": "Tertinggal barang {0}?",
+  "No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.": "Jumlah tidak dijumpai: bahagian bawah resit mungkin terpotong. Taip jumlahnya, atau ambil gambar sekali lagi.",
+  "Retake": "Ambil semula",
+  "Select": "Pilih",
+  "Select {0}": "Pilih {0}",
+  "Set": "Tetapkan",
+  "{0} selected": "{0} dipilih",
 };
