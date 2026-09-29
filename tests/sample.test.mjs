@@ -14,3 +14,16 @@ test('sample data is believable and clearly marked, whatever the date', () => {
     assert.ok(Object.values(balances(accounts, tx).by).every(v => v >= 0), day);
   }
 });
+
+test('can I afford it: over the next 30 days, pay in, bills and usual spending out, and how long to save when short', async () => {
+  const { affordCheck } = await import('../js/engine.js');
+  const { accounts, tx } = sampleData('2026-09-29', Date.parse('2026-09-29T12:00:00Z'));
+  const balance = balances(accounts, tx).total, a = price => affordCheck({ price, balance, txs: tx, today: '2026-09-29' });
+  const small = a(10000), big = a(2000000);
+  assert.equal(small.verdict, 'yes');
+  assert.equal(small.payDate, '2026-09-30');   // salary on 31 Aug comes again on 30 Sep, not a 31 Sep that doesn't exist
+  assert.equal(small.left, balance + small.pay - small.upcoming - small.usual - 10000);
+  assert.equal(big.verdict, 'no');
+  assert.ok(big.months >= 1 && big.net > 0);
+  assert.equal(affordCheck({ price: 10000, balance, txs: tx, today: '2026-09-29', budget: 50000 }).verdict, 'tight');   // money there, budget not
+});

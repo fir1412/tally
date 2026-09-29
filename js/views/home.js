@@ -2,7 +2,7 @@
 import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -36,6 +36,17 @@ const dismissed = () => S.kv.dismissed || [];
 const MODULE_OF = { bills: 'bills', insight: 'insights', nudge: 'insights', stickers: 'stickers' };
 const shown = id => !(settings().homeHide || []).includes(id) && (!MODULE_OF[id] || on(MODULE_OF[id]));
 /** Days logged up to today (entries you made, and "nothing spent" check-ins): one sticker each. */
+/** The answer and the sums behind it. */
+function affordHtml(r) {
+  const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
+  const rows = [[t('Money now'), r.balance], r.pay && [t('Pay due {0}', fmtDate(r.payDate)), r.pay], [t('Bills due'), -r.upcoming], [t('Usual everyday spending'), -r.usual], [t('This buy'), -r.price]].filter(Boolean);
+  const why = r.left >= 0 ? t('{0} left over the next 30 days, after this, your bills and your usual spending.', fmtRM(r.left)) : t('You would be {0} short over the next 30 days.', fmtRM(-r.left));
+  const save = r.verdict !== 'no' ? '' : r.months ? (r.months === 1 ? t('At your usual saving ({0} a month), you could buy it next month.', fmtRM(r.net)) : t('At your usual saving ({0} a month), you could buy it in {1} months.', fmtRM(r.net), r.months))
+    : t('You usually spend what you earn, so saving for it means spending less first.');
+  return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
+    <ul class="slegend">${rows.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}</span></li>`).join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${r.left < 0 ? '−' : ''}${esc(fmtRM(Math.abs(r.left)))}</b></li></ul>
+    <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))}</p>`;
+}
 /** When this person started with Tally: their first entry made here, else their first account. */
 const began = () => { const m = S.tx.map(x => x.createdAt).filter(Boolean); return Math.min(...(m.length ? m : S.accounts.map(a => a.createdAt).filter(Boolean))); };
 const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
@@ -211,6 +222,7 @@ export const homeView = {
         <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
         ${shownUnset.length ? `<p class="fine">${esc(t('Balance not set: {0}', shownUnset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(shownUnset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
+        ${on('afford') && S.tx.length ? `<button class="btn small ghost afford-btn" data-act="afford">${ICON.wallet}${esc(t('Can I afford it?'))}</button>` : ''}
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
       <div class="addrow${on('receipts') ? '' : ' one'}"><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Type an amount'))}</button>${on('receipts') ? `<button class="btn ghost" data-act="scan">${ICON.camera}${esc(t('Scan a receipt'))}</button>` : ''}</div>
@@ -330,6 +342,20 @@ export const act = {
     setTimeout(find, 100);
   },
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
+  'afford': () => {
+    const accts = scopedAccounts(), counted = accts.filter(a => a.typed !== false);
+    const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Can I afford it?'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      <label class="field"><span>${esc(t('Price (RM)'))}</span><input id="af-amt" inputmode="decimal" placeholder="0.00" autocomplete="off" autofocus></label>
+      <div id="af-out" aria-live="polite">${counted.length ? '' : `<p class="warnbox">${esc(t('Set how much is in your accounts first: Tally needs a starting point.'))}</p>`}</div>`, { label: t('Can I afford it?') });
+    if (!counted.length) return;
+    const balance = balances(counted, booked()).total, known = S.recurring.filter(b => inScope(b));
+    const bills = [...known, ...cached(recurringCandidates, booked(), known.map(b => b.key)).map(c => ({ id: `c-${c.key}`, name: c.merchant, amount: c.amount, freq: 'monthly', day: c.day, start: `${monthOf(today())}-01` }))];   // spotted bills: monthly, on their usual day
+    el.querySelector('#af-amt').addEventListener('input', e => {
+      const price = calcAmount(e.target.value), out = el.querySelector('#af-out');
+      if (!(price > 0)) return (out.innerHTML = '');
+      out.innerHTML = affordHtml(affordCheck({ price, balance, txs: booked(), today: today(), startDay: startDay(), bills, budget: on('budgets') ? budgetsFor().total : 0 }));
+    });
+  },
   'stickers-off': async () => { await setModules({ stickers: false }); render(); toast(t('Stickers are off. Turn them back on in Settings → Features.')); },
   'recap-go': async b => { await dismiss(b.dataset.id); go('insights'); },
   'nudge-add': b => openTxSheet({ category: b.dataset.c, amount: +b.dataset.a, ...(b.dataset.at ? { time: b.dataset.at } : {}) }),

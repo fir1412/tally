@@ -7,6 +7,7 @@ import { render, route, go, APP_VERSION } from './app.js';
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
   '1.0.0': [
+    'Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days',
     'Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features',
     'A sticker book for the days you log, colour themes for the whole app, and splitting a bill with friends',
     'New categories for rent, loans and insurance, and a business account from the start',

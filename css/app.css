@@ -806,6 +806,10 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .card.sample { flex-direction: row; gap: var(--sp-2); align-items: center; justify-content: space-between; flex-wrap: wrap; border: 2px dashed var(--accent); }   /* made-up data: impossible to mistake for your own */
 .card.sticker { flex-wrap: wrap; }
 .card.sticker .stk-off { font-size: var(--fs-sm); flex-basis: 100%; text-align: right; }
+.afford-btn { align-self: flex-start; }
+.afford { color: var(--ink); border-left: 4px solid var(--good); padding: var(--sp-2) var(--sp-3); background: var(--panel2); border-radius: var(--radius); margin: var(--sp-2) 0; }
+.afford.af-tight { border-color: var(--warn); } .afford.af-no { border-color: var(--bad); }
+.afford b { font-size: var(--fs-lg); } .afford p { margin: 4px 0 0; }
 .card.sample p { margin: 0; flex: 1 1 14em; }
 .addrow.one { grid-template-columns: 1fr; }
 .addrow .btn { min-width: 0; white-space: normal; text-align: center; }

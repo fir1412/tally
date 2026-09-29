@@ -728,6 +728,25 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
   return { spent: sp.total, upcoming, rate: Math.round(rate), projected, daysLeft: left, end: c.end, early,
     safe: budget ? Math.max(0, Math.floor((budget - sp.total - upcoming) / (left + 1))) : null };
 }
+/**
+ * Can I afford it? Over the next 30 days: money there is today (`balance`), plus pay due in them (the last salary
+ * again, a month after it), minus bills due in them and everyday spending at the usual pace (the forecast's), minus
+ * the price. yes: a week of usual spending (at least RM 100) still left, and within the budget if there is one.
+ * tight: money there but less than that, or over budget. no: short; `months` of usual saving (the last 3 full
+ * months' money in minus out) would cover it, when there is any saving.
+ */
+export function affordCheck({ price, balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
+  const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30);
+  const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d > today && !billPaid(r, d, txs)).length * r.amount, 0);
+  const sal = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).reduce((m, x) => (!m || x.date > m.date ? x : m), null);
+  const nm = sal && addMonths(sal.date.slice(0, 7), 1), next = sal && `${nm}-${pad2(Math.min(+sal.date.slice(8, 10), new Date(Date.UTC(+nm.slice(0, 4), +nm.slice(5, 7), 0)).getUTCDate()))}`,   // 31 Aug → 30 Sep
+    pay = next && next > today && next <= end ? sal.amount : 0;
+  const left = balance + pay - upcoming - usual - price, over = budget ? Math.max(0, f.projected + price - budget) : 0;
+  const ym = cycleKey(today, startDay), flow = cashFlow(txs, addMonths(ym, -1), 3, startDay).filter(m => m.income || m.expense);
+  const net = flow.length ? Math.round(flow.reduce((s, m) => s + m.income - m.expense, 0) / flow.length) : 0;
+  const verdict = left < 0 ? 'no' : left < Math.max(100_00, Math.round(f.rate * 7)) || over ? 'tight' : 'yes';
+  return { verdict, balance, pay, payDate: pay ? next : null, upcoming, usual, price, left, end, over, net, months: left < 0 && net > 0 ? Math.ceil(-left / net) : null };
+}
 /** A month's spending split into regular payments (bills, and shops that are known or detected bills) and day-to-day spending. */
 export function fixedFlexible(txs, ym, sd = 1, billShops = []) {
   const keys = new Set(billShops);

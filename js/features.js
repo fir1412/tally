@@ -8,6 +8,7 @@ export const MODULES = [
   ['budgets', 'Budgets', 'Monthly limits, the pace ring and over-budget warnings.'],
   ['insights', 'Insights', 'Charts, forecasts, your prices and good-news finds.'],
   ['bills', 'Bills', 'Regular payments that remind you and add themselves.'],
+  ['afford', 'Can I afford it?', 'Type a price: Tally checks it against your money, bills and usual spending.'],
   ['taxrelief', 'Tax relief (LHDN)', 'Spending that may relate to a tax relief, and its receipts in one download.'],
   ['split', 'Split with friends', 'Share a bill by who had what.'],
   ['reminders', 'Return and warranty reminders', 'A nudge before a return window or warranty ends.'],
