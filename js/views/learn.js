@@ -100,16 +100,16 @@ export const badgesView = {
     if (!gameOn()) return `${head(t('Streaks and badges'))}<section class="card center">${ICON.award}<p>${esc(t('Streaks and badges are off. Turn them on for a logging streak and badges for good money habits.'))}</p>
       <button class="btn" data-act="gamify-on">${esc(t('Turn on'))}</button></section>`;
     const tdy = today(), st = myStreak(), days = loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), got = earned(game());
-    const mon = plusDays(tdy, -((new Date(`${tdy}T00:00:00Z`).getUTCDay() + 6) % 7));
-    const week = Array.from({ length: 7 }, (_, i) => plusDays(mon, i)).map(d => {
-      const k = days.has(d) ? 'logged' : d === st.rest ? 'rest' : d > tdy ? 'later' : d === tdy ? 'now' : 'missed';
-      const word = { logged: t('logged'), rest: t('rest day'), later: '', now: t('today'), missed: t('not logged') }[k];
+    // The last 7 days up to today, so the ticks match the streak's count (a Monday-to-Sunday week didn't).
+    const week = Array.from({ length: 7 }, (_, i) => plusDays(tdy, i - 6)).map(d => {
+      const k = days.has(d) ? 'logged' : d === st.rest ? 'rest' : d === tdy ? 'now' : 'missed';
+      const word = { logged: t('logged'), rest: t('rest day'), now: t('today'), missed: t('not logged') }[k];
       return `<li class="${k}"><span aria-hidden="true">${esc(weekday(d))}</span><i aria-hidden="true">${k === 'logged' ? ICON.check : ''}</i><span class="sr">${esc(fmtDate(d))}${word ? `: ${esc(word)}` : ''}</span></li>`;
     }).join('');
     const n = Object.keys(got).length;
     return `${head(t('Streaks and badges'))}
       <section class="card streakcard"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}${st.best ? ` · ${esc(t('Best: {0} days', st.best))}` : ''}</small></span></div>
-        <ol class="week" aria-label="${esc(t('This week'))}">${week}</ol>
+        <ol class="week" aria-label="${esc(t('Last 7 days'))}">${week}</ol>
         <p class="fine">${esc(st.rest ? t('Rest day used this week. Another missed day starts the streak again.') : t('One rest day a week: missing a single day will not break your streak.'))}</p>
         ${st.loggedToday ? '' : `<button class="btn ghost wide" data-act="no-spend">${ICON.leaf}${esc(t('Nothing spent today'))}</button>`}</section>
       <div class="rowb"><h2>${esc(t('Badges'))}</h2><span class="fine num">${n}/${BADGES.length}</span></div>
@@ -180,18 +180,31 @@ function spot(sel, r, tries = 0) {
   const box = el.closest('.segs, .rmin, .tablewrap') || el;
   box.classList.add('learn-spot');
   box.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  setTimeout(() => box.classList.remove('learn-spot'), 4200);
+  // A "Tap here" bubble beside the ring, above the control when there is room (the camera button sits at the bottom).
+  document.querySelector('.spot-tip')?.remove();
+  const tip = Object.assign(document.createElement('div'), { className: 'spot-tip', textContent: t('Tap here') });
+  tip.setAttribute('aria-hidden', 'true');
+  document.body.append(tip);
+  const place = () => {
+    const b = box.getBoundingClientRect(), up = b.top > tip.offsetHeight + 24;
+    tip.classList.toggle('below', !up);
+    tip.style.top = `${up ? b.top - tip.offsetHeight - 12 : b.bottom + 12}px`;
+    tip.style.left = `${Math.min(innerWidth - tip.offsetWidth - 8, Math.max(8, b.left + b.width / 2 - tip.offsetWidth / 2))}px`;
+    tip.style.setProperty('--x', `${b.left + b.width / 2 - parseFloat(tip.style.left)}px`);
+  };
+  place();
+  addEventListener('scroll', place, true);
+  setTimeout(() => { box.classList.remove('learn-spot'); tip.remove(); removeEventListener('scroll', place, true); }, 4200);
 }
 const at = (r, sel) => () => { go(r); spot(sel, r); };
 const SHOW = {
   scan: at('home', '.fab'),
-  fixcat: async () => {
-    const x = [...S.tx].sort((a, b) => b.createdAt - a.createdAt).find(y => y.source === 'receipt' && y.items?.length);
-    if (!x) { toast(t('Scan a receipt first: its items come with a category you can change.')); return at('home', '.fab')(); }
-    if (!S.kv.reviewDraft) (await import('./review.js')).editExisting(x); else go('review');   // never over a receipt being checked
-    spot('.icat', 'review');
+  // Said, not done: opening a real receipt pushed people into changing data that was right.
+  fixcat: () => {
+    if (!S.tx.some(y => y.source === 'receipt' && y.items?.length)) { toast(t('Scan a receipt first: its items come with a category you can change.')); return at('home', '.fab')(); }
+    toast(t('When checking a receipt, tap an item\'s category to change it.'), { icon: 'swap' });
   },
-  split: async () => { (await import('./money.js')).openTxSheet(); spot('[data-act="tx-split"]'); },
+  split: async () => { (await import('./money.js')).openTxSheet(); spot('.ghost[data-act="tx-split"]'); },
   hand: at('home', '[data-act="tx-new"]'),
   budget: at('budgets', '[data-cat="total"]'),
   bill: at('budgets', 'button.wide[data-act="bill-edit"]'),

@@ -13,7 +13,12 @@ import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall
 import { settingsCard as learnCard } from './learn.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
-const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+
+const SIZES = [100, 115, 130];
+/** A / A+ / A++, the same sizes as Settings → Text size, drawn at the size they give. */
+const sizeButtons = () => `<div class="segs sizes" role="group" aria-label="${esc(t('Text size'))}">${SIZES.map((n, i) => `<button class="seg${(settings().textSize || 100) === n ? ' on' : ''}" data-act="set-size" data-n="${n}" aria-pressed="${(settings().textSize || 100) === n}" aria-label="${n}%" style="font-size:${n}%">A${'+'.repeat(i)}</button>`).join('')}</div>`;
+const setSize = async n => { await setSetting('textSize', n); document.documentElement.style.fontSize = `${n}%`; };
 
 /** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
 const demoCard = () => {
@@ -32,7 +37,7 @@ export const welcomeView = {
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
       ${demoCard()}
-      ${langButtons()}
+      <div class="langrow">${langButtons()}<div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
         <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your data never leaves this phone unless you export it.'))}</span></li>
@@ -56,10 +61,10 @@ export const welcomeView = {
 function accountSheet(a = {}) {
   const isNew = !a.id, now = isNew ? null : balances([a], S.tx, today()).by[a.id];
   openSheet(`<h2 class="sh-title">${esc(isNew ? t('Add an account') : t('Edit account'))}</h2>
-    <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}" autofocus></label>
+    <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}"${isNew ? ' autofocus' : ''}></label>
+    ${isNew ? '' : `<label class="field"><span>${esc(t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
-    <label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>
-    ${isNew ? '' : `<label class="field"><span>${esc(t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}"><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
+    ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
     <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my spouse)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
@@ -80,7 +85,7 @@ export const settingsView = {
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
-        <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
+        <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${SIZES.map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
       ${learnCard()}
       <section class="card"><h2>${esc(t('Budget month'))}</h2>
         <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${startDay() === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>
@@ -123,7 +128,7 @@ export const settingsView = {
   },
 };
 export const input = {
-  'text-size': async el => { await setSetting('textSize', +el.value); document.documentElement.style.fontSize = `${el.value}%`; },
+  'text-size': el => setSize(+el.value),
   'month-start': async el => { await setSetting('monthStart', Math.min(28, Math.max(1, +el.value || 1))); render(); },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
@@ -456,6 +461,7 @@ export const act = {
     b.disabled = false;
     toast(r === 'latest' ? t('You have the latest version') : r === 'updating' ? t('Updating… Tally will reload in a moment') : t('Updates install by themselves when you open Tally online'));
   },
+  'set-size': async b => { await setSize(+b.dataset.n); render(); },
   'set-lang': async b => { await setSetting('lang', b.dataset.l); await setLang(b.dataset.l); render(); },
   'start-fresh': () => {
     openSheet(`<h2 class="sh-title">${esc(t('Your accounts'))}</h2><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>

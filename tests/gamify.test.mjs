@@ -77,6 +77,8 @@ test('badges: scans, streaks, backup, import, learned', () => {
   assert.equal(got.backup, '2026-09-20'); assert.equal(got.import, '2026-09-05'); assert.equal(got.learned, '2026-09-15');
   assert.equal(earned({ tx: scans.slice(0, 9), today: '2026-09-29' }).scan10, undefined);
   assert.equal(dayOf(at('2026-02-03')), '2026-02-03');
+  // Scanned and backed up on the real clock's 29th while the app's today is the 14th: earned on the 14th, not later.
+  assert.deepEqual(earned({ tx: [tx('2026-09-14', { source: 'receipt', receiptId: 'p', createdAt: at('2026-09-29') })], today: '2026-09-14', lastBackup: '2026-09-29T08:00' }), { scan1: '2026-09-14', backup: '2026-09-14' });
 });
 test('badges: no-spend day only once the day is over and nothing was spent', () => {
   const t = [tx('2026-09-20')];

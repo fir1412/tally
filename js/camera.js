@@ -13,7 +13,7 @@ export function startScan(onFiles) {
       <p class="cam-msg" role="status">${esc(t('Fit the whole receipt inside the frame'))}</p></div>
     <div class="cam-top"><button class="cam-ic" data-c="close" aria-label="${esc(t('Close camera'))}">${ICON.x}</button>
       <button class="cam-ic" data-c="torch" aria-pressed="false" aria-label="${esc(t('Light'))}" hidden>${ICON.bolt}</button></div>
-    <div class="cam-bar"><button class="cam-side" data-c="gallery">${ICON.upload}<span>${esc(t('Gallery'))}</span></button>
+    <div class="cam-bar"><button class="cam-side" data-c="gallery">${ICON.image}<span>${esc(t('Gallery'))}</span></button>
       <button class="cam-shutter" data-c="snap" aria-label="${esc(t('Take a photo'))}" disabled></button>
       <button class="cam-side" data-c="done" disabled><b class="cam-n num"></b><span>${esc(t('Done'))}</span></button></div>`,
   { label: t('Camera'), onClose: () => { closed = true; stream?.getTracks().forEach(tr => tr.stop()); if (shots.length) onFiles(shots); } });
@@ -26,8 +26,10 @@ export function startScan(onFiles) {
     video.addEventListener('loadedmetadata', () => { q('snap').disabled = false; q('snap').focus(); }, { once: true });   // a tap before the first frame would take nothing
     if (s.getVideoTracks()[0].getCapabilities?.().torch) q('torch').hidden = false;
   }).catch(() => {
-    msg.textContent = t('Tally can\'t use the camera. Allow it in the browser\'s site settings, or pick photos from the gallery.');
+    msg.textContent = t('Tally can\'t use the camera. Allow it in Chrome\'s site settings (the lock icon next to the address), or pick photos from the gallery.');
     el.querySelector('.cam-view').classList.add('off');
+    q('snap').hidden = q('done').hidden = true;   // no shutter to tap in vain: the gallery becomes the one big button
+    q('gallery').classList.add('main');
   });
 
   el.addEventListener('click', async e => {

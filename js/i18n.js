@@ -15,8 +15,10 @@ export function pickLang(list) {
 }
 // Copy is written for phones; on a tablet or computer "this phone" reads as "this device".
 const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'] };
-const bigMQ = typeof matchMedia === 'function' ? matchMedia('(min-width: 768px), (pointer: fine)') : null;
-const bigScreen = () => !!bigMQ?.matches;
+// Decided once from the browser's own description, so the same phone always gets the same word (a screen size or
+// pointer check flipped with rotation and split screen). Phones say "Mobile"; tablets and computers don't.
+const notPhone = typeof document !== 'undefined' && !/Mobi|iPhone|iPod/i.test(navigator.userAgent || '');
+const bigScreen = () => notPhone;
 /** t('Spent {0} of {1}.', a, b): the current language's text with values filled in. Unknown text stays English. */
 export function t(s, ...vals) {
   let tpl = (dict && Object.prototype.hasOwnProperty.call(dict, s) ? dict[s] : s);

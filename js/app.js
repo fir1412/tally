@@ -122,7 +122,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     await takeShared();
     const resumed = await review.restoreDraft();
-    if (resumed) { history.replaceState(null, '', '#/review'); toast(t('Picked up the receipt you were checking')); }
+    if (resumed) { history.replaceState(null, '', '#/review'); toast(resumed === 'items' ? t('Picked up the items you were adding') : t('Picked up the receipt you were checking')); }
     await money.postBills().catch(console.error);   // bills that add themselves, up to today
     watch(async () => { if (await money.postBills().catch(() => 0)) refresh(); });
     if (S.accounts.length) persistStorage().then(() => route() === 'settings' && refresh());

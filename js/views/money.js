@@ -1,6 +1,6 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
 import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount, saveTxs, deleteTxs, startDay, thisMonth } from '../state.js';
-import { t, fmtDate, fmtMonth, monShort } from '../i18n.js';
+import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
 import { fmtRM, parseAmount, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
@@ -61,7 +61,10 @@ export const activityView = {
 };
 let qTimer;
 let budT;
+/** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
+const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
+  'tx-amt': el => { const b = $('#tx-words'); if (b) b.hidden = !hasWords(el.value); },
   'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; render(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   'act-f': el => { F[el.dataset.k] = el.value; F.limit = 200; render(); },
   'bud': el => {
@@ -91,19 +94,25 @@ function sheetHtml() {
   const cats = d.type === 'income' ? INCOME_CATEGORIES : expenseCats();
   const seg = ['expense', 'income', 'transfer'].map(k => `<button type="button" class="seg${d.type === k ? ' on' : ''}" data-act="tx-type" data-type="${k}" aria-pressed="${d.type === k}">${esc(t({ expense: 'Spent', income: 'Received', transfer: 'Transfer' }[k]))}</button>`).join('');
   const accOpts = sel => S.accounts.map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
-  return `<h2 class="sh-title">${esc(isNew ? t('Add') : t('Edit'))}</h2>
+  // A day other than today (a missed day, a bill's due date) is named in the title, so it can't be missed,
+  const day = isNew && d.date !== today() ? `${new Intl.DateTimeFormat(getLang() === 'zh' ? 'zh-CN' : getLang(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d.date}T00:00:00Z`))} ${fmtDate(d.date)}` : '';
+  // and its date sits right under the amount, not down where the keyboard and the sum bar cover it.
+  const when = `<div class="grid2 keep2">
+      <label class="field"><span>${esc(t('Date'))}</span><input id="tx-date" type="date" value="${esc(d.date)}" max="${esc(today())}"></label>
+      <label class="field"><span>${esc(t('Time'))}</span><input id="tx-time" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="13:40" value="${esc(d.time || '')}"></label>
+    </div>`;
+  return `<h2 class="sh-title">${esc(!isNew ? t('Edit') : day ? t('Add for {0}', day) : t('Add'))}</h2>
     <div class="segs" role="group" aria-label="${esc(t('Type'))}">${seg}</div>
-    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" inputmode="decimal" autocomplete="off" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
+    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
+    ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
+    ${day ? when : ''}
     ${d.type === 'transfer' ? '' : `<div class="chips" role="radiogroup" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" role="radio" aria-checked="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc">${accOpts(d.accountId)}</select></label>
       ${d.type === 'transfer' ? `<label class="field"><span>${esc(t('To'))}</span><select id="tx-to">${accOpts(d.toAccountId || S.accounts.find(a => a.id !== d.accountId)?.id)}</select></label>` : ''}
     </div>
-    <div class="grid2 keep2">
-      <label class="field"><span>${esc(t('Date'))}</span><input id="tx-date" type="date" value="${esc(d.date)}" max="${esc(today())}"></label>
-      <label class="field"><span>${esc(t('Time'))}</span><input id="tx-time" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="13:40" value="${esc(d.time || '')}"></label>
-    </div>
+    ${day ? '' : when}
     <label class="field"><span>${esc(d.type === 'income' ? t('From (who paid you)') : t('Shop or note'))}</span><input id="tx-merchant" maxlength="80" value="${esc(d.merchant || '')}" autocomplete="off"></label>
     ${d.items?.length ? `<details class="items"><summary>${esc(t('{0} items from the receipt', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
@@ -123,16 +132,23 @@ function readForm() {
   draft.merchant = ($('#tx-merchant')?.value || '').trim().slice(0, 80);
 }
 function reopen() {
+  const typed = $('#tx-amt')?.value;   // words typed as the amount stay put (and keep their Split offer)
   readForm();
   const sh = document.querySelector('.scrim:not(.out) .sheet');
   if (!sh) return openSheet(sheetHtml(), { label: t('Transaction') });
   const focus = document.activeElement?.id;   // redraw in place: no second sheet, nothing typed goes astray
   sh.innerHTML = `<div class="grab" aria-hidden="true"></div>${sheetHtml()}`;
-  (focus && document.getElementById(focus))?.focus({ preventScroll: true });
+  const amt = $('#tx-amt'); if (amt && !amt.readOnly && typed && hasWords(typed)) { amt.value = typed; input['tx-amt'](amt); }
+  if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
 }
+/** The expense category used most (by entries), so a new entry starts on it. */
+const usualCategory = () => {
+  const n = {}; for (const x of S.tx) if (x.type === 'expense' && !x.bill && x.source !== 'recurring') n[x.category] = (n[x.category] || 0) + 1;
+  return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([c]) => c).find(c => expenseCats().some(e => e.id === c)) || 'dining';
+};
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
 export function openTxSheet(preset = {}) {
-  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: usualAccount(), category: 'dining', date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
+  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: usualAccount(), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
   openSheet(sheetHtml(), { label: t('Add') });
 }
 
@@ -225,7 +241,10 @@ export const act = {
   'tx-type': b => { readForm(); draft.type = b.dataset.type; if (draft.type === 'income' && !INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'other'; reopen(); },
   'tx-cat': b => { readForm(); draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.
-  'tx-split': async () => { readForm(); closeSheet(); const { editExisting } = await import('./review.js'); editExisting({ ...draft, items: [] }, { manual: true }); },
+  'tx-split': async () => {
+    const typed = $('#tx-amt')?.value || '';   // "鱼 25, 菜 8" typed as the amount: those become the items
+    readForm(); closeSheet(); const { editExisting } = await import('./review.js'); editExisting({ ...draft, items: [] }, { manual: true, lines: hasWords(typed) ? typed : '' });
+  },
   'tx-items': async () => { readForm(); closeSheet(); const { editExisting } = await import('./review.js'); editExisting(draft); },
   'tx-photo': async () => {
     const blob = await getPhoto(draft.receiptId);

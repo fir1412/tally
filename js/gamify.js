@@ -44,7 +44,8 @@ export const BADGES = [
  * ponytail: "under budget" holds past months to today's budget (Tally keeps no budget history).
  */
 export function earned({ tx, today, startDay = 1, budget = 0, noSpend = [], lastBackup = null, me = '', learnedOn = null }) {
-  const got = {}, give = (id, date) => { if (date && !(got[id] <= date)) got[id] = date; };
+  // Dates from timestamps (a scan, a backup) are real-clock days: never later than the app's today.
+  const got = {}, give = (id, date) => { if (date > today) date = today; if (date && !(got[id] <= date)) got[id] = date; };
   const booked = tx.filter(x => x.date <= today), mine = booked.filter(x => byUser(x, me));
   const scans = mine.filter(x => x.source === 'receipt' && x.receiptId).map(x => (x.createdAt ? dayOf(x.createdAt) : x.date)).sort();
   give('scan1', scans[0]); give('scan10', scans[9]);

@@ -64,7 +64,7 @@ function persist() {
   }, 300);
 }
 function finish() { clearTimeout(persistT); if (current?.thumb) URL.revokeObjectURL(current.thumb); current = null; return setKv('reviewDraft', null); }
-/** On start: reopen an unfinished review. Returns true if there was one. */
+/** On start: reopen an unfinished review. Returns 'items' for typed items (no photo), 'receipt' for the rest, or false. */
 export async function restoreDraft() {
   if (current) return false;
   for (const id of S.kv.scanQueue || []) { const file = await getPhoto(`q_${id}`); if (file) queue.push({ id, file, status: 'waiting' }); }
@@ -73,7 +73,7 @@ export async function restoreDraft() {
     const blob = saved.draft.receiptId ? await getPhoto(saved.draft.receiptId) : null;
     current = { id: uid('r'), status: 'ready', existing: saved.existing, manual: saved.manual, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
   } else if (queue.length) pump();
-  return !!current || queue.length > 0;
+  return current && !current.draft.receiptId ? 'items' : !!current || queue.length > 0 ? 'receipt' : false;
 }
 
 const EXAMPLE = { en: 'Phone 1299\nFish 25, vegetables 8', ms: 'Telefon 1299\nIkan 25, sayur 8', zh: '手机 1299\n鱼 25，菜 8，猪肉 30' };
@@ -89,8 +89,9 @@ function toDraft(r) {
   };
 }
 /** Open an already-saved receipt transaction for item editing (from the transaction sheet). */
-export function editExisting(tx, { manual = false } = {}) {
+export function editExisting(tx, { manual = false, lines = '' } = {}) {
   current = { id: uid('r'), status: 'ready', existing: true, manual, draft: { ...structuredClone(tx), dateFound: true, total: tx.amount, items: (tx.items || []).map(i => ({ ...i })) } };
+  if (lines) addLines(lines);   // "鱼 25, 菜 8" typed where the amount goes
   persist();
   go('review');
 }
@@ -119,7 +120,7 @@ export const reviewView = {
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
     const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', fmtRM(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
-      : d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))} <button class="link" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></p>`
+      : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('No total found. Type the total from the receipt.'))}<button class="link tipsrow" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></span></div>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
       : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
     const maths = [[t('Items'), itemsSum(d)], [t('Service'), d.service], [t('Tax'), d.taxIncluded ? 0 : d.tax], [t('Rounding'), d.rounding]].filter(([, v]) => v).map(([k, v]) => `${k} ${fmtRM(v, { plain: true })}`).join(' + ');
@@ -195,6 +196,10 @@ const TIP_ART = [
   `<g class="tp-long">${paper(46, -30, 28, 140)}</g>${frame}`,
   `<g class="tp-fade">${paper(46, 10, 28, 60)}</g><g class="tp-clock"><circle cx="98" cy="18" r="9"/><path class="tp-hand" d="M98 18v-6"/></g>`,
 ];
+// ✗ while a scene shows the mistake, ✓ once it reaches the good state (in time with it); "scan it soon" runs the other
+// way, fresh to faded. Without motion only the ✓ shows.
+const MARK_T = [[2.8], [3], [3], [3], [3], [3.6, true]];
+const mark = ([s, rev]) => `<g class="tp-mark${rev ? ' rev' : ''}" style="--d:${s}s"><circle cx="106" cy="66" r="9"/><path class="tp-no" d="M102.5 62.5l7 7M109.5 62.5l-7 7"/><path class="tp-ok" d="M102 66.5l3 3 5.5-6.5"/></g>`;
 export function photoTips({ thenScan = false } = {}) {
   const tips = [
     [t('Fit it all in'), t('Shop name to TOTAL, flat')],
@@ -204,13 +209,21 @@ export function photoTips({ thenScan = false } = {}) {
     [t('Long receipt?'), t('Step back until it fits')],
     [t('Scan it soon'), t('Receipts fade in weeks')],
   ];
-  const el = openSheet(`<h2 class="sh-title">${esc(t('Tips for a clear photo'))}</h2>
-    <ol class="tips">${tips.map(([h, b], i) => `<li><svg viewBox="0 0 120 80" aria-hidden="true"><rect class="tp-bg" width="120" height="80"/>${TIP_ART[i]}</svg><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
-    ${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}`, { label: t('Tips for a clear photo') });
+  // Title with a close button and the action stay pinned while the scenes scroll between them (small phones).
+  const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Tips for a clear photo'))}</h2><button class="icon-btn" data-x="ok" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+    <ol class="tips">${tips.map(([h, b], i) => `<li><svg viewBox="0 0 120 80" aria-hidden="true"><rect class="tp-bg" width="120" height="80"/>${TIP_ART[i]}${mark(MARK_T[i])}</svg><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
+    <div class="sheetfoot">${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}</div>`, { label: t('Tips for a clear photo') });
   el.addEventListener('click', e => {
     const b = e.target.closest('[data-x]'); if (!b) return;
     if (b.dataset.x === 'scan') startScan(scanned); else closeSheet();
   });
+}
+/** Typed lines ("Fish 25, vegetables 8") → items on the receipt being checked. Returns how many. */
+function addLines(text) {
+  const d = current.draft, lines = parseItemLines(text);
+  for (const { name, cents } of lines) d.items.push({ name, raw: '', cents, category: guessFor(name, d), flag: false });
+  if (lines.length && current.manual) { d.total = itemsSum(d); d.totalGuessed = false; }
+  return lines.length;
 }
 export const act = {
   'photo-tips': () => photoTips(),
@@ -223,11 +236,9 @@ export const act = {
   'rv-zoom': b => { const open = b.closest('figure').classList.toggle('zoom'); b.setAttribute('aria-expanded', open); },
   'rv-today': () => { current.draft.date = today(); current.draft.dateFound = true; persist(); render(); },
   'rv-lines': () => {
-    const d = current.draft, lines = parseItemLines($('#rv-lines').value);
-    if (!lines.length) return toast(t('Write each item with its price, like "Phone 1299".'), { k: 'warn' });
-    for (const { name, cents } of lines) d.items.push({ name, raw: '', cents, category: guessFor(name, d), flag: false });
-    if (current.manual) { d.total = itemsSum(d); d.totalGuessed = false; }
-    persist(); render(); toast(t('Added {0} items', lines.length), { k: 'good', icon: 'check' });
+    const n = addLines($('#rv-lines').value);
+    if (!n) return toast(t('Write each item with its price, like "Phone 1299".'), { k: 'warn' });
+    persist(); render(); toast(t('Added {0} items', n), { k: 'good', icon: 'check' });
   },
   'rv-add': () => { current.draft.items.push({ name: '', raw: '', cents: 0, category: current.draft.category, flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },
   'rv-del': b => { current.draft.items.splice(+b.dataset.n, 1); persist(); render(); },

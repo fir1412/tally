@@ -49,7 +49,7 @@ const TOUR = [
   ['activity', ICON.list, () => t('Everything in one list'), () => t('Search, filter by account or category, and tap any entry to fix it. Scanned receipts keep their photo.')],
   ['insights', ICON.chart, () => t('See where it went'), () => t('Spending by category, this month against last, your balance over time and the items you buy most.')],
   ['budgets', ICON.wallet, () => t('Budgets and bills'), () => t('Set a monthly limit and Tally warns you before you pass it. Regular bills can go into your calendar as reminders.')],
-  ['settings', ICON.gear, () => t('Your data stays with you'), () => t('Back up to Google Drive or email, bring data from other apps and bank statements, and change the language here.')],
+  ['settings', ICON.gear, () => t('Your data stays with you'), () => t('Back up to Google Drive or email, bring data from other apps and bank statements, and change the language and text size here.')],
 ];
 const seen = () => setKv('settings', { ...S.kv.settings, tourDone: true, seenVersion: APP_VERSION });
 export const markSeen = seen;
@@ -59,10 +59,11 @@ const skipTour = () => new URLSearchParams(location.search).has('notour');   // 
 export function showTour(start = 0) {
   let i = start;
   hideToast();   // an import's toast shouldn't sit over the tour
-  const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { if (!settings().tourDone) seen(); } });
+  const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { document.body.classList.remove('tour-fab'); if (!settings().tourDone) seen(); } });
   const paint = () => {
     const [tab, icon, title, body] = TOUR[i];
     if (route() !== tab) { history.replaceState(history.state, '', `#/${tab}`); render(); }
+    document.body.classList.toggle('tour-fab', icon === ICON.camera);   // "tap the camera button": the sheet makes room and it shows
     const last = i === TOUR.length - 1;
     sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="tour"><div class="tour-ic">${icon}</div>
       <p class="lbl">${esc(i ? t('Tip {0} of {1}', i, TOUR.length - 1) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>
