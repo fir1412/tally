@@ -35,3 +35,8 @@ test('every kv key the app writes is loaded back on start (state.js KV_KEYS)', (
   const files = ['js', 'js/views'].flatMap(d => readdirSync(new URL(`../${d}/`, import.meta.url)).filter(f => f.endsWith('.js')).map(f => `${d}/${f}`));
   for (const f of files) for (const [, k] of src(f).matchAll(/setKv\('(\w+)'/g)) assert.ok(keys.includes(`'${k}'`), `${f} writes kv '${k}' that is never loaded`);
 });
+
+test('no control characters in app files (a "\b" in a regex once became a backspace, silently breaking it)', () => {
+  const bad = walk('js').filter(f => /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(readFileSync(join(ROOT, f), 'utf8')));
+  assert.deepEqual(bad, []);
+});

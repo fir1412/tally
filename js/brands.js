@@ -21,7 +21,7 @@ export const BRANDS = [
   [/tuk\s*tuk/i, 'Mr Tuk Tuk'], [/4\s*fingers/i, '4Fingers'], [/kyochon/i, 'Kyochon'], [/shihlin/i, 'Shihlin Taiwan Street Snacks'],
   [/chicken\s*rice\s*shop/i, 'The Chicken Rice Shop'], [/nasi\s*kandar\s*pelita/i, 'Nasi Kandar Pelita'], [/dubuyo/i, 'Dubuyo'],
   [/din\s*tai\s*fung/i, 'Din Tai Fung'], [/haidilao|海底捞/i, 'Haidilao'], [/tony\s*roma/i, "Tony Roma's"], [/wendy'?s/i, "Wendy's"],
-  [/popeyes/i, 'Popeyes'], [/grab\s*food/i, 'GrabFood'], [/food\s*panda/i, 'foodpanda'], [/shopee\s*food/i, 'ShopeeFood'],
+  [/popeyes/i, 'Popeyes'], [/grab\s*food/i, 'GrabFood'], [/\byour grab e-?receipt\b|^grab\s*(car|taxi|bike|express|mart)\b/i, 'Grab'], [/food\s*panda/i, 'foodpanda'], [/shopee\s*food/i, 'ShopeeFood'],
   // Groceries and convenience
   [/99\s*speed\s*[mh]art|\bspeed\s*mart/i, '99 Speedmart'], [/lotus'?s|ek-chor/i, "Lotus's"], [/\btesco\b/i, 'Tesco'], [/aeon\s*big/i, 'AEON BiG'],
   [/\baeon\b/i, 'AEON'], [/\bgiant\b|gch\s*retail/i, 'Giant'], [/\bmydin\b/i, 'Mydin'], [/jaya\s*grocer/i, 'Jaya Grocer'],

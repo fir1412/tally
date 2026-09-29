@@ -1067,4 +1067,8 @@ export default {
   "Use Tally while it downloads": "Guna Tally sementara ia dimuat turun",
   "Total ({0})": "Jumlah ({0})",
   "This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.": "Resit ini dalam {0}, tetapi {1} dalam {2}. Pilih akaun dalam {0}, atau semak jumlahnya.",
+  "Only on this phone. No Tally server: no one can bring it back, not even us.": "Hanya dalam telefon ini. Tiada pelayan Tally: tiada sesiapa boleh memulihkannya, termasuk kami.",
+  "Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.": "Dipadam oleh: nyahpasang, kosongkan data pelayaran, aplikasi pembersih, set semula telefon.",
+  "Safe: closing, restarting, updates, offline.": "Selamat: tutup, mula semula, kemas kini, tanpa internet.",
+  "New phone? Back up, then restore there.": "Telefon baharu? Sandarkan, kemudian pulihkan di sana.",
 };

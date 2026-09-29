@@ -1067,4 +1067,8 @@ export default {
   "Use Tally while it downloads": "下载时先用 Tally",
   "Total ({0})": "总额（{0}）",
   "This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.": "这张收据是 {0}，但 {1} 是 {2}。请选一个 {0} 账户，或检查金额。",
+  "Only on this phone. No Tally server: no one can bring it back, not even us.": "只在这部手机上。Tally 没有服务器：没人能帮你找回，我们也不能。",
+  "Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.": "会被删除：卸载、清除浏览数据、清理应用、重置手机。",
+  "Safe: closing, restarting, updates, offline.": "不影响：关闭、重启、更新、离线。",
+  "New phone? Back up, then restore there.": "换手机？先备份，再在新手机恢复。",
 };

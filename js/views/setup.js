@@ -798,11 +798,11 @@ export const act = {
     const li = (icon, s) => `<li>${icon}<span>${esc(s)}</span></li>`;
     openSheet(`<h2 class="sh-title">${esc(t('How your data is kept'))}</h2>
       <ul class="points">
-        ${li(ICON.wallet, t('Only on this phone, inside Tally. There is no Tally server, so no one can get it back for you, not even us.'))}
-        ${li(ICON.alert, t('These delete it: uninstalling Tally, clearing browsing data or storage for Tally, phone-cleaner apps, and resetting the phone.'))}
+        ${li(ICON.wallet, t('Only on this phone. No Tally server: no one can bring it back, not even us.'))}
+        ${li(ICON.alert, t('Deleted by: uninstalling, clearing browsing data, cleaner apps, a phone reset.'))}
         ${iosBrowser() ? li(ICON.plusSquare, t("On iPhone, keep Tally on the Home Screen: Safari clears web apps it hasn't seen for 7 days.")) : ''}
-        ${li(ICON.check, t('Safe: closing Tally, restarting the phone, updates, and being offline.'))}
-        ${li(ICON.upload, t('New phone? Back up here, then restore the file on the new phone.'))}
+        ${li(ICON.check, t('Safe: closing, restarting, updates, offline.'))}
+        ${li(ICON.upload, t('New phone? Back up, then restore there.'))}
       </ul>
       <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="sheet-close">${esc(t('Got it'))}</button></div>`, { label: t('How your data is kept') });
   },
