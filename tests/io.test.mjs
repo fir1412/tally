@@ -225,7 +225,7 @@ test('xlsx with a tab per year: every tab with the same header is read in tab or
     ['xl/worksheets/sheet3.xml', ws([['Mei Ling - Expenses 2024'], head, [45300, 'Nasi lemak', 'Food & Beverage', 6.5, 'Cash', ''], [45301, 'Dad birthday dinner', 'Parents', 500, 'Card', '']])],
   ]);
   const rows = await IO.fileToRows('meiling.xlsx', zip.buffer);
-  assert.deepEqual(rows.tabs, { read: ['2024', '2025'], skipped: ['Pivot'] });
+  assert.deepEqual(rows.tabs, { read: ['2024', '2025'], skipped: [{ name: 'Pivot', why: 'columns' }] });
   const h = IO.headerRow(rows), map = IO.guessMapping(rows[h]);
   assert.deepEqual(map, { date: 0, merchant: 1, category: 2, amount: 3, account: 4, note: 5 });
   const { txs } = IO.rowsToTx(rows.slice(h + 1), map, { accountId: 'fallback', accounts: { cash: 'a_cash', card: 'a_card', tng: 'a_tng' }, customCats: [{ id: 'c_par', name: 'Parents' }], catMap: { 'Food & Beverage': 'dining' } });

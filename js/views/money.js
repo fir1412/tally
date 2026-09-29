@@ -3,7 +3,7 @@ import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, se
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
+import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -88,7 +88,7 @@ export const input = {
     const v = el.value.trim() === '' ? 0 : calcAmount(el.value);
     el.classList.toggle('bad', v == null || v < 0);
     el.setAttribute('aria-invalid', String(v == null || v < 0));
-    if (err) err.textContent = v == null || v < 0 ? t('Enter an amount, for example 12.50.') : '';
+    if (err) err.textContent = v == null || v < 0 ? amtErr(el.value) : '';
     if (v == null || v < 0) return;
     if (!anyBudget(S.kv.budgets)) budFirst = true;   // the very first budget gets a warm word once typing stops
     const all = structuredClone(S.kv.budgets), b = scope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
@@ -169,6 +169,8 @@ export function guessCategory(name, type = 'expense') {
   const c = type === 'expense' ? categorize(name, '', S.kv.rules) : null;
   return c && c !== 'other' ? c : null;
 }
+/** What's wrong with a typed amount: over RM 100 million, or not an amount. */
+const amtErr = v => (tooLarge(v) ? t('That amount is too large (RM 100 million at most).') : t('Enter an amount, for example 12.50.'));
 let catPicked = false;   // a category tapped in the sheet is never changed by typing the name
 /** "1340", "13.40", "9:05" → "13:40" / "09:05"; anything else → no time. */
 export const hhmmIn = v => { const m = String(v ?? '').trim().match(/^([01]?\d|2[0-3])[:.\s]?([0-5]\d)$/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined; };
@@ -311,7 +313,7 @@ export const act = {
   'tx-save': async b => {
     readForm();
     const err = m => { $('#tx-err').textContent = m; };
-    if (!draft.amount || draft.amount <= 0) return err(t('Enter an amount, for example 12.50.'));
+    if (!draft.amount || draft.amount <= 0) return err(amtErr($('#tx-amt')?.value));
     if (!validIso(draft.date)) return err(t('Pick a date.'));
     if (draft.type === 'transfer' && (!draft.toAccountId || draft.toAccountId === draft.accountId)) return err(t('Pick two different accounts.'));
     const isNew = !S.tx.some(x => x.id === draft.id);
@@ -342,7 +344,7 @@ export const act = {
     const amount = calcAmount($('#b-amt').value), name = $('#b-name').value.trim(), start = $('#b-date').value, until = $('#b-until').value || undefined;
     const count = Math.min(600, parseInt($('#b-count').value, 10) || 0) || undefined, err = m => ($('#b-err').textContent = m);
     if (!name) return err(t('Give the bill a name.'));
-    if (!amount || amount <= 0) return err(t('Enter an amount, for example 12.50.'));
+    if (!amount || amount <= 0) return err(amtErr($('#b-amt').value));
     if (!validIso(start)) return err(t('Pick a date.'));
     if (until && !(validIso(until) && until >= start)) return err(t('The end date must be after the next payment.'));
     const old = S.recurring.find(x => x.id === b.dataset.id) || {};

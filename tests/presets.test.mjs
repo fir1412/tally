@@ -38,6 +38,7 @@ const APPS = [
   ['cashew.csv', 'cashew', { opening: 100000 }],
   ['bluecoins.csv', 'bluecoins', { opening: 0 }],
   ['onemoney.csv', 'onemoney', { opening: 0 }],
+  ['onemoney_utc.csv', 'onemoney', { opening: 0 }],   // newer export: income is From category → To account (no "Salary" account)
   ['toshl.csv', 'toshl', { opening: 100000 }],
   ['andromoney.csv', 'andromoney', { opening: 100000 }],
 ];

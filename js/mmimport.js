@@ -85,9 +85,11 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       const title = String(a.title || '');
       return { id, name: cleanText(title, 60) || 'Account', kind: /cash|tunai|现金/i.test(title) ? 'cash' : /card|kad|卡/i.test(title) ? 'card' : /wallet|tng|grab|boost/i.test(title) ? 'ewallet' : 'bank', opening: okSigned(bal - net) ? bal - net : 0, createdAt: Date.parse(a.created) || now, currency: a.currencyCode || 'MYR' };
     });
-    const otherCurrency = accounts.filter(a => a.currency !== 'MYR').map(a => a.name);
-    accounts.forEach(a => delete a.currency);
-    return { accounts, tx, customCats, photos, skipped, adjustments, otherCurrency, transfersSkipped: has('transfer') ? rows(`select count(*) as n from transfer where isRemoved = 0`)[0].n : 0 };
+    // TODO(transfers): rows of the `transfer` table are counted, not imported. Which sync_link rows tie a transfer to
+    // its two accounts (entityType 'Transfer'? one otherType per side?) is in no public source and no backup we have,
+    // so nothing is guessed. Balances still match: each opening is the current balance minus what was imported, and a
+    // transfer only moves money between the two. Import them when a real backup shows the link rows.
+    return { accounts: accounts.map(keepCurrency), tx, customCats, photos, skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped: has('transfer') ? rows(`select count(*) as n from transfer where isRemoved = 0`)[0].n : 0 };
   } finally { db.close(); }
 }
 
@@ -169,11 +171,11 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
       const id = accId.get(String(a.uid)), title = String(a.NIC_NAME || ''), bal = opening.get(id) || 0;
       return { id, name: cleanText(title, 60) || 'Account', kind: guessKind(title), opening: okSigned(bal) ? bal : 0, createdAt: now + n, currency: String(a.iso || 'MYR').toUpperCase() };
     });
-    const otherCurrency = accounts.filter(a => a.currency !== 'MYR').map(a => a.name);
-    accounts.forEach(a => delete a.currency);
-    return { accounts, tx, customCats, photos: [], skipped, adjustments, otherCurrency, transfersSkipped: 0, transfers, app: 'realbyte' };
+    return { accounts: accounts.map(keepCurrency), tx, customCats, photos: [], skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped: 0, transfers, app: 'realbyte' };
   } finally { db.close(); }
 }
+/** An account in another currency keeps it (left out of the RM total, shown with its code); an RM one has none. */
+const keepCurrency = ({ currency, ...a }) => (/^[A-Z]{3}$/.test(currency) && currency !== 'MYR' ? { ...a, currency } : a);
 const rbId = u => { const id = `rb_${String(u).slice(0, 40)}`; return okId(id) ? id : `rb_h${hash(u)}`; };
 
 /** Photo bytes for some of the imported transactions (read from the same backup, only when the user asks). */

@@ -163,21 +163,35 @@ export async function xlsxSheets(buf) {
   return tabs.map(({ name, path }) => ({ name, rows: sheetRows(dec(files[path]), shared) }));
 }
 /**
- * An .xlsx as one list of rows: the first tab with a header row, then every later tab with the same header (a tab per
- * year), its own title and header rows left out. rows.tabs = {read, skipped} tab names, for the mapping sheet.
+ * An .xlsx as one list of rows: the first tab with a header row, then every later tab that has a date and an amount
+ * column (a tab per year), its own title and header rows left out. A later tab's columns may be ordered differently,
+ * or have one more or one fewer: each goes under the first tab's column of the same name, else of the same meaning
+ * (guessMapping), else into a new column at the end. rows.tabs = {read: [names], skipped: [{name, why: 'columns' |
+ * 'rows'}]}, for the mapping sheet.
  */
 export async function xlsxToRows(buf) {
   const sheets = await xlsxSheets(buf);
   const headOf = rows => { const h = headerRow(rows); return Object.keys(guessMapping(rows[h] || [])).length >= 2 ? h : -1; };
-  const sig = r => r.map(x => cleanText(x, 40).toLowerCase()).join('|').replace(/\|+$/, '');
   const first = sheets.find(s => headOf(s.rows) >= 0) || sheets.find(s => s.rows.length);
   if (!first) throw new Error('no sheet');
-  const key = sig(first.rows[Math.max(0, headOf(first.rows))] || []), out = [...first.rows], tabs = { read: [first.name], skipped: [] };
+  const h0 = Math.max(0, headOf(first.rows)), head = [...(first.rows[h0] || [])], out = [...first.rows], tabs = { read: [first.name], skipped: [] };
+  const name = x => cleanText(x, 40).toLowerCase();
   for (const s of sheets) {
     if (s === first || !s.rows.length) continue;
-    const h = headOf(s.rows);
-    if (h >= 0 && sig(s.rows[h]) === key && out.length < LIMITS.rows) { out.push(...s.rows.slice(h + 1)); tabs.read.push(s.name); } else tabs.skipped.push(s.name);
+    const h = headOf(s.rows), hd = h >= 0 ? s.rows[h] : [], m = guessMapping(hd);
+    if (h < 0 || m.date == null || (m.amount ?? m.debit ?? m.credit) == null) { tabs.skipped.push({ name: s.name, why: 'columns' }); continue; }
+    if (out.length >= LIMITS.rows) { tabs.skipped.push({ name: s.name, why: 'rows' }); continue; }
+    const m0 = guessMapping(head), meaning = Object.fromEntries(Object.entries(m).map(([k, i]) => [i, k]));
+    const to = hd.map((x, i) => {
+      const n = name(x), same = n ? head.findIndex(y => name(y) === n) : -1;
+      if (same >= 0) return same;
+      if (meaning[i] && m0[meaning[i]] != null) return m0[meaning[i]];
+      return n ? head.push(x) - 1 : -1;
+    });
+    for (const r of s.rows.slice(h + 1)) { const row = []; to.forEach((j, i) => { if (j >= 0) row[j] = r[i] ?? ''; }); out.push(Array.from(row, x => x ?? '')); }
+    tabs.read.push(s.name);
   }
+  if (out.length) out[h0] = head;
   return Object.assign(out.slice(0, LIMITS.rows), { tabs });
 }
 
@@ -206,15 +220,15 @@ export async function fileToRows(name, buf) {
 // [exact name, part of a name]. Exact names are tried first for every column ("Category" before "Category Group/Category").
 const HEAD = {
   date: [/^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间|tarikh transaksi)$/i, /date|tarikh|日期/i],
-  balance: [/^((running|closing|available|wallet|e-?wallet|account|current|statement|ledger|book) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$/i, /balance|^baki\b|余额|餘額/i],
+  balance: [/^((running|closing|available|wallet|e-?wallet|account|current|statement|ledger|book) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$|^(账户|帳戶)?(余额|餘額|结余|結餘)$/i, /balance|^baki\b|结余|結餘|余额|餘額/i],
   debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
   type: [/^(type|jenis|类型|類型|income\/expense|expense\/income|in\/out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr\/cr|cr\/dr|debit\/credit|credit\/debit|d\/c|c\/d)$/i, null],
   category: [/^(category|categories|kategori|类别|類別|分类|分類)$/i, /categor|kategori|类别|類別|分类|分類/i],
-  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|项目|項目|description|transaction description|keterangan|butiran|catatan|details?)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description/i],
+  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
   note: [/^(notes?|nota|memo|remarks?|备注|備註|comments?)$/i, /note|nota|memo|keterangan|butiran|备注|備註|details|remark|catatan/i],
   account: [/^(account|akaun|账户|帳戶|wallet|dompet|paid (by|with|from|using)|pay(ment)? (by|method|mode)|payment (method|mode|type)|method|bayar (guna|dengan|melalui)|kaedah (bayaran|pembayaran)|付款方式|支付方式)$/i, null],
-  amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
+  amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total|cost|kos)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
 };
 /** Which column holds what: {date, amount | debit+credit, type?, category?, merchant?, note?, account?, balance?} as indexes. */
 export function guessMapping(header) {
@@ -405,7 +419,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
     const tr = preset?.transfer?.(cx);
     if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
-    const rawCat = get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
+    const rawCat = preset?.category ? preset.category(cx) : get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
     let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
     // "Food" in another app at KFC or a mamak is a meal, not groceries (a category actually named Groceries stays).
     if (category === 'groceries' && !CAT_WORDS.find(([c]) => c === 'groceries')[1].test(rawCat || '') && shopCategory(merchant) === 'dining') category = 'dining';
@@ -475,25 +489,32 @@ export function accountNames(rows, map, { preset = null, header = [] } = {}) {
 }
 /** False for a preset's transfer and balance-correction rows: their Category cell isn't a spending category. */
 export const isMoneyRow = (r, map, { preset = null, header = [] } = {}) => { const cx = rowCtx(r, map, header); return !preset?.transfer?.(cx) && !preset?.adjust?.(cx); };
+/** A row's category cell (a preset may take it from another column on some rows: 1Money's income). */
+export const rowCategory = (r, map, { preset = null, header = [] } = {}) => { const cx = rowCtx(r, map, header); return preset?.category ? preset.category(cx) : cx.get('category'); };
 
 // ---- after an import: already here? transfers between the user's own accounts ----------------------------------------
 /**
  * Split an import into {fresh, dups}. Already here: the same id (the same file again); the same money on the same day
  * and account from another source (a receipt, then its statement line); or one side of a transfer already recorded
- * (a wallet reload paired with its bank line earlier, then the wallet's statement brought in). Rows repeated within
- * the import all stay (two teh tarik on one day).
+ * (a wallet reload paired with its bank line earlier, then the wallet's statement brought in); or the same ledger
+ * from another format of the same app (a .mmbak, then its Excel export): same day, amount, type and account, and a
+ * word of the text in common (or no text on either). Rows repeated within the import all stay (two teh tarik on one
+ * day). `names` (account id → name) matches accounts by name, so a second format's new accounts meet the first's.
  */
-export function splitDups(existing, txs) {
+export function splitDups(existing, txs, names = {}) {
   const ids = new Set(existing.map(x => x.id)), by = new Map(), add = (k, x) => { const l = by.get(k); if (l) l.push(x); else by.set(k, [x]); };
+  const acc = id => (Object.hasOwn(names, id) ? `@${String(names[id]).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')}` : id);
   for (const y of existing) {
-    if (y.type !== 'transfer') add(`${y.accountId}|${y.date}|${y.amount}`, y);
-    else { add(`out|${y.accountId}|${y.amount}`, y); add(`in|${y.toAccountId}|${y.amount}`, y); }
+    if (y.type !== 'transfer') add(`${acc(y.accountId)}|${y.date}|${y.amount}`, y);
+    else { add(`out|${acc(y.accountId)}|${y.amount}`, y); add(`in|${acc(y.toAccountId)}|${y.amount}`, y); }
   }
   // Each existing transaction stands for one incoming row at most.
   const take = (list = [], ok) => { const i = list.findIndex(ok); return i >= 0 && !!list.splice(i, 1); };
-  const tr = x => by.get(`${x.type === 'income' ? 'in' : 'out'}|${x.accountId}|${x.amount}`);
+  const tr = x => by.get(`${x.type === 'income' ? 'in' : 'out'}|${acc(x.accountId)}|${x.amount}`);
+  const words = x => new Set(`${x.merchant || ''} ${x.note || ''}`.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []);
+  const alike = (x, y) => { const a = words(x), b = words(y); return !a.size && !b.size ? true : [...a].some(w => b.has(w)); };
   const dup = x => ids.has(x.id)
-    || take(by.get(`${x.accountId}|${x.date}|${x.amount}`), y => y.source !== x.source && y.type === x.type)
+    || take(by.get(`${acc(x.accountId)}|${x.date}|${x.amount}`), y => y.type === x.type && (y.source !== x.source || alike(x, y)))
     || take(tr(x), y => y.date === x.date) || take(tr(x), y => Math.abs(daysBetween(y.date, x.date)) <= 1);
   const fresh = [], dups = [];
   for (const x of txs) (dup(x) ? dups : fresh).push(x);
@@ -522,7 +543,39 @@ export function pairTransfers(all, fresh) {
 }
 /** One transfer for a pair: the expense's id, day and text, into the income's account. */
 export const asTransfer = ([o, i]) => ({ ...o, type: 'transfer', toAccountId: i.accountId, category: 'other' });
-
+/**
+ * Accounts whose balance the user typed (`typed`: Start fresh, the account sheet, "What is in these accounts today?"):
+ * imported rows dated before the day the account was made are already inside that figure. → {accountId: sen to add
+ * to its opening} so today's balance stays what the user typed. Accounts from before the flag existed count as typed
+ * unless they already hold imported rows from before they were made (then they are an app's history: left alone).
+ */
+export function typedShift(accounts, existing, rows) {
+  const made = a => { const d = new Date(a.createdAt); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const on = (x, id) => x.accountId === id || x.toAccountId === id, out = {};
+  for (const a of accounts) {
+    if (!(a.createdAt > 0) || a.outside) continue;
+    const day = made(a);
+    if (!a.typed && existing.some(x => on(x, a.id) && x.date < day && (x.source === 'import' || x.source === 'statement'))) continue;
+    const net = rows.filter(x => on(x, a.id) && x.date < day).reduce((s, x) => s + (x.type === 'income' || (x.type === 'transfer' && x.toAccountId === a.id) ? x.amount : -x.amount), 0);
+    if (net) out[a.id] = -net;
+  }
+  return out;
+}
+const RELOAD = /\b(reload|top[\s-]?up|tambah nilai)\b/i, NOT_NAME = /^(bank|akaun|account|savings|simpanan|semasa|current|card|kad)$/;
+/**
+ * E-wallet reloads left over after pairTransfers ("Reload via FPX Maybank" with no Maybank line): money the user moved
+ * from their own bank, never income. Each becomes a transfer into the wallet from the bank or card account its text
+ * names (that bank's statement, imported later, then finds it already here: splitDups), else from `other`, a
+ * placeholder for a bank not in Tally. → the transfers, same ids.
+ */
+export function reloadTransfers(txs, accounts, other) {
+  const kind = new Map(accounts.map(a => [a.id, a.kind])), banks = accounts.filter(a => (a.kind === 'bank' || a.kind === 'card') && !a.outside);
+  const words = s => String(s || '').toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || [];
+  return txs.filter(x => x.type === 'income' && kind.get(x.accountId) === 'ewallet' && RELOAD.test(`${x.merchant || ''} ${x.note || ''}`)).map(x => {
+    const text = new Set(words(`${x.merchant} ${x.note}`)), from = banks.find(a => words(a.name).some(w => !NOT_NAME.test(w) && text.has(w)));
+    return { ...x, type: 'transfer', accountId: from?.id || other, toAccountId: x.accountId, category: 'other' };
+  });
+}
 // ---- export ------------------------------------------------------------------------------------------
 const q = v => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 /** Spreadsheets run cells starting with = + - @; a leading quote makes them plain text. */
@@ -567,7 +620,8 @@ export function readBackup(text) {
   const customIds = new Set(customCats.map(c => c.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
   const accounts = list(d.accounts, 200).filter(a => isObj(a) && okId(a.id))
-    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0, ...(a.scope === 'joint' ? { scope: 'joint' } : {}), ...upd(a.updatedAt) }));
+    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0, ...(a.scope === 'joint' ? { scope: 'joint' } : {}),
+      ...(/^[A-Z]{3}$/.test(a.currency) && a.currency !== 'MYR' ? { currency: a.currency } : {}), ...(a.outside === true ? { outside: true } : {}), ...(a.typed === true ? { typed: true } : {}), ...upd(a.updatedAt) }));
   const ids = new Set(accounts.map(a => a.id));
   const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({

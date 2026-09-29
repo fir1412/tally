@@ -81,6 +81,12 @@ export function fmtRM(sen, { plain = false } = {}) {
   const s = `${Math.floor(a / 100).toLocaleString('en-MY')}.${String(a % 100).padStart(2, '0')}`;
   return (sen < 0 ? '−' : '') + (plain ? s : 'RM ' + s)   // never split "RM" from its figure;
 }
+/** A typed number over RM 100 million (MAX_SEN): the field says "too large", not "enter an amount". */
+export const tooLarge = v => calcAmount(v) == null && (String(v ?? '').match(/\d[\d,]*(\.\d+)?/g) || []).some(n => parseFloat(n.replace(/,/g, '')) * 100 > MAX_SEN);
+/** Accounts left out of the RM total: kept in another currency (Money Manager's SGD wallet), or a bank not in Tally. */
+export const offTotal = a => !!a?.outside || (!!a?.currency && a.currency !== 'MYR');
+/** An account's balance in its own currency: "SGD 1,234.50" for one kept in another currency. */
+export const fmtAcct = (a, sen) => (a?.currency && a.currency !== 'MYR' ? `${a.currency} ${fmtRM(sen, { plain: true })}` : fmtRM(sen));
 
 // ---- dates -------------------------------------------------------------------------------
 export const monthOf = iso => iso.slice(0, 7);
@@ -201,7 +207,7 @@ export function itemAmounts(tx) {
 }
 
 // ---- balances & months -----------------------------------------------------------------------
-/** Balance per account and in total, optionally up to and including a date. */
+/** Balance per account and in total (RM accounts only: offTotal), optionally up to and including a date. */
 export function balances(accounts, txs, upTo = null) {
   const by = Object.fromEntries(accounts.map(a => [a.id, a.opening || 0]));
   for (const t of txs) {
@@ -210,7 +216,7 @@ export function balances(accounts, txs, upTo = null) {
     else if (t.type === 'income') by[t.accountId] = (by[t.accountId] ?? 0) + t.amount;
     else if (t.type === 'transfer') { by[t.accountId] = (by[t.accountId] ?? 0) - t.amount; by[t.toAccountId] = (by[t.toAccountId] ?? 0) + t.amount; }
   }
-  const known = new Set(accounts.map(a => a.id));
+  const known = new Set(accounts.filter(a => !offTotal(a)).map(a => a.id));
   const total = Object.entries(by).filter(([id]) => known.has(id)).reduce((s, [, v]) => s + v, 0);
   return { by, total };
 }

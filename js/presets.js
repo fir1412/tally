@@ -1,7 +1,8 @@
 // Exports from other money apps, recognised by their header row: the columns, which rows are transfers between the
 // app's own accounts (and the other account, when the row names it), which rows are balance corrections (folded into
 // opening balances, never spending), and their default category names in Tally's terms. Pure: no DOM.
-// Hooks get c = {get(key): the mapped column's cell, raw(header): a cell by the app's own column name}.
+// Hooks get c = {get(key): the mapped column's cell, raw(header): a cell by the app's own column name}; account and
+// category hooks, when present, say which cell holds a row's account or category.
 // ponytail: English headers only; an app set to another language exports other column names and falls back to the column sheet.
 
 const low = s => String(s ?? '').replace(/[\u0000-\u001f\ufeff"]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -98,9 +99,21 @@ export const PRESETS = [
   // 1Money: "DATE, TYPE, FROM ACCOUNT, TO ACCOUNT / TO CATEGORY, AMOUNT, CURRENCY, AMOUNT 2, CURRENCY 2, TAGS, NOTES",
   // dates MM/dd/yy, unsigned amounts, TYPE Expense / Income / Transfer, one row per transfer (github.com/bladeours/
   // budget-project src/test/resources/import/onemoney.csv and OneMoneyService.java; Ivy Wallet CSVMapper.oneMoney).
+  // An Income row also has the account in FROM ACCOUNT and the category in TO: "Income, Santander, Gifts" in
+  // bladeours' file (OneMoneyService.getToAccountOrCategory reads the account from FROM ACCOUNT for INCOME), and
+  // "Income, Qapital, CardFlight" in github.com/son1112/nostra-ruby spec/fixture/1Money-sample.html.
   { id: 'onemoney', name: '1Money', need: ['date', 'type', 'from account', 'to account / to category', 'amount'],
     cols: { date: ['date'], type: ['type'], account: ['from account'], category: ['to account / to category'], amount: ['amount'], note: ['notes'] },
     mdy: true,
+    transfer: c => low(c.get('type')) === 'transfer' && { dir: 'out', to: c.get('category') } },
+  // 1Money's newer export: "Date (UTC), Type, From account / from category, From subcategory, To account / to category,
+  // To subcategory, Amount 1, Currency 1, Amount 2, Currency 2, Commission, …, Comment", UTC times. Money goes from →
+  // to, so an Income row names its category in From and the account in To ("Income, Company Payroll, Primary Account":
+  // github.com/fxprima/finance-tracker example-dummy-data/mony-format-dummy.csv, CSVFormatValidator.java).
+  { id: 'onemoney', name: '1Money', need: ['date (utc)', 'type', 'from account / from category', 'to account / to category', 'amount 1'],
+    cols: { date: ['date (utc)'], type: ['type'], account: ['from account / from category'], category: ['to account / to category'], amount: ['amount 1'], note: ['comment'] },
+    account: c => (low(c.get('type')) === 'income' ? c.get('category') : c.get('account')),
+    category: c => (low(c.get('type')) === 'income' ? c.get('account') : c.get('category')),
     transfer: c => low(c.get('type')) === 'transfer' && { dir: 'out', to: c.get('category') } },
 
   // Toshl: "Date, Account, Category, Tags, Expense amount, Income amount, Currency, In main currency, Main currency,
