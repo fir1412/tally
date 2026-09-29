@@ -27,6 +27,12 @@ export function habitEvent(h, now = new Date()) {
   const byday = days.map(i => ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][i]).join(',');
   return { uid: `tally-habit-${safeId(h.category)}-${safeId(h.days)}`, title: h.title, details: h.details || '', start: `${ymd(d)}T${clock(at)}`, end: `${ymd(d)}T${clock(at + 5)}`, rrule: `FREQ=WEEKLY;BYDAY=${byday}`, alarm: '-PT0M' };
 }
+/** "Log today's spending" every day at `at` (HH:MM, default 21:00), from today if that time is still ahead, else tomorrow. */
+export function dailyEvent({ at = '21:00', title, details = '' }, now = new Date()) {
+  const [hh, mm] = hm(at), mins = hh * 60 + mm;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (now.getHours() * 60 + now.getMinutes() >= mins ? 1 : 0));
+  return { uid: 'tally-daily-log', title, details, start: `${ymd(d)}T${clock(mins)}`, end: `${ymd(d)}T${clock(Math.min(mins + 5, 23 * 60 + 59))}`, rrule: 'FREQ=DAILY', alarm: '-PT0M' };
+}
 /** iCalendar text for a list of events. */
 export function ics(events, now = new Date()) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tally//reminders//EN', 'CALSCALE:GREGORIAN'];

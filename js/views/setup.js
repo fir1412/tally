@@ -9,6 +9,7 @@ import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
+import { dailyEvent, ics, googleUrl } from '../calendar.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex } from '../colorpicker.js';
@@ -109,6 +110,11 @@ function accSub(a, by) {
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
+async function dailyReminder() {
+  const at = $('#remind-at')?.value || '21:00';
+  await setSetting('remindAt', at);
+  return dailyEvent({ at, title: t("Tally: add today's spending"), details: `${t('A minute is enough: snap the receipts or type what you spent.')} ${location.origin}${location.pathname}` });
+}
 export const settingsView = {
   title: 'Settings',
   async after() {   // the reader card says so when the reader is already on this phone
@@ -132,6 +138,9 @@ export const settingsView = {
         <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your spouse as a file. They import it in Tally, and their changes come back the same way.') : t('Married? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your spouse.'))}</p>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
+      <section class="card" id="remind"><h2>${esc(t('Daily reminder'))}</h2><p class="fine">${esc(t("Your calendar reminds you to add the day's spending, even with Tally closed."))}</p>
+        <label class="field"><span>${esc(t('Remind me at'))}</span><input id="remind-at" type="time" value="${esc(settings().remindAt || '21:00')}"></label>
+        <div class="row2"><button class="btn" data-act="remind-google">${ICON.calendar}${esc(t('Google Calendar'))}</button><button class="btn ghost" data-act="remind-ics">${ICON.download}${esc(t('Other calendar'))}</button></div></section>
       <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
         <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num"></span></div>
         <button class="btn ghost wide" data-act="reader-get">${ICON.download}${esc(t('Download the receipt reader now'))}</button></section>
@@ -527,6 +536,9 @@ export const act = {
     $('#reader-dl').hidden = true; b.remove(); $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
     toast(t('The receipt reader is ready on this phone and works offline.'), { k: 'good', icon: 'check' });
   },
+  // A daily reminder from the phone's own calendar: no server, works with the app closed.
+  'remind-google': async () => { const ev = await dailyReminder(); window.open(googleUrl(ev), '_blank', 'noopener'); },
+  'remind-ics': async () => { download('tally-daily-reminder.ics', ics([await dailyReminder()]), 'text/calendar'); toast(t('Open the file to add the reminder to your calendar.'), { k: 'good', icon: 'check' }); },
   feedback: () => openFeedback(APP_VERSION),
   'lock-set': () => lockSheet(render),
   'lock-off': async () => { if (await confirmSheet({ title: t('Turn off the lock?'), body: t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') })) { await lockOff(); render(); } },

@@ -263,3 +263,11 @@ test('category colours: built-ins all differ; a new category takes a colour not 
   assert.equal(E.nextColor([]), E.CUSTOM_COLORS[0]);
   assert.equal(E.nextColor([E.CUSTOM_COLORS[0].toLowerCase()]), E.CUSTOM_COLORS[1]);
 });
+
+test('daily reminder: every day at the chosen time, from today if still ahead, else tomorrow', async () => {
+  const { dailyEvent, ics } = await import('../js/calendar.js');
+  const morning = dailyEvent({ at: '21:00', title: 'Tally' }, new Date(2026, 8, 29, 8, 0));
+  assert.equal(morning.start, '20260929T210000'); assert.equal(morning.rrule, 'FREQ=DAILY');
+  assert.equal(dailyEvent({ at: '21:00', title: 'Tally' }, new Date(2026, 8, 29, 22, 0)).start, '20260930T210000');
+  assert.match(ics([morning]), /RRULE:FREQ=DAILY/);
+});

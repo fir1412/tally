@@ -972,4 +972,12 @@ export default {
   "A budget ring on Home, a weekly recap and small good-news finds; saving an entry feels quicker": "主页的预算圆环、每周回顾和小小的好消息；保存记录更顺手",
   "The tour no longer darkens the screen: the button each tip talks about pulses instead": "导览不再让屏幕变暗：每条提示说到的按钮会闪动提醒",
   "Safer data: imports save all or nothing, a photo that can't be read is kept to try again, and Tally opens faster offline": "数据更安全：导入要么全部保存要么都不保存，读不出的照片会保留以便重试，离线打开更快",
+  "Daily reminder": "每日提醒",
+  "Your calendar reminds you to add the day's spending, even with Tally closed.": "即使 Tally 没打开，你的日历也会提醒你记下当天的开销。",
+  "Remind me at": "提醒时间",
+  "Google Calendar": "Google 日历",
+  "Other calendar": "其他日历",
+  "Open the file to add the reminder to your calendar.": "打开这个文件，把提醒加到你的日历。",
+  "Tally: add today's spending": "Tally：记下今天的开销",
+  "A minute is enough: snap the receipts or type what you spent.": "一分钟就够：拍下收据或输入花了什么。",
 };

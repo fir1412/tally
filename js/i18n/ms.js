@@ -972,4 +972,12 @@ export default {
   "A budget ring on Home, a weekly recap and small good-news finds; saving an entry feels quicker": "Cincin bajet di Utama, rumusan mingguan dan berita baik kecil; menyimpan rekod terasa lebih pantas",
   "The tour no longer darkens the screen: the button each tip talks about pulses instead": "Lawatan tidak lagi menggelapkan skrin: butang yang diterangkan setiap tip akan berdenyut",
   "Safer data: imports save all or nothing, a photo that can't be read is kept to try again, and Tally opens faster offline": "Data lebih selamat: import disimpan semua atau tiada, gambar yang tidak dapat dibaca disimpan untuk dicuba lagi, dan Tally dibuka lebih pantas tanpa internet",
+  "Daily reminder": "Peringatan harian",
+  "Your calendar reminds you to add the day's spending, even with Tally closed.": "Kalendar anda akan mengingatkan anda merekod perbelanjaan hari itu, walaupun Tally ditutup.",
+  "Remind me at": "Ingatkan saya pada",
+  "Google Calendar": "Google Calendar",
+  "Other calendar": "Kalendar lain",
+  "Open the file to add the reminder to your calendar.": "Buka fail itu untuk menambah peringatan ke kalendar anda.",
+  "Tally: add today's spending": "Tally: rekod perbelanjaan hari ini",
+  "A minute is enough: snap the receipts or type what you spent.": "Seminit pun cukup: ambil gambar resit atau taip apa yang dibelanjakan.",
 };
