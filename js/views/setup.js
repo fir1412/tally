@@ -2,7 +2,7 @@
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
-import { fmtRM, parseAmount, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
 import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -12,6 +12,15 @@ import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
 
+/** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
+const demoCard = () => {
+  const lines = [['MILO 1KG', 'groceries', 2890], ['GARDENIA', 'groceries', 450], ['DYNAMO 2.8KG', 'household', 3290], ['NASI LEMAK', 'dining', 600]];
+  const by = {}; for (const [, c, v] of lines) by[c] = (by[c] || 0) + v;
+  return `<div class="demo" aria-hidden="true"><div class="demo-r"><b>KEDAI RUNCIT JAYA</b>${lines.map(([n, , v]) => `<span><i>${n}</i><i>${(v / 100).toFixed(2)}</i></span>`).join('')}<span class="tot"><i>TOTAL</i><i>72.30</i></span></div>
+    <div class="demo-a">${ICON.back}</div><ul class="demo-c">${Object.entries(by).map(([c, v]) => `<li>${dotFor(c)}<span class="grow">${esc(t(CATEGORIES.find(x => x.id === c).name))}</span><b>${esc(fmtRM(v))}</b></li>`).join('')}</ul></div>`;
+};
+const dotFor = c => `<span class="dot" style="background:${esc(CATEGORIES.find(x => x.id === c).color)}"></span>`;
+
 // ---- Welcome ----------------------------------------------------------------------------------------------------------
 export const welcomeView = {
   title: 'Welcome',
@@ -19,6 +28,7 @@ export const welcomeView = {
     return `<section class="welcome">
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
+      ${demoCard()}
       ${langButtons()}
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
@@ -50,17 +60,22 @@ function accountSheet(a = {}) {
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
 }
 
+/** "Bank account · RM 1,200.00", without repeating a type the name already says ("Cash · Cash"). */
+function accSub(a, by) {
+  const kind = t(KIND[a.kind] || 'Bank account');
+  return [kind.toLowerCase() !== a.name.trim().toLowerCase() && kind, fmtRM(by[a.id] || 0)].filter(Boolean).join(' · ');
+}
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
 export const settingsView = {
   title: 'Settings',
   render() {
-    const rules = Object.entries(S.kv.rules);
+    const rules = Object.entries(S.kv.rules), bal = balances(S.accounts, S.tx, today()).by;
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
         <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
-      <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(t(KIND[a.kind] || 'Bank account'))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
+      <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
