@@ -7,7 +7,7 @@ import { calcAmount } from './engine.js';
 // (SR, ZR, T, *, "2" for a misread Z, "§", ":")
 // A glued unit ("1.25L", "0.50KG") is a pack size in a name, not a price with a tax code.
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
-const COUNT = /\b(ite[mn]|qty)\s*\(s\)|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
+const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
@@ -176,7 +176,8 @@ export function parseReceipt(text) {
     const m = line.match(AMOUNT);
     const label = m ? line.slice(0, m.index).trim() : line;
     if (!m) {
-      const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line);   // "Item (s):1 Qty(s):1" is a footer, never an item's name
+      // "Item (s):1 Qty(s):1" is a footer and "QTY ITEM", "Table: 8", "Payment :" are headers: never an item's name
+      const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
       if (hasText && last && last.name === null) { last.name = line; pendingName = null; } // name printed under the price
       else pendingName = hasText ? line : null;
@@ -210,11 +211,16 @@ export function parseReceipt(text) {
   // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
   if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
   if (Math.abs(r.rounding ?? 0) > 5) r.rounding = null;
+  for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.check = checksum(r);
   return r;
 }
 
 const amountsIn = line => [...line.matchAll(ALL_AMOUNTS)].map(m => +m[1] * 100 + +m[2]);
+/** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no glued quantity ("1x Teh O",
+ *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
+export const cleanName = n => n.replace(/^\d{4,}\s*(?=\S)/, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
+  .replace(/(?<=[A-Za-z])0(?![\d.,])|(?<![\dA-Za-z.])0(?=[A-Za-z]{2})/g, 'O').trim() || n;   // "20OZ" keeps its digits
 /**
  * No "Total" line (e-wallet and bank slips, torn receipts): subtotal plus adjustments, else the amount printed
  * most often (slips repeat it), else the largest RM amount. Marked totalGuessed so the review screen flags it.
@@ -250,6 +256,10 @@ function namesBelow(lines) {
     if (isText(lines[i + 1])) below++;
   });
   if (below !== above) return below > above;
+  // Tie (text both sides of every number line): the line after the LAST number line decides. A footer there
+  // (Total, Item(s): 5, Subtotal) means each name sits above its numbers (Mr DIY, Giant); item text means below.
+  const last = lines.reduce((k, l, i) => (isQtyOnly(l) ? i : k), -1), after = lines[last + 1];
+  if (last >= 0 && after !== undefined) return !(COUNT.test(after) || TOTAL.test(after) || SUBTOTAL.test(after) || !isText(after));
   return first >= 0 && lines.findIndex(l => AMOUNT.test(l)) === first; // ponytail: vote heuristic; per-merchant layout memory if it misfires
 }
 

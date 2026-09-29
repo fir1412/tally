@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, parseDate, parseItemLines } from '../js/parse.js';
+import { parseReceipt, parseDate, parseItemLines, cleanName } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -202,4 +202,15 @@ test('totals: 5-sen cash rounding, zero "Total" lines, no Total line at all', ()
   assert.equal(parseReceipt('SHOP\nLATTE 12.90\nSubtotal 12.90\nTotal (MYR) 0.00\nMyDebit 12.90').total, 1290);   // a zero Total is never it
   assert.equal(parseReceipt('KEDAI\nNASI 7.50\nTEH 2.00\nCASH 20.00\nCHANGE 10.50').total, 950);   // cash less change
   assert.equal(parseReceipt('KEDAI\nMEE 8.60\nMAYBANK QR PAY 8.60').total, 860);
+});
+
+test('item names: no SKU in front, no glued quantity, OCR 0 back to O', () => {
+  assert.equal(cleanName('4208915 SAN RIM0 CARBONARA'), 'SAN RIMO CARBONARA');
+  assert.equal(cleanName('1x TehO LimauAis'), 'TehO LimauAis');
+  assert.equal(cleanName('1NESCAFE'), 'NESCAFE');
+  assert.equal(cleanName('78779 0NE COND0M'), 'ONE CONDOM');
+  assert.equal(cleanName('HAMMER 20OZ'), 'HAMMER 20OZ');
+  // names printed above their code-qty-price lines, footer after the last one (Mr DIY / Giant layout)
+  const r = parseReceipt('MR DIY\nWOOD LADLE 39CM\n9062133 1X6.50 6.50\nKNIFE 8 INCH\n6941334 1X6.90 6.90\nltem(s):2 Qty（s):2\nTotal RM 13.40');
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['WOOD LADLE 39CM', 650], ['KNIFE 8 INCH', 690]]);
 });
