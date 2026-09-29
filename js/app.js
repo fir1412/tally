@@ -117,14 +117,19 @@ const entering = () => { const html = document.documentElement; html.dataset.ent
 // Going straight back to the screen just left (back arrow or phone back) returns to the same scroll position.
 let shown = route(), left = null;
 export const cameFrom = () => left?.to === route() ? left.route : null;
+let transition = null;
 window.addEventListener('hashchange', () => {
   if (sheetOpen()) closeSheet();
   const r = route(), y = left && left.route === r && left.to === shown ? left.y : 0;
   left = { route: shown, y: window.scrollY, to: r };
   shown = r;
+  // One crossfade at a time: a back pressed while the last screen was still arriving froze Chrome for 4 s (the transition
+  // timed out waiting). A screen change during another's entrance or transition just switches, without the crossfade.
+  const busy = transition || document.documentElement.dataset.enter !== undefined;
   entering();
   const run = () => { render(); window.scrollTo(0, y); };
-  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(run); else run();
+  transition?.skipTransition?.();
+  if (document.startViewTransition && !busy && !matchMedia('(prefers-reduced-motion: reduce)').matches) { transition = document.startViewTransition(run); transition.finished.finally(() => { transition = null; }); } else run();
 });
 
 // Global actions used by every view.

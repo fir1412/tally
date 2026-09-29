@@ -807,7 +807,7 @@ export const act = {
         ${li(ICON.check, t('Safe: closing, restarting, updates, offline.'))}
         ${li(ICON.upload, t('New phone? Back up, then restore there.'))}
       </ul>
-      <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="sheet-close">${esc(t('Got it'))}</button></div>`, { label: t('How your data is kept') });
+      <div class="row2 sheetfoot"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="sheet-close">${esc(t('Got it'))}</button></div>`, { label: t('How your data is kept') });   // the buttons stay on screen at big text
   },
   'backup': () => {
     const { name, text } = backupFile(), canShare = !!navigator.canShare?.({ files: [new File([''], name, { type: 'application/json' })] });
