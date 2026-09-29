@@ -1,6 +1,7 @@
 // Receipt text (from OCR) -> structured receipt. Pure, no DOM. Amounts are integer cents (sen).
 // Tuned for Malaysian receipts: SST, service charge, 5-sen rounding, SR/ZR tax codes, day-first dates.
 import { brandOf } from './brands.js';
+import { calcAmount } from './engine.js';
 
 // "12.90", "12,90", "RM 12.90", "$12.90", "-2.00", "2.00-", then optional trailing tax code or OCR junk
 // (SR, ZR, T, *, "2" for a misread Z, "§", ":")
@@ -75,20 +76,31 @@ export function parseDate(line) {
 }
 
 /**
- * Items typed by hand, one per line: "Phone 1299", "Ikan kembung 25.50", "RM 8 sayur", "Teh ais: 2.5".
- * → [{name, cents}]; lines without a price are skipped.
+ * Items typed by hand, one per line: "Phone 1299", "Ikan kembung 25.50", "RM 8 sayur", "Teh ais: 2.5", "Sayur 8.-".
+ * A quantity or sum is worked out: "Eggs 2x6.20", "Telur 6.20x2", "Teh ais 2@2.50", "Kuih 3*1.20", "Roti 4.5+2".
+ * → {items: [{name, cents, qty?, unit?}], skipped: [lines with no name or no price]}.
  */
 export function parseItemLines(text) {
   // "1,299" and "1,299.50" are thousands; "25,50" is 25.50 (comma decimals); a list comma ("鱼 25, 菜 8") splits items.
   const cents = s => { const [a, b = ''] = s.replace(/,(?=\d{3}(?!\d))/g, '').split(/[.,]/); return +a * 100 + +(b + '00').slice(0, 2); };
-  const PRICE = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?)`;
-  const tailRe = new RegExp(String.raw`^(.*?\S)[\s:=\-–]*(?:RM|MYR)?\s*${PRICE}$`, 'i'), headRe = new RegExp(String.raw`^(?:RM|MYR)?\s*${PRICE}[\s:=\-–]+(\D.*)$`, 'i');
-  return String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).map(l => l.trim()).filter(Boolean).map(l => {
-    const tail = l.match(tailRe);   // name then price
-    const head = l.match(headRe);   // price then name
+  const PRICE = String.raw`(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?)`, EXPR = String.raw`${PRICE}(?:\s*[x×*@+]\s*${PRICE})*`;
+  const tailRe = new RegExp(String.raw`^(.*?\S)[\s:=\-–]*(?:RM|MYR)?\s*(${EXPR})$`, 'i'), headRe = new RegExp(String.raw`^(?:RM|MYR)?\s*(${PRICE})[\s:=\-–]+(\D.*)$`, 'i');
+  const worth = e => {   // "2x6.20" → 12.40, qty 2 at 6.20; "4.5+2" → 6.50 (the Amount field's calcAmount does the sum)
+    const p = e.split(/\s*([x×*@+])\s*/i), total = calcAmount(p.map((s, i) => (i % 2 ? s.replace('@', '*') : (cents(s) / 100).toFixed(2))).join(''));
+    if (p.length !== 3 || p[1] === '+') return { cents: total };
+    const q = /^\d+$/.test(p[0]) ? 0 : /^\d+$/.test(p[2]) ? 2 : -1;   // the whole number is the quantity: 2x6.20, 6.20x2
+    return q < 0 || +p[q] < 2 ? { cents: total } : { cents: total, qty: +p[q], unit: cents(p[2 - q]) };
+  };
+  const items = [], skipped = [];
+  for (const l of String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).map(l => l.trim()).filter(Boolean)) {
+    const s = l.replace(/(\d)[.,]-$/, '$1');   // "8.-" is RM 8
+    const tail = s.match(tailRe);   // name then price
+    const head = s.match(headRe);   // price then name
     const [name, price] = tail ? [tail[1], tail[2]] : head ? [head[2], head[1]] : [];
-    return name && /\p{L}/u.test(name) ? { name: name.replace(/[\s:=\-–]+$/, '').slice(0, 80), cents: cents(price) } : null;
-  }).filter(x => x && x.cents > 0);
+    const w = name && /\p{L}/u.test(name) ? worth(price) : null;
+    if (w?.cents > 0) items.push({ name: name.replace(/[\s:=\-–]+$/, '').slice(0, 80), ...w }); else skipped.push(l);
+  }
+  return { items, skipped };
 }
 
 // Lines at the top that never name the shop: a phone's status bar, headings, order numbers, a card terminal's bank.

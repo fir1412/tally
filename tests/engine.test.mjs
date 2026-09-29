@@ -257,3 +257,9 @@ test('bill payments stay out of the unusual-week insight', () => {
 test('a year typed as 26 is not a date', () => { assert.equal(E.validIso('0026-09-01'), false); assert.equal(E.validIso('2026-09-01'), true); assert.equal(E.validIso('1995-02-28'), true); });
 
 test('bank signs on either side, and DR / CR', () => { for (const [v, want] of [['3,520.40+', 352040], ['+3,520.40', 352040], ['60.00-', -6000], ['3520.40 CR', 352040], ['12.50DR', -1250], ['(7.00)', -700]]) assert.equal(E.parseAmount(v), want, v); });
+test('category colours: built-ins all differ; a new category takes a colour not in use', () => {
+  assert.equal(new Set(E.CATEGORIES.map(c => c.color.toLowerCase())).size, E.CATEGORIES.length);
+  assert.ok(E.CUSTOM_COLORS.every(c => !E.CATEGORIES.some(b => b.color.toLowerCase() === c.toLowerCase())));
+  assert.equal(E.nextColor([]), E.CUSTOM_COLORS[0]);
+  assert.equal(E.nextColor([E.CUSTOM_COLORS[0].toLowerCase()]), E.CUSTOM_COLORS[1]);
+});

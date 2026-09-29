@@ -80,7 +80,7 @@ export function gate() {
     };
     const tryPin = async () => {
       const pin = el.querySelector('#lock-pin').value;
-      if (Date.now() < waitUntil) return err(t('Too many tries. Wait {0} seconds.', Math.ceil((waitUntil - Date.now()) / 1000)));
+      if (Date.now() < waitUntil) { const s = Math.ceil((waitUntil - Date.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
       if (await checkPin(pin, lock)) return done();
       fails++; if (fails >= 5) waitUntil = Date.now() + 30_000 * (fails - 4);
       tries.set([fails, waitUntil]);

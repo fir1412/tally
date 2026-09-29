@@ -96,22 +96,24 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .warnbox .tipsrow { display: flex; }   /* its own full-width row under the warning */
 .filechip { display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: var(--sp-3); border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); }
 .filechip svg { color: var(--accent); } .filechip b { display: block; font-family: var(--mono); font-weight: 500; font-size: var(--fs-sm); word-break: break-all; } .filechip small { color: var(--mute); }
-.tablewrap { overflow-x: auto; margin-top: var(--sp-2); }
+.tablewrap { overflow-x: auto; margin-top: var(--sp-2); max-width: 100%; overscroll-behavior-x: contain; }
 .tablewrap:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .mtable { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); white-space: nowrap; }
 .mtable th, .mtable td { padding: 10px var(--sp-2); border-bottom: 1px solid var(--line); text-align: right; }
-.mtable td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.mtable td, .mtable thead th { font-variant-numeric: tabular-nums; }
+.mtable td { font-family: var(--mono); }
 .mtable thead th { color: var(--mute); font-weight: 600; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
 .mtable th[scope=row], .mtable thead th:first-child { text-align: left; padding-left: 0; }
-.mtable th[scope=row], .mtable thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); min-width: 112px; padding-right: var(--sp-3); }
+.mtable th[scope=row], .mtable thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--panel); min-width: 7.5em; max-width: 10em; white-space: normal; padding-right: var(--sp-3); }
 .mtable th[scope=row] { font-weight: 500; }
 .mtable th:not(:first-child), .mtable td { width: 13%; min-width: 84px; }
 .mtable th[scope=row] .dot { margin-right: var(--sp-2); }
 .mtable .cur { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .mtable tfoot th, .mtable tfoot td { font-weight: 600; border-bottom: 0; }
-.mtable .nil { color: var(--mute); opacity: .6; }
+.mtable .nil { color: var(--mute); }
 .mtable thead small { display: block; font-size: 10px; letter-spacing: 0; opacity: .8; }
 .mtable .cellbtn { all: unset; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; border-radius: 6px; padding: 0 8px; margin: -10px -8px; }   /* the whole cell is the target */
+.mtable .cellbtn { all: unset; cursor: pointer; display: inline-block; text-align: right; min-height: 24px; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
 .mtable .cellbtn:hover, .mtable .cellbtn:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
 .mtable tr.inc th, .mtable tr.inc td { font-weight: 500; color: var(--mute); border-bottom: 0; padding-top: 4px; }
 .mtable tr.net td .good { color: var(--good); } .mtable tr.net td .bad { color: var(--bad); }
@@ -229,7 +231,8 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
 .rmin::after { content: ''; position: absolute; right: -15px; top: 50%; width: 10px; height: 5px; border: solid var(--good); border-width: 0 0 2px 2px; transform: translateY(-70%) rotate(-45deg); opacity: 0; }
 .rmin.saved::after { animation: saved-tick 1.4s var(--ease-out); }
 @keyframes saved-tick { 15%, 70% { opacity: 1; } }
-.more-cats summary { min-height: 44px; display: flex; align-items: center; color: var(--accent); font-weight: 600; cursor: pointer; }
+.billsugg { padding-block: var(--sp-2); } .billsugg summary { gap: var(--sp-2); } .billsugg .feed { margin-bottom: var(--sp-2); }
+.more-cats summary, .billsugg summary { min-height: 44px; display: flex; align-items: center; color: var(--accent); font-weight: 600; cursor: pointer; }
 .budgets li { padding-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
 
 .chartsvg { width: 100%; height: auto; display: block; }
@@ -364,7 +367,7 @@ body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area
   .sticky, .view-review .sticky { bottom: 0; margin-inline: 0; }
   .view-home .cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--sp-5); align-items: start; }
   .view-insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
-  .view-insights > .top, .view-insights > .feed, .view-insights > .span2, .view-insights > .scope { grid-column: 1 / -1; }
+  .view-insights > .top, .view-insights > .feed, .view-insights > .span2, .view-insights > .scope, .view-insights > .billsugg { grid-column: 1 / -1; }
   .view-insights .chartsvg { max-height: 220px; }
   .welcome { max-width: 560px; margin: 0 auto; }
 }

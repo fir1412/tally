@@ -568,7 +568,7 @@ export function readBackup(text) {
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId } : {}),
       category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
-      ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category) })) } : {}),
+      ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
       ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...(t.spouse === true ? { spouse: true } : {}), ...upd(t.updatedAt),

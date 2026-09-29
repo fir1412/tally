@@ -2,7 +2,7 @@
 // photos/. SQLite is read with sql.js (vendored, loaded only here). Accounts keep their current balances.
 // Also Money Manager by Realbyte backups (.mmbak), below.
 import { unzip, cleanText, mapCategory, hash, okId, okSigned } from './io.js';
-import { INCOME_CATEGORIES, validIso, MAX_SEN } from './engine.js';
+import { INCOME_CATEGORIES, validIso, MAX_SEN, nextColor } from './engine.js';
 import { guessKind } from './statement.js';
 
 /** Load sql.js in the browser (UMD script → window.initSqlJs). Node tests pass their own SQL instead. */
@@ -134,7 +134,7 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
         if (String(c.TYPE) === '0') id = INCOME_CATEGORIES.some(x => x.id === id) ? id : /salary|gaji|工资|薪/i.test(title) ? 'salary' : 'income';
         else if (id === 'other' && !/^other|lain|其他/i.test(title) && !parent && customCats.length < 50) {
           id = `c_rb_${hash(c.uid)}`;
-          customCats.push({ id, name: title, color: CAT_COLORS[customCats.length % CAT_COLORS.length] });
+          customCats.push({ id, name: title, color: nextColor(customCats.map(x => x.color)) });
         } else if (INCOME_CATEGORIES.some(x => x.id === id)) id = 'other';
         catMap[String(c.uid)] = id;
       }
@@ -175,7 +175,6 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
   } finally { db.close(); }
 }
 const rbId = u => { const id = `rb_${String(u).slice(0, 40)}`; return okId(id) ? id : `rb_h${hash(u)}`; };
-const CAT_COLORS = ['#0EA5E9', '#E11D48', '#84CC16', '#F97316', '#8B5CF6', '#14B8A6', '#EAB308', '#EC4899', '#78716C', '#22C55E'];
 
 /** Photo bytes for some of the imported transactions (read from the same backup, only when the user asks). */
 export const readPhotos = (buf, paths) => { const want = new Set(paths); return unzip(buf, n => want.has(n)); };

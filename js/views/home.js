@@ -21,6 +21,9 @@ export function fill([tpl, ...vals]) {
     return v;
   }));
 }
+/** One insight in the feed (a bill suggestion has Add). */
+const feedItem = i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
+        ${i.rec ? `<button class="btn small" data-act="go" data-to="budgets">${esc(t('Add'))}</button>` : ''}${i.cat && i.cat !== 'total' ? `<button class="btn small ghost" data-act="cat-show" data-c="${esc(i.cat)}">${esc(t('See'))}</button>` : ''}<button class="icon-btn" data-act="dismiss" data-id="${esc(i.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></li>`;
 const habitText = h => t(h.days === 'weekend' ? '{0} on weekends around {1}' : '{0} on weekdays around {1}', catLabel(h.category), h.at);
 const dismissed = () => S.kv.dismissed || [];
 const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), id].slice(-300));
@@ -34,11 +37,18 @@ function backupBanner() {
   }
   return '';
 }
-/** The one other banner Home shows, most important first: cash below zero, days not logged, a habit nudge, a bill due, an insight. */
+/** The one other banner Home shows, most important first: a bill due, cash below zero, days not logged, a habit nudge, an insight. */
 function banner() {
   const tdy = today();
   if (location.host === 'fir1412.github.io') return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(t('Tally has moved to tallymy.github.io'))}</b><small>${esc(t('Back up here, then open the new address and restore the file there. This address will stop getting updates.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><a class="btn small ghost" href="https://tallymy.github.io/" rel="noopener">${esc(t('Open the new address'))}</a></span></div>`;
+  // A bill due (it outranks cash below zero: a missed bill costs more) in the next 3 days, or one that was due and isn't paid (it stays until paid or put off).
+  const due = S.recurring.filter(b => inScope(b)).map(b => ({ b, s: billStatus(b, tdy, S.tx) })).filter(({ b, s }) => s.date && !s.paid && s.days <= 3 && !dismissed().includes(`bill-${b.id}-${s.date}`)).sort((x, y) => x.s.days - y.s.days)[0];
+  if (due) {
+    const { b: bill, s } = due;
+    return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
+    <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
+  }
   const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && bal[a.id] < 0);
   // Cash can't really be below zero: something wasn't added. The fixes, most likely first; the account editor has Balance today.
   if (cash && !dismissed().includes(`cash-${tdy}`)) return `<div class="banner warn">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero: {1}', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('What happened?'))}</small></span>
@@ -50,13 +60,6 @@ function banner() {
   const nudge = dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
-  // A bill due in the next 3 days, or one that was due and isn't paid (it stays until paid or put off).
-  const due = S.recurring.filter(b => inScope(b)).map(b => ({ b, s: billStatus(b, tdy, S.tx) })).filter(({ b, s }) => s.date && !s.paid && s.days <= 3 && !dismissed().includes(`bill-${b.id}-${s.date}`)).sort((x, y) => x.s.days - y.s.days)[0];
-  if (due) {
-    const { b: bill, s } = due;
-    return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
-    <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
-  }
   const ins = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id));
   if (ins) return `<div class="banner ${ins.level}">${ins.level === 'warn' ? ICON.alert : ICON.chart}<span class="grow"><b>${esc(fill(ins.title))}</b><small>${esc(fill(ins.body))}</small></span>
     <span class="bactions"><button class="btn small ghost" data-act="go" data-to="insights">${esc(t('More'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(ins.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
@@ -103,11 +106,11 @@ let M = null; // month shown
 let SPAN = 6; // months in the table
 export const insightsView = {
   title: 'Insights',
-  after() {   // newest month in view on phones; a shadow on the pinned column while older months sit under it
+  after() {   // opens at its start (whole columns); a shadow on the pinned column while months scroll under it
     const w = document.querySelector('.tablewrap'); if (!w) return;
     const mark = () => w.classList.toggle('scrolled', w.scrollLeft > 2);
     w.addEventListener('scroll', mark, { passive: true });
-    w.scrollLeft = w.scrollWidth; mark();
+    mark();
   },
   render() {
     const tdy = today(), cur = thisMonth(), sd = startDay();
@@ -123,7 +126,8 @@ export const insightsView = {
     const items = {};
     for (const x of booked()) if (x.type === 'expense' && cycleKey(x.date, sd) === M) for (const i of x.items || []) { const k = itemKey(i.name); if (!k || /\d{5,}/.test(i.name) || /[A-Za-z]{16,}/.test(i.name)) continue; (items[k] ||= { name: i.name, n: 0, v: 0 }); items[k].n++; items[k].v += i.cents; }
     const topItems = Object.values(items).sort((a, b) => b.v - a.v).slice(0, 5);
-    const feed = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: sd }).filter(i => !dismissed().includes(i.id));
+    const all0 = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: sd }).filter(i => !dismissed().includes(i.id));
+    const feed = all0.filter(i => !i.rec), recs = all0.filter(i => i.rec).sort((a, b) => b.rec.months - a.rec.months);   // most months seen first
     const hs = habits(booked(), tdy);
     const total = now.total || 1;
     // Six months side by side, like the spreadsheet many people are moving from.
@@ -138,12 +142,12 @@ export const insightsView = {
     const curCol = k => (tMonths[k] === M ? ' class="cur"' : '');
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M, sd))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
-      ${scopeSwitch()}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
-        ${i.rec ? `<button class="btn small" data-act="go" data-to="budgets">${esc(t('Add'))}</button>` : ''}${i.cat && i.cat !== 'total' ? `<button class="btn small ghost" data-act="cat-show" data-c="${esc(i.cat)}">${esc(t('See'))}</button>` : ''}<button class="icon-btn" data-act="dismiss" data-id="${esc(i.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></li>`).join('')}</ul>` : ''}
+      ${scopeSwitch()}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(feedItem).join('')}</ul>` : ''}
       <section class="card">
         <h2>${esc(t('Where the money went'))}</h2>
         ${now.total ? `<div class="donutrow">${d.html}<ul class="legend">${parts.map(p => `<li><button class="link" data-act="cat-show" data-c="${esc(p.id)}" data-m="${M}">${dot(p.id)}<span class="grow">${esc(p.name)}</span><span class="num">${esc(fmtRM(p.v))}</span><span class="fine">${Math.round(p.v / total * 100)}%</span></button></li>`).join('')}</ul></div>` : `<p class="empty">${esc(t('No spending in {0}.', fmtMonth(M, sd)))}</p>`}
       </section>
+      ${recs.length && M === cur ? `<ul class="feed">${recs.slice(0, 2).map(feedItem).join('')}</ul>${recs.length > 2 ? `<details class="card billsugg"><summary>${ICON.bell}${esc(t('{0} more possible bills', recs.length - 2))}</summary><ul class="feed">${recs.slice(2).map(feedItem).join('')}</ul></details>` : ''}` : ''}
       ${change.length && prev.total ? `<section class="card"><h2>${esc(t('Compared with {0}', fmtMonth(addMonths(M, -1), sd)))}</h2><ul class="list">${change.map(x => `<li class="rowb">${dot(x.c)}<span class="grow">${esc(catLabel(x.c))}</span><span class="num ${x.d > 0 ? 'bad' : 'good'}">${x.d > 0 ? '▲' : '▼'} ${esc(fmtRM(Math.abs(x.d)))}</span></li>`).join('')}</ul></section>` : ''}
       ${tCats.length ? `<section class="card span2"><div class="rowb"><h2>${esc(t('Month by month'))} <span class="fine">RM</span></h2>
         <div class="segs mini" role="group" aria-label="${esc(t('Months shown'))}">${[6, 12].map(n => `<button class="seg${SPAN === n ? ' on' : ''}" data-act="ins-span" data-n="${n}" aria-pressed="${SPAN === n}">${esc(t('{0} months', n))}</button>`).join('')}</div></div>

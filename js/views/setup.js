@@ -3,14 +3,14 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount } from '../engine.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor } from '../engine.js';
 import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
-import { settingsCard as learnCard } from './learn.js';
+import { settingsCard as learnCard, tickQuietly } from './learn.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
@@ -260,13 +260,15 @@ function accPlan() {
 function impPlan() {
   const acc = accPlan();
   const { txs: all, skipped, loose, adjustments, opening: adjusted } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), accounts: acc.lookup, catMap: catChoices(), customCats: S.kv.customCats, preset: IMP.preset, header: IMP.header });
-  const tdy = today(), future = all.filter(x => x.date > tdy).length, txs = IMP.skipFuture ? all.filter(x => x.date <= tdy) : all;
-  return { txs, ...splitDups(S.tx, txs), skipped, future, acc, loose, adjustments, adjusted, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
+  const tdy = today(), later = all.filter(x => x.date > tdy), future = later.length, txs = IMP.skipFuture ? all.filter(x => x.date <= tdy) : all;
+  // Day and month may be swapped only if every such date could be read the other way round, and there are several.
+  const swapped = future >= 3 && later.every(x => +x.date.slice(8, 10) <= 12);
+  return { txs, ...splitDups(S.tx, txs), skipped, future, swapped, acc, loose, adjustments, adjusted, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
 }
 function showMapping() {
   const { header, map, rows } = IMP;
   const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
-  const { fresh, dups, skipped, future, opening, acc, loose, adjustments } = impPlan(), moved = fresh.filter(x => x.type === 'transfer').length;
+  const { fresh, dups, skipped, future, swapped, opening, acc, loose, adjustments } = impPlan(), moved = fresh.filter(x => x.type === 'transfer').length;
   // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
   const dates = fresh.map(x => x.date).sort(), sum = k => fresh.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
   const choices = catChoices(), cats = [...expenseCats(), ...INCOME_CATEGORIES], tabs = IMP.tabs;
@@ -274,30 +276,29 @@ function showMapping() {
     ${IMP.accountId === 'new' ? `<label class="field"><span>${esc(t('Name of the new account'))}</span><input data-input="imp-accname" maxlength="40" value="${esc(newAccName())}"></label>
       <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my spouse)'))}</label>
       ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}`;
-  openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(t('{0} rows', rows.length))}</p>
+  openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(rows.length === 1 ? t('1 row') : t('{0} rows', rows.length))}</p>
     ${IMP.preset ? `<p class="okbox">${esc(t('Recognised: {0} export. Columns, accounts, transfers and categories are matched for you; change anything that looks wrong.', IMP.preset.name))}</p>` : ''}
     ${tabs && (tabs.read.length > 1 || tabs.skipped.length) ? `<p class="fine">${esc(t('Tabs read: {0}', tabs.read.join(', ')))}${tabs.skipped.length ? ` · ${esc(t('Tabs skipped (different columns): {0}', tabs.skipped.join(', ')))}` : ''}</p>` : ''}
     <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}${col('balance', t('Balance'))}${col('account', t('Account'))}</div>
     ${acc.values.length ? `<p class="fine">${esc(t('Accounts from this column: {0}', acc.values.map(a => (a.isNew ? t('{0} (new)', a.v) : a.v)).join(', ')))}</p>` : ''}
     ${map.account == null || acc.blanks ? intoAcc : ''}
     ${Object.keys(choices).length ? `<details open><summary>${esc(t('Their categories → Tally categories'))}</summary><div class="grid2">${Object.entries(choices).map(([s, v]) => `<label class="field"><span>${esc(s)}</span><select data-input="imp-cat" data-src="${esc(s)}">${cats.map(c => `<option value="${esc(c.id)}"${v === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}<option value="${esc(`new:${s}`)}"${v === `new:${s}` ? ' selected' : ''}>${esc(t('New category: {0}', s))}</option></select></label>`).join('')}</div></details>` : ''}
-    ${fresh.length || !dups.length ? `<p class="${fresh.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', fresh.length))}${dups.length ? ` · ${esc(t('{0} already in Tally, will be skipped', dups.length))}` : ''}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>`
+    ${fresh.length || !dups.length ? `<p class="${fresh.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', fresh.length))}${dups.length ? ` · ${esc(t('{0} already in Tally, will be skipped', dups.length))}` : ''}${skipped.length ? ` · ${esc(skipped.length === 1 ? t('1 row skipped (no date or amount)') : t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>`
       : `<p class="warnbox">${esc(t('All {0} rows are already in Tally. Nothing new to import.', dups.length))}</p>`}
     ${fresh.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
-    ${moved || loose || adjustments ? `<p class="fine">${[moved && t('{0} transfers between your accounts', moved), loose && t('{0} transfers to accounts not in this file, counted as money in or out', loose), adjustments && t('{0} balance corrections folded into opening balances (not counted as spending)', adjustments)].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
-    ${future ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('{0} rows are dated after today. If that looks wrong, check the date column: day and month may be swapped.', future))}
+    ${moved || loose || adjustments ? `<p class="fine">${[moved && (moved === 1 ? t('1 transfer between your accounts') : t('{0} transfers between your accounts', moved)), loose && (loose === 1 ? t("1 transfer to another wallet: import that wallet's file next and it will be matched.") : t("{0} transfers to another wallet: import that wallet's file next and they'll be matched.", loose)), adjustments && t('{0} balance corrections folded into opening balances (not counted as spending)', adjustments)].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
+    ${future ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(swapped ? t('{0} rows are dated after today. If that looks wrong, check the date column: day and month may be swapped.', future) : future === 1 ? t('1 row is dated after today (a scheduled or future entry).') : t('{0} rows are dated after today (scheduled or future entries).', future))}
       <label class="check"><input type="checkbox" data-input="imp-future"${IMP.skipFuture ? ' checked' : ''}> ${esc(t('Leave them out'))}</label></span></div>` : ''}
     <ul class="list preview">${fresh.slice(0, 5).map(x => `<li class="rowb"><span>${esc(fmtDate(x.date))}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${fresh.length ? '' : 'disabled'}>${esc(t('Import {0}', fresh.length))}</button></div>`, { label: t('Import') });
 }
-const CAT_COLORS = ['#0EA5E9', '#E11D48', '#84CC16', '#F97316', '#8B5CF6', '#14B8A6', '#EAB308', '#EC4899', '#78716C', '#22C55E'];
 /**
  * Save imported rows, minus those already here (splitDups). A reload that shows up as money out of the bank and money
  * into the wallet becomes one transfer (pairTransfers), also when the other side came in with an earlier import.
  * Undo takes everything back: the rows, the transfers (restoring what they replaced), photos, new accounts.
  * `before(fresh)` runs first (photos) and returns photo ids to remove again on Undo.
  */
-async function commitImport(txs, label, { before = async () => [], newAccounts = [], undoMore = async () => {} } = {}) {
+async function commitImport(txs, label, { before = async () => [], newAccounts = [], undoMore = async () => {}, tourLater = false } = {}) {
   const { fresh, dups } = splitDups(S.tx, txs);
   const photoIds = await before(fresh);
   const pairs = pairTransfers([...S.tx, ...fresh], fresh), paired = new Set(pairs.flat().map(x => x.id));
@@ -306,13 +307,23 @@ async function commitImport(txs, label, { before = async () => [], newAccounts =
   const kept = new Set(save.map(x => x.id)), gone = replaced.filter(x => !kept.has(x.id)).map(x => x.id);
   if (gone.length) await deleteTxs(gone);
   for (const id of newAccounts) if (!save.some(x => x.accountId === id || x.toAccountId === id)) await deleteAccount(id).catch(() => {});
-  if (!settings().onboarded) { await setSetting('onboarded', true); afterSetup(); }
+  if (!settings().onboarded) { await setSetting('onboarded', true); if (!tourLater) afterSetup(); }
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length)}` : ''), { undo: async () => {
     await deleteTxs(save.map(x => x.id)); await saveTxs(replaced); await deletePhotos(photoIds);
     for (const id of newAccounts) await deleteAccount(id).catch(() => {});
     await undoMore(); render();
   } });
+}
+/** New accounts started at zero (the file had no balances): one sheet asks what each has today, and moves its starting balance to match. */
+function balanceTodaySheet(ids, onClose) {
+  const accs = ids.map(id => S.accounts.find(a => a.id === id)).filter(Boolean);
+  if (!accs.length) return onClose?.();
+  const now = balances(accs, S.tx, today()).by;
+  openSheet(`<h2 class="sh-title">${esc(t('What is in these accounts today?'))}</h2><p class="sh-body">${esc(t('The file has no balances, so these accounts start at zero and its spending can put them below zero. Type what your bank or wallet app shows; nothing counts as spending.'))}</p>
+    ${accs.map(a => `<label class="field"><span>${esc(a.name)} · ${esc(t('Balance today (RM)'))}</span><input inputmode="decimal" data-bt="${esc(a.id)}" data-now="${now[a.id] ?? 0}" placeholder="${esc(fmtRM(now[a.id] ?? 0, { plain: true }))}"></label>`).join('')}
+    <p class="err" id="bt-err" role="alert"></p>
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Skip'))}</button><button class="btn" data-act="bt-save">${esc(t('Save'))}</button></div>`, { label: t('Balance today (RM)'), onClose });
 }
 /** Money Manager backups: Innim (.mmbackup) or, with app 'realbyte', Realbyte (.mmbak). An Innim-looking zip without
  *  MyFinance.db gets a second try as Realbyte. */
@@ -329,7 +340,7 @@ async function importMoneyManager(buf, app) {
     ${mm.transfers ? `<li>${esc(t('{0} transfers between your accounts', mm.transfers))}</li>` : ''}
     ${mm.transfersSkipped ? `<li class="warn">${esc(t('{0} transfers between accounts were not imported', mm.transfersSkipped))}</li>` : ''}
     ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM (amounts kept as they are): {0}', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
-    ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
+    ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(mm.photos.length === 1 ? t('Also import 1 receipt photo (up to {0} MB on this phone)', Math.round(buf.byteLength / 1048576)) : t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
     <p class="fine">${esc(t('Balances will match what Money Manager shows today.'))}</p>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="mm-go">${esc(t('Import'))}</button></div>`, { label: t('Import') });
 }
@@ -406,6 +417,7 @@ async function restoreText(text, zip = {}) {
   await setSetting('onboarded', true);
   await setKv('lastBackup', `${today()}T${nowTime()}`);   // restored from a backup file: that file is a backup
   if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
+  await tickQuietly();   // Learn Tally: what the restored data shows is done
   persistStorage();
   closeSheet(); go('home'); render();
   // Photos from a photo backup: only ones a restored transaction points at.
@@ -503,6 +515,12 @@ export const act = {
     closeSheet(); go('home');
     afterSetup();
   },
+  'bt-save': async () => {
+    const rows = [...document.querySelectorAll('.sheet [data-bt]')].filter(el => el.value.trim()).map(el => [el, calcAmount(el.value)]);
+    if (rows.some(([, v]) => v == null)) return ($('#bt-err').textContent = t('Enter amounts like 150 or 150.50.'));
+    for (const [el, v] of rows) { const a = S.accounts.find(x => x.id === el.dataset.bt); if (a) await saveAccount({ ...a, opening: (a.opening || 0) + v - +el.dataset.now }); }
+    closeSheet(); render(); if (rows.length) toast(t('Saved'));
+  },
   'acc-edit': b => accountSheet(S.accounts.find(a => a.id === b.dataset.id) || {}),
   'acc-save': async b => {
     const name = $('#ac-name').value.trim(), nowEl = $('#ac-now');
@@ -531,7 +549,7 @@ export const act = {
     try { await deleteAccount(b.dataset.id); render(); toast(t('Deleted')); } catch { toast(t('This account has transactions. Move or delete them first.'), { k: 'warn' }); }
   },
   'cat-add': () => openSheet(`<h2 class="sh-title">${esc(t('Add a category'))}</h2><label class="field"><span>${esc(t('Name'))}</span><input id="cat-name" maxlength="40" autofocus></label>
-    <label class="field"><span>${esc(t('Colour'))}</span><input id="cat-color" type="color" value="#0ea5e9"></label><button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') }),
+    <label class="field"><span>${esc(t('Colour'))}</span><input id="cat-color" type="color" value="${nextColor(S.kv.customCats.map(c => c.color)).toLowerCase()}"></label><button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') }),
   'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').value); closeSheet(); render(); toast(t('Saved')); },
   'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
   'import-open': () => importSheet(),
@@ -565,17 +583,20 @@ export const act = {
     const choices = catChoices(), madeCats = [];
     for (const [src, v] of Object.entries(choices)) {
       if (!v.startsWith('new:') || !txs.some(x => x.category === v)) continue;
-      const c = S.kv.customCats.find(x => norm(x.name) === norm(v.slice(4))) || await addCategory(v.slice(4), CAT_COLORS[madeCats.length % CAT_COLORS.length]);
+      const c = S.kv.customCats.find(x => norm(x.name) === norm(v.slice(4))) || await addCategory(v.slice(4));
       madeCats.push(c.id);
       for (const x of txs) if (x.category === v) x.category = c.id;
       choices[src] = c.id;
     }
     const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
     await setSetting('importMaps', Object.fromEntries(maps));
-    return commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, undoMore: async () => {
+    const blind = m.balance == null ? made.filter(id => !(id === IMP.newId ? opening ?? adjusted[''] : adjusted[acc.values.find(a => a.id === id)?.v.toLowerCase()])) : [];   // started at zero: nothing said what they hold
+    const first = !settings().onboarded;   // the tour waits until the balances are in
+    await commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, tourLater: blind.length > 0, undoMore: async () => {
       for (const a of bumped) await saveAccount(a);
       await setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id)));
     } });
+    if (blind.length) setTimeout(() => balanceTodaySheet(blind, first ? afterSetup : undefined), 300);   // after the move to Home settles (like the tour)
   },
   'mm-go': async b => {
     b.disabled = true;
@@ -625,7 +646,7 @@ export const act = {
     openSheet(`<h2 class="sh-title">${esc(t('Back up'))}</h2>
       <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories.', S.tx.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
-      ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
+      ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos"> ${esc(photoCount() === 1 ? t('Include 1 receipt photo (a bigger .zip file)') : t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
       ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });

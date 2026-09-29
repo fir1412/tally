@@ -147,12 +147,15 @@ async function celebrate() {
   });
 }
 let checkT = null, tableIO = null;
+/** What the data already shows is ticked without a toast: on the first start with this list, and after a restore. */
+export async function tickQuietly() {
+  const got = settings().learn || {}, fresh = doneByData(data()).filter(id => !got[id]);
+  if (fresh.length || !settings().learn) await setSetting('learn', { ...got, ...Object.fromEntries(fresh.map(id => [id, today()])) });
+}
 async function check() {
   if (!S.accounts.length && !settings().learn) return;
-  const fresh = doneByData(data());
-  // The first start with this list: what the data already shows is ticked quietly.
-  if (!settings().learn) await setSetting('learn', Object.fromEntries(fresh.map(id => [id, today()])));
-  else await tick(fresh);
+  if (!settings().learn) { await tickQuietly(); redraw(); }
+  else await tick(doneByData(data()));
   if (gameOn()) await celebrate();
 }
 /** After every screen, tap or field: look for missions done and badges earned (a moment later, once saves are in). */
@@ -221,7 +224,7 @@ async function gamify(on) {
     const n = Object.keys(earned(game()));
     await setSetting('badgesSeen', n);   // badges already earned are shown, not celebrated one by one
     await setSetting('gamify', true);
-    toast(n.length ? t('Streaks and badges are on. You already have {0} badges.', n.length) : t('Streaks and badges are on.'), { k: 'good', icon: 'award' });
+    toast(n.length > 1 ? t('Streaks and badges are on. You already have {0} badges.', n.length) : n.length ? t('Streaks and badges are on. You already have 1 badge.') : t('Streaks and badges are on.'), { k: 'good', icon: 'award' });
   } else { await setSetting('gamify', false); toast(t('Streaks and badges are off.')); }
   render();
 }
