@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue'];
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors'];
 
 export async function load() {
   const mode = await db.init();
@@ -14,6 +14,7 @@ export async function load() {
   S.kv.rules ||= {};
   S.kv.customCats ||= [];
   S.kv.dismissed ||= [];
+  S.kv.catColors ||= {};
   S.accounts.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return mode;
 }
@@ -73,8 +74,15 @@ export const nowLocal = () => `${today()}T${nowTime()}`;
 export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
 // ---- categories ---------------------------------------------------------------------------------------------------
-export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats, CATEGORIES.at(-1)];
-export const allCats = () => [...expenseCats(), ...INCOME_CATEGORIES];
+/** A category with the colour chosen for it in Settings (kv catColors: {id: '#RRGGBB'}), if any. */
+const tint = c => (S.kv.catColors?.[c.id] ? { ...c, color: S.kv.catColors[c.id] } : c);
+export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats, CATEGORIES.at(-1)].map(tint);
+export const allCats = () => [...expenseCats(), ...INCOME_CATEGORIES.map(tint)];
+export function setCatColor(id, hex) {
+  const m = { ...S.kv.catColors };
+  if (hex) m[id] = hex; else delete m[id];
+  return setKv('catColors', m);
+}
 export const cat = id => allCats().find(c => c.id === id) || CATEGORIES.at(-1);
 export async function addCategory(name, color) {
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color };
@@ -150,7 +158,7 @@ export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
-const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed'];
+const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'catColors'];
 const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
 /** Replace everything with a backup, all or nothing: old photos and the settings a backup carries go too. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {

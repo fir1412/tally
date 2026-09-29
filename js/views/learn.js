@@ -40,9 +40,10 @@ const data = () => ({ tx: S.tx, recurring: S.recurring, accounts: S.accounts, se
 export const gameOn = () => settings().gamify === true;
 const game = () => {
   const s = settings(), p = progress(data());
-  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null };
+  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null, weekStart: weekStart() };
 };
-const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today());
+const weekStart = () => (settings().weekStart === 0 ? 0 : 1);   // 1 Monday, 0 Sunday (Settings)
+const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today(), weekStart());
 const meter = p => `<div class="meter" role="progressbar" aria-label="${esc(t('Missions done'))}" aria-valuemin="0" aria-valuemax="${p.total}" aria-valuenow="${p.n}"><i style="width:${Math.round(p.n / p.total * 100)}%"></i></div>`;
 const chip = (m, done) => `<span class="lic${done ? ' done' : ''}">${done ? `${ICON.check}<span class="sr">${esc(t('Done'))}</span>` : ICON[m.icon]}</span>`;
 
@@ -100,7 +101,7 @@ export const badgesView = {
     if (!gameOn()) return `${head(t('Streaks and badges'))}<section class="card center">${ICON.award}<p>${esc(t('Streaks and badges are off. Turn them on for a logging streak and badges for good money habits.'))}</p>
       <button class="btn" data-act="gamify-on">${esc(t('Turn on'))}</button></section>`;
     const tdy = today(), st = myStreak(), days = loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), got = earned(game());
-    const mon = plusDays(tdy, -((new Date(`${tdy}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const mon = plusDays(tdy, -((new Date(`${tdy}T00:00:00Z`).getUTCDay() - weekStart() + 7) % 7));   // the week's first day
     const week = Array.from({ length: 7 }, (_, i) => plusDays(mon, i)).map(d => {
       const k = days.has(d) ? 'logged' : d === st.rest ? 'rest' : d > tdy ? 'later' : d === tdy ? 'now' : 'missed';
       const word = { logged: t('logged'), rest: t('rest day'), later: '', now: t('today'), missed: t('not logged') }[k];

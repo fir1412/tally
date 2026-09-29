@@ -11,6 +11,9 @@ import * as learn from './views/learn.js';
 import { flushFeedback } from './feedback.js';
 import { onboarding, registerSW } from './tour.js';
 import { startScan } from './camera.js';
+import { applyLook, applySavedLook } from './colorpicker.js';
+
+applySavedLook();   // theme and accent before anything is drawn (the database copy is applied on every render)
 
 export const APP_VERSION = '0.5.0';
 const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView, learn: learn.learnView, badges: learn.badgesView };
@@ -25,6 +28,7 @@ export function render() {
   if (!own(VIEWS, r)) r = 'home';   // unknown routes (#/constructor too) show Home
   if (!S.accounts.length && !['welcome', 'settings'].includes(r)) { r = 'welcome'; history.replaceState(null, '', '#/welcome'); }
   const view = VIEWS[r];
+  applyLook(settings());
   const tabs = [['home', ICON.home, t('Home')], ['activity', ICON.list, t('Activity')], null, ['insights', ICON.chart, t('Insights')], ['budgets', ICON.wallet, t('Budgets')]];
   const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}"><span class="brand" aria-hidden="true">Tally</span>${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
     : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}<a href="#/settings" class="tab desk${r === 'settings' ? ' on' : ''}">${ICON.gear}<span>${esc(t('Settings'))}</span></a></nav>`;
@@ -120,6 +124,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     onRemoteChange(async () => { await load(); refresh(); });
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
+    if (!location.hash && settings().start === 'activity') { history.replaceState(null, '', '#/activity'); shown = 'activity'; }   // start screen
     await takeShared();
     const resumed = await review.restoreDraft();
     if (resumed) { history.replaceState(null, '', '#/review'); toast(t('Picked up the receipt you were checking')); }

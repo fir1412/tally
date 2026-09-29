@@ -1,5 +1,5 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth } from '../state.js';
+import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus } from '../engine.js';
@@ -23,6 +23,12 @@ export function fill([tpl, ...vals]) {
 }
 const habitText = h => t(h.days === 'weekend' ? '{0} on weekends around {1}' : '{0} on weekdays around {1}', catLabel(h.category), h.at);
 const dismissed = () => S.kv.dismissed || [];
+/** Home cards can be turned off in Settings (settings.homeHide: 'gap', 'nudge', 'bills', 'insight'). */
+const shown = id => !(settings().homeHide || []).includes(id);
+const greeting = () => {
+  const n = settings().myName, h = +nowTime().slice(0, 2);
+  return !n ? '' : h < 12 ? t('Good morning, {0}', n) : h < 18 ? t('Good afternoon, {0}', n) : t('Good evening, {0}', n);
+};
 const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), id].slice(-300));
 
 /** The backup reminder has its own slot (it used to hide nudges for weeks). */
@@ -43,19 +49,19 @@ function banner() {
   if (cash && !dismissed().includes(`cash-${tdy}`)) return `<div class="banner warn">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero ({1})', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('Took cash out at an ATM? Add it as a transfer from your bank so your cash adds up.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="atm" data-to="${esc(cash.id)}">${esc(t('Add a cash withdrawal'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-${tdy}">${esc(t('Later'))}</button></span></div>`;
   const lastDay = booked().reduce((m, x) => (x.date > m ? x.date : m), ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
-  if (S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
+  if (shown('gap') && S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
-  const nudge = dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
+  const nudge = shown('nudge') && dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
   // A bill due in the next 3 days, or one that was due and isn't paid (it stays until paid or put off).
-  const due = S.recurring.filter(b => inScope(b)).map(b => ({ b, s: billStatus(b, tdy, S.tx) })).filter(({ b, s }) => s.date && !s.paid && s.days <= 3 && !dismissed().includes(`bill-${b.id}-${s.date}`)).sort((x, y) => x.s.days - y.s.days)[0];
+  const due = shown('bills') && S.recurring.filter(b => inScope(b)).map(b => ({ b, s: billStatus(b, tdy, S.tx) })).filter(({ b, s }) => s.date && !s.paid && s.days <= 3 && !dismissed().includes(`bill-${b.id}-${s.date}`)).sort((x, y) => x.s.days - y.s.days)[0];
   if (due) {
     const { b: bill, s } = due;
     return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
     <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
   }
-  const ins = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id));
+  const ins = shown('insight') && insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key), startDay: startDay() }).find(i => !dismissed().includes(i.id));
   if (ins) return `<div class="banner ${ins.level}">${ins.level === 'warn' ? ICON.alert : ICON.chart}<span class="grow"><b>${esc(fill(ins.title))}</b><small>${esc(fill(ins.body))}</small></span>
     <span class="bactions"><button class="btn small ghost" data-act="go" data-to="insights">${esc(t('More'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(ins.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
   return '';
@@ -72,7 +78,7 @@ export const homeView = {
     const sameDay = upToday.filter(x => cycleKey(x.date, sd) !== lastYm || daysBetween(lastStart, x.date) <= into);
     const before = monthSpend(sameDay, lastYm, sd).total, diff = spent - before;
     const recent = [...booked()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt).slice(0, 8);
-    return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="fine">${esc(fmtDate(tdy, { year: true }))}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
+    return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1>${greeting() ? `<span class="grow"><b class="hi">${esc(greeting())}</b><small>${esc(fmtDate(tdy, { year: true }))}</small></span>` : `<span class="fine">${esc(fmtDate(tdy, { year: true }))}</span>`}<button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
         <span class="label">${esc(t('Current balance'))} · ${esc(accts.length === 1 ? t('1 account') : t('{0} accounts', accts.length))}</span>

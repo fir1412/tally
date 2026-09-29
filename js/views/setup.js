@@ -1,5 +1,5 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
@@ -10,10 +10,40 @@ import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKin
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
-import { settingsCard as learnCard } from './learn.js';
+import { settingsCard as learnCard, gameOn } from './learn.js';
+import { pickColor, ACCENTS, onColor, applyLook, parseHex } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+
+// ---- Appearance & personal: few words, the controls show what they do ------------------------------------------------
+const seg = (act, v, on, label, icon = '') => `<button class="seg${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"${icon ? ` aria-label="${esc(label)}" title="${esc(label)}"` : ''}>${icon || esc(label)}</button>`;
+const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles]];
+function lookCard() {
+  const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || ACCENTS[0], hide = s.homeHide || [];
+  const themes = [['system', t('Same as phone'), ICON.phone], ['light', t('Light theme'), ICON.sun], ['dark', t('Dark theme'), ICON.moon]];
+  const sw = (hex, label) => `<li><button class="sw" style="--c:${hex};--on:${onColor(hex)}" data-act="set-accent" data-v="${hex}" aria-pressed="${acc === hex}" aria-label="${esc(label)}" title="${esc(label)}">${acc === hex ? ICON.check : ''}</button></li>`;
+  return `<section class="card" id="look"><h2>${esc(t('Appearance & personal'))}</h2>${langButtons()}
+    <div class="lookrow"><span>${ICON.sun}${esc(t('Theme'))} · ${esc(themes.find(x => x[0] === theme)[1])}</span><div class="segs icons" role="group" aria-label="${esc(t('Theme'))}">${themes.map(([v, l, i]) => seg('set-theme', v, theme === v, l, i)).join('')}</div></div>
+    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(ACCENTS[0], `${t('Default')} ${ACCENTS[0]}`)}${ACCENTS.slice(1).map(h => sw(h, h)).join('')}${ACCENTS.includes(acc) ? '' : sw(acc, acc)}
+      <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>
+    <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(s.textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label>
+    <label class="field"><span>${esc(t('Your name'))}</span><input data-input="my-name" maxlength="30" value="${esc(s.myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
+    <div class="lookrow"><span>${esc(t('Start screen'))}</span><div class="segs">${seg('set-start', 'home', s.start !== 'activity', t('Home'))}${seg('set-start', 'activity', s.start === 'activity', t('Activity'))}</div></div>
+    ${gameOn() ? `<div class="lookrow"><span>${esc(t('Week starts on'))}</span><div class="segs">${seg('set-week', 1, s.weekStart !== 0, t('Monday'))}${seg('set-week', 0, s.weekStart === 0, t('Sunday'))}</div></div>` : ''}
+    <label class="toggle"><span class="grow"><b>${esc(t('Compact'))}</b></span><input type="checkbox" class="switch" role="switch" data-input="compact"${s.compact ? ' checked' : ''}></label>
+    <details class="more-cats"><summary>${esc(t('Home cards'))}</summary>${HOME_CARDS().map(([k, l, i]) => `<label class="toggle"><span class="lic">${i}</span><span class="grow"><b>${esc(l)}</b></span><input type="checkbox" class="switch" role="switch" data-input="home-card" data-k="${k}"${(k === 'learn' ? !s.learnHidden : !hide.includes(k)) ? ' checked' : ''}></label>`).join('')}</details></section>`;
+}
+const pickAccent = async () => {
+  const h = await pickColor({ value: parseHex(settings().accent) || ACCENTS[0], title: t('Accent colour'), reset: ACCENTS[0] });
+  if (!h) return;
+  await setSetting('accent', h === ACCENTS[0] ? null : h);
+  render(); $('[data-act="accent-custom"]')?.focus();
+};
+/** Add a category: its name, and a colour from the picker (the sheet comes back with the name kept). */
+const catAddSheet = (name = '', color = '#0EA5E9') => openSheet(`<h2 class="sh-title">${esc(t('Add a category'))}</h2><label class="field"><span>${esc(t('Name'))}</span><input id="cat-name" maxlength="40" value="${esc(name)}"${name ? '' : ' autofocus'}></label>
+    <div class="lookrow"><span>${esc(t('Colour'))}</span><ul class="chips"><li><button class="chip dotbtn" id="cat-color" data-act="cat-add-color" data-v="${esc(color)}"${name ? ' autofocus' : ''}><span class="dot" style="background:${esc(color)}"></span><span class="num">${esc(color)}</span></button></li></ul></div>
+    <button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') });
 
 /** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
 const demoCard = () => {
@@ -85,8 +115,7 @@ export const settingsView = {
     const rules = Object.entries(S.kv.rules), bal = balances(S.accounts, S.tx, today()).by;
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
-      <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
-        <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
+      ${lookCard()}
       ${learnCard()}
       <section class="card"><h2>${esc(t('Budget month'))}</h2>
         <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${startDay() === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>
@@ -95,7 +124,6 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
         <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your spouse as a file. They import it in Tally, and their changes come back the same way.') : t('Married? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your spouse.'))}</p>
-        <label class="field"><span>${esc(t('Your name for joint entries'))}</span><input data-input="my-name" maxlength="30" value="${esc(settings().myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
       <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
@@ -109,7 +137,7 @@ export const settingsView = {
       <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager, Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney, Excel, CSV, a bank statement, or Google Sheets.'))}</p>
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
         <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
-      <section class="card"><h2>${esc(t('Categories'))}</h2><ul class="chips static">${expenseCats().map(c => `<li class="chip"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</li>`).join('')}</ul>
+      <section class="card"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-color" data-c="${esc(c.id)}" aria-label="${esc(t('Colour: {0}', t(c.name)))}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
@@ -136,6 +164,14 @@ export const input = {
   'imp-accname': el => { IMP.accName = el.value; },
   'imp-joint': el => { IMP.joint = el.checked; },
   'my-name': el => setSetting('myName', cleanText(el.value, 30)),
+  compact: async el => { await setSetting('compact', el.checked); applyLook(settings()); },
+  'home-card': async el => {
+    const k = el.dataset.k;
+    if (k === 'learn') return setSetting('learnHidden', !el.checked);
+    const hide = new Set(settings().homeHide || []);
+    if (el.checked) hide.delete(k); else hide.add(k);
+    await setSetting('homeHide', [...hide]);
+  },
   'imp-future': el => { IMP.skipFuture = el.checked; showMapping(); },
   'imp-cat': el => { IMP.catMap[el.dataset.src] = el.value; },
 };
@@ -423,7 +459,7 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
   return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files) };
 }
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
-const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } }) });
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, catColors: S.kv.catColors } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
@@ -524,9 +560,22 @@ export const act = {
     if (!(await confirmSheet({ title: t('Delete this account?'), ok: t('Delete'), danger: true }))) return;
     try { await deleteAccount(b.dataset.id); render(); toast(t('Deleted')); } catch { toast(t('This account has transactions. Move or delete them first.'), { k: 'warn' }); }
   },
-  'cat-add': () => openSheet(`<h2 class="sh-title">${esc(t('Add a category'))}</h2><label class="field"><span>${esc(t('Name'))}</span><input id="cat-name" maxlength="40" autofocus></label>
-    <label class="field"><span>${esc(t('Colour'))}</span><input id="cat-color" type="color" value="#0ea5e9"></label><button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') }),
-  'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').value); closeSheet(); render(); toast(t('Saved')); },
+  'cat-add': () => catAddSheet(),
+  'cat-add-color': async b => { const name = $('#cat-name').value; catAddSheet(name, (await pickColor({ value: b.dataset.v })) || b.dataset.v); },
+  'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').dataset.v); closeSheet(); render(); toast(t('Saved')); },
+  'cat-color': async b => {
+    const c = expenseCats().find(x => x.id === b.dataset.c); if (!c) return;
+    const base = [...CATEGORIES, ...S.kv.customCats].find(x => x.id === c.id)?.color;
+    const h = await pickColor({ value: c.color, title: t(c.name), reset: base });
+    if (!h) return;
+    await setCatColor(c.id, h === base ? null : h);
+    render(); $(`[data-act="cat-color"][data-c="${CSS.escape(c.id)}"]`)?.focus();
+  },
+  'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
+  'set-accent': async b => { await setSetting('accent', b.dataset.v === ACCENTS[0] ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
+  'accent-custom': () => pickAccent(),
+  'set-start': async b => { await setSetting('start', b.dataset.v === 'activity' ? 'activity' : null); render(); },
+  'set-week': async b => { await setSetting('weekStart', +b.dataset.v === 0 ? 0 : 1); render(); },
   'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
   'import-open': () => importSheet(),
   'imp-paste': () => { const v = $('#imp-paste').value; if (!v.trim()) return impErr(t('Paste some cells first.')); startMapping(parseCSV(v, v.includes('\t') ? '\t' : undefined), t('Pasted cells')); },
