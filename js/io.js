@@ -11,6 +11,8 @@ export function csvDelimiter(text) {
   return [';', '\t'].reduce((best, c) => (n(c) > n(best) ? c : best), ',');
 }
 export function parseCSV(text, delim = csvDelimiter(text)) {
+  // Full-width digits and punctuation (Chinese/Japanese keyboards) read as normal ones; runaway cells are cut.
+  text = String(text).normalize('NFKC');
   const rows = [];
   let row = [], cell = '', inQ = false;
   for (let i = 0; i < text.length; i++) {
@@ -24,7 +26,8 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(cell); rows.push(row); row = []; cell = '';
-    } else cell += c;
+    } else if (cell.length < 2000) cell += c;
+    if (rows.length > LIMITS.rows) break;
   }
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
   return rows.filter(r => r.some(x => x.trim() !== ''));
@@ -39,12 +42,25 @@ export function decodeBytes(u8) {
   return utf8.includes('�') ? new TextDecoder('windows-1252').decode(b) : utf8;
 }
 /** Hidden characters out, length capped: names from files can't break the layout or hide text. */
-export const cleanText = (s, max = LIMITS.text) => String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+export const cleanText = (s, max = LIMITS.text) => String(s ?? '').slice(0, max * 4).normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 // ---- Excel (.xlsx) without a library: a zip of XML files, inflated with the built-in DecompressionStream ----
+const MAX_INFLATE = 60 * 1024 * 1024; // a zip entry may not expand past this (zip bombs)
 async function inflateRaw(bytes) {
-  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(s).arrayBuffer());
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.length;
+    if (n > MAX_INFLATE) { await reader.cancel(); throw new Error('too big'); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(n);
+  let at = 0;
+  for (const part of parts) { out.set(part, at); at += part.length; }
+  return out;
 }
 /** Zip → {path: Uint8Array} for the paths wanted (stored or deflated entries). Bytes before the zip are
  * allowed (Money Manager backups start with 8 of them): offsets are taken from the first local header. */
@@ -78,7 +94,8 @@ const unxml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;
 const colIndex = ref => [...ref.replace(/\d+/g, '')].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 /** First worksheet of an .xlsx as rows of strings. Dates stay as Excel serial numbers (fileDate reads those). */
 export async function xlsxToRows(buf) {
-  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  let files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/worksheets/sheet1.xml');
+  if (!files['xl/worksheets/sheet1.xml']) files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
   const sheetName = Object.keys(files).filter(n => n.startsWith('xl/worksheets/')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)))[0];
   if (!sheetName || !files[sheetName]) throw new Error('no sheet');
   const dec = x => new TextDecoder().decode(x);
@@ -95,7 +112,8 @@ export async function xlsxToRows(buf) {
       if (type === 's') v = shared[+v] ?? '';
       else if (type === 'inlineStr') v = [...body.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('');
       v = unxml(v);
-      row[ref ? colIndex(ref) : row.length] = v;
+      const col = ref ? colIndex(ref) : row.length;
+      if (col < 200) row[col] = v; // a crafted "ZZZZ1" would make a huge sparse row
     }
     rows.push(Array.from(row, x => x ?? ''));
   }
@@ -116,12 +134,10 @@ export function sheetCsvUrl(link) {
 export async function fileToRows(name, buf) {
   const b = new Uint8Array(buf);
   if (b.length > LIMITS.fileBytes) throw new Error('This file is over 25 MB. Split it or export a shorter date range.');
-  if (/\.mmbackup$/i.test(name)) throw new Error('mmbackup'); // handled by the Money Manager importer
   if (b[0] === 0x50 && b[1] === 0x4b) {
     try { return await xlsxToRows(buf); } catch { throw new Error('This Excel file could not be read. Save it as .xlsx or CSV and try again.'); }
   }
   if (b[0] === 0xd0 && b[1] === 0xcf) throw new Error('Old Excel files (.xls) are not supported. Open it and save as .xlsx or CSV.');
-  if (b[0] === 0x25 && b[1] === 0x50) throw new Error('PDF statements are not supported yet. Download the CSV or Excel version from your bank.');
   return parseCSV(decodeBytes(b));
 }
 
@@ -171,20 +187,38 @@ export function fileDate(v) {
 
 // ---- rows → transactions ---------------------------------------------------------------------------
 const ALL_CATS = [...CATEGORIES, ...INCOME_CATEGORIES];
-const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|薪/i;
+const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪/i;
 const TRANSFER_WORD = /transfer|pindahan|转账|轉帳|top ?up|reload/i;
 /** Another app's category name → ours: exact id/name, then words. catMap (from the mapping step) wins. */
 export function mapCategory(name, catMap = {}, merchant = '') {
   const n = cleanText(name, 60);
-  if (catMap[n]) return catMap[n];
+  if (Object.hasOwn(catMap, n)) return catMap[n];
   const hit = ALL_CATS.find(c => c.id === n.toLowerCase() || c.name.toLowerCase() === n.toLowerCase());
   if (hit) return hit.id;
-  if (/salary|gaji|工资|薪/i.test(n)) return 'salary';
+  if (/salary|gaji|paycheck|payroll|wage|工资|薪/i.test(n)) return 'salary';
   if (/food|drink|makan|餐|meal|restaurant/i.test(n)) return 'dining';
   if (/transport|car|kereta|fuel|交通/i.test(n)) return 'transport';
   if (/bill|util|bil |bil$|账单|帳單/i.test(n)) return 'bills';
   if (/shop|belanja|购物|購物|cloth|pakaian/i.test(n)) return 'shopping';
   return categorize(n, merchant);
+}
+/** Excel stores computed cells as long doubles ("12.720000000000001"): round those to sen, read the rest as typed. */
+export const fileAmount = v => { const s = cleanText(v, 40); return /^-?\d+\.\d{3,}$/.test(s) ? Math.round(parseFloat(s) * 100) : parseAmount(s); };
+/** Short stable hash (FNV-1a) → base36. */
+export const hash = str => { let h = 0x811c9dc5; for (const ch of String(str)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+/**
+ * Stable id per imported row from its date, amount, text and how many identical rows came before it in the file:
+ * importing the same file twice adds nothing, and two identical purchases on one day both stay.
+ */
+export function importIds(txs, prefix) {
+  const seen = new Map();
+  for (const t of txs) {
+    const key = `${t.date}|${t.type}|${t.amount}|${t.merchant || ''}|${t.accountId}`;
+    const n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    t.id = `${prefix}_${hash(key)}_${n}`;
+  }
+  return txs;
 }
 /**
  * Rows (after the header) → {txs, skipped: [{row, why}]}. Amounts: a signed amount, or debit/credit columns.
@@ -193,17 +227,17 @@ export function mapCategory(name, catMap = {}, merchant = '') {
  */
 export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import', idPrefix = 'i', now = Date.now() } = {}) {
   const txs = [], skipped = [];
-  const signed = map.amount != null && rows.some(r => (parseAmount(r[map.amount]) ?? 0) < 0);
+  const signed = map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0);
   rows.slice(0, LIMITS.rows).forEach((r, n) => {
     const get = k => (map[k] != null ? r[map[k]] ?? '' : '');
     const date = fileDate(get('date'));
     if (!date) return skipped.push({ row: n + 2, why: 'date' });
     let amt = null, type = null;
     if (map.debit != null || map.credit != null) {
-      const d = parseAmount(get('debit')), c = parseAmount(get('credit'));
+      const d = fileAmount(get('debit')), c = fileAmount(get('credit'));
       if (d) { amt = Math.abs(d); type = 'expense'; } else if (c) { amt = Math.abs(c); type = 'income'; }
     } else {
-      const a = parseAmount(get('amount'));
+      const a = fileAmount(get('amount'));
       if (a != null) { amt = Math.abs(a); type = a < 0 ? 'expense' : signed ? 'income' : null; }
     }
     if (!amt) return skipped.push({ row: n + 2, why: 'amount' });
@@ -215,9 +249,9 @@ export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import',
     let category = rawCat ? mapCategory(rawCat, catMap, merchant) : categorize(merchant, merchant);
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = /salary|gaji|工资|薪/i.test(rawCat + ' ' + merchant) ? 'salary' : 'income';
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
-    txs.push({ id: `${idPrefix}${now.toString(36)}_${n}`, date, type, amount: amt, accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });
+    txs.push({ id: '', date, type, amount: amt, accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });
   });
-  return { txs, skipped };
+  return { txs: importIds(txs, idPrefix), skipped };
 }
 
 // ---- export ------------------------------------------------------------------------------------------
@@ -229,8 +263,8 @@ export function toCSV(txs, accounts, catName = id => ALL_CATS.find(c => c.id ===
   const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note'].join(',')];
   for (const t of [...txs].sort((a, b) => a.date.localeCompare(b.date))) {
     const head = [t.date, t.type], acct = [safeText(acc[t.accountId] || ''), safeText(acc[t.toAccountId] || '')];
-    if (t.items?.length) for (const it of t.items) rows.push([...head, (it.cents / 100).toFixed(2), ...acct, catName(it.category), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || '')].map(q).join(','));
-    else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, catName(t.category), safeText(t.merchant || ''), '', safeText(t.note || '')].map(q).join(','));
+    if (t.items?.length) for (const it of t.items) rows.push([...head, (it.cents / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || '')].map(q).join(','));
+    else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, safeText(catName(t.category)), safeText(t.merchant || ''), '', safeText(t.note || '')].map(q).join(','));
   }
   return '﻿' + rows.join('\n'); // BOM: Excel opens Malay and Chinese text as UTF-8
 }
@@ -241,6 +275,7 @@ export const makeBackup = ({ accounts, tx, recurring, kv }) => JSON.stringify({ 
 const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
 const okAmt = n => Number.isInteger(n) && n >= 0 && n <= 100_000_000_00;
 const okSigned = n => Number.isInteger(n) && Math.abs(n) <= 100_000_000_00;
+const okId = id => typeof id === 'string' && /^[\w-]{1,60}$/.test(id); // ids end up in calendar files and file names
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
 export function readBackup(text) {
   let d;
@@ -249,23 +284,24 @@ export function readBackup(text) {
   if (d.v > 1) throw new Error('This backup is from a newer version of Tally. Update the app, then restore.');
   const customIds = new Set((Array.isArray(d.kv?.customCats) ? d.kv.customCats : []).map(c => c?.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
-  const accounts = (Array.isArray(d.accounts) ? d.accounts : []).filter(a => isObj(a) && typeof a.id === 'string' && a.id.length <= 60)
+  const accounts = (Array.isArray(d.accounts) ? d.accounts : []).filter(a => isObj(a) && okId(a.id))
     .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0 }));
   const ids = new Set(accounts.map(a => a.id));
-  const tx = (Array.isArray(d.tx) ? d.tx : []).filter(t => isObj(t) && typeof t.id === 'string' && t.id.length <= 60 && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
+  const tx = (Array.isArray(d.tx) ? d.tx : []).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
-      id: t.id, date: t.date, type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId } : {}),
+      id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId } : {}),
       category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
-      ...(typeof t.receiptId === 'string' && t.receiptId.length <= 60 ? { receiptId: t.receiptId } : {}),
+      ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
     }));
-  const recurring = (Array.isArray(d.recurring) ? d.recurring : []).filter(r => isObj(r) && typeof r.id === 'string' && okAmt(r.amount))
+  const recurring = (Array.isArray(d.recurring) ? d.recurring : []).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
     .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(28, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60) }));
   const kv = {};
   if (isObj(d.kv)) {
     if (isObj(d.kv.budgets)) kv.budgets = { total: okAmt(d.kv.budgets.total) ? d.kv.budgets.total : 0, byCat: Object.fromEntries(Object.entries(isObj(d.kv.budgets.byCat) ? d.kv.budgets.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) };
     if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k));
+    if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = d.kv.customCats.filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' })).slice(0, 50);
   }
   return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length };
@@ -277,7 +313,12 @@ export function mergeBackup(local, incoming) {
     accounts: merge(local.accounts, incoming.accounts),
     tx: merge(local.tx, incoming.tx),
     recurring: merge(local.recurring, incoming.recurring),
-    kv: { ...incoming.kv, ...Object.fromEntries(Object.entries(local.kv).filter(([, v]) => v != null)), rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) } },
+    kv: {
+      rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
+      customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
+      budgets: local.kv.budgets?.total || Object.keys(local.kv.budgets?.byCat || {}).length ? local.kv.budgets : incoming.kv.budgets || local.kv.budgets,
+      dismissed: [...new Set([...(local.kv.dismissed || []), ...(incoming.kv.dismissed || [])])].slice(-300),
+    },
   };
 }
 

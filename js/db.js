@@ -54,7 +54,10 @@ export const storageMode = () => mode;
 
 export async function init() {
   try { idb = await open(); } catch (e) {
-    if (/another tab/.test(e?.message || '')) throw e;
+    // Only a browser that can't store in IndexedDB at all (some private windows) falls back to localStorage.
+    // Any other failure stops at the recovery screen: an empty fallback store would hide the user's real data.
+    const unavailable = !('indexedDB' in globalThis) || ['SecurityError', 'InvalidStateError'].includes(e?.name) || /no indexedDB/.test(e?.message || '');
+    if (!unavailable) throw e;
     idb = null; lsLoad();
   }
   if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
@@ -124,4 +127,36 @@ export async function kvKeys(prefix) {
 export async function get(store, key) {
   if (!idb) return mem[store][key] ?? null;
   return (await tx(store, 'readonly', os => reqP(os.get(key)))) ?? null;
+}
+
+/** Delete many keys in one transaction with one change notice (undo of a big import). */
+export async function delMany(store, keys) {
+  if (!idb) { for (const k of keys) delete mem[store][k]; lsSave(store); notify(store); return; }
+  await tx(store, 'readwrite', os => { for (const k of keys) os.delete(k); });
+  notify(store);
+}
+
+/**
+ * All-or-nothing write across stores (restore): `clear` empties those stores, then `put` writes {store: [objects]}.
+ * One IndexedDB transaction, so a crash or full disk mid-way leaves the old data untouched.
+ */
+export async function writeAtomic({ clear = [], put = {} }) {
+  const stores = [...new Set([...clear, ...Object.keys(put)])];
+  if (!idb) {
+    const backup = structuredClone(mem);
+    try {
+      for (const s of clear) mem[s] = {};
+      for (const [s, list] of Object.entries(put)) for (const o of list) mem[s][s === 'kv' ? o.key : o.id] = o;
+      for (const s of stores) localStorage.setItem(`${NAME}.${s}`, JSON.stringify(mem[s]));
+    } catch (e) { mem = backup; for (const s of stores) lsSave(s); failHandler(e); throw e; }
+    notify('all'); return;
+  }
+  await new Promise((resolve, reject) => {
+    const t = idb.transaction(stores, 'readwrite');
+    for (const s of clear) t.objectStore(s).clear();
+    for (const [s, list] of Object.entries(put)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
+    t.oncomplete = resolve;
+    t.onerror = t.onabort = () => { failHandler(t.error); reject(t.error); };
+  });
+  notify('all');
 }

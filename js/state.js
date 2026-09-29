@@ -65,7 +65,7 @@ export async function deleteTxs(ids) {
   const set = new Set(ids);
   const old = S.tx.filter(t => set.has(t.id));
   S.tx = S.tx.filter(t => !set.has(t.id));
-  for (const id of ids) await db.del('tx', id);
+  await db.delMany('tx', ids);
   return async () => saveTxs(old);
 }
 /** Remember the user's category for an item (and optionally for the shop). */
@@ -98,10 +98,19 @@ export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).catch(()
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
+const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
+/** Replace everything with a backup, all or nothing. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {
-  for (const s of ['accounts', 'tx', 'recurring']) await db.clear(s);
-  await db.putMany('accounts', accounts); await db.putMany('tx', tx); await db.putMany('recurring', recurring);
-  for (const [k, v] of Object.entries(kv || {})) if (KV_KEYS.includes(k)) await db.setKv(k, v);
+  await db.writeAtomic({ clear: ['accounts', 'tx', 'recurring'], put: { accounts, tx, recurring, kv: kvRows(kv) } });
+  await load();
+}
+/** Add a merged backup's new records and settings, all or nothing. Existing records are never rewritten. */
+export async function addAll({ accounts, tx, recurring, kv }) {
+  const has = (list, ids) => list.filter(x => !ids.has(x.id));
+  await db.writeAtomic({ put: {
+    accounts: has(accounts, new Set(S.accounts.map(a => a.id))), tx: has(tx, new Set(S.tx.map(t => t.id))),
+    recurring: has(recurring, new Set(S.recurring.map(r => r.id))), kv: kvRows(kv),
+  } });
   await load();
 }
 export async function eraseAll() {
