@@ -1,6 +1,6 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat } from '../state.js';
-import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
+import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
@@ -18,7 +18,7 @@ import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
-const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${langTag(k)}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
 
 const SIZES = [100, 115, 130];
 /** A / A+ / A++, the same sizes as Settings → Text size, drawn at the size they give. */
@@ -70,7 +70,7 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 /** Exchange rates, asked for only when the person taps "Get today's rate" (ECB rates; see privacy.html). */
 const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
-const legalLinks = () => `<a class="link" href="privacy${getLang() === 'en' ? '' : '.' + getLang()}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a>`;
+const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a>`;
 export const welcomeView = {
   title: 'Welcome',
   render() {

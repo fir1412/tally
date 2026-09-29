@@ -1,21 +1,25 @@
 // English text lives in the code as t('...'); Malay and Chinese are data files (js/i18n/ms.js, zh.js), so a typo
 // in a translation can never break a script. tests/i18n.test.mjs fails if any t('...') string lacks a translation.
 import { cycleSpan } from './engine.js';
-export const LANGS =[['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文']];
+export const LANGS = [['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文'], ['zh-Hant', '繁體中文'], ['ja', '日本語']];
+/** The language's tag for the page and for dates (Intl). */
+export const langTag = (l = lang) => (l === 'zh' ? 'zh-Hans' : l);
+const CJK = () => lang === 'zh' || lang === 'zh-Hant' || lang === 'ja';
 let dict = null, lang = 'en';
 
-/** Phone language list → 'ms', 'zh' or 'en'. */
+/** Phone language list → 'ms', 'zh', 'zh-Hant', 'ja' or 'en'. */
 export function pickLang(list) {
   for (const raw of (Array.isArray(list) ? list : [list]).filter(Boolean)) {
-    const two = String(raw).toLowerCase().slice(0, 2);
-    if (two === 'ms' || two === 'zh') return two;
+    const low = String(raw).toLowerCase(), two = low.slice(0, 2);
+    if (/^zh-(hant|tw|hk|mo)/.test(low)) return 'zh-Hant';   // Taiwan, Hong Kong, Macau
+    if (two === 'ms' || two === 'zh' || two === 'ja') return two;
     if (two === 'id') return 'ms';   // Indonesian readers (domestic helpers, students) read Malay far better than English
     if (two === 'en') return 'en';
   }
   return 'en';
 }
 // Copy is written for phones; on a tablet or computer "this phone" reads as "this device".
-const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'] };
+const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'], 'zh-Hant': [/(這部|此)手機|手機(?=上|丟失)/g, '此裝置'], ja: [/このスマホ/g, 'この端末'] };
 // Decided once from the browser's own description, so the same phone always gets the same word (a screen size or
 // pointer check flipped with rotation and split screen). Phones say "Mobile"; tablets and computers don't.
 const notPhone = typeof document !== 'undefined' && !/Mobi|iPhone|iPod/i.test(navigator.userAgent || '');
@@ -28,7 +32,7 @@ export function t(s, ...vals) {
 }
 export async function setLang(want) {
   lang = LANGS.some(([k]) => k === want) ? want : 'en';
-  if (typeof document !== 'undefined') document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  if (typeof document !== 'undefined') document.documentElement.lang = langTag();
   dict = lang === 'en' ? null : (await import(`./i18n/${lang}.js`)).default;
 }
 export const getLang = () => lang;
@@ -37,15 +41,15 @@ const MON = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'
 export function fmtDate(iso, { year = false } = {}) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
-  if (lang === 'zh') return `${year ? y + '年' : ''}${m}月${d}日`;
+  if (CJK()) return `${year ? y + '年' : ''}${m}月${d}日`;
   return `${d} ${(MON[lang] || MON.en)[m - 1]}${year ? ' ' + y : ''}`;
 }
 /** "Sep 2026"; with a month start day other than 1, the cycle the key names: "25 Sep – 24 Oct". */
 export function fmtMonth(ym, sd = 1) {
   if (sd > 1) { const c = cycleSpan(ym, sd); return `${fmtDate(c.start)} – ${fmtDate(c.end)}`; }
   const [y, m] = ym.split('-').map(Number);
-  return lang === 'zh' ? `${y}年${m}月` : `${(MON[lang] || MON.en)[m - 1]} ${y}`;
+  return CJK() ? `${y}年${m}月` : `${(MON[lang] || MON.en)[m - 1]} ${y}`;
 }
-export const monShort = m => (lang === 'zh' ? `${m}月` : (MON[lang] || MON.en)[m - 1]);
+export const monShort = m => (CJK() ? `${m}月` : (MON[lang] || MON.en)[m - 1]);
 /** Column label for a month or cycle: "Sep", or "25 Sep" when months start on the 25th. */
 export const cycleShort = (ym, sd = 1) => (sd > 1 ? fmtDate(cycleSpan(ym, sd).start) : monShort(+ym.slice(5)));

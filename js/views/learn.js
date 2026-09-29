@@ -1,7 +1,7 @@
 // Learn Tally (the mission list, its Home card and Settings card, "Show me") and Streaks and badges (off unless
 // turned on). Missions tick themselves off after any screen, tap or field that could have done one (pattern from we go gim).
 import { S, settings, setSetting, today, startDay, budgetsFor } from '../state.js';
-import { t, fmtDate, getLang } from '../i18n.js';
+import { t, fmtDate, getLang, langTag } from '../i18n.js';
 import { esc, ICON, toast, sheetOpen, burst, haptic, replay } from '../ui.js';
 import { render, go, route } from '../app.js';
 import { progress, doneByData, missionFor, byUser } from '../learn.js';
@@ -95,7 +95,7 @@ export const learnView = {
   },
 };
 
-const weekday = iso => new Intl.DateTimeFormat(getLang() === 'zh' ? 'zh-CN' : getLang(), { weekday: 'narrow', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const weekday = iso => new Intl.DateTimeFormat(langTag(), { weekday: 'narrow', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 const plusDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const badgesView = {
   title: 'Streaks and badges',

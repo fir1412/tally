@@ -775,7 +775,7 @@ export function readBackup(text) {
 }
 /** Settings a backup carries, each checked: how Tally counts and looks, and your name. Never the app PIN, import memory or first-run flags. */
 const SETTINGS = {
-  monthStart: v => Number.isInteger(v) && v >= 1 && v <= 28, weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh'].includes(v),
+  monthStart: v => Number.isInteger(v) && v >= 1 && v <= 28, weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh', 'zh-Hant', 'ja'].includes(v),
   textSize: v => [100, 115, 130].includes(v), theme: v => ['light', 'dark'].includes(v), accent: v => /^#[0-9a-f]{6}$/i.test(v),
   compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),

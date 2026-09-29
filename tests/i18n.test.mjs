@@ -39,7 +39,7 @@ if (process.argv.includes('--list')) {
   const all = strings(), ms = await load('ms').catch(() => ({})), zh = await load('zh').catch(() => ({}));
   console.log(JSON.stringify(all.filter(s => !(s in ms) || !(s in zh)), null, 1));
 } else {
-  for (const l of ['ms', 'zh']) test(`${l}: every string translated, placeholders kept`, async () => {
+  for (const l of ['ms', 'zh', 'zh-Hant', 'ja']) test(`${l}: every string translated, placeholders kept`, async () => {
     const d = await load(l), all = strings();
     const missing = all.filter(s => !Object.prototype.hasOwnProperty.call(d, s));
     assert.deepEqual(missing, [], `${missing.length} missing in ${l}`);

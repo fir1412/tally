@@ -1,6 +1,6 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
 import { S, saveTx, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
-import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
+import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
 import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
@@ -180,7 +180,7 @@ function sheetHtml() {
   const seg = ['expense', 'income', 'transfer'].map(k => `<button type="button" class="seg${d.type === k ? ' on' : ''}" data-act="tx-type" data-type="${k}" aria-pressed="${d.type === k}">${esc(t({ expense: 'Spent', income: 'Received', transfer: 'Transfer' }[k]))}</button>`).join('');
   const accOpts = sel => S.accounts.map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
   // A day other than today (a missed day, a bill's due date) is named in the title, so it can't be missed,
-  const day = isNew && d.date !== today() ? `${new Intl.DateTimeFormat(getLang() === 'zh' ? 'zh-CN' : getLang(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d.date}T00:00:00Z`))} ${fmtDate(d.date)}` : '';
+  const day = isNew && d.date !== today() ? `${new Intl.DateTimeFormat(langTag(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d.date}T00:00:00Z`))} ${fmtDate(d.date)}` : '';
   // and its date sits right under the amount, not down where the keyboard and the sum bar cover it.
   const when = `<div class="grid2 keep2">
       <label class="field"><span>${esc(t('Date'))}</span><input id="tx-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}"></label>

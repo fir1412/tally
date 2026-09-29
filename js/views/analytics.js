@@ -1,7 +1,7 @@
 // Insights analytics: the month-end forecast (this month, near the top) and cards below it, each closed to one line
 // with its headline figure. Sums come from engine.js; every chart has its numbers in text next to it or in a hidden table.
 import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached } from '../state.js';
-import { t, fmtDate, fmtMonth, cycleShort, getLang } from '../i18n.js';
+import { t, fmtDate, fmtMonth, cycleShort, getLang, langTag } from '../i18n.js';
 import { esc, short, ICON } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
 import { catLabel, showIds, downloadReceipts } from './money.js';
@@ -20,7 +20,7 @@ function split(parts, label) {
 /** Horizontal bars for a short ranked list [{name, v, text}]. */
 const hbars = (rows, max) => `<ol class="hbars">${rows.map(r => `<li><span class="grow">${esc(r.name)}</span><span class="num">${esc(r.text)}</span><i style="width:${Math.max(3, Math.round(r.v / (max || 1) * 100))}%" aria-hidden="true"></i></li>`).join('')}</ol>`;
 const weekStart = () => (settings().weekStart === 0 ? 0 : 1);
-const dayName = (w, style = 'short') => new Intl.DateTimeFormat(getLang() === 'zh' ? 'zh-CN' : getLang(), { weekday: style, timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + w)));   // 1 Jan 2023 was a Sunday
+const dayName = (w, style = 'short') => new Intl.DateTimeFormat(langTag(), { weekday: style, timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + w)));   // 1 Jan 2023 was a Sunday
 const billShops = () => { const known = S.recurring.filter(b => inScope(b)).map(b => b.key); return [...known, ...cached(recurringCandidates, booked(), known).map(r => r.key)]; };
 // Worked out once per data change (state.js cached): these take the transactions first.
 const forecastOf = (txs, o) => forecast({ txs, ...o });
