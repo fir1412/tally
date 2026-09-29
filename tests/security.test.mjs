@@ -181,3 +181,14 @@ test('app lock: one try per PIN entered (auto-submit then Unlock is one), a wait
   assert.equal(await quick('4821'), 'wait');                            // even the right PIN waits
   clock = 31_000; assert.equal(await quick('4821'), 'ok'); assert.deepEqual(st, { fails: 0, until: 0 });
 });
+
+test('crafted imports and receipt text finish quickly (no pattern slows down on a huge cell or line)', async () => {
+  const IO = await import('../js/io.js'), P = await import('../js/parse.js');
+  const fast = (label, fn) => { const t = performance.now(); fn(); const ms = performance.now() - t; assert.ok(ms < 800, `${label}: ${Math.round(ms)} ms`); };
+  const run = csv => { const [h, ...rows] = IO.parseCSV(csv), map = IO.guessMapping(h); return IO.rowsToTx(rows, map, { accountId: 'a', now: 1 }); };
+  fast('a 200 KB quoted whitespace amount cell', () => run(`Date,Description,Amount\n2026-09-01,Kopi,"${' '.repeat(200_000)}5.00"\n`));
+  fast('a Transfer row whose text is "to to to…"', () => run(`Date,Type,Description,Amount\n2026-09-01,Transfer,"${'to '.repeat(40_000)}\n",5.00\n`));
+  fast('a 60,000-character receipt line', () => P.parseReceipt(`SHOP\n${'A1 '.repeat(20_000)}\nTotal 5.00`));
+  fast('a 60,000-character typed line', () => P.parseItemLines(`${'ikan 12 '.repeat(7_500)}`));
+  assert.ok(IO.parseCSV(`a\n"${'x'.repeat(10_000)}"\n`)[1][0].length <= 2000, 'quoted cells are capped like the others');
+});

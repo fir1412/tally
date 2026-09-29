@@ -127,7 +127,7 @@ export function parseItemLines(text) {
   // Several on one line with spaces only ("ikan 12 sayur 5 cili 2", "鱼 25 菜 8"): a new item starts after a price when a word
   // follows, unless that word is a unit ("telur 30 biji 12"). A line that starts with a number ("100 Plus 2.50") never splits there.
   const NEXT = /(?<=\p{L}.*\d(?:[.,]\d{1,2})?)(?<!^\s*(?:RM|MYR)\s*[\d.,]+)\s+(?=\p{L})(?!(?:x|kg|g|gm|ml|l|ltr|pcs?|biji|ekor|pek|paket|bungkus|keping|botol|tin|unit|ea|each|packs?|个|斤|包|粒|瓶|块)(?![\p{L}]))/iu;
-  for (const l of String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).flatMap(l => l.split(NEXT)).map(l => l.trim()).filter(Boolean)) {
+  for (const l of String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).flatMap(l => l.slice(0, 300).split(NEXT)).map(l => l.trim()).filter(Boolean)) {
     const s = l.replace(/(\d)[.,]-$/, '$1');   // "8.-" is RM 8
     const tail = s.match(tailRe);   // name then price
     const head = s.match(headRe);   // price then name
@@ -173,7 +173,7 @@ export function shopName(lines) {
 
 export function parseReceipt(text) {
   text = String(text ?? '').normalize('NFKC');   // the Chinese model returns full-width digits: "27/09/２0２6"
-  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim())
+  const lines = text.split(/\r?\n/).map(l => l.slice(0, 300).replace(/\s+/g, ' ').trim())   // receipt lines are short: a runaway one can't stall the patterns
     .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
     .filter(Boolean);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };

@@ -19,9 +19,9 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (inQ) {
-      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      if (c === '"' && text[i + 1] === '"') { if (cell.length < 2000) cell += '"'; i++; }
       else if (c === '"') inQ = false;
-      else cell += c;
+      else if (cell.length < 2000) cell += c;   // quoted cells are capped too: a 1 MB cell would stall the regexes
     } else if (c === '"' && cell === '') inQ = true;
     else if (c === delim) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
@@ -147,7 +147,7 @@ export function sheetRows(xml, shared = [], { dates = new Set(), base1904 = fals
       if (type === 'inlineStr') v = texts(cell);
       else { eachTag(cell, 'v', (a, b) => { v = b; return false; }); if (type === 's') v = shared[+v] ?? ''; else if ((!type || type === 'n') && st && dates.has(+st) && /^\d+(\.\d+)?$/.test(v) && +v > 0) v = serialIso(+v, base1904); }
       const col = ref ? colIndex(ref) : row.length;
-      if (col < 200) row[col] = unxml(v); // a crafted "ZZZ1" would make a huge sparse row
+      if (col < 200) row[col] = unxml(v).slice(0, 2000); // a crafted "ZZZ1" would make a huge sparse row; cells capped as in CSV
       return ++n < 1000;
     });
     rows.push(Array.from(row, x => x ?? ''));
@@ -512,7 +512,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (status >= 0 && /fail|unsuccess|gagal|cancel|batal|reject|declin|revers|refused|失败|失敗|取消/i.test(r[status] ?? '')) return skipped.push({ row: n + 2, why: 'failed' });
     if (paidCol >= 0 && /^(false|no|tidak|belum|0|☐|✗|否)$/i.test(cleanText(r[paidCol], 10))) return skipped.push({ row: n + 2, why: 'unpaid' });
     // Another currency (a Currency column, or S$ / SGD in the amount) is never read as ringgit.
-    if ((fxCol >= 0 && !cleanText(r[map.amount ?? -1]) && cleanText(r[fxCol])) || (curCol >= 0 && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$/i.test(cleanText(r[curCol], 10))) || /^\s*-?\s*(s\$|sgd\b)/i.test(String(r[map.amount] ?? r[map.debit] ?? r[map.credit] ?? ''))) return skipped.push({ row: n + 2, why: 'currency' });
+    if ((fxCol >= 0 && !cleanText(r[map.amount ?? -1]) && cleanText(r[fxCol])) || (curCol >= 0 && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$/i.test(cleanText(r[curCol], 10))) || /^-?\s*(s\$|sgd\b)/i.test(String(r[map.amount] ?? r[map.debit] ?? r[map.credit] ?? '').trim().slice(0, 40))) return skipped.push({ row: n + 2, why: 'currency' });
     const cx = rowCtx(r, map, header), get = cx.get;
     const z = zoned(get('date')), date = z?.date || fileDate(get('date'), mdy);
     let amt = null, type = null, sign = 1;
@@ -544,7 +544,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
     if (/^(opening balance|balance b\/?f|brought forward|b\/f\b|baki (awal|dibawa|b\/?b|b\/?f|permulaan|mula)|期初|上期结余|上期結餘)/i.test(label)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; (adjAt[k] ||= []).push(''); adjustments++; return; }
     // A Type column that says Transfer: the words say which way ("to TNG" out, "from Maybank" in), and the other half pairs up.
-    const typedTr = !preset && TRANSFER_WORD.test(tword) && (() => { const txt = `${get('merchant')} ${get('note')}`, other = txt.match(/\b(?:to|ke|kepada|from|dari|daripada)\s+(.+)$/i)?.[1]; return { dir: sign < 0 && (dc || signed) ? 'out' : /\b(from|dari|daripada|received|terima)\b/i.test(txt) ? 'in' : 'out', to: other && accounts[cleanText(other, 40).toLowerCase()] ? cleanText(other, 40) : null }; })();
+    const typedTr = !preset && TRANSFER_WORD.test(tword) && (() => { const txt = `${get('merchant')} ${get('note')}`.slice(0, 300), other = txt.match(/\b(?:to|ke|kepada|from|dari|daripada)\s+(.+)$/i)?.[1]; return { dir: sign < 0 && (dc || signed) ? 'out' : /\b(from|dari|daripada|received|terima)\b/i.test(txt) ? 'in' : 'out', to: other && accounts[cleanText(other, 40).toLowerCase()] ? cleanText(other, 40) : null }; })();
     const tr = preset?.transfer?.(cx) || typedTr;
     if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
     const rawCat = preset?.category ? preset.category(cx) : get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
