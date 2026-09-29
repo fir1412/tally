@@ -33,15 +33,19 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
   if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   return rows.filter(r => r.some(x => x.trim() !== ''));
 }
-/** Bytes → text: UTF-8 (with or without BOM), UTF-16, Big5 for an AndroMoney export, else Windows-1252.
- *  ponytail: no general GBK/Big5 detection yet; only AndroMoney's banner line says so. */
+/** Bytes → text: UTF-8 (with or without BOM), UTF-16, else GBK or Big5 when that reads as a money file's Chinese
+ *  headers (日期, 金额, 余额…), else Windows-1252. AndroMoney's banner line says Big5 outright. */
 export function decodeBytes(u8) {
   const b = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8);
   if (b[0] === 0xff && b[1] === 0xfe) return new TextDecoder('utf-16le').decode(b.subarray(2));
   if (b[0] === 0xfe && b[1] === 0xff) return new TextDecoder('utf-16be').decode(b.subarray(2));
   if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return new TextDecoder('utf-8').decode(b.subarray(3));
   const utf8 = new TextDecoder('utf-8').decode(b);
-  return !utf8.includes('�') ? utf8 : new TextDecoder(/andromoney/i.test(utf8.slice(0, 200)) ? 'big5' : 'windows-1252').decode(b);
+  if (!utf8.includes('�')) return utf8;
+  if (/andromoney/i.test(utf8.slice(0, 200))) return new TextDecoder('big5').decode(b);
+  const words = (enc, re) => { try { return (new TextDecoder(enc, { fatal: true }).decode(b.subarray(0, 4000)).match(re) || []).length; } catch { return 0; } };
+  const gbk = words('gb18030', /日期|金额|收入|支出|余额|结余|类别|备注|账户|时间|摘要|交易/g), big5 = words('big5', /日期|金額|收入|支出|餘額|結餘|類別|備註|帳戶|時間|摘要|交易/g);
+  return new TextDecoder(gbk && gbk >= big5 ? 'gb18030' : big5 ? 'big5' : 'windows-1252').decode(b);
 }
 /** Hidden characters out, length capped: names from files can't break the layout or hide text. */
 export const cleanText = (s, max = LIMITS.text) => String(s ?? '').slice(0, max * 4).normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -219,7 +223,7 @@ export async function fileToRows(name, buf) {
 // ---- guessing columns ---------------------------------------------------------------------
 // [exact name, part of a name]. Exact names are tried first for every column ("Category" before "Category Group/Category").
 const HEAD = {
-  date: [/^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间|tarikh transaksi)$/i, /date|tarikh|日期/i],
+  date: [/^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间|tarikh transaksi|trans(action)? ?(date ?)?time|txn (date|time)|date ?\/? ?time|masa transaksi|交易时间|交易時間)$/i, /date|tarikh|日期/i],
   balance: [/^((running|closing|available|wallet|e-?wallet|account|current|statement|ledger|book) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$|^(账户|帳戶)?(余额|餘額|结余|結餘)$/i, /balance|^baki\b|结余|結餘|余额|餘額/i],
   debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
@@ -393,7 +397,10 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
   const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
   const bal = balanceSigns(rows, map, amtOf);
+  // An e-wallet's Status column: a failed, cancelled or reversed payment never moved money.
+  const status = header.findIndex(h => /^(status|transaction status|status transaksi|状态|狀態)$/i.test(cleanText(h, 30)));
   rows.forEach((r, n) => {
+    if (status >= 0 && /fail|unsuccess|gagal|cancel|batal|reject|declin|revers|refused|失败|失敗|取消/i.test(r[status] ?? '')) return skipped.push({ row: n + 2, why: 'failed' });
     const cx = rowCtx(r, map, header), get = cx.get;
     const z = zoned(get('date')), date = z?.date || fileDate(get('date'), mdy);
     let amt = null, type = null, sign = 1;
@@ -405,6 +412,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
       if (a != null) { amt = Math.abs(a); type = a < 0 ? 'expense' : signed ? 'income' : null; sign = a < 0 ? -1 : 1; }
     }
     if (!amt) return skipped.push({ row: n + 2, why: 'amount' });
+    const own = preset?.amount && fileAmount(preset.amount(cx)); if (own) amt = Math.abs(own);   // Toshl: the amount in the main currency
     const tword = cleanText(get('type'), 40);
     if (tword) type = OUT_TYPE.test(tword) ? 'expense' : IN_TYPE.test(tword) ? 'income' : TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
     if (bal[n] && !dc && !signed) type = bal[n] > 0 ? 'income' : 'expense'; // only unsigned amounts: columns and signs say it outright
@@ -430,7 +438,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, merchant, note, source, createdAt: now });
   });
   const { transfers, loose } = joinLegs(legs);
-  const tx = t => ({ id: '', date: t.date, ...(t.time ? { time: t.time } : {}), type: t.type, amount: t.amt, accountId: t.acc, ...(t.toAcc ? { toAccountId: t.toAcc } : {}), category: t.type === 'income' ? 'income' : 'other', merchant: t.merchant, note: t.note, source, createdAt: now });
+  const tx = t => ({ id: '', date: t.date, ...(t.time ? { time: t.time } : {}), type: t.type, amount: t.amt, accountId: t.acc, ...(t.toAcc ? { toAccountId: t.toAcc } : {}), category: t.type === 'income' ? 'income' : 'other', merchant: t.type === 'transfer' ? t.merchant.replace(/^transfer\s*:.*$/i, '') : t.merchant, note: t.note, source, createdAt: now });
   const all = [...txs, ...transfers.map(t => tx({ ...t, type: 'transfer' })), ...loose.map(t => tx({ ...t, type: t.dir === 'in' ? 'income' : 'expense', note: t.note || 'Transfer' }))];   // the word lets pairTransfers join it to the other side, imported later
   return { txs: importIds(all, idPrefix), skipped, transfers: transfers.length, loose: loose.length, adjustments, opening };
 }
@@ -655,7 +663,7 @@ export function readBackup(text) {
 const SETTINGS = {
   monthStart: v => Number.isInteger(v) && v >= 1 && v <= 28, weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh'].includes(v),
   textSize: v => [100, 115, 130].includes(v), theme: v => ['light', 'dark'].includes(v), accent: v => /^#[0-9a-f]{6}$/i.test(v),
-  compact: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
+  compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
 };

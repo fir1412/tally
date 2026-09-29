@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
@@ -10,6 +10,7 @@ export async function load() {
   [S.accounts, S.tx, S.recurring] = await Promise.all(['accounts', 'tx', 'recurring'].map(s => db.all(s)));
   for (const k of KV_KEYS) S.kv[k] = await db.getKv(k, null);
   S.kv.settings ||= {};
+  ownCategories(S.kv.settings.ownCats);
   S.kv.budgets ||= { total: 0, byCat: {} };
   S.kv.rules ||= {};
   S.kv.customCats ||= [];
@@ -98,7 +99,7 @@ export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(
 // ---- categories ---------------------------------------------------------------------------------------------------
 /** A category with the colour chosen for it in Settings (kv catColors: {id: '#RRGGBB'}), if any. */
 const tint = c => (S.kv.catColors?.[c.id] ? { ...c, color: S.kv.catColors[c.id] } : c);
-export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
+export const expenseCats = () => [...(S.kv.settings?.ownCats ? [] : CATEGORIES.slice(0, -1)), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
 export const incomeCats = () => [...INCOME_CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind === 'income'), INCOME_CATEGORIES.at(-1)].map(tint);
 export const allCats = () => [...expenseCats(), ...incomeCats()];
 export function setCatColor(id, hex) {

@@ -33,6 +33,7 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('tally-') && ![VERSION, ASSETS, 'tally-share'].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 const keyFor = url => url.origin + url.pathname;
+const saving = new Map();   // asset path → the cache write in progress
 const SHARED = 'tally-share';   // files shared into Tally, waiting for the page to pick them up
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -50,10 +51,18 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Google Sheets and calendar links go straight to the network
   if (isAsset(url)) {
-    e.respondWith(caches.open(ASSETS).then(c => c.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req).then(res => {
-      if (cacheable(url, res)) c.put(req, res.clone());
+    // One download per file: a second request while the first is still being saved (the reader worker starting right
+    // after the page fetched the 10 MB model) waits for that save and is answered from the cache.
+    e.respondWith(caches.open(ASSETS).then(async c => {
+      const hit = await c.match(req, { ignoreSearch: true }) || (saving.has(url.pathname) && await saving.get(url.pathname) && await c.match(req, { ignoreSearch: true }));
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (cacheable(url, res) && !saving.has(url.pathname)) {
+        const done = c.put(req, res.clone()).then(() => true, () => false);
+        saving.set(url.pathname, done); done.then(() => saving.delete(url.pathname));
+      }
       return res;
-    }))));
+    }));
     return;
   }
   const key = keyFor(url), shell = req.mode === 'navigate';

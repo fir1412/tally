@@ -74,7 +74,7 @@ export const PRESETS = [
   { id: 'ynab', name: 'YNAB', need: ['account', 'date', 'payee', 'outflow', 'inflow'],
     cols: { date: ['date'], account: ['account'], merchant: ['payee'], category: ['category', 'category group/category'], note: ['memo'], debit: ['outflow'], credit: ['inflow'] },
     transfer: c => { const m = String(c.get('merchant')).trim().match(/^transfer\s*:\s*(.+)$/i); return m && { to: m[1] }; },
-    adjust: c => low(c.get('merchant')) === 'starting balance',
+    adjust: c => ['starting balance', 'reconciliation balance adjustment'].includes(low(c.get('merchant'))),
     cats: { 'ready to assign': 'income', 'inflow: ready to assign': 'income', 'to be budgeted': 'income', 'inflow: to be budgeted': 'income' } },
 
   // Cashew: account, amount, currency, title, note, date, income, type, category name, subcategory name, color, icon,
@@ -94,7 +94,8 @@ export const PRESETS = [
   // Transfer, category "(Transfer)" (Bluecoins' import template, github.com/satheeshds/bluecoins-utilities).
   { id: 'bluecoins', name: 'Bluecoins', need: ['type', 'date', 'amount', 'exchange rate', 'category group', 'category', 'account'],
     cols: { date: ['date'], type: ['type'], merchant: ['name', 'title'], amount: ['amount'], category: ['category'], account: ['account'], note: ['notes'] },
-    transfer: c => low(c.get('type')) === 'transfer' || low(c.get('category')) === '(transfer)' },
+    transfer: c => low(c.get('type')) === 'transfer' || low(c.get('category')) === '(transfer)',
+    adjust: c => low(c.get('type')) === 'new account' || low(c.get('category')) === '(new account)' },   // an account's opening balance
 
   // 1Money: "DATE, TYPE, FROM ACCOUNT, TO ACCOUNT / TO CATEGORY, AMOUNT, CURRENCY, AMOUNT 2, CURRENCY 2, TAGS, NOTES",
   // dates MM/dd/yy, unsigned amounts, TYPE Expense / Income / Transfer, one row per transfer (github.com/bladeours/
@@ -123,6 +124,7 @@ export const PRESETS = [
     cols: { date: ['date'], account: ['account'], category: ['category'], debit: ['expense amount'], credit: ['income amount'], merchant: ['description'] },
     transfer: c => low(c.get('category')) === 'transfer',
     adjust: c => low(c.get('category')) === 'reconciliation',
+    amount: c => (low(c.raw('currency')) && low(c.raw('main currency')) && low(c.raw('currency')) !== low(c.raw('main currency')) ? c.raw('in main currency') : null),   // SGD 42.80 → MYR 148.52
     cats: { 'home & utilities': 'bills', leisure: 'fun', 'health & personal care': 'health' } },
 
   // AndroMoney "Windows Excel" CSV: a banner line, then Id, Currency, Amount, Category, Sub-Category, Date,

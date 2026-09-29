@@ -3,7 +3,7 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START } from '../engine.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
 import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
@@ -132,7 +132,7 @@ export const settingsView = {
       <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
-        <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your partner as a file. They import it in Tally, and their changes come back the same way.') : t('In a couple? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your partner.'))}</p>
+        <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your partner as a file. They import it in Tally, and their changes come back the same way.') : t('In a relationship? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your partner.'))}</p>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my partner'))}</button></section>
       <section class="card" id="remind"><h2>${esc(t('Daily reminder'))}</h2><p class="fine">${esc(t("Your calendar reminds you to add the day's spending, even with Tally closed."))}</p>
@@ -151,6 +151,8 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
       <section class="card"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-color" data-c="${esc(c.id)}" aria-label="${esc(t('Colour: {0}', t(c.name)))}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
+        <label class="toggle"><span class="grow"><b>${esc(t('Only my categories'))}</b><small>${esc(t("Hide Tally's categories and stop its guesses. Things go to Other until you pick a category; Tally then remembers."))}</small></span><input type="checkbox" class="switch" data-input="own-cats"${settings().ownCats ? ' checked' : ''}></label>
+        ${rules.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
@@ -170,6 +172,7 @@ export const settingsView = {
 };
 export const input = {
   'text-size': el => setSize(+el.value),
+  'own-cats': async el => { await setSetting('ownCats', el.checked); ownCategories(el.checked); render(); toast(el.checked ? t('Only your categories now. Add yours above.') : t("Tally's categories are back.")); },
   'ac-cur': el => {   // another currency: its rate, starting from a rough one to change
     const fx = el.value !== 'MYR', f = $('#ac-rate-f');
     f.hidden = $('#ac-cur-note').hidden = !fx;
@@ -658,6 +661,10 @@ export const act = {
   'cat-add': () => catAddSheet(),
   'cat-add-color': async b => { const name = $('#cat-name').value; catAddSheet(name, (await pickColor({ value: b.dataset.v })) || b.dataset.v); },
   'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').dataset.v); closeSheet(); render(); toast(t('Saved')); },
+  'rules-clear': async () => {
+    if (!(await confirmSheet({ title: t('Forget everything Tally learned?'), body: t('Items and shops you filed yourself will be guessed afresh. Your entries keep their categories.'), ok: t('Forget'), danger: true }))) return;
+    await setKv('rules', {}); render(); toast(t('Forgotten.'));
+  },
   'cat-color': async b => {
     const c = expenseCats().find(x => x.id === b.dataset.c); if (!c) return;
     const base = [...CATEGORIES, ...S.kv.customCats].find(x => x.id === c.id)?.color;

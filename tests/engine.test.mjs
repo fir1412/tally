@@ -353,3 +353,13 @@ test('a refund is money back: the balance goes up, spending in its category goes
   assert.equal(E.monthIncome(txs, '2026-09'), 300000);
   assert.equal(E.balances([{ id: 'b', opening: 0 }], txs).total, 300000 - 12000 + 4000);
 });
+
+test('"Only my categories": no guesses from Tally\'s word lists, only what the user taught it', () => {
+  try {
+    E.ownCategories(true);
+    assert.equal(E.categorize('Nasi lemak ayam', 'Restoran Maju'), 'other');
+    assert.equal(E.categorize('Nasi lemak ayam', 'Restoran Maju', { 'NASI LEMAK AYAM': 'c_breakfast' }), 'c_breakfast');
+    assert.equal(E.shopCategory('KFC'), 'other');
+  } finally { E.ownCategories(false); }
+  assert.equal(E.categorize('Nasi lemak ayam', 'Restoran Maju'), 'dining');
+});

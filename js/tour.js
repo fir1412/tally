@@ -26,7 +26,7 @@ export const WHATS_NEW = {
     'Set an account to what your bank shows today: Edit account, Balance today',
   ],
   '0.4.0': [
-    'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
+    'Joint accounts for partners: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
     'Share joint accounts with your partner as a file; their changes come back the same way, and newer edits win',
     'Lock Tally with a PIN, and your fingerprint or face where the phone has one (Settings)',
     'Bills can add themselves on the day: monthly, weekly or yearly, with a number of payments for instalments. A bill is paid once anything with its name is added that month, and unpaid ones stay on Home',
