@@ -173,7 +173,7 @@ export const homeView = {
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
-        <span class="label">${esc(t('Current balance'))} · ${esc(accts.length === 1 ? t('1 account') : t('{0} accounts', accts.length))}</span>
+        <span class="label">${esc(t('Current balance'))} · ${esc(accts.filter(a => !offTotal(a)).length === 1 ? t('1 account') : t('{0} accounts', accts.filter(a => !offTotal(a)).length))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul></details>
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}

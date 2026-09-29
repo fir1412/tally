@@ -47,7 +47,7 @@ async function pump() {
     const { receipt, photo, ms, turns } = await readReceipt(next.file);
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
-    current = { ...current, status: 'ready', ms, turns, draft, reveal: true };
+    current = { ...current, status: 'ready', ms, turns, draft, reveal: true, ...(photo ? { thumb: URL.createObjectURL(photo) } : {}) };   // the upright photo, as it was read
     if (!document.querySelector('.view-review')) toast(t('Your receipt is read.'), { k: 'good', icon: 'check', undo: () => go('review'), undoLabel: t('Check it') });   // left while the reader downloaded
     const n = draft.items.length;
     announce([n === 1 ? t('1 item') : t('{0} items', n), draft.total != null && t('Total {0}', fmtRM(draft.total))].filter(Boolean).join(', '));
@@ -95,7 +95,7 @@ function toDraft(r) {
   // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const meal = c => (r.meal && c === 'groceries' ? 'dining' : c);   // a restaurant bill: its dishes are dining
-  const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: meal(categorize(i.name, merchant, S.kv.rules)), flag: !!i.flag }));
+  const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: meal(categorize(i.name, merchant, S.kv.rules)), flag: !!i.flag, ...(i.crop ? { crop: i.crop } : {}) }));
   items.forEach((i, n) => { if (i.cents < 0 && n > 0) i.category = items[n - 1].category; });   // money off belongs to the item it sits under
   const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
@@ -199,7 +199,7 @@ export const reviewView = {
         <input class="iamt" inputmode="decimal" value="${(i.cents / 100).toFixed(2)}" aria-label="${esc(t('Price'))}" data-input="rv-item" data-n="${n}" data-k="cents">
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
         <button class="icon-btn" data-act="rv-del" data-n="${n}" aria-label="${esc(t('Remove {0}', i.name || t('item')))}">${ICON.x}</button>
-        ${i.raw && i.raw !== i.name ? `<small class="raw">${esc(i.raw)}</small>` : i.qty ? `<small class="raw">${esc(`${i.qty} × ${fmtRM(i.unit, { plain: true })}`)}</small>` : ''}</li>`).join('')}</ul>
+        ${i.crop && current.thumb ? `<button class="raw rawbtn" data-act="rv-crop" data-n="${n}" aria-label="${esc(t('Show this line on the receipt'))}">${esc(i.raw || i.name)} ${ICON.image}</button>` : i.raw && i.raw !== i.name ? `<small class="raw">${esc(i.raw)}</small>` : i.qty ? `<small class="raw">${esc(`${i.qty} × ${fmtRM(i.unit, { plain: true })}`)}</small>` : ''}</li>`).join('')}</ul>
       <div id="rv-gap">${gapLine}</div>
       <button class="btn ghost wide" data-act="rv-add">${ICON.plus}${esc(current.manual || (current.existing && !d.receiptId) ? t('Add an item') : t('Add a missing item'))}</button>
       <details class="typebox"${(current.manual && !d.items.length) || current.unread ? ' open' : ''}><summary>${esc(t('Type or paste several items'))}</summary>
@@ -317,6 +317,16 @@ export const act = {
     persist(); render();
     if (skipped.length) toast(t('Added {0}. Could not read: {1}. Add a price, like "Phone 1299".', n === 1 ? t('1 item') : t('{0} items', n), skipped.join(', ')), { k: 'warn' });
     else toast(n === 1 ? t('Added 1 item') : t('Added {0} items', n), { k: 'good', icon: 'check' });
+  },
+  // The line on the photo an item was read from, with a line above and below for context.
+  'rv-crop': async b => {
+    const i = current.draft.items[+b.dataset.n]; if (!i?.crop || !current.thumb) return;
+    const img = new Image(); img.src = current.thumb; await img.decode().catch(() => {});
+    const pad = (i.crop.b - i.crop.t) * 1.2, top = Math.max(0, i.crop.t - pad), h = Math.min(1, i.crop.b + pad) - top;
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = Math.max(1, Math.round(img.naturalHeight * h));
+    c.getContext('2d').drawImage(img, 0, top * img.naturalHeight, img.naturalWidth, c.height, 0, 0, c.width, c.height);
+    const el = openSheet(`<h2 class="sh-title">${esc(i.name || i.raw)}</h2><p class="fine mono">${esc(i.raw || '')}</p><div class="cropview"></div><button class="btn wide" data-act="sheet-close">${esc(t('Got it'))}</button>`, { label: t('Show this line on the receipt'), stack: true });
+    c.setAttribute('role', 'img'); c.setAttribute('aria-label', t('Receipt photo')); el.querySelector('.cropview').append(c);
   },
   'rv-gapitem': () => { const d = current.draft; d.items.push({ name: '', raw: '', cents: gapOf(d), category: gapCat(d), flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },   // the gap as an item: only its name to type
   // Many items at once (a 40-line grocery receipt): tick them, pick one category.

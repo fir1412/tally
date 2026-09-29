@@ -67,6 +67,15 @@ function draw(bmp, maxSide) {
   return c;
 }
 
+/** A canvas turned by quarter turns and then by -angle degrees about its centre (white corners): js/align.js on a canvas. */
+function straightened(src, turns, angle) {
+  const c = document.createElement('canvas'), q = turns % 2;
+  c.width = q ? src.height : src.width; c.height = q ? src.width : src.height;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.translate(c.width / 2, c.height / 2); g.rotate((turns * 90 - angle) * Math.PI / 180); g.drawImage(src, -src.width / 2, -src.height / 2);
+  return c;
+}
+const shrink = (src, maxSide) => { const s = Math.min(1, maxSide / Math.max(src.width, src.height)), c = document.createElement('canvas'); c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c; };
 /** OCR boxes → rows with the lowest confidence of the boxes in each row (same joining as joinRows). */
 function rows(boxes) {
   const b = boxes.map(({ text, box, mean }) => {
@@ -78,7 +87,7 @@ function rows(boxes) {
     const r = out.at(-1);
     if (r && Math.abs(w.y - r.y) < Math.min(w.h, r.h) / 2) r.words.push(w); else out.push({ y: w.y, h: w.h, words: [w] });
   }
-  return out.map(r => { const ws = r.words.sort((a, c) => a.x - c.x); return { text: ws.map(w => w.text).join(' '), conf: Math.min(...ws.map(w => w.mean ?? 1)) }; });
+  return out.map(r => { const ws = r.words.sort((a, c) => a.x - c.x); return { text: ws.map(w => w.text).join(' '), conf: Math.min(...ws.map(w => w.mean ?? 1)), y: r.y, h: Math.max(...ws.map(w => w.h)) }; });
 }
 
 /**
@@ -96,11 +105,16 @@ export async function readReceipt(file) {
   const lines = rows(aligned.texts);
   const text = lines.map(l => l.text).join('\n');
   const receipt = parseReceipt(text);
+  // The photo as it was read (turned and straightened like js/align.js did): upright on screen, and each item knows the
+  // band of it that it came from (item.crop: top and bottom as shares of the height), so the review can show it.
+  const up = aligned.turns || aligned.angle ? straightened(c, aligned.turns, aligned.angle) : c;
   for (const it of receipt.items) {
     const line = lines.find(l => it.name && l.text.includes(it.name));
     it.flag = !it.name || (line && line.conf < 0.85) || it.cents === 0;
+    if (line) it.crop = { t: Math.max(0, (line.y - line.h) / up.height), b: Math.min(1, (line.y + line.h) / up.height) };
   }
-  const photo = await new Promise(r => draw(bmp, 1200).toBlob(r, 'image/jpeg', 0.8));
+  const small = up === c ? draw(bmp, 1200) : shrink(up, 1200);
+  const photo = await new Promise(r => small.toBlob(r, 'image/jpeg', 0.8));
   bmp.close?.();
   return { receipt, text, photo, ms: performance.now() - t0, turns: aligned.turns, angle: aligned.angle };
 }

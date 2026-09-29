@@ -202,3 +202,9 @@ test('a backup carries the settings that shape the app (month start, language, t
   assert.deepEqual(s, { monthStart: 25, lang: 'zh', textSize: 130, myName: 'Mei', weekStart: 0, noSpend: ['2026-09-01'], theme: 'dark', remindAt: '21:30', homeHide: ['insight'] });
   assert.deepEqual(IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kv: { settings: { monthStart: 99, lang: '<b>', remindAt: '25:00' } } })).settings, {});
 });
+
+test('a refund on a bank statement lowers the spending it returns, not income', async () => {
+  const { statementToTx } = await import('../js/statement.js');
+  const [r] = statementToTx([{ date: '2026-09-03', desc: 'REFUND SHOPEE MALAYSIA', amount: 5323, dir: 'in' }], { accountId: 'b' });
+  if (r) assert.deepEqual([r.type, r.category, r.cat], ['income', 'refund', 'shopping']);
+});

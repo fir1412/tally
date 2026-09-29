@@ -84,6 +84,7 @@ const SKIP = /total\s*(debit|credit|withdrawal|deposit)|jumlah\s*(debit|kredit)|
 // Page furniture: never part of a description, and no line after it continues the row above.
 const FURNITURE = /statement\s*of\s*account|statement\s*date|penyata\s*akaun|tarikh\s*penyata|transaction\s*history|computer[\s-]*generated|no\s*signature|janaan\s*komputer|tandatangan/i;
 const LEAD_TIME = /^([01]?\d|2[0-3]):([0-5]\d)(?::\d{2})?\s*([ap]\.?m\.?\b)?(?![\d.,])\s*/i;
+const REFUND = /\brefund|pemulangan|bayaran balik|退款/i;
 const IN_WORDS = /salary|gaji|payroll|refund|pemulangan|interest|profit|hibah|dividend|cash\s*back|rebate|deposit|transfer\s*from|trf\s*from|fund\s*transfer\s*in|received|receive|terima|masuk|credit\s*advice|reload|top[\s-]?up|duitnow\s*(in|received)/i;
 const signed = a => a.sen * (a.sign < 0 ? -1 : 1);
 
@@ -166,7 +167,8 @@ export function statementToTx(rows, { accountId, source = 'statement', now = Dat
     const merchant = cleanDesc(r.desc.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ')).slice(0, 80).trim();
     const type = r.amount > 0 ? 'income' : 'expense';
     return { id: `s${now.toString(36)}_${i}`, date: r.date, ...(r.time ? { time: r.time } : {}), type, amount: Math.abs(r.amount), accountId, merchant,
-      category: type === 'income' ? incomeCategory(r.desc) : categorize(merchant, merchant), note: '', source, createdAt: now };
+      // "Refund Shopee": money back that lowers Shopping, not income.
+      ...(type === 'income' && REFUND.test(r.desc) ? { category: 'refund', cat: categorize(merchant, merchant) } : { category: type === 'income' ? incomeCategory(r.desc) : categorize(merchant, merchant) }), note: '', source, createdAt: now };
   });
 }
 

@@ -71,7 +71,9 @@ export function donut(parts, center) {
 }
 
 // ---- sheets & toasts (from we go gim) ------------------------------------------------------------
-let sheetClose = null, staleHref = null;
+let sheetClose = null, settle = null, settled = null, reopen = false, popping = false;
+/** While a closed sheet's history step is being removed: a promise to wait on before navigating (app.js go). */
+export const settling = () => settle;
 /** stack: open over the sheet already open (a confirmation), which comes back as it was when this one closes. */
 export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {}) {
   const under = stack && sheetClose ? [...document.querySelectorAll('.scrim:not(.out)')].at(-1) : null, below = under ? sheetClose : null;
@@ -94,13 +96,18 @@ export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {
       else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
     }
   });
-  if (!history.state?.sheet) history.pushState({ sheet: true, depth: (history.state?.depth || 0) + 1 }, ''); // Android back closes the sheet
+  if (settled) reopen = true;   // the last sheet's step is still being removed: this one takes a new step once it is
+  else if (!history.state?.sheet) history.pushState({ sheet: true, depth: (history.state?.depth || 0) + 1 }, ''); // Android back closes the sheet
   sheetClose = () => {
     sheetClose = below;
     wrap.classList.add('out'); wrap.style.pointerEvents = 'none';   // exit animation, then gone
     setTimeout(() => wrap.remove(), 200);
     if (under) under.removeAttribute('inert');
-    else { staleHref = history.state?.sheet ? location.href : null; app?.removeAttribute('inert'); }
+    else {
+      app?.removeAttribute('inert');
+      // Closed by a button: its history step goes too, so back after it (and "back to Home") counts only real screens.
+      if (!popping && history.state?.sheet) { settle = new Promise(r => { settled = r; }); history.back(); }
+    }
     if (opener?.isConnected) opener.focus({ preventScroll: true });
     onClose?.();
   };
@@ -112,13 +119,14 @@ export function closeSheet() { sheetClose?.(); }
 export const sheetOpen = () => !!sheetClose;
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
-    if (sheetClose) { sheetClose(); staleHref = null; return; }
-    // Back onto the entry a closed sheet left behind: step over it. Only that entry (its state says sheet): a tap on a
-    // link to the same address makes a new entry, which must open (Settings after the tour's last tip bounced).
-    const skip = staleHref && location.href === staleHref && history.state?.sheet; staleHref = null;
-    if (skip) history.back();
+    if (settled) {   // our own step back after a sheet closed by a button
+      const done = settled; settled = settle = null;
+      if (reopen) { reopen = false; history.pushState({ sheet: true, depth: (history.state?.depth || 0) + 1 }, ''); }
+      return done();
+    }
+    if (sheetClose) { popping = true; try { sheetClose(); } finally { popping = false; } }   // phone back: closes the sheet
   });
-  window.addEventListener('hashchange', () => { staleHref = null; while (sheetClose) closeSheet(); });   // stacked ones too
+  window.addEventListener('hashchange', () => { popping = true; try { while (sheetClose) closeSheet(); } finally { popping = false; } });   // stacked ones too
 }
 /** In-app confirmation (never window.confirm). Resolves true / false. */
 export function confirmSheet({ title, body = '', ok = t('Confirm'), no = t('Cancel'), danger = false }) {

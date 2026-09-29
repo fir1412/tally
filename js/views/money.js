@@ -228,6 +228,7 @@ function reopen() {
 }
 /** The expense category used most (by entries), so a new entry starts on it. */
 const usualCategory = () => {
+  if (S.kv.settings?.ownCats) return 'other';   // "Only my categories": nothing is picked for them
   const n = {}; for (const x of S.tx) if (x.type === 'expense' && !x.bill && x.source !== 'recurring') n[x.category] = (n[x.category] || 0) + 1;
   return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([c]) => c).find(c => expenseCats().some(e => e.id === c)) || (S.kv.settings?.ownCats ? 'other' : 'dining');
 };

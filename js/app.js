@@ -2,7 +2,7 @@
 import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos } from './state.js';
 import { gate, watch } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
-import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
+import { $, esc, ICON, toast, closeSheet, sheetOpen, own , settling } from './ui.js';
 import * as home from './views/home.js';
 import * as money from './views/money.js';
 import * as learn from './views/learn.js';
@@ -33,6 +33,7 @@ export const route = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 
 const TABS = new Set(['home', 'activity', 'insights', 'budgets', 'settings']);
 const depth = () => history.state?.depth || 0;
 export function go(r) {
+  const s = settling(); if (s) return void s.then(() => go(r));   // a sheet just closed: its history step first
   const cur = route(), d = depth();
   const root = () => { if (route() !== 'home') { location.replace('#/home'); history.replaceState({ depth: 0 }, ''); } };   // the root was Welcome (first run): Home takes its place
   if (r === 'home') { if (d > 0) { addEventListener('popstate', root, { once: true }); history.go(-d); } else if (cur !== 'home') root(); else render(); return; }

@@ -1081,4 +1081,5 @@ export default {
   "{0} selected": "已选 {0} 项",
   "Business": "生意",
   "Business (my stall, rides, shop)": "生意（摊位、载客、店铺）",
+  "Show this line on the receipt": "在收据上显示这一行",
 };

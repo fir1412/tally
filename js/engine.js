@@ -140,7 +140,7 @@ export const itemKey = once(name => String(name ?? '').toUpperCase().replace(/\b
 const WORDS = [
   // Named by what they are, before "rice" or "egg" make a meal groceries, or "Penang" looks like a pen.
   ['dining', /economy rice|mixed rice|chap ?fan|杂饭|雜飯|经济饭|經濟飯|nasi campur|roti (telur|canai|kosong|bom|jala|tissue)|char kue?y teow|fried rice|nasi (goreng|lemak|kandar|ayam|kerabu|dagang|briyani|biryani)|(chicken|lamb|fish|pork) chop|tom ?yam|mee (goreng|kari|curry|rebus|hailam|bandung|sup)|kue?y ?teow|iced? (lemon|tea|coffee|milo|latte)|lemon tea|telur mata|teh (tarik|o|ais|c|halia)\b|kopi (o|c|ais|peng)\b|\bslice\b|set meal|炒饭|炒飯|面线|鸡饭|雞飯/i],
-  ['transport', /\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
+  ['transport', /minyak (motor|kereta|moto)|isi minyak|\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
   ['education', /fotostat|photo ?copy|cetak nota|复印|複印/i],
   ['groceries', /\bgrocer(y|ies)\b|barang dapur/i],
   // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.
@@ -484,12 +484,12 @@ export function pickAccount({ accounts: all, txs = [], bal = {}, kind = 'quick',
     if (pay === 'card' || pay === 'debit') return main();
   }
   // The latest everyday account, from what was typed (a card used for one big receipt isn't where the kopi goes).
-  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId))
+  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId) && byId.get(x.accountId).kind !== 'card')   // one card purchase isn't where the kopi goes
     .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts.find(a => a.kind === 'cash')?.id || accounts[0]?.id;
   const spend = txs.filter(x => x.type === 'expense');
   let id = null;
   const k = shop && shopWord(shop);
-  if (k) id = most(spend.filter(x => x.merchant && shopWord(x.merchant) === k));   // this shop (a toll on TNG): where it was paid before
+  if (k) id = most(spend.filter(x => x.merchant && shopWord(x.merchant) === k)) || most(spend.filter(x => x.merchant && shopWord(x.merchant).split(' ')[0] === k.split(' ')[0]));   // this shop (a toll on TNG; "GrabFood" as "GrabFood McDonald's" in a wallet's file): where it was paid before
   if (!id && kind === 'receipt' && (amount >= BIG || HABIT_CATS.includes(category))) id = most(spend.filter(x => x.amount >= BIG || HABIT_CATS.includes(x.category)), notCash) || main();
   id ||= everyday();
   if (k && id) return id;   // a habit is a habit, even when the balance looks short

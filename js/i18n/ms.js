@@ -1081,4 +1081,5 @@ export default {
   "{0} selected": "{0} dipilih",
   "Business": "Perniagaan",
   "Business (my stall, rides, shop)": "Perniagaan (gerai, e-hailing, kedai saya)",
+  "Show this line on the receipt": "Tunjukkan baris ini pada resit",
 };
