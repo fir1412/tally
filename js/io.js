@@ -584,6 +584,7 @@ export function readBackup(text) {
     const bud = b => ({ total: okAmt(b.total) ? b.total : 0, byCat: Object.fromEntries(Object.entries(isObj(b.byCat) ? b.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) });
     if (isObj(d.kv.budgets)) kv.budgets = { ...bud(d.kv.budgets), ...(isObj(d.kv.budgets.joint) ? { joint: { ...bud(d.kv.budgets.joint), ...upd(d.kv.budgets.joint.updatedAt) } } : {}) };
     if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k && !RESERVED.has(k)));
+    if (isObj(d.kv.shopNames)) kv.shopNames = Object.fromEntries(Object.entries(d.kv.shopNames).slice(0, 500).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
   }

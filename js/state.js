@@ -150,7 +150,7 @@ export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
-const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed'];
+const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames'];
 const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
 /** Replace everything with a backup, all or nothing: old photos and the settings a backup carries go too. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {

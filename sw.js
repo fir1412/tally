@@ -2,7 +2,7 @@
 const VERSION = 'tally-v20d';
 const CORE = [
   './', './index.html', './privacy.html', './terms.html', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
-  './js/app.js', './js/state.js', './js/db.js', './js/engine.js', './js/ui.js', './js/io.js', './js/i18n.js', './js/parse.js',
+  './js/app.js', './js/state.js', './js/db.js', './js/engine.js', './js/ui.js', './js/io.js', './js/i18n.js', './js/parse.js', './js/brands.js',
   './js/align.js', './js/scan.js', './js/ocr-worker.js', './js/calendar.js', './js/mmimport.js', './js/statement.js', './js/presets.js', './js/feedback.js', './js/tour.js', './js/lock.js', './js/camera.js', './js/learn.js', './js/gamify.js',
   './js/views/home.js', './js/views/money.js', './js/views/review.js', './js/views/setup.js', './js/views/learn.js', './js/i18n/ms.js', './js/i18n/zh.js',
 ];

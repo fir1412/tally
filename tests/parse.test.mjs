@@ -20,7 +20,7 @@ test('restaurant: service charge + SST added, rounding, payment lines ignored', 
     TOTAL                  25.55
     CASH                   30.00
     CHANGE                  4.45`);
-  assert.equal(r.merchant, 'RESTORAN MAJU JAYA');
+  assert.equal(r.merchant, 'Restoran Maju Jaya');
   assert.equal(r.date, '2026-09-28');
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['Nasi Lemak Ayam', 1290], ['Teh Tarik', 700], ['Roti Canai', 200]]);
   assert.equal(r.subtotal, 2190);
@@ -142,7 +142,7 @@ Roundlng 0.02
 Total Sales(lnclusive of GsT) : 100.90
 CASH: 101.00
 Change : 0.10`);
-  assert.equal(r.merchant, 'KEDAI RUNCIT JAYA SDN BHD');   // the handwritten name above is not the shop
+  assert.equal(r.merchant, 'Kedai Runcit Jaya');   // the handwritten name above is not the shop; no Sdn Bhd
   assert.equal(r.total, 10090);
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['HAMMER 20OZ', 5088], ['SCREW SET 12PCS', 5000]]);
   assert.ok(r.check.ok);
@@ -164,4 +164,15 @@ test('an item-count footer is never an item name', () => {
   const r = parseReceipt(['MR DIY', 'GLUE STICK 21G', '5.90', 'Item (s):1 Qty(s):1', '5.90', 'TOTAL 5.90', 'CASH 10.00', 'CHANGE 4.10'].join('\n'));
   assert.ok(!r.items.some(i => /qty|item \(s\)/i.test(i.name || '')), JSON.stringify(r.items));
   assert.equal(r.total, 590);
+});
+
+test('shop names: the brand people use, not the registered company', () => {
+  const name = t => parseReceipt(t + '\nTOTAL 10.00').merchant;
+  assert.equal(name('HEXTAR LUCKIN M SDN BHD\n(1234567-X)\nLot 5, Jalan Ampang'), 'Luckin Coffee');
+  assert.equal(name('Gerbang Alaf Restaurants Sdn Bhd\n(65351-M)'), "McDonald's");
+  assert.equal(name('GCH RETAIL (MALAYSIA) SDN. BHD.\n(COMPANY NO:200401028527)\nGIANT HYPERMARKET KEMUNING'), 'Giant');
+  assert.equal(name('7:41 97%\nOrder Summary\nMR. D.I.Y. (M) SDN BHD'), 'Mr DIY');
+  assert.equal(name('PUBLIC BANK\nPERANTAU HILL\nLOT 5070 JLN AIR HITAM'), 'Perantau Hill');   // card slip: the shop is under the bank
+  assert.equal(name('BOK MARKETING SDN.BHD\n(1182500-V)'), 'Bok Marketing');
+  assert.equal(name('Eyeslab Optometrist\nLg145, Lower Ground Floor'), 'Eyeslab');
 });

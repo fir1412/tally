@@ -1,5 +1,6 @@
 // Receipt text (from OCR) -> structured receipt. Pure, no DOM. Amounts are integer cents (sen).
 // Tuned for Malaysian receipts: SST, service charge, 5-sen rounding, SR/ZR tax codes, day-first dates.
+import { brandOf } from './brands.js';
 
 // "12.90", "12,90", "RM 12.90", "$12.90", "-2.00", "2.00-", then optional trailing tax code or OCR junk
 // (SR, ZR, T, *, "2" for a misread Z, "§", ":")
@@ -90,6 +91,22 @@ export function parseItemLines(text) {
   }).filter(x => x && x.cents > 0);
 }
 
+// Lines at the top that never name the shop: a phone's status bar, headings, order numbers, a card terminal's bank.
+const NOT_SHOP = /^\d{1,2}:\d{2}\b|\d+\s*%|order\s*(summary|details|number|no|id)|your\s*(order|receipt)|official\s*receipt|tax\s*invoice|^\W*(invoice|receipt|resit|welcome|selamat)\b|^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg))|^[\d\W]+$/i;
+const BANK_SLIP = /^(public\s*bank|hong\s*leong|maybank|cimb|rhb|ambank|bank\s*islam|bsn|affin|uob|ocbc|hsbc|alliance\s*bank)/i;
+const ADDRESS = /\b(jalan|jln|lot|no\.?\s*\d+|taman|lorong|level|floor|lg-?\d+|kuala lumpur|selangor|\d{5})\b/i;
+const titleCase = s => (s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(&/-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : s);
+/** "HEXTAR LUCKIN M SDN BHD" → Luckin Coffee (a known brand); "RESTORAN MAJU JAYA SDN.BHD (123-X)" → Restoran Maju Jaya. */
+export function shopName(lines) {
+  const brand = brandOf(lines); if (brand) return brand;
+  const top = lines.slice(0, 8).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l));
+  const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
+  if (!co) return null;
+  const name = co.replace(/\(?\b(m|malaysia)\)?\s*(sdn\.?\s*bhd|sdnbhd|berhad|bhd)\b.*$/i, '').replace(/[\s.,]*(sdn\.?\s*bhd|sdnbhd|berhad|\bbhd)\b.*$/i, '')
+    .replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim();
+  return titleCase(name || co).slice(0, 80);
+}
+
 export function parseReceipt(text) {
   const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
@@ -97,10 +114,8 @@ export function parseReceipt(text) {
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
   const below = namesBelow(lines);
 
-  const co = lines.slice(0, 6).find(l => COMPANY.test(l));
-  if (co) r.merchant = co.replace(/\s*sdn\.?\s*bhd/i, ' SDN BHD').replace(/([A-Za-z])\(/g, '$1 (').replace(/\)([A-Za-z])/g, ') $1').trim();
+  r.merchant = shopName(lines);
   for (const line of lines) {
-    if (!r.merchant && /[a-z]{3}/i.test(line)) r.merchant = line;
     if (!r.date) r.date = parseDate(line);
     if (!r.time) r.time = parseTime(line);
     if (r.total !== null && PAYMENT.test(line)) paid = true;

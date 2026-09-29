@@ -3,7 +3,7 @@
 import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$ } from '../ui.js';
-import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
+import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, OCR_BYTES } from '../scan.js';
 import { render, go, scanned } from '../app.js';
@@ -83,10 +83,11 @@ const EXAMPLE = { en: 'Phone 1299\nFish 25, vegetables 8', ms: 'Telefon 1299\nIk
 /** Parsed receipt → editable transaction draft, with categories guessed from the user's rules and shop words. */
 const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price looks wrong') : t('Hard to read: check the name and price'));
 function toDraft(r) {
-  const merchant = (r.merchant || '').slice(0, 80);
+  // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
+  const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: categorize(i.name, merchant, S.kv.rules), flag: !!i.flag }));
   return {
-    id: uid('t'), type: 'expense', source: 'receipt', merchant, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
+    id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: usualAccount(), category: shopCategory(merchant, S.kv.rules), items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
   };
@@ -249,6 +250,8 @@ export const act = {
       category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
+    if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop
+      await setKv('shopNames', Object.fromEntries([...Object.entries(S.kv.shopNames || {}), [itemKey(d.readName), tx.merchant.slice(0, 80)]].slice(-500)));
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
     toast(tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtRM(tx.amount), fmtMonth(tx.date.slice(0, 7))), { icon: 'check' });
     await finish();
