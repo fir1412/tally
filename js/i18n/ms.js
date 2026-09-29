@@ -1091,4 +1091,9 @@ export default {
   "Backup & restore": "Sandaran & pulih",
   "Language & text size": "Bahasa & saiz teks",
   "Instalments or an end date": "Ansuran atau tarikh tamat",
+  "{0} photos are not on this phone, so they are not in the file.": "{0} foto tiada dalam telefon ini, jadi tidak dimasukkan dalam fail.",
+  "Download 1 receipt photo": "Muat turun 1 foto resit",
+  "Download {0} receipt photos": "Muat turun {0} foto resit",
+  "Save photo": "Simpan foto",
+  "Download the receipts for {0}": "Muat turun resit untuk {0}",
 };

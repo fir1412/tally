@@ -606,6 +606,8 @@ export function reloadTransfers(txs, accounts, other) {
 const q = v => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 /** Spreadsheets run cells starting with = + - @; a leading quote makes them plain text. */
 export const safeText = v => (/^[=+\-@\t\r]/.test(String(v ?? '')) ? `'${v}` : String(v ?? ''));
+/** One CSV row, quoted and safe to open in a spreadsheet. */
+export const csvLine = cells => cells.map(c => q(safeText(c))).join(',');
 export function toCSV(txs, accounts, catName = id => ALL_CATS.find(c => c.id === id)?.name || id || '') {
   const acc = Object.fromEntries(accounts.map(a => [a.id, a.name]));
   const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time'].join(',')];   // read back by the 'tally' preset
@@ -811,6 +813,16 @@ export function zipStore(files) {
   return new Blob([...parts, ...central, e], { type: 'application/zip' });
 }
 export const BACKUP_JSON = 'tally-backup.json';
+/** A receipt photo's file name that sorts by date and says what it was: "2026-09-29 Good Timing RM4.50.jpg".
+ *  `dir` puts it in a folder of the zip; `taken` keeps every path in one zip different. */
+export function receiptName(tx, taken = new Set(), dir = '') {
+  const clean = s => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const base = `${clean(dir) ? `${clean(dir)}/` : ''}${tx.date} ${clean(tx.merchant).slice(0, 40) || 'Receipt'} RM${(tx.amount / 100).toFixed(2)}`;
+  let name = `${base}.jpg`;
+  for (let n = 2; taken.has(name); n++) name = `${base} (${n}).jpg`;
+  taken.add(name);
+  return name;
+}
 
 export function download(name, text, type = 'text/plain') {
   const url = URL.createObjectURL(new Blob([text], { type }));

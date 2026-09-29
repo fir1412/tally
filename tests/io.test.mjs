@@ -325,3 +325,12 @@ test('backup keeps bills that add themselves and their payments, with bounded fi
   assert.deepEqual([r1.day, r1.freq, r1.auto, r1.count, r1.start, r1.until, r1.last], [31, 'yearly', true, 12, '2026-01-31', undefined, '2026-09-29']);
   assert.deepEqual([r2.freq, r2.auto, r2.count], [undefined, false, undefined]);
 });
+
+test('receipt photo names sort by date, say the shop and amount, and never clash or escape their folder', async () => {
+  const { receiptName, csvLine } = await import('../js/io.js');
+  const taken = new Set(), tx = { date: '2026-09-29', merchant: 'Good Timing: Food/Village', amount: 450 };
+  assert.equal(receiptName(tx, taken), '2026-09-29 Good Timing Food Village RM4.50.jpg');
+  assert.equal(receiptName(tx, taken), '2026-09-29 Good Timing Food Village RM4.50 (2).jpg');
+  assert.equal(receiptName({ ...tx, merchant: '' }, taken, 'Medical/../x'), 'Medical .. x/2026-09-29 Receipt RM4.50.jpg');
+  assert.equal(csvLine(['=HYPERLINK()', 'a,b']), `'=HYPERLINK(),"a,b"`);
+});

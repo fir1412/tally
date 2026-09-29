@@ -1091,4 +1091,9 @@ export default {
   "Backup & restore": "备份与恢复",
   "Language & text size": "语言与字号",
   "Instalments or an end date": "分期或结束日期",
+  "{0} photos are not on this phone, so they are not in the file.": "有 {0} 张照片不在这部手机上，所以没有放进文件。",
+  "Download 1 receipt photo": "下载 1 张收据照片",
+  "Download {0} receipt photos": "下载 {0} 张收据照片",
+  "Save photo": "保存照片",
+  "Download the receipts for {0}": "下载 {0} 年的收据",
 };

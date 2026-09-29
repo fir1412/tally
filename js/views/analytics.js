@@ -2,9 +2,10 @@
 // with its headline figure. Sums come from engine.js; every chart has its numbers in text next to it or in a hidden table.
 import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, cycleShort, getLang } from '../i18n.js';
-import { esc, short } from '../ui.js';
+import { esc, short, ICON } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
-import { catLabel, showIds } from './money.js';
+import { catLabel, showIds, downloadReceipts } from './money.js';
+import { receiptName, csvLine } from '../io.js';
 
 const OPEN = new Set();   // cards opened stay open across re-renders (a scope or month change)
 const card = (id, title, head, body) => `<details class="card acard"${OPEN.has(id) ? ' open' : ''}><summary data-act="acard" data-id="${id}"><span class="grow"><span class="lbl">${esc(title)}</span><b>${esc(head)}</b></span><span class="chev" aria-hidden="true"></span></summary>${body}</details>`;
@@ -138,7 +139,7 @@ function reliefCard(M) {
     <small>${esc(l.entries.length === 1 ? t('1 entry') : t('{0} entries', l.entries.length))} · ${esc(t('{0} with receipt photo', l.proof))}</small></button></li>`).join('');
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
   return card('relief', t('Possible tax-relief expenses in {0}', year), got.length ? t('{0} in spending to review', fmtRM(total)) : t('Nothing found yet for {0}', year),
-    `${rows ? `<ul class="relief">${rows}</ul>` : ''}${none.length ? `<p class="fine">${esc(t('Not found yet: {0}.', none.join(', ')))}</p>` : ''}
+    `${rows ? `<ul class="relief">${rows}</ul>` : ''}${got.some(l => l.proof) ? `<button class="btn ghost" data-act="relief-dl" data-y="${year}">${ICON.download}${esc(t('Download the receipts for {0}', year))}</button>` : ''}${none.length ? `<p class="fine">${esc(t('Not found yet: {0}.', none.join(', ')))}</p>` : ''}
     <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
 }
 
@@ -160,6 +161,16 @@ export function analyticsCards(M) {
 
 export const act = {
   acard: b => { const d = b.parentElement, id = b.dataset.id; d.open = !d.open; if (d.open) OPEN.add(id); else OPEN.delete(id); },
+  // Every relief's receipt photos in a folder of its own, with a list of all its entries (photo or not) for the tax form.
+  'relief-dl': b => {
+    const y = b.dataset.y, byId = new Map(S.tx.map(x => [x.id, x])), taken = new Set(), rows = [], csv = [csvLine(['Relief', 'Date', 'Shop', 'Amount (RM)', 'Photo'])];
+    for (const l of cached(taxRelief, booked(), y)) for (const e of l.entries) {
+      const tx = byId.get(e.id); if (!tx) continue;
+      if (tx.receiptId) rows.push({ tx, dir: t(l.name) });
+      csv.push(csvLine([t(l.name), e.date, e.merchant || '', (e.cents / 100).toFixed(2), tx.receiptId ? receiptName(tx, taken, t(l.name)) : '']));
+    }
+    return downloadReceipts(rows, `tally-tax-relief-${y}`, '﻿' + csv.join('\n'));
+  },
   'relief-show': b => {
     const l = cached(taxRelief, booked(), b.dataset.y).find(x => x.id === b.dataset.id);
     if (l) showIds(l.entries.map(e => e.id), `${t(l.name)} ${b.dataset.y}`);

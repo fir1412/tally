@@ -5,7 +5,7 @@ import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, la
 import { firstWord } from './learn.js';
 import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
-import { download } from '../io.js';
+import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { render, go } from '../app.js';
 
 export const accName = id => S.accounts.find(a => a.id === id)?.name || t('Deleted account');
@@ -56,6 +56,7 @@ export const activityView = {
     const list = cached(latestFirst, scopedTx()).filter(matches);
     const sd = startDay(), months = cached(cycleKeys, scopedTx(), sd);
     const shown = list.slice(0, F.limit);
+    const photos = (F.q || F.month || F.acc || F.cat || F.photo || F.ids) && new Set(list.map(x => x.receiptId).filter(Boolean)).size;   // a search ("panadol", "klinik") or a filter picks which to download
     const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + (F.cat && x.items?.length ? x.items.filter(i => i.category === F.cat).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
     let html = '', day = '';
     for (const x of shown) {
@@ -72,6 +73,7 @@ export const activityView = {
       </div>
       <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button>${F.ids ? `<button class="chip on" data-act="act-ids" aria-label="${esc(t('Show all, not just {0}', F.idsLabel))}">${esc(F.idsLabel)}${ICON.x}</button>` : ''}</div>
       <p class="fine" id="act-sum">${esc(list.length === 1 ? t('1 transaction · {0} spent', fmtRM(spent)) : t('{0} transactions · {1} spent', list.length, fmtRM(spent)))}</p>
+      ${photos ? `<button class="btn ghost" data-act="act-dl">${ICON.download}${esc(photos === 1 ? t('Download 1 receipt photo') : t('Download {0} receipt photos', photos))}</button>` : ''}
       <div id="act-list">${list.length ? html : `<p class="empty">${esc(S.tx.length ? t('Nothing matches. Try another search or filter.') : t('No transactions yet. Scan a receipt or tap Add.'))}</p>`}
       ${list.length > F.limit ? `<button class="btn ghost wide" data-act="act-more">${esc(t('Show more'))}</button>` : ''}</div>`;
   },
@@ -131,6 +133,18 @@ export const input = {
 /** Show one category's spending: Home, Insights and Budgets link here. */
 export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, ids: null, limit: 200 }); go('activity'); }
 /** Activity showing just these entries (from Insights: the payments behind a tax relief line), named by a chip that clears it. */
+/** Receipt photos to keep or hand in (a tax claim, an expense claim): one photo as itself, several in a zip with their list.
+ *  `rows`: [{tx, dir?}], `csv`: the list that goes with them (default: the entries, as the CSV export writes them). */
+export async function downloadReceipts(rows, zipName, csv) {
+  rows = rows.filter(r => r.tx.receiptId);
+  const files = [], taken = new Set(); let missing = 0;
+  for (const { tx, dir } of rows) { const p = await getPhoto(tx.receiptId); if (p) files.push({ name: receiptName(tx, taken, dir), data: new Uint8Array(await p.arrayBuffer()) }); else missing++; }
+  if (missing) toast(t('{0} photos are not on this phone, so they are not in the file.', missing), { k: 'warn' });
+  if (!files.length) return;
+  if (files.length === 1 && !csv) return download(files[0].name.split('/').pop(), new Blob([files[0].data], { type: 'image/jpeg' }), 'image/jpeg');
+  files.push({ name: 'receipts.csv', data: new TextEncoder().encode(csv ?? toCSV(rows.map(r => r.tx), S.accounts, catLabel)) });
+  download(`${zipName.replace(/[\\/:*?"<>|]+/g, ' ').trim()}.zip`, zipStore(files), 'application/zip');
+}
 export function showIds(ids, label) { Object.assign(F, { q: '', acc: '', cat: '', month: '', photo: false, ids, idsLabel: label, limit: 200 }); go('activity'); }
 
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
@@ -373,7 +387,7 @@ export const act = {
     const blob = await getPhoto(draft.receiptId);
     if (!blob) return toast(t('The photo is not on this phone (it may have been restored from a backup without photos).'));
     const url = URL.createObjectURL(blob);
-    openSheet(`<img class="photo" src="${url}" alt="${esc(t('Receipt photo'))}"><button class="btn wide" data-act="sheet-close">${esc(t('Close'))}</button>`, { label: t('Receipt photo'), onClose: () => URL.revokeObjectURL(url) });
+    openSheet(`<img class="photo" src="${url}" alt="${esc(t('Receipt photo'))}"><div class="sheetfoot"><button class="btn ghost" data-act="tx-photo-dl">${ICON.download}${esc(t('Save photo'))}</button><button class="btn" data-act="sheet-close">${esc(t('Close'))}</button></div>`, { label: t('Receipt photo'), onClose: () => URL.revokeObjectURL(url) });
   },
   'tx-save': async b => {
     readForm();
@@ -405,6 +419,11 @@ export const act = {
     toast(t('Deleted'), { undo: async () => { await undo(); render(); } });
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
+  'tx-photo-dl': () => downloadReceipts([{ tx: draft }]),
+  'act-dl': () => {
+    const list = cached(latestFirst, scopedTx()).filter(matches), what = F.ids ? F.idsLabel : F.q || (F.month && fmtMonth(F.month, startDay())) || '';
+    return downloadReceipts(list.map(tx => ({ tx })), `tally-receipts ${what || today()}`.trim());
+  },
   'act-photo': () => { F.photo = !F.photo; F.limit = 200; refilter(); },
   'act-ids': () => { F.ids = null; refilter(); },
   'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: ['groceries', 'dining', 'other'].includes(r.category) ? 'bills' : r.category, accountId: defaultAccount('bill'), key: r.key }); },
