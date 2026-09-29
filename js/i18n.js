@@ -13,8 +13,9 @@ export function pickLang(list) {
   return 'en';
 }
 // Copy is written for phones; on a tablet or computer "this phone" reads as "this device".
-const DEVICE = { en: [/\bphone\b/g, 'device'], ms: [/\btelefon\b/g, 'peranti'], zh: [/(这部|此)?手机/g, '此设备'] };
-const bigScreen = () => typeof matchMedia === 'function' && matchMedia('(min-width: 768px), (pointer: fine)').matches;
+const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'] };
+const bigMQ = typeof matchMedia === 'function' ? matchMedia('(min-width: 768px), (pointer: fine)') : null;
+const bigScreen = () => !!bigMQ?.matches;
 /** t('Spent {0} of {1}.', a, b): the current language's text with values filled in. Unknown text stays English. */
 export function t(s, ...vals) {
   let tpl = (dict && Object.prototype.hasOwnProperty.call(dict, s) ? dict[s] : s);

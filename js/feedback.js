@@ -27,12 +27,16 @@ async function post(item) {
 }
 
 /** Send anything written while offline. */
+let flushing = false;
 export async function flushFeedback() {
   const q = settings()?.feedbackQueue || [];
-  if (!q.length || !navigator.onLine) return;
-  const left = [];
-  for (const item of q) { try { await post(item); } catch { left.push(item); } }
-  await save({ feedbackQueue: left });
+  if (flushing || !q.length || !navigator.onLine) return;
+  flushing = true;
+  const sent = new Set();
+  try { for (const item of q) { try { await post(item); sent.add(item.at); } catch {} } }
+  finally { flushing = false; }
+  await save({ feedbackQueue: (settings().feedbackQueue || []).filter(x => !sent.has(x.at)) });   // re-read: keep anything queued meanwhile
+  const left = q.filter(x => !sent.has(x.at));
   if (left.length < q.length) toast(t('Sent your saved feedback'), { k: 'good', icon: 'check' });
 }
 if (typeof window !== 'undefined') window.addEventListener('online', () => { flushFeedback().catch(() => {}); });

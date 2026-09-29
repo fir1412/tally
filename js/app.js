@@ -101,6 +101,6 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     render();
     if (!resumed) onboarding();
     flushFeedback().catch(() => {});
-    registerSW(sheetOpen);
+    registerSW(() => sheetOpen() || review.busy());
   } catch (err) { recovery(err); }
 })();

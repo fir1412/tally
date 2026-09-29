@@ -16,3 +16,8 @@ for (const f of ['sw.js', ...walk('js')]) test(`parses as a module: ${f}`, () =>
   assert.equal(r.status, 0, `${f}\n${r.stderr}`);
 });
 test('the check itself catches a broken file', () => assert.notEqual(check("export const a = ['it's broken'];").status, 0));
+
+test('every app file is cached for offline use by the service worker', () => {
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+  for (const f of walk('js')) assert.ok(sw.includes(`'./${f.replace(/\\/g, '/')}'`), `${f} missing from sw.js CORE`);
+});

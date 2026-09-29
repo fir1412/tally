@@ -73,10 +73,11 @@ export function showWhatsNew(from = '') {
 
 /** On start: the tour for someone new, What's new for someone who updated, nothing on the welcome screen. */
 export function onboarding() {
-  if (skipTour() || !S.accounts.length) return;
+  if (skipTour()) return;
   const s = settings();
-  if (s.seenVersion === APP_VERSION) return;
-  if (!s.tourDone && !S.tx.length) return showTour(0);
+  // First run: this version's changes aren't news. Stamping it here tells a new user apart from one updating from 0.1.0.
+  if (!S.accounts.length) { if (!s.seenVersion) setKv('settings', { ...S.kv.settings, seenVersion: APP_VERSION }); return; }
+  if (s.seenVersion === APP_VERSION) { if (!s.tourDone && !S.tx.length) showTour(0); return; }
   const from = s.seenVersion || '0.1.0';   // 0.1.0 didn't record it
   if (newSince(from).length) showWhatsNew(from); else seen();
 }
@@ -88,7 +89,7 @@ export function afterSetup() {
 
 // ---- install ("Add to home screen") ------------------------------------------------------------------------------------
 let installEvt = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (route() === 'settings') render(); });
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (['settings', 'welcome'].includes(route())) render(); });
 window.addEventListener('appinstalled', () => { installEvt = null; toast(t('Installed. Open Tally from your home screen.'), { k: 'good', icon: 'check' }); });
 export const canInstall = () => !!installEvt;
 export async function promptInstall() {
@@ -107,7 +108,7 @@ export async function checkForUpdates() {
   return reg.installing || reg.waiting ? 'updating' : 'latest';
 }
 /** Register the service worker; reload once when a new version takes over, never mid-typing, mid-review or with a sheet open. */
-export function registerSW(sheetOpen) {
+export function registerSW(blocked) {
   if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
   try { if (sessionStorage.getItem('tally-updated')) { sessionStorage.removeItem('tally-updated'); setTimeout(() => toast(t('Updated to the latest version'), { k: 'good', icon: 'check' }), 300); } } catch {}
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
@@ -117,7 +118,7 @@ export function registerSW(sheetOpen) {
   const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
   const tryReload = () => {
-    if (reloading || document.activeElement?.matches('input, textarea, select') || sheetOpen() || route() === 'review') return false;
+    if (reloading || document.activeElement?.matches('input, textarea, select') || blocked() || route() === 'review') return false;
     reloading = true;
     try { sessionStorage.setItem('tally-updated', '1'); } catch {}
     location.reload(); return true;

@@ -170,16 +170,17 @@ function showMapping() {
  * (a receipt and its statement line: same day, amount and type). Identical rows within one file are all kept.
  * `before(fresh)` runs first (photos) and returns ids to remove again on Undo.
  */
-async function commitImport(txs, label, before = async () => []) {
+async function commitImport(txs, label, before = async () => [], newAccount = null) {
   const byId = new Set(S.tx.map(x => x.id));
   const sameBuy = x => S.tx.some(y => y.source !== x.source && y.date === x.date && y.amount === x.amount && y.type === x.type);
   const fresh = [], dups = [];
   for (const x of txs) (byId.has(x.id) || sameBuy(x) ? dups : fresh).push(x);
   const photoIds = await before(fresh);
   await saveTxs(fresh);
+  if (newAccount && !fresh.length) await deleteAccount(newAccount).catch(() => {});
   if (!settings().onboarded) { await setSetting('onboarded', true); afterSetup(); }
   closeSheet(); go('home'); render();
-  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); await deletePhotos(photoIds); render(); } });
+  toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); await deletePhotos(photoIds); if (newAccount) await deleteAccount(newAccount).catch(() => {}); render(); } });
 }
 async function importMoneyManager(buf) {
   impErr(t('Reading the Money Manager backup…'));
@@ -333,7 +334,7 @@ export const act = {
     b.disabled = true;
     if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: 'bank', opening: 0, createdAt: Date.now() });
     const { txs } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), catMap: IMP.catMap });
-    return commitImport(txs, IMP.name || t('file'));
+    return commitImport(txs, IMP.name || t('file'), undefined, IMP.accountId === 'new' ? IMP.newId : null);
   },
   'mm-go': async b => {
     b.disabled = true;

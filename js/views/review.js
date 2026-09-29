@@ -29,13 +29,15 @@ async function pump() {
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); await savePhoto(draft.receiptId, photo); }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft };
-    persist();
+    await setKv('reviewDraft', { draft, existing: false });
   } catch (e) {
     console.error(e);
     current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
   }
   reading = false; refresh();
 }
+/** Photos being read or waiting (in memory only): an app update must not reload now. */
+export const busy = () => reading || queue.length > 0;
 const refresh = () => { if (location.hash.startsWith('#/review')) render(); };
 
 // The receipt being checked is kept on the phone as it's edited, so a locked phone or a killed tab loses nothing.
@@ -147,7 +149,7 @@ const mostSpent = items => { const by = {}; for (const i of items) by[i.category
 export const act = {
   'rv-skip': async () => {
     const d = current?.draft;
-    if (d?.receiptId && !current.existing) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind
+    if (d?.receiptId && !current.existing && !S.tx.some(x => x.receiptId === d.receiptId)) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind
     await finish();
     if (queue.length) pump(); else go('home');
   },
@@ -166,6 +168,7 @@ export const act = {
     const tx = { id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
       category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
+    clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
     toast(t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)), { icon: 'check' });
     await finish();

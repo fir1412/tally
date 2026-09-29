@@ -43,7 +43,7 @@ export const activityView = {
       html += txRow(x);
     }
     if (day) html += '</ul>';
-    return `<header class="top"><h1>${esc(t('Activity'))}</h1><button class="btn small" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
+    return `<header class="top"><h1>${esc(t('Activity'))}</h1><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
       <div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
         <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m))}</option>`).join('')}</select>
