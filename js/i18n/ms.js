@@ -424,4 +424,5 @@ export default {
   "You have the latest version": "Anda sudah ada versi terbaharu",
   "Your balance, where the money went, and a nudge when it is time to log.": "Baki anda, ke mana wang pergi, dan peringatan bila tiba masa untuk mencatat.",
   "Your data stays with you": "Data anda kekal bersama anda",
+  "Picked up the receipt you were checking": "Menyambung resit yang sedang anda semak",
 };

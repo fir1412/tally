@@ -424,4 +424,5 @@ export default {
   "You have the latest version": "已是最新版本",
   "Your balance, where the money went, and a nudge when it is time to log.": "查看余额、钱花在哪里，到了该记账的时候还会提醒您。",
   "Your data stays with you": "数据始终属于您",
+  "Picked up the receipt you were checking": "已恢复您正在核对的收据",
 };

@@ -89,8 +89,10 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     onRemoteChange(async () => { await load(); refresh(); });
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
+    const resumed = await review.restoreDraft();
+    if (resumed) { history.replaceState(null, '', '#/review'); toast(t('Picked up the receipt you were checking')); }
     render();
-    onboarding();
+    if (!resumed) onboarding();
     flushFeedback().catch(() => {});
     registerSW(sheetOpen);
   } catch (err) { recovery(err); }

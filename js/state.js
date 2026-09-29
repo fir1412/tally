@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup'];
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft'];
 
 export async function load() {
   const mode = await db.init();

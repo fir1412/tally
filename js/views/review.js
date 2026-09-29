@@ -1,6 +1,6 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, saveTx, savePhoto, learn, expenseCats, today, nowTime, uid } from '../state.js';
+import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid } from '../state.js';
 import { t, fmtDate } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, $, $$ } from '../ui.js';
 import { fmtRM, parseAmount, categorize, shopCategory, findDuplicate, validIso } from '../engine.js';
@@ -26,7 +26,10 @@ async function pump() {
   try {
     if (!ocrReady()) await loadOcr();
     const { receipt, photo, ms, turns } = await readReceipt(next.file);
-    current = { ...current, status: 'ready', photo, ms, turns, draft: toDraft(receipt) };
+    const draft = toDraft(receipt);
+    if (photo) { draft.receiptId = uid('p'); await savePhoto(draft.receiptId, photo); }   // saved now so a draft survives a restart
+    current = { ...current, status: 'ready', ms, turns, draft };
+    persist();
   } catch (e) {
     console.error(e);
     current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
@@ -34,6 +37,22 @@ async function pump() {
   reading = false; refresh();
 }
 const refresh = () => { if (location.hash.startsWith('#/review')) render(); };
+
+// The receipt being checked is kept on the phone as it's edited, so a locked phone or a killed tab loses nothing.
+let persistT;
+function persist() {
+  clearTimeout(persistT);
+  persistT = setTimeout(() => { if (current?.status === 'ready') setKv('reviewDraft', { draft: current.draft, existing: !!current.existing }); }, 300);
+}
+function finish() { clearTimeout(persistT); if (current?.thumb) URL.revokeObjectURL(current.thumb); current = null; return setKv('reviewDraft', null); }
+/** On start: reopen an unfinished review. Returns true if there was one. */
+export async function restoreDraft() {
+  const saved = S.kv.reviewDraft;
+  if (!saved?.draft || current) return false;
+  const blob = saved.draft.receiptId ? await getPhoto(saved.draft.receiptId) : null;
+  current = { id: uid('r'), status: 'ready', existing: saved.existing, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
+  return true;
+}
 
 /** Parsed receipt → editable transaction draft, with categories guessed from the user's rules and shop words. */
 const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price looks wrong') : t('Hard to read: check the name and price'));
@@ -50,6 +69,7 @@ function toDraft(r) {
 /** Open an already-saved receipt transaction for item editing (from the transaction sheet). */
 export function editExisting(tx) {
   current = { id: uid('r'), status: 'ready', existing: true, draft: { ...structuredClone(tx), total: tx.amount, items: (tx.items || []).map(i => ({ ...i })) } };
+  persist();
   go('review');
 }
 
@@ -104,12 +124,14 @@ export const input = {
   'rv-f': el => {
     const d = current?.draft; if (!d) return;
     const k = el.dataset.k;
+    persist();
     if (k === 'total') { const v = parseAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; updateStatus(); return; }
     d[k] = el.value;
     if (k === 'date') d.dateFound = true;
   },
   'rv-item': el => {
     const i = current?.draft?.items[+el.dataset.n]; if (!i) return;
+    persist();
     if (el.dataset.k === 'cents') { const v = parseAmount(el.value); el.classList.toggle('bad', v == null); if (v != null) i.cents = v; updateStatus(); }
     else if (el.dataset.k === 'category') { i.category = el.value; i.changed = true; i.flag = false; el.closest('li').classList.remove('flag'); }
     else { i.name = el.value.slice(0, 80); i.flag = false; }
@@ -123,9 +145,14 @@ function updateStatus() { // re-render only the status line so typing keeps focu
 
 const mostSpent = items => { const by = {}; for (const i of items) by[i.category] = (by[i.category] || 0) + i.cents; return Object.entries(by).sort((a, b) => b[1] - a[1])[0][0]; };
 export const act = {
-  'rv-skip': () => { current = null; if (queue.length) pump(); else go('home'); },
-  'rv-add': () => { current.draft.items.push({ name: '', raw: '', cents: 0, category: current.draft.category, flag: true }); render(); $$('.iname').at(-1)?.focus(); },
-  'rv-del': b => { current.draft.items.splice(+b.dataset.n, 1); render(); },
+  'rv-skip': async () => {
+    const d = current?.draft;
+    if (d?.receiptId && !current.existing) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind
+    await finish();
+    if (queue.length) pump(); else go('home');
+  },
+  'rv-add': () => { current.draft.items.push({ name: '', raw: '', cents: 0, category: current.draft.category, flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },
+  'rv-del': b => { current.draft.items.splice(+b.dataset.n, 1); persist(); render(); },
   'rv-save': async b => {
     const d = current.draft;
     if (!d.total || d.total <= 0) { toast(t('Type the total from the receipt first.'), { k: 'warn' }); $('#rv-total')?.focus(); return; }
@@ -138,12 +165,10 @@ export const act = {
     const items = d.items.filter(i => i.name || i.cents).map(({ name, raw, cents, category }) => ({ name: name || raw || t('Item'), raw, cents, category }));
     const tx = { id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
       category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
-    if (current.photo) { tx.receiptId = tx.receiptId || uid('p'); await savePhoto(tx.receiptId, current.photo); }
     await saveTx(tx);
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
     toast(t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)), { icon: 'check' });
-    if (current.thumb) URL.revokeObjectURL(current.thumb);
-    current = null;
+    await finish();
     if (queue.length) { pump(); render(); } else go('home');
   },
 };
