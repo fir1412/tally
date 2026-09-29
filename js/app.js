@@ -82,6 +82,19 @@ function recovery(err) {
 window.addEventListener('error', e => { if (!document.getElementById('app')?.children.length) recovery(e.error || e.message); });
 window.addEventListener('unhandledrejection', e => console.error(e.reason));
 
+/** Files shared into Tally (Money Manager → Export → Share, Gallery, WhatsApp): photos go to the scanner, the rest to import. */
+async function takeShared() {
+  if (route() !== 'share') return;
+  history.replaceState(null, '', '#/home');
+  if (!('caches' in window)) return;
+  const c = await caches.open('tally-share'), keys = await c.keys();
+  const files = [];
+  for (const k of keys) { const r = await c.match(k); files.push(new File([await r.blob()], decodeURIComponent(r.headers.get('x-name') || 'shared'), { type: r.headers.get('content-type') || '' })); }
+  await caches.delete('tally-share');
+  const photos = files.filter(f => f.type.startsWith('image/')), other = files.filter(f => !f.type.startsWith('image/'));
+  if (other.length) setTimeout(() => setup.importFile(other[0]), 400);   // one import at a time
+  else if (photos.length) { review.enqueue(photos); history.replaceState(null, '', '#/review'); }
+}
 export const refresh = () => { if (!sheetOpen()) render(); };
 (async () => {
   // Never run inside another site's frame (clickjacking): GitHub Pages can't send frame-ancestors.
@@ -96,6 +109,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     onRemoteChange(async () => { await load(); refresh(); });
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
+    await takeShared();
     const resumed = await review.restoreDraft();
     if (resumed) { history.replaceState(null, '', '#/review'); toast(t('Picked up the receipt you were checking')); }
     render();

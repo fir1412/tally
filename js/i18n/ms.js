@@ -481,4 +481,6 @@ export default {
   "Budgets update as you type; the month table has 6 or 12 months, money in and net, and each amount opens its transactions": "Bajet dikemas kini semasa menaip; jadual bulanan ada 6 atau 12 bulan, wang masuk dan bersih, dan setiap jumlah membuka transaksinya",
   "Backups can include receipt photos; Activity can show only entries with a photo": "Sandaran boleh menyertakan foto resit; Aktiviti boleh tunjuk rekod yang ada foto sahaja",
   "Better receipt reading: totals with GST, cash and change lines, and shop names": "Bacaan resit lebih baik: jumlah dengan GST, baris tunai dan baki, serta nama kedai",
+  "Reading {0} ({1} MB)…": "Membaca {0} ({1} MB)…",
+  "This looks like a Money Manager backup, but it could not be read: {0}": "Ini nampaknya sandaran Money Manager, tetapi tidak dapat dibaca: {0}",
 };

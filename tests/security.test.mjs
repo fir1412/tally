@@ -66,3 +66,16 @@ test('hostile input cannot freeze the parsers', () => {
     assert.ok(performance.now() - t0 < 1500, `took ${Math.round(performance.now() - t0)} ms on ${s.slice(0, 20)}…`);
   }
 });
+
+test('every page has a CSP that defaults to self, and no tracked page loads a script from another site', () => {
+  const pages = readdirSync(ROOT).filter(f => f.endsWith('.html'));
+  assert.ok(pages.length >= 4);
+  for (const f of pages) {
+    assert.match(csp(read(f)), /default-src 'self'/, f);
+    assert.ok(!/<script[^>]+src=["']?https?:/i.test(read(f)), f);
+  }
+});
+
+test('the service worker only clears its own caches (the site root is shared)', () => {
+  assert.match(read('sw.js'), /k\.startsWith\('tally-'\)/);
+});

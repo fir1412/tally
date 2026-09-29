@@ -129,14 +129,17 @@ const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else
 async function ensureAccount() {
   if (!S.accounts.length) await saveAccount({ id: uid('a'), name: t('Cash'), kind: 'cash', opening: 0, createdAt: Date.now() });
 }
-async function importFile(f) {
+export async function importFile(f) {
+  if (!$('#imp-err')) importSheet();   // shared from another app: show the import sheet for messages
+  let kind = 'file';
   try {
     if (f.size > LIMITS.backupBytes) return impErr(t('That file is too big (over 200 MB).'));
+    impErr(t('Reading {0} ({1} MB)…', f.name || t('file'), Math.max(0.1, Math.round(f.size / 104857.6) / 10)));
     const buf = await f.arrayBuffer();
     const head = new Uint8Array(buf.slice(0, 64));
     const zipAt = head.findIndex((x, i) => x === 0x50 && head[i + 1] === 0x4b && head[i + 2] === 3 && head[i + 3] === 4);
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
-    if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) return await importMoneyManager(buf);
+    if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) { kind = 'Money Manager'; return await importMoneyManager(buf); }
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
     if (zipAt === 0) {
       const z = await unzip(buf, n => n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n)).catch(() => ({}));
@@ -144,7 +147,7 @@ async function importFile(f) {
     }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
     startMapping(await fileToRows(f.name, buf), f.name);
-  } catch (e) { impErr(t(e.message)); }
+  } catch (e) { console.error(e); impErr(kind === 'Money Manager' ? t('This looks like a Money Manager backup, but it could not be read: {0}', t(e.message)) : t(e.message)); }
 }
 async function startMapping(rows, name) {
   const h = headerRow(rows);

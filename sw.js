@@ -15,11 +15,22 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== ASSETS).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('tally-') && ![VERSION, ASSETS, 'tally-share'].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 const keyFor = url => url.origin + url.pathname;
+const SHARED = 'tally-share';   // files shared into Tally, waiting for the page to pick them up
 self.addEventListener('fetch', e => {
   const req = e.request;
+  if (req.method === 'POST' && new URL(req.url).pathname.endsWith('/share')) {
+    e.respondWith((async () => {
+      const files = (await req.formData()).getAll('files').filter(f => typeof f !== 'string').slice(0, 20);
+      await caches.delete(SHARED);
+      const c = await caches.open(SHARED);
+      await Promise.all(files.map((f, i) => c.put(`./shared/${i}`, new Response(f, { headers: { 'content-type': f.type || 'application/octet-stream', 'x-name': encodeURIComponent(f.name || `file-${i}`) } }))));
+      return Response.redirect('./#/share', 303);
+    })());
+    return;
+  }
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Google Sheets and calendar links go straight to the network

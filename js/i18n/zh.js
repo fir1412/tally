@@ -481,4 +481,6 @@ export default {
   "Budgets update as you type; the month table has 6 or 12 months, money in and net, and each amount opens its transactions": "预算随输入即时更新；月度表可显示 6 或 12 个月、收入和净额，点金额可查看交易",
   "Backups can include receipt photos; Activity can show only entries with a photo": "备份可包含收据照片；活动页可只显示有照片的记录",
   "Better receipt reading: totals with GST, cash and change lines, and shop names": "收据识别更准确：含 GST 的总额、现金与找零行、店名",
+  "Reading {0} ({1} MB)…": "正在读取 {0}（{1} MB）…",
+  "This looks like a Money Manager backup, but it could not be read: {0}": "这看起来是 Money Manager 备份，但无法读取：{0}",
 };
