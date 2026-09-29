@@ -813,7 +813,10 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .card.sample p { margin: 0; flex: 1 1 14em; }
 .addrow.one { grid-template-columns: 1fr; }
 .addrow .btn { min-width: 0; white-space: normal; text-align: center; }
-.sublede { margin: 0; font-weight: 600; }
+.sublede { margin: 0; font-weight: 600; } .sublede svg { width: 16px; height: 16px; vertical-align: -2px; }
+@media (max-height: 720px) {   /* short phones: Start fresh stays on the first screen in every language */
+  .welcome { padding-top: var(--sp-2); gap: var(--sp-3); } .welcome h1 { font-size: var(--fs-xl); } .welcome .lede { font-size: var(--fs-md); }
+}
 .maker { margin: var(--sp-2) 0 0; }
 .welcome .legal { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
 .langrow.top { margin-bottom: var(--sp-2); }

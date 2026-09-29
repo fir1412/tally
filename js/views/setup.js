@@ -82,7 +82,7 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 /** Exchange rates, asked for only when the person taps "Get today's rate" (ECB rates; see privacy.html). */
 const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
-const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms${getLang() === 'ms' ? '.ms' : ''}.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a><a class="link" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">${esc(t('Licences'))}</a>`;
+const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a><a class="link" href="licences.html" target="_blank" rel="noopener">${esc(t('Licences'))}</a>`;
 export const welcomeView = {
   title: 'Welcome',
   render() {
@@ -90,7 +90,7 @@ export const welcomeView = {
       <div class="langrow top">${langButtons()}</div>
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
-      <p class="sublede">${esc(t('No receipt? Just type the amount.'))}</p>
+      <p class="sublede">${ICON.lock} ${esc(t('Never asks for your bank login, TAC, OTP or IC.'))} <button class="link" data-act="net-check">${esc(t('Check it yourself'))}</button></p>
       ${demoCard()}
       <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Kept on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
@@ -110,7 +110,7 @@ export const welcomeView = {
       ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : `<p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>`}
       <h2 class="welcome-h">${esc(t('How it works'))}</h2>
       <ol class="steps">
-        <li><b>${esc(t('Snap'))}</b><span>${esc(t('Photograph a receipt, or pick several from your gallery.'))}</span></li>
+        <li><b>${esc(t('Snap'))}</b><span>${esc(t('Photograph a receipt, or pick several from your gallery. No receipt? Just type the amount.'))}</span></li>
         <li><b>${esc(t('Check'))}</b><span>${esc(t('Tally lists every item with a category. Fix anything it got wrong; it learns for next time.'))}</span></li>
         <li><b>${esc(t('See'))}</b><span>${esc(t('Your balance, where the money went, and a nudge when it is time to log.'))}</span></li>
       </ol>
@@ -447,13 +447,15 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   for (const a of shifted) { const i = stagedAccounts.findIndex(x => x.id === a.id), base = i >= 0 ? stagedAccounts[i] : a, next = { ...base, opening: (base.opening || 0) + shift[a.id], updatedAt: Date.now() }; if (i >= 0) stagedAccounts[i] = next; else stagedAccounts.push(next); }
   const first = !settings().onboarded;
   const stagedKv = { ...kv, ...(first ? { settings: { ...(kv.settings || settings()), onboarded: true } } : {}) };
-  try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone }, kv: stagedKv }); }
+  const brings = stagedAccounts.some(a => newAccounts.includes(a.id) && a.kind === 'bank' && !a.outside);
+  const empty = brings ? S.accounts.filter(a => a.typed === false && a.kind === 'bank' && !a.outside && !a.scope?.match(/joint|business/) && !S.tx.some(x => x.accountId === a.id || x.toAccountId === a.id) && !save.some(x => x.accountId === a.id || x.toAccountId === a.id)) : [];
+  try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone, accounts: empty.map(a => a.id) }, kv: stagedKv }); }
   catch (e) { await deletePhotos(photoIds); throw e; }
   if (first && !tourLater) afterSetup();
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length + relink.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length + relink.length)}` : '')
     + (reloads.length ? ` · ${t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads.length)}` : ''), { undo: !save.length ? null : async () => {
-    await putAll({ accounts: shifted, tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) } });
+    await putAll({ accounts: [...shifted, ...empty], tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) } });
     await deletePhotos(photoIds);
     await undoMore(); render();
   } });
@@ -1011,7 +1013,7 @@ export const act = {
   'sample-go': async () => {
     await addAll({ ...sampleData(today(), Date.now(), t('Cash')), recurring: [], kv: {} });
     await setSetting('sample', true); await setSetting('onboarded', true);
-    go('home'); toast(t('This is made-up data. Try anything: nothing here is yours.'));
+    go('home');
   },
   'sample-end': async () => {
     const ids = new Set(S.accounts.filter(a => a.sample).map(a => a.id));
@@ -1029,9 +1031,10 @@ export const act = {
     const hosts = [...new Set(performance.getEntriesByType('resource').concat(performance.getEntriesByType('navigation')).map(e => { try { return new URL(e.name).host; } catch { return ''; } }).filter(Boolean))];
     openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Check it yourself'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
       <p class="sh-body">${esc(t('Every address this page has contacted since it opened, as recorded by your browser:'))}</p>
+      ${hosts.every(h => h === location.host) ? `<p class="okbox">${esc(t("Only Tally's own website. Nothing else."))}</p>` : ''}
       <ul class="list">${hosts.map(h => `<li><span class="grow"><b>${esc(h)}</b><small>${esc(what(h))}</small></span></li>`).join('')}</ul>
-      <p class="fine">${esc(t("Try this: turn on airplane mode, then add an entry or scan a receipt. Tally still works: it doesn't need the internet for your money."))}</p>
-      <p class="fine">${esc(t('Tally is open source: anyone can read the code on GitHub.'))}</p>`, { label: t('Check it yourself') });
+      <p class="fine">${esc(t('Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 40 MB, from Tally\'s own site).'))}</p>
+      <p class="fine"><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Tally is open source: anyone can read the code on GitHub.'))}</a></p>`, { label: t('Check it yourself') });
   },
   'erase': async () => {
     if (!(await confirmSheet({ title: t('Erase everything?'), body: t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.'), ok: t('Erase everything'), danger: true }))) return;

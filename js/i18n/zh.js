@@ -1315,4 +1315,9 @@ export default {
   "Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days": "我买得起吗？输入价格，Tally 会对照你未来 30 天的钱、账单和平时开销帮你看看",
   "Last day": "最后一天",
   "Second-last day": "倒数第二天",
+  "Never asks for your bank login, TAC, OTP or IC.": "从不索取你的网银登录、TAC、OTP 或身份证号码。",
+  "Only Tally's own website. Nothing else.": "只有 Tally 自己的网站，没有其他。",
+  "Photograph a receipt, or pick several from your gallery. No receipt? Just type the amount.": "拍一张收据，或从相册选几张。没有收据？直接输入金额。",
+  "The receipt reader isn't on this phone yet. It downloads once (about 40 MB, from Tally's own site); after that, scanning works offline. Connect and try again.": "收据读取器还不在这部手机上。它只需下载一次（约 40 MB，来自 Tally 自己的网站）；之后扫描可离线使用。请联网后再试。",
+  "Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 40 MB, from Tally's own site).": "试试：打开飞行模式，然后记一笔。照样能用。收据读取器下载后（只需一次，约 40 MB，来自 Tally 自己的网站），扫描也能离线使用。",
 };

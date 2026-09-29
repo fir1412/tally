@@ -56,7 +56,7 @@ async function pump() {
     await saveQueue();
   } catch (e) {
     console.error(e);
-    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
+    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : /could not be downloaded|fetch|network|load failed/i.test(e.message) ? t("The receipt reader isn't on this phone yet. It downloads once (about 40 MB, from Tally's own site); after that, scanning works offline. Connect and try again.") : t('Could not read this photo: {0}', e.message) };
   }
   if (current?.status === 'error') await saveQueue();
   else deletePhotos([`q_${next.id}`]);   // read: the draft holds its own copy now; an unreadable one waits for Skip

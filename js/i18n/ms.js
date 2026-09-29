@@ -1315,4 +1315,9 @@ export default {
   "Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days": "Mampukah saya? Taip harga dan Tally semak dengan wang, bil dan perbelanjaan biasa anda untuk 30 hari akan datang",
   "Last day": "Hari terakhir",
   "Second-last day": "Hari kedua terakhir",
+  "Never asks for your bank login, TAC, OTP or IC.": "Tidak pernah minta log masuk bank, TAC, OTP atau IC anda.",
+  "Only Tally's own website. Nothing else.": "Hanya laman Tally sendiri. Tiada yang lain.",
+  "Photograph a receipt, or pick several from your gallery. No receipt? Just type the amount.": "Ambil gambar resit, atau pilih beberapa dari galeri. Tiada resit? Taip jumlah sahaja.",
+  "The receipt reader isn't on this phone yet. It downloads once (about 40 MB, from Tally's own site); after that, scanning works offline. Connect and try again.": "Pembaca resit belum ada di telefon ini. Ia dimuat turun sekali (kira-kira 40 MB, dari laman Tally sendiri); selepas itu, imbasan berfungsi tanpa internet. Sambung ke internet dan cuba lagi.",
+  "Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 40 MB, from Tally's own site).": "Cuba ini: hidupkan mod pesawat, kemudian tambah catatan. Ia tetap berfungsi. Imbasan juga berfungsi tanpa internet, selepas pembaca resit dimuat turun (sekali, kira-kira 40 MB, dari laman Tally sendiri).",
 };

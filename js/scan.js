@@ -30,7 +30,8 @@ async function prefetch() {
   let done = 0;
   for (const [url, size] of FILES) {
     if ('caches' in globalThis && await caches.match(url).catch(() => null)) { done += size; onProgress(done, OCR_BYTES); continue; }
-    const res = await fetch(url);
+    const res = await fetch(url).catch(() => null);   // offline: the same plain message, not "Failed to fetch"
+    if (!res) throw new Error('The receipt reader could not be downloaded. Check the connection and try again.');
     if (!res.ok || !res.body) throw new Error('The receipt reader could not be downloaded. Check the connection and try again.');
     const reader = res.body.getReader(), start = done;
     for (;;) { const { done: end, value } = await reader.read(); if (end) break; done += value.length; onProgress(Math.min(done, OCR_BYTES), OCR_BYTES); }

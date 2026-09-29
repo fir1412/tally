@@ -53,7 +53,7 @@ const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName 
 const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
 /** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
 function stickerCard(tdy) {
-  if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !madeDays().has(tdy)) return '';
+  if (settings().sample || !shown('stickers') || dismissed().includes(`stk-${tdy}`) || !madeDays().has(tdy)) return '';
   const st = stickerState(stickerDays(tdy));
   return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stickerSvg(st.latest, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", t(st.latest[1])))}</b>
     <small>${esc(t('{0} of {1} in your book. One for each day you log; a missed day never takes one away.', st.got, BOOK))}</small></span></button>
@@ -68,6 +68,7 @@ const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), 
 const NEW = 5;
 /** The backup reminder has its own slot (it used to hide nudges for weeks). From 5 entries, or 3 days after starting. */
 function backupBanner() {
+  if (settings().sample) return '';   // nothing of theirs to lose yet
   const tdy = today(), last = S.kv.lastBackup, start = began();
   if (S.tx.length && (S.tx.length >= NEW || (start < Infinity && daysBetween(dayOf(start), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
     // The first month it's a quiet reminder (orange on day 3 scared people off); after that, or once a backup is 2 weeks old, a warning.
@@ -215,7 +216,7 @@ export const homeView = {
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
     const find = !fresh && !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(cached(findsOf, upToday, { today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)), ins: homeInsights() }), tdy);   // the price finds come from the insights the banner uses
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
-      ${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button></section>` : ''}<div class="cols"><div class="col">
+      ${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button><button class="link" data-act="net-check">${esc(t('Check what Tally contacted'))}</button></section>` : ''}<div class="cols"><div class="col">
       <section class="hero">
         ${(n => (n ? `<span class="label">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
