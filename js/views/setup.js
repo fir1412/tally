@@ -57,7 +57,7 @@ export const settingsView = {
   render() {
     const rules = Object.entries(S.kv.rules);
     const last = S.kv.lastBackup;
-    return `<header class="top"><button class="icon-btn" data-act="go" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
+    return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
         <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
       <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(t(KIND[a.kind] || 'Bank account'))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>

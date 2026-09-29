@@ -46,11 +46,17 @@ for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   if (fn && (ev === 'input') === typing(el)) fn(el, e);
 });
 // Screen change: entrance motion plays once (html[data-enter]), and browsers with View Transitions crossfade.
+// Going straight back to the screen just left (back arrow or phone back) returns to the same scroll position.
+let shown = route(), left = null;
+export const cameFrom = () => left?.to === route() ? left.route : null;
 window.addEventListener('hashchange', () => {
   if (sheetOpen()) closeSheet();
+  const r = route(), y = left && left.route === r && left.to === shown ? left.y : 0;
+  left = { route: shown, y: window.scrollY, to: r };
+  shown = r;
   const html = document.documentElement;
   html.dataset.enter = ''; clearTimeout(window.__enterT); window.__enterT = setTimeout(() => delete html.dataset.enter, 800);
-  const run = () => { render(); window.scrollTo(0, 0); };
+  const run = () => { render(); window.scrollTo(0, y); };
   if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(run); else run();
 });
 
@@ -58,6 +64,7 @@ window.addEventListener('hashchange', () => {
 Object.assign(ACT, {
   scan: () => $('#scan-input').click(),
   go: b => go(b.dataset.to),
+  back: b => (cameFrom() ? history.back() : go(b.dataset.to || 'home')),
 });
 document.addEventListener('change', e => {
   if (e.target.id !== 'scan-input') return;
