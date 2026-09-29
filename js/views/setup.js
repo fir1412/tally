@@ -7,6 +7,7 @@ import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl,
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
+import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
@@ -27,7 +28,14 @@ export const welcomeView = {
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data (Money Manager, Excel, Google Sheets)'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
-      <p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>
+      ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : `<p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>`}
+      <h2 class="welcome-h">${esc(t('How it works'))}</h2>
+      <ol class="steps">
+        <li><b>${esc(t('Snap'))}</b><span>${esc(t('Photograph a receipt, or pick several from your gallery.'))}</span></li>
+        <li><b>${esc(t('Check'))}</b><span>${esc(t('Tally lists every item with a category. Fix anything it got wrong; it learns for next time.'))}</span></li>
+        <li><b>${esc(t('See'))}</b><span>${esc(t('Your balance, where the money went, and a nudge when it is time to log.'))}</span></li>
+      </ol>
+      <details class="whatsnew"><summary>${esc(t("What's new in {0}", APP_VERSION))}</summary><ul class="newlist">${newSince('0.1.0').map(x => `<li>${esc(t(x))}</li>`).join('')}</ul></details>
     </section>`;
   },
 };
@@ -67,7 +75,11 @@ export const settingsView = {
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
         <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a></section>
-      <section class="card"><h2>${esc(t('Help Tally get better'))}</h2><p class="fine">${esc(t('Tell the developer about a bug or an idea. Only your message is sent.'))}</p>
+      <section class="card"><h2>${esc(t('Help and feedback'))}</h2>
+        <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
+        ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
+        <button class="btn ghost wide" data-act="update-check">${esc(t('Check for updates'))}</button>
+        <p class="fine">${esc(t('Tell the developer about a bug or an idea. Only your message is sent.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
       <p class="fine center">Tally ${APP_VERSION}</p>`;
   },
@@ -143,7 +155,7 @@ async function commitImport(txs, label, before = async () => []) {
   for (const x of txs) (byId.has(x.id) || sameBuy(x) ? dups : fresh).push(x);
   const photoIds = await before(fresh);
   await saveTxs(fresh);
-  if (!settings().onboarded) await setSetting('onboarded', true);
+  if (!settings().onboarded) { await setSetting('onboarded', true); afterSetup(); }
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : ''), { undo: async () => { await deleteTxs(fresh.map(x => x.id)); await deletePhotos(photoIds); render(); } });
 }
@@ -222,6 +234,7 @@ async function restoreText(text) {
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
   if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
   await setSetting('onboarded', true);
+  if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
   closeSheet(); go('home'); render();
   toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
 }
@@ -229,6 +242,15 @@ async function restoreText(text) {
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
   feedback: () => openFeedback(APP_VERSION),
+  tour: () => showTour(1),
+  'whats-new': () => showWhatsNew(),
+  install: async () => { if (await promptInstall()) render(); },
+  'update-check': async b => {
+    b.disabled = true;
+    const r = await checkForUpdates().catch(() => 'unsupported');
+    b.disabled = false;
+    toast(r === 'latest' ? t('You have the latest version') : r === 'updating' ? t('Updating… Tally will reload in a moment') : t('Updates install by themselves when you open Tally online'));
+  },
   'set-lang': async b => { await setSetting('lang', b.dataset.l); await setLang(b.dataset.l); render(); },
   'start-fresh': () => {
     openSheet(`<h2 class="sh-title">${esc(t('Your accounts'))}</h2><p class="sh-body">${esc(t('Where do you keep money? Enter what is in each today. You can add more later.'))}</p>
@@ -246,7 +268,7 @@ export const act = {
     for (const [k, v] of vals) if (k !== 'ewallet' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k, opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
-    toast(t('All set. Scan your first receipt with the camera button.'));
+    afterSetup();
   },
   'acc-edit': b => accountSheet(S.accounts.find(a => a.id === b.dataset.id) || {}),
   'acc-save': async b => {

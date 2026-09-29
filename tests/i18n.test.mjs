@@ -27,7 +27,9 @@ export function strings() {
   for (const m of eng.matchAll(/\bname: '([^']+)'/g)) out.add(m[1]);
   const io = readFileSync(join(ROOT, 'io.js'), 'utf8') + readFileSync(join(ROOT, 'mmimport.js'), 'utf8');
   for (const m of io.matchAll(/throw new Error\('([^']+)'\)/g)) if (!/^(bad zip|no sheet|mmbackup|sql\.js failed to load|private|too big)$/.test(m[1])) out.add(m[1]);
-  for (const s of ['Cash', 'Bank account', 'E-wallet', 'Credit card', 'Savings', 'Home', 'Activity', 'Insights', 'Budgets', 'Settings', 'Welcome', 'Review receipt']) out.add(s);
+  const tour = readFileSync(join(ROOT, 'tour.js'), 'utf8'), w = tour.indexOf('WHATS_NEW = {');
+  for (const m of tour.slice(w, tour.indexOf('};', w)).matchAll(/^\s+'((?:[^'\\]|\\.)*)',$/gm)) out.add(unq(m[1]));
+  for (const s of ['Bug', 'Idea', 'Question', 'Other', 'Cash', 'Bank account', 'E-wallet', 'Credit card', 'Savings', 'Home', 'Activity', 'Insights', 'Budgets', 'Settings', 'Welcome', 'Review receipt']) out.add(s);
   return [...out].filter(s => /[A-Za-z]/.test(s)).sort();
 }
 const load = async l => (await import(new URL(`../js/i18n/${l}.js`, import.meta.url))).default;
