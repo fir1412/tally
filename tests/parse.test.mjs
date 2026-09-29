@@ -184,8 +184,8 @@ test('shop names: the brand people use, not the registered company', () => {
   assert.equal(name('Gerbang Alaf Restaurants Sdn Bhd\n(65351-M)'), "McDonald's");
   assert.equal(name('GCH RETAIL (MALAYSIA) SDN. BHD.\n(COMPANY NO:200401028527)\nGIANT HYPERMARKET KEMUNING'), 'Giant');
   assert.equal(name('7:41 97%\nOrder Summary\nMR. D.I.Y. (M) SDN BHD'), 'Mr DIY');
-  assert.equal(name('PUBLIC BANK\nPERANTAU HILL\nLOT 5070 JLN AIR HITAM'), 'Perantau Hill');   // card slip: the shop is under the bank
-  assert.equal(name('BOK MARKETING SDN.BHD\n(1182500-V)'), 'Bok Marketing');
+  assert.equal(name('PUBLIC BANK\nKEDAI MAKAN SERI BAYU\nLOT 12 JLN MAWAR'), 'Kedai Makan Seri Bayu');   // card slip: the shop is under the bank
+  assert.equal(name('TERATAI MAJU TRADING SDN.BHD\n(1234567-A)'), 'Teratai Maju Trading');
   assert.equal(name('Eyeslab Optometrist\nLg145, Lower Ground Floor'), 'Eyeslab');
 });
 
@@ -195,4 +195,11 @@ test('dates as Malaysian receipts print them', () => {
     ['12 Dec 24', '2024-12-12'], ['C4.03.00 Level 4', null]]) assert.equal(parseDate(line), want, line);
   // a labelled date beats a promo's "valid till" printed earlier
   assert.equal(parseReceipt('SHOP\nValid till 30/04/2024\nNASI 5.00\nTOTAL 5.00\nDate: 05/04/2024 12:00').date, '2024-04-05');
+});
+
+test('totals: 5-sen cash rounding, zero "Total" lines, no Total line at all', () => {
+  assert.equal(parseReceipt('SHOP\nSHAMPOO 68.12\nSUBTOTAL (QTY 4) RM68.12\nCASH RM68.10').total, 6810);   // rounded amount printed: that was paid
+  assert.equal(parseReceipt('SHOP\nLATTE 12.90\nSubtotal 12.90\nTotal (MYR) 0.00\nMyDebit 12.90').total, 1290);   // a zero Total is never it
+  assert.equal(parseReceipt('KEDAI\nNASI 7.50\nTEH 2.00\nCASH 20.00\nCHANGE 10.50').total, 950);   // cash less change
+  assert.equal(parseReceipt('KEDAI\nMEE 8.60\nMAYBANK QR PAY 8.60').total, 860);
 });

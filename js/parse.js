@@ -200,7 +200,13 @@ export function parseReceipt(text) {
     }
     pendingName = null;
   }
+  if (r.total === 0) r.total = null;   // "Total (MYR) 0.00" on tax-inclusive templates is never what was paid
   if (r.total === null) guessTotal(r, lines);
+  // Cash rounding: 68.12 is paid as 68.10. When the rounded amount is printed too, that is the total.
+  if (r.total > 0 && r.total % 5) {
+    const r5 = Math.round(r.total / 5) * 5;
+    if (lines.some(l => amountsIn(l).includes(r5))) { r.rounding = (r.rounding ?? 0) + r5 - r.total; r.total = r5; }
+  }
   // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
   if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
   if (Math.abs(r.rounding ?? 0) > 5) r.rounding = null;
@@ -214,7 +220,12 @@ const amountsIn = line => [...line.matchAll(ALL_AMOUNTS)].map(m => +m[1] * 100 +
  * most often (slips repeat it), else the largest RM amount. Marked totalGuessed so the review screen flags it.
  */
 function guessTotal(r, lines) {
+  const on = re => { for (const l of lines) if (re.test(l)) { const a = amountsIn(l).filter(c => c > 0); if (a.length) return a.at(-1); } return null; };
+  const cash = on(/\b(cash|tunai)\b(?!\s*(back|out))/i), change = on(/\b(change|baki)\b/i);
+  const paid = on(/\b(my\s*debit|visa|master|amex|card|e-?wallet|grab\s*pay|boost|tng|touch\s*'?n|duit\s*now|qr\s*pay|shopee\s*pay|debit|credit)\b/i);
   if (r.subtotal !== null) r.total = r.subtotal + (r.service ?? 0) + (r.taxIncluded ? 0 : r.tax ?? 0) + (r.rounding ?? 0);
+  else if (cash && change !== null && cash > change) r.total = cash - change;   // no Total line: what was handed over, less the change
+  else if (paid) r.total = paid;   // a card or e-wallet line carries the amount charged
   else {
     const count = new Map();
     for (const l of lines) for (const c of new Set(amountsIn(l))) if (c > 0) count.set(c, (count.get(c) || 0) + 1);
