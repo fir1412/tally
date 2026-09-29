@@ -292,7 +292,7 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
 #toast svg { width: 18px; height: 18px; color: var(--good); }
 body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); transform: translate(-50%, -20px); } body:has(.scrim:not(.out)) #toast.on { transform: translate(-50%, 0); }   /* a sheet owns the bottom of the screen */
 #toast.has-undo::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--toast-accent); opacity: .7; transform-origin: left; animation: drain 12s linear forwards; }
-.tundo { background: none; border: 0; color: var(--toast-accent); font-weight: 700; min-height: 36px; cursor: pointer; }
+.tundo { background: none; border: 0; color: var(--toast-accent); font-weight: 700; min-height: 44px; min-width: 56px; margin: -6px -8px -6px 0; padding: 0 12px; cursor: pointer; }
 @keyframes fade-in { from { opacity: 0; } } @keyframes fade-out { to { opacity: 0; } }
 @keyframes sheet-in { from { transform: translateY(var(--sheet-from)); } }
 @keyframes sheet-out { to { transform: translateY(var(--sheet-from)); } }

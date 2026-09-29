@@ -5,7 +5,8 @@
 Snap any receipt and see what you actually spent on, item by item. A free money manager for Malaysia that keeps
 everything on your phone: no account, no ads, no tracking. English, Bahasa Melayu and 简体中文.
 
-- **Receipts, item by item:** photograph one or several receipts; they're read on the phone (PaddleOCR, works
+- **Receipts, item by item:** snap receipts with the camera inside Tally (several in a row, with a light for dim
+  places and animated tips for a clear photo) or pick them from the gallery; they're read on the phone (PaddleOCR, works
   offline after the first download), straightened automatically, and split into items with categories. SST,
   service charge and 5-sen rounding are spread across the items so the categories add up to the real total.
   Lines Tally isn't sure about are flagged, and it checks that the items add up before you save.
@@ -13,9 +14,11 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
   category (Electronics, Groceries…). Your corrections are remembered.
 - **Money at a glance:** balance across cash, bank, e-wallet and card accounts; this month against the same point
   last month; budgets per category with a pace warning; insights such as unusual weeks and repeat items; a
-  6- or 12-month category table with money in and net.
+  6- or 12-month category table with money in and net. Months can start on payday, any amount field takes sums
+  (12.50+8*2), and an account can be set to what your bank shows today.
 - **Habits and bills:** Tally learns when you usually spend (lunch around 12:35 on weekdays) and nudges you to log
-  it; regular bills are detected and can go into your calendar as reminders (.ics or Google Calendar).
+  it; regular bills are detected, can add themselves on the day (monthly,
+  weekly, yearly or a set number of instalments) and can go into your calendar as reminders (.ics or Google Calendar).
 - **Bring your history:** Money Manager (Innim) backups with receipt photos; Money Manager (Realbyte) backups and
   Excel exports; the exports of Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and
   AndroMoney, recognised with no column matching, their transfers, accounts and categories included; Excel (.xlsx),
@@ -26,6 +29,7 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
   newer edit wins.
 - **Learn by doing:** Learn Tally is a list of short missions (scan a receipt, set a budget, back up…) that tick
   themselves off as you use the app. Streaks and badges for good money habits are there too, off unless you turn them on.
+- **Locked when you want:** a PIN, plus fingerprint or face where the phone has one.
 - **Your data stays yours:** export to CSV for Excel or Sheets; back up to a file (optionally with receipt photos)
   and restore on a new phone.
 
