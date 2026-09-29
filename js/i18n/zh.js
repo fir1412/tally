@@ -608,4 +608,5 @@ export default {
   "next {0}": "下次 {0}",
   "tomorrow": "明天",
   "{0} was due {1}": "{0} 已于{1}到期",
+  "Can't see your file here? Open your phone's file manager, long-press the file and Share it to Tally. Or move it to another folder once, then it shows up here.": "这里看不到你的文件？打开手机的文件管理器，长按该文件，分享到 Tally。或者先把它移到另一个文件夹，之后就会在这里出现。",
 };

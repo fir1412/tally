@@ -132,6 +132,7 @@ let IMP = null; // {rows, header, map, accountId, catMap, name} or {mm, buf}
 function importSheet() {
   openSheet(`<h2 class="sh-title">${esc(t('Bring data in'))}</h2>
     <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" hidden></label>
+    <p class="fine">${esc(t("Can't see your file here? Open your phone's file manager, long-press the file and Share it to Tally. Or move it to another folder once, then it shows up here."))}</p>
     <p class="fine">${esc(t('Money Manager backup (.mmbackup), Excel (.xlsx), CSV from your bank or another app, or a Tally backup.'))}</p>
     <h3>${esc(t('From Google Sheets'))}</h3>
     <label class="field"><span>${esc(t('Paste the cells (select all in the sheet, copy, paste here)'))}</span><textarea id="imp-paste" rows="4" placeholder="Date	Amount	Category	Note"></textarea></label>

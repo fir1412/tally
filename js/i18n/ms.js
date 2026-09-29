@@ -608,4 +608,5 @@ export default {
   "next {0}": "seterusnya {0}",
   "tomorrow": "esok",
   "{0} was due {1}": "{0} sepatutnya dibayar pada {1}",
+  "Can't see your file here? Open your phone's file manager, long-press the file and Share it to Tally. Or move it to another folder once, then it shows up here.": "Fail tidak kelihatan di sini? Buka pengurus fail telefon, tekan lama fail itu dan Kongsi ke Tally. Atau alihkan ke folder lain sekali, kemudian ia akan muncul di sini.",
 };
