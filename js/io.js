@@ -406,8 +406,8 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
     const rawCat = get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
     let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
-    // "Food" in another app at KFC or a mamak is a meal, not groceries (unless the user chose Groceries in the mapping step).
-    if (category === 'groceries' && !(rawCat && Object.hasOwn(catMap, cleanText(rawCat, 60))) && shopCategory(merchant) === 'dining') category = 'dining';
+    // "Food" in another app at KFC or a mamak is a meal, not groceries (a category actually named Groceries stays).
+    if (category === 'groceries' && !CAT_WORDS.find(([c]) => c === 'groceries')[1].test(rawCat || '') && shopCategory(merchant) === 'dining') category = 'dining';
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
     if (!tword && !signed && !bal[n] && !dc && !preset?.type && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
