@@ -488,7 +488,7 @@ export function pickAccount({ accounts: all, txs = [], bal = {}, kind = 'quick',
     if (pay === 'card' || pay === 'debit') return main();
   }
   // The latest everyday account, from what was typed (a card used for one big receipt isn't where the kopi goes).
-  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId) && byId.get(x.accountId).kind !== 'card')   // one card purchase isn't where the kopi goes
+  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId) && byId.get(x.accountId).kind !== 'card' && (byId.get(x.accountId).scope !== 'business' || accounts.every(a => a.scope === 'business')))   // one card purchase isn't where the kopi goes, nor a stall's cash where the owner's cough syrup goes
     .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts.find(a => a.kind === 'cash')?.id || accounts[0]?.id;
   const spend = txs.filter(x => x.type === 'expense');
   let id = null;

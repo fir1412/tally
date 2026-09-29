@@ -778,7 +778,7 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 .calcbar output { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 420px) { .calcbar [data-op="("], .calcbar [data-op=")"] { display: none; } }   /* the result has room on a phone; ( ) still type from the keyboard */
 .bulkbar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; position: sticky; top: 0; z-index: 2; background: var(--bg); }
-.items-edit.selecting li { grid-template-columns: 28px 1fr auto; } .ipick { width: 24px; height: 24px; }
+.items-edit.selecting li { grid-template-columns: 32px 1fr 84px 44px; grid-template-areas: "pick name amt del" ". cat cat cat" ". raw raw raw"; } .ipick { grid-area: pick; width: 24px; height: 24px; align-self: center; }   /* the tick sits beside its own item
 .rawbtn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; min-height: 44px; min-width: 44px; color: var(--mute); font: 500 var(--fs-xs)/1.2 var(--mono); cursor: pointer; text-align: left; } .rawbtn svg { width: 14px; height: 14px; }
 .cropview canvas { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
 .mono { font-family: var(--mono); }
@@ -793,3 +793,4 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 @media (max-width: 767px) { .view-review:has(.items-edit) { display: flex; flex-direction: column; } .view-review:has(.items-edit) > * { margin-block: 0; } .view-review:has(.items-edit) { gap: var(--sp-3); } .view-review > .receipt-thumb { order: 1; } .view-review > .sticky { order: 2; } }
 .jumps { margin: 0 0 var(--sp-3); } .jumps .chip { font-size: var(--fs-sm); }
 [id^="s-"], #backup, #look, #remind { scroll-margin-top: var(--sp-4); }
+.items-edit .rawbtn { background: none; border: 0; box-shadow: none; justify-self: start; width: auto; padding: 0 4px; min-height: 44px; min-width: 44px; }

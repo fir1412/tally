@@ -391,3 +391,10 @@ test('money received from a payer lands where that payer paid before', () => {
 test('guesses people typed: Chinese fuel is transport, meals are dining, cooking oil stays groceries', () => {
   for (const [n, c] of [['油费', 'transport'], ['汽油', 'transport'], ['Sarapan', 'dining'], ['lunch', 'dining'], ['早餐', 'dining'], ['Minyak masak', 'groceries']]) assert.equal(E.categorize(n, n), c, n);
 });
+
+test('a stall\'s cash is never the default for a personal typed spend', () => {
+  const accounts = [{ id: 'cash', kind: 'cash' }, { id: 'bank', kind: 'bank' }, { id: 'stall', kind: 'cash', scope: 'business' }];
+  const txs = [{ id: '1', type: 'income', date: '2026-09-01', amount: 30000, accountId: 'stall', category: 'income', createdAt: 5 }];
+  assert.notEqual(E.pickAccount({ accounts, txs, kind: 'quick', amount: 1200 }), 'stall');
+  assert.equal(E.pickAccount({ accounts: accounts.slice(2), txs, kind: 'quick', amount: 1200 }), 'stall');   // the Business view: its own accounts
+});
