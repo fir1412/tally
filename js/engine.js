@@ -178,13 +178,16 @@ export function allocate(parts, extra) {
 }
 /** Where an expense's money went: [{category, cents}] summing exactly to tx.amount. Tax, service and rounding spread by item. */
 export function breakdown(tx) {
-  const items = (tx.items || []).filter(i => Number.isFinite(i.cents));
-  if (!items.length) return [{ category: tx.category || 'other', cents: tx.amount }];
-  const extra = tx.amount - items.reduce((s, i) => s + i.cents, 0);
-  const add = allocate(items.map(i => i.cents), extra);
   const by = {};
-  items.forEach((it, i) => { const c = it.category || 'other'; by[c] = (by[c] || 0) + it.cents + add[i]; });
+  for (const { category, cents } of itemAmounts(tx)) by[category] = (by[category] || 0) + cents;
   return Object.entries(by).map(([category, cents]) => ({ category, cents }));
+}
+/** A receipt's items, each with its share of tax, service and rounding (summing exactly to tx.amount). No items: the payment as one. */
+export function itemAmounts(tx) {
+  const items = (tx.items || []).filter(i => Number.isFinite(i.cents));
+  if (!items.length) return [{ name: '', category: tx.category || 'other', cents: tx.amount }];
+  const add = allocate(items.map(i => i.cents), tx.amount - items.reduce((s, i) => s + i.cents, 0));
+  return items.map((it, i) => ({ name: it.name, category: it.category || 'other', cents: it.cents + add[i] }));
 }
 
 // ---- balances & months -----------------------------------------------------------------------
@@ -467,4 +470,216 @@ export function dueNudge(habitList, txs, now, dismissed = []) {
     if (!logged) return { ...h, id };
   }
   return null;
+}
+
+// ---- analytics for Insights -----------------------------------------------------------------------------------------------
+// LHDN personal tax reliefs. Year of assessment = calendar year. Caps in sen, as announced for YA 2025.
+// UPDATE EVERY YEAR after the Budget (hasil.gov.my → Individual → Tax reliefs). Sports is its own RM 1,000 on top of
+// lifestyle's RM 2,500 since YA 2024; medical's RM 10,000 includes dental and vaccination (RM 1,000 each, not split here).
+export const RELIEF_CAPS = { lifestyle: 2500_00, sports: 1000_00, medical: 10000_00, education: 7000_00, childcare: 3000_00, breastfeeding: 1000_00, ev: 2500_00 };
+/**
+ * ESTIMATE, CHECK LHDN RULES: which spending may count toward which relief, from receipt item words (the shop's name too
+ * when `shop`: a dental clinic's or kindergarten's whole bill counts), within `cats` when given. First match wins.
+ * `no`: words that rule a line out (a phone case isn't a phone). A flu visit to a GP isn't medical relief, so plain
+ * "klinik" is not in the list.
+ */
+export const RELIEFS = [
+  { id: 'breastfeeding', name: 'Breastfeeding equipment', re: /breast ?pump|pam susu|breastfeed|penyusuan|nursing (bra|pad)|milk storage|吸奶器|母乳/i },
+  { id: 'childcare', name: 'Childcare and kindergarten fees', shop: true, re: /tadika|taska|kindergarten|pre-?school|prasekolah|child ?care|day ?care|nursery fee|幼儿园|幼兒園|托儿|托兒/i },
+  { id: 'ev', name: 'EV charging', shop: true, re: /\bev charg|charging (station|session)|chargev|gentari|jomcharge|shell recharge|supercharger|充电桩|充電樁/i },
+  { id: 'sports', name: 'Sports and gym', shop: true, re: /\bgym\b|fitness|badminton|futsal|racket|raket|shuttlecock|jersey|kasut sukan|running shoe|decathlon|marathon|yoga|pilates|swimming|renang|\bsports?\b|\bsukan\b|健身|羽毛球/i },
+  { id: 'medical', name: 'Medical, dental and vaccination', shop: true, cats: ['health', 'other'], re: /dental|dentist|pergigian|\bgigi\b|scaling|vaksin|vaccin|medical check|health screening|pemeriksaan kesihatan|fertility|\bivf\b|physio|mental health|psychiatr|psycholog|hospital|牙医|牙醫|牙科|疫苗|医院|醫院|体检|體檢/i },
+  { id: 'education', name: 'Education fees (yourself)', shop: true, cats: ['education', 'other', 'bills'], re: /yuran pengajian|tuition fee|course fee|semester fee|university|universiti|\bcollege\b|\bkolej\b|\bdegree\b|\bmba\b|\bphd\b|upskill|\bkursus\b|学费|學費/i },
+  { id: 'lifestyle', name: 'Books, phone, computer and internet', re: /\bbooks?\b|\bbuku\b|\bnovel\b|magazine|majalah|newspaper|akhbar|smartphone|\b(hand)?phone\b|telefon bimbit|iphone|galaxy|redmi|tablet|\bipad\b|laptop|computer|komputer|macbook|internet|unifi|broadband|fibre|书|書|杂志|雜誌|手机|手機|电脑|電腦|平板/i, no: /reload|prepaid|top ?up|\bcase\b|casing|cover|protector|charger|cable|kabel|buku latihan|exercise book/i },
+];
+/** The relief a line of spending may count toward, or null. `item`: the item's words; `shop`: the shop and note. */
+export function reliefOf(item, shop, category) {
+  for (const r of RELIEFS) {
+    if (r.cats && !r.cats.includes(category)) continue;
+    const text = ` ${unplace(item)} ${r.shop ? unplace(shop) : ''} `;
+    if (r.re.test(text) && !(r.no && r.no.test(text))) return r.id;
+  }
+  return null;
+}
+/**
+ * Running totals toward each relief in a calendar year: [{id, name, cap, total, claim (up to the cap), entries:
+ * [{id, date, merchant, cents, proof (has a receipt photo)}], proof (entries with one)}] in RELIEFS order.
+ */
+export function taxRelief(txs, year) {
+  const lines = Object.fromEntries(RELIEFS.map(r => [r.id, { id: r.id, name: r.name, cap: RELIEF_CAPS[r.id], total: 0, entries: [] }]));
+  for (const t of txs) {
+    if (t.type !== 'expense' || t.date.slice(0, 4) !== String(year)) continue;
+    const parts = itemAmounts(t), shop = `${t.merchant || ''} ${t.note || ''}`;
+    for (const it of parts) {
+      // A payment without items is judged by its shop and note alone.
+      const id = reliefOf(parts.length === 1 && !it.name ? shop : it.name, shop, it.category);
+      if (!id) continue;
+      const L = lines[id], e = L.entries.find(x => x.id === t.id);
+      if (e) e.cents += it.cents; else L.entries.push({ id: t.id, date: t.date, merchant: t.merchant || it.name, cents: it.cents, proof: !!t.receiptId });
+      L.total += it.cents;
+    }
+  }
+  return RELIEFS.map(r => { const L = lines[r.id]; return { ...L, claim: Math.min(L.total, L.cap), proof: L.entries.filter(e => e.proof).length }; });
+}
+
+/** Item names that are really codes or run-together OCR text are left out of item lists. */
+export const plainItem = name => !!itemKey(name) && !/\d{5,}/.test(name) && !/[A-Za-z]{16,}/.test(name);
+/** Price history of items on `min`+ receipts: [{key, name, points: [{date, unit}]}], most bought first. */
+export function priceHistory(txs, min = 3) {
+  const by = {};
+  for (const t of txs.filter(x => x.type === 'expense' && x.items?.length).sort((a, b) => a.date.localeCompare(b.date))) {
+    const seen = new Set();   // the same item twice on one receipt is one purchase
+    for (const it of t.items) {
+      const k = itemKey(it.name), unit = it.unit ?? it.cents;
+      if (!plainItem(it.name) || !(unit > 0) || seen.has(k)) continue;
+      seen.add(k);
+      (by[k] ||= { key: k, name: it.name, points: [] }).points.push({ date: t.date, unit });
+    }
+  }
+  return Object.values(by).filter(h => h.points.length >= min).sort((a, b) => b.points.length - a.points.length || b.points.at(-1).date.localeCompare(a.points.at(-1).date));
+}
+/**
+ * Your basket: the items you keep buying (priceHistory), each at its latest price (bought in the last 90 days) against
+ * its price about `months` ago (else its first price, if that is 60+ days old), weighted by how often you buy it.
+ * → {pct (0.042 = 4.2% dearer), n items, since (oldest base date), now, then} or null.
+ */
+export function basketIndex(hist, today, months = 6) {
+  const target = addDays(today, -Math.round(months * 30.44)), old = addDays(today, -60), recent = addDays(today, -90);
+  let now = 0, then = 0, n = 0, since = today;
+  for (const h of hist) {
+    const last = h.points.at(-1), base = h.points.filter(p => p.date <= target).at(-1) || (h.points[0].date <= old ? h.points[0] : null);
+    if (!base || last.date <= base.date || last.date < recent) continue;
+    const w = h.points.length;
+    now += w * last.unit; then += w * base.unit; n++;
+    if (base.date < since) since = base.date;
+  }
+  return n ? { pct: (now - then) / then, n, since, now, then } : null;
+}
+
+/** Monthly cost of a bill: weekly × 52 / 12, yearly / 12. */
+export const perMonth = r => Math.round(r.freq === 'weekly' ? r.amount * 52 / 12 : r.freq === 'yearly' ? r.amount / 12 : r.amount);
+/**
+ * Month-end forecast for the budget month holding `today`: spent so far + bills still due before it ends + everyday
+ * spending at its daily pace for the days left. A one-off big payment (RM 500+, or a quarter of the budget) counts
+ * once, not every day. Fewer than 7 days in, the pace is last month's. safe: the budget left per day, today included.
+ */
+export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
+  const c = cycleOf(today, startDay), day = daysBetween(c.start, today) + 1, len = daysBetween(c.start, c.end) + 1, left = len - day;
+  const sp = monthSpend(txs, c.key, startDay);
+  const flex = s => s.each.total.filter(a => a < Math.max(500_00, budget * 0.25)).reduce((a, b) => a + b, 0);
+  let rate = flex(sp) / day, early = false;
+  if (day < 7) {
+    const pk = addMonths(c.key, -1), prev = monthSpend(txs, pk, startDay), pc = cycleSpan(pk, startDay);
+    if (prev.total) { rate = flex(prev) / (daysBetween(pc.start, pc.end) + 1); early = true; }
+  }
+  const upcoming = bills.reduce((s, r) => s + billDates(r, c.end).filter(d => d > today && d >= c.start && !billPaid(r, d, txs)).length * r.amount, 0);
+  const projected = sp.total + upcoming + Math.round(rate * left);
+  return { spent: sp.total, upcoming, rate: Math.round(rate), projected, daysLeft: left, end: c.end, early,
+    safe: budget ? Math.max(0, Math.floor((budget - sp.total - upcoming) / (left + 1))) : null };
+}
+/** A month's spending split into regular payments (bills, and shops that are known or detected bills) and day-to-day spending. */
+export function fixedFlexible(txs, ym, sd = 1, billShops = []) {
+  const keys = new Set(billShops);
+  let fixed = 0, flexible = 0;
+  for (const t of txs) {
+    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
+    if (isBill(t) || (t.merchant && keys.has(shopWord(t.merchant)))) fixed += t.amount; else flexible += t.amount;
+  }
+  return { fixed, flexible };
+}
+
+/**
+ * Spending per day of a month (or cycle): [{date, v, level}], every day listed. level 0 nothing, else 1–4 by the
+ * day's rank among the days with spending (quarters), so one rent day doesn't wash out the rest.
+ */
+export function dailySpend(txs, ym, sd = 1) {
+  const c = cycleSpan(ym, sd), by = {};
+  for (const t of txs) if (t.type === 'expense' && t.date >= c.start && t.date <= c.end) by[t.date] = (by[t.date] || 0) + t.amount;
+  const days = [];
+  for (let d = c.start; d <= c.end; d = addDays(d, 1)) days.push({ date: d, v: by[d] || 0 });
+  const sorted = days.map(x => x.v).filter(Boolean).sort((a, b) => a - b);
+  return days.map(x => ({ ...x, level: x.v ? Math.ceil((sorted.lastIndexOf(x.v) + 1) / sorted.length * 4) : 0 }));
+}
+/** Time of day: 0 morning 05–11, 1 afternoon 11–17, 2 evening 17–22, 3 late night 22–05. */
+export const slotOf = m => (m >= 300 && m < 660 ? 0 : m >= 660 && m < 1020 ? 1 : m >= 1020 && m < 1320 ? 2 : 3);
+export const DELIVERY = /grab ?food|food ?panda|shopee ?food|deliveroo|airasia food|mcdelivery|beep delivery/i;
+/**
+ * Everyday spending with a time between two dates by weekday (0 Sunday) and time of day: grid[7][4] in sen. After
+ * midnight counts for the night before (Friday late night includes Saturday 01:00). top: the biggest cell with its
+ * main category; late: food delivery ordered late at night {v, n}.
+ */
+export function whenGrid(txs, from, to) {
+  const grid = Array.from({ length: 7 }, () => [0, 0, 0, 0]), cats = {}, late = { v: 0, n: 0 };
+  for (const t of txs) {
+    const m = mins(t.time);
+    if (t.type !== 'expense' || isBill(t) || m == null || t.date < from || t.date > to) continue;
+    const w = new Date(`${m < 300 ? addDays(t.date, -1) : t.date}T00:00:00Z`).getUTCDay(), s = slotOf(m), k = `${w}|${s}`;
+    grid[w][s] += t.amount;
+    for (const b of breakdown(t)) (cats[k] ||= {})[b.category] = (cats[k][b.category] || 0) + b.cents;
+    if (s === 3 && DELIVERY.test(`${t.merchant || ''} ${t.note || ''}`)) { late.v += t.amount; late.n++; }
+  }
+  let top = null;
+  grid.forEach((row, w) => row.forEach((v, s) => { if (v && (!top || v > top.v)) top = { w, s, v }; }));
+  if (top) top.category = Object.entries(cats[`${top.w}|${top.s}`]).sort((a, b) => b[1] - a[1])[0][0];
+  return { grid, top, late };
+}
+/** Shops in a month by money and by visits (top 5 each): [{name, v, n}]. Names group as bills do (first two words). */
+export function topShops(txs, ym, sd = 1) {
+  const by = {};
+  for (const t of txs) {
+    if (t.type !== 'expense' || !t.merchant || cycleKey(t.date, sd) !== ym) continue;
+    const k = shopWord(t.merchant) || itemKey(t.merchant);
+    if (!k) continue;
+    (by[k] ||= { name: t.merchant, v: 0, n: 0 }); by[k].v += t.amount; by[k].n++;
+  }
+  const all = Object.values(by);
+  return { money: [...all].sort((a, b) => b.v - a.v).slice(0, 5), visits: [...all].sort((a, b) => b.n - a.n || b.v - a.v).slice(0, 5) };
+}
+
+/** A month's spending by the kind of account it came from: {cash, bank, ewallet, card, savings} in sen. */
+export function paymentMix(txs, accounts, ym, sd = 1) {
+  const kind = Object.fromEntries(accounts.map(a => [a.id, a.kind || 'bank'])), by = {};
+  for (const t of txs) if (t.type === 'expense' && cycleKey(t.date, sd) === ym && kind[t.accountId]) by[kind[t.accountId]] = (by[kind[t.accountId]] || 0) + t.amount;
+  return by;
+}
+/** Share of money in that was kept: (in − out) / in. null for a month with no money in. */
+export const savingsRate = (income, expense) => (income > 0 ? (income - expense) / income : null);
+
+/** Food in a month: groceries (cooking), dining out, and delivery (GrabFood, foodpanda, ShopeeFood: all but its groceries). */
+export function foodSplit(txs, ym, sd = 1) {
+  const out = { groceries: 0, dining: 0, delivery: 0 };
+  for (const t of txs) {
+    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
+    const del = DELIVERY.test(`${t.merchant || ''} ${t.note || ''}`);
+    for (const b of breakdown(t)) {
+      if (b.category === 'groceries') out.groceries += b.cents;
+      else if (del) out.delivery += b.cents;
+      else if (b.category === 'dining') out.dining += b.cents;
+    }
+  }
+  return out;
+}
+/** SST and service charge paid in a calendar year, from receipts' tax and service lines; n: receipts with either. */
+export function taxPaid(txs, year) {
+  const out = { sst: 0, service: 0, n: 0 };
+  for (const t of txs) {
+    if (t.type !== 'expense' || t.date.slice(0, 4) !== String(year) || !(t.tax > 0 || t.service > 0)) continue;
+    out.sst += Math.max(0, t.tax || 0); out.service += Math.max(0, t.service || 0); out.n++;
+  }
+  return out;
+}
+/**
+ * Money put into joint accounts in a month (income into one, or a transfer from outside them), by who: rows marked
+ * `spouse` came from the spouse's phone (named by `by`), the rest are yours. → [{me, name, v}], most first.
+ */
+export function jointIn(txs, jointIds, ym, sd = 1) {
+  const by = {};
+  for (const t of txs) {
+    if (cycleKey(t.date, sd) !== ym) continue;
+    const into = t.type === 'income' ? jointIds.has(t.accountId) : t.type === 'transfer' && jointIds.has(t.toAccountId) && !jointIds.has(t.accountId);
+    if (!into) continue;
+    const k = t.spouse ? `s:${t.by || ''}` : 'me';
+    (by[k] ||= { me: !t.spouse, name: t.spouse ? t.by || '' : '', v: 0 }).v += t.amount;
+  }
+  return Object.values(by).sort((a, b) => b.v - a.v);
 }

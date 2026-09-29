@@ -17,7 +17,7 @@ function niceTicks(a, b, n) {
   for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) out.push(v);
   return out;
 }
-const short = sen => { const r = sen / 100; return Math.abs(r) >= 1000 ? `${+(r / 1000).toFixed(1)}k` : `${Math.round(r)}`; };
+export const short = sen => { const r = sen / 100; return Math.abs(r) >= 1000 ? `${+(r / 1000).toFixed(1)}k` : `${Math.round(r)}`; };
 /** Area line over dates. series: [{date, v (sen)}]. goal: a flat line (budget). */
 export function lineChart(series, { goal = null, height = 160, label = 'chart', k = 'accent' } = {}) {
   if (!series.length) return `<p class="fine">${esc(t('Not enough data yet.'))}</p>`;

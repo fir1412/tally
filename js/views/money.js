@@ -23,12 +23,13 @@ export function txRow(x) {
 }
 
 // ---- Activity ------------------------------------------------------------------------------------------------------
-const F = { q: '', month: '', acc: '', cat: '', photo: false, limit: 200 };
+const F = { q: '', month: '', acc: '', cat: '', photo: false, ids: null, idsLabel: '', limit: 200 };
 function matches(x) {
   if (F.month && cycleKey(x.date, startDay()) !== F.month) return false;
   if (F.acc && x.accountId !== F.acc && x.toAccountId !== F.acc) return false;
   if (F.cat && x.category !== F.cat && !(x.items || []).some(i => i.category === F.cat)) return false;
   if (F.photo && !x.receiptId) return false;
+  if (F.ids && !F.ids.includes(x.id)) return false;
   if (!F.q) return true;
   const q = F.q.toLowerCase(), sen = /\d/.test(q) ? parseAmount(q) : null;   // "28.5", "RM28.50": an amount
   if (sen != null && (x.amount === sen || (x.items || []).some(i => i.cents === sen))) return true;
@@ -54,7 +55,7 @@ export const activityView = {
         <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
-      <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button></div>
+      <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button>${F.ids ? `<button class="chip on" data-act="act-ids" aria-label="${esc(t('Show all, not just {0}', F.idsLabel))}">${esc(F.idsLabel)}${ICON.x}</button>` : ''}</div>
       <p class="fine" id="act-sum">${esc(list.length === 1 ? t('1 transaction · {0} spent', fmtRM(spent)) : t('{0} transactions · {1} spent', list.length, fmtRM(spent)))}</p>
       <div id="act-list">${list.length ? html : `<p class="empty">${esc(S.tx.length ? t('Nothing matches. Try another search or filter.') : t('No transactions yet. Scan a receipt or tap Add.'))}</p>`}
       ${list.length > F.limit ? `<button class="btn ghost wide" data-act="act-more">${esc(t('Show more'))}</button>` : ''}</div>`;
@@ -94,7 +95,9 @@ export const input = {
   },
 };
 /** Show one category's spending: Home, Insights and Budgets link here. */
-export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, limit: 200 }); go('activity'); }
+export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, ids: null, limit: 200 }); go('activity'); }
+/** Activity showing just these entries (from Insights: the payments behind a tax relief line), named by a chip that clears it. */
+export function showIds(ids, label) { Object.assign(F, { q: '', acc: '', cat: '', month: '', photo: false, ids, idsLabel: label, limit: 200 }); go('activity'); }
 
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
 let draft = null; // the transaction being edited; its id is fixed when the sheet opens, so saving twice can't duplicate
@@ -313,6 +316,7 @@ export const act = {
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: S.accounts[0]?.id, category: 'bills' }),
   'act-photo': () => { F.photo = !F.photo; F.limit = 200; render(); },
+  'act-ids': () => { F.ids = null; render(); },
   'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: ['groceries', 'dining', 'other'].includes(r.category) ? 'bills' : r.category, accountId: S.accounts[0]?.id, key: r.key }); },
   'bill-save': async b => {
     const amount = calcAmount($('#b-amt').value), name = $('#b-name').value.trim(), start = $('#b-date').value, until = $('#b-until').value || undefined;
