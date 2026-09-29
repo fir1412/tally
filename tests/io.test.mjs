@@ -44,18 +44,24 @@ test('fileDate formats', () => {
 // A tiny .xlsx built by hand: shared strings, an inline string, a number and an Excel date serial.
 async function makeXlsx() {
   const enc = s => new TextEncoder().encode(s);
-  const deflate = async u8 => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
   const files = [
     ['xl/sharedStrings.xml', enc('<sst><si><t>Date</t></si><si><t>Amount</t></si><si><t>Note</t></si><si><r><t>Kopi </t></r><r><t>O &amp; roti</t></r></si></sst>'), 0],
-    ['xl/worksheets/sheet1.xml', await deflate(enc('<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2"><v>46293</v></c><c r="B2"><v>-6.5</v></c><c r="C2" t="s"><v>3</v></c></row><row r="3"><c r="A3" t="inlineStr"><is><t>27/09/2026</t></is></c><c r="C3" t="inlineStr"><is><t>no amount</t></is></c></row></sheetData></worksheet>')), 8],
+    ['xl/worksheets/sheet1.xml', enc('<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2"><v>46293</v></c><c r="B2"><v>-6.5</v></c><c r="C2" t="s"><v>3</v></c></row><row r="3"><c r="A3" t="inlineStr"><is><t>27/09/2026</t></is></c><c r="C3" t="inlineStr"><is><t>no amount</t></is></c></row></sheetData></worksheet>'), 8],
   ];
+  return zipOf(files);
+}
+/** [name, bytes, method (0 stored, 8 deflated), declared size?] → zip bytes. */
+async function zipOf(files) {
+  const enc = s => new TextEncoder().encode(s);
+  const deflate = async u8 => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
   const parts = [], central = [];
   let off = 0;
-  for (const [name, data, method] of files) {
+  for (const [name, raw, method, declared = raw.length] of files) {
+    const data = method === 8 ? await deflate(raw) : raw;
     const n = enc(name), h = new DataView(new ArrayBuffer(30));
-    h.setUint32(0, 0x04034b50, true); h.setUint16(8, method, true); h.setUint32(18, data.length, true); h.setUint16(26, n.length, true);
+    h.setUint32(0, 0x04034b50, true); h.setUint16(8, method, true); h.setUint32(18, data.length, true); h.setUint32(22, declared, true); h.setUint16(26, n.length, true);
     const c = new DataView(new ArrayBuffer(46));
-    c.setUint32(0, 0x02014b50, true); c.setUint16(10, method, true); c.setUint32(20, data.length, true); c.setUint16(28, n.length, true); c.setUint32(42, off, true);
+    c.setUint32(0, 0x02014b50, true); c.setUint16(10, method, true); c.setUint32(20, data.length, true); c.setUint32(24, declared, true); c.setUint16(28, n.length, true); c.setUint32(42, off, true);
     parts.push(new Uint8Array(h.buffer), n, data); central.push(new Uint8Array(c.buffer), n);
     off += 30 + n.length + data.length;
   }
@@ -144,4 +150,54 @@ test('CSV export: an itemised receipt with SST adds up to what was paid', () => 
   const tx = [{ id: 't', date: '2026-09-01', type: 'expense', amount: 1060, accountId: 'a', category: 'groceries', merchant: 'Mydin', items: [{ name: 'Milo', cents: 700, category: 'groceries' }, { name: 'Sabun', cents: 300, category: 'household' }] }];
   const rows = IO.toCSV(tx, [{ id: 'a', name: 'Cash' }]).replace(/^\uFEFF/, '').trim().split(/\r?\n/).slice(1);
   assert.equal(rows.reduce((s, r) => s + Math.round(parseFloat(r.split(',')[2]) * 100), 0), 1060);
+});
+
+test('zip: one inflate budget per file, declared sizes held, entries capped, repeats read once, broken offsets refused', async () => {
+  const enc = s => new TextEncoder().encode(s), zeros = new Uint8Array(400_000);
+  const two = await zipOf([['a', zeros, 8], ['b', zeros, 8]]);
+  assert.equal((await IO.unzip(two, () => true)).b.length, 400_000);
+  await assert.rejects(IO.unzip(two, () => true, { budget: 500_000 }), /too big/);   // a bomb spread over many entries
+  await assert.rejects(IO.unzip(await zipOf([['a', zeros, 8, 1000]]), () => true), /too big/);   // inflates past its declared size
+  await assert.rejects(IO.unzip(await zipOf([['s', zeros, 0]]), () => true, { budget: 1000 }), /too big/);
+  const many = await zipOf(['1', '2', '3', '4', '5'].map(n => [`photos/${n}.jpg`, enc(n), 0]));
+  assert.equal(Object.keys(await IO.unzip(many, () => true, { entries: 3 })).length, 3);
+  const dup = await IO.unzip(await zipOf([['a', enc('first'), 0], ['a', enc('second'), 8], ['__proto__', enc('x'), 0]]), () => true);
+  assert.equal(new TextDecoder().decode(dup.a), 'first');
+  assert.equal(new TextDecoder().decode(dup.__proto__), 'x');
+  assert.equal({}.length, undefined);
+  const broken = [new Uint8Array([1, 2, 3]), enc('PK\x05\x06 not really a zip at all, just text'), two.slice(0, 60), two.slice(two.length - 22)];
+  const far = two.slice(); new DataView(far.buffer).setUint32(far.length - 22 + 16, 0xffffff00, true); broken.push(far);   // central directory past the end
+  const local = two.slice(), cd = new DataView(local.buffer).getUint32(local.length - 22 + 16, true); new DataView(local.buffer).setUint32(cd + 42, 0xfffff000, true); broken.push(local);
+  for (const b of broken) await assert.rejects(IO.unzip(b, () => true), /bad zip/);
+});
+
+test('backup: reserved ids and keys dropped, only valid custom categories count, lists capped, Object.prototype untouched', () => {
+  const r = IO.readBackup(`{"app":"tally","v":1,
+    "accounts":[{"id":"a","name":"Cash"},{"id":"__proto__"},{"id":"constructor"},{"id":"prototype"}],
+    "tx":[{"id":"constructor","date":"2026-09-01","type":"expense","amount":5,"accountId":"a"},
+      {"id":"t1","date":"2026-09-01","type":"expense","amount":5,"accountId":"a","category":"constructor"},
+      {"id":"t2","date":"2026-09-01","type":"expense","amount":5,"accountId":"a","category":"c_ok","receiptId":"__proto__"},
+      {"id":"t3","date":"2026-09-01","type":"expense","amount":5,"accountId":"a","category":"<b>x</b>"}],
+    "kv":{"customCats":[{"id":"c_ok","name":"Ok"},{"id":"constructor","name":"x"},{"id":"<b>x</b>","name":"x"}],
+      "rules":{"__proto__":{"polluted":1},"constructor":"dining","prototype":"dining","TEH":"constructor","KOPI":"c_ok"},
+      "budgets":{"total":1,"byCat":{"__proto__":5,"constructor":5,"c_ok":7}}}}`);
+  assert.deepEqual(r.accounts.map(a => a.id), ['a']);
+  assert.deepEqual(r.tx.map(t => [t.id, t.category, t.receiptId]), [['t1', 'other', undefined], ['t2', 'c_ok', undefined], ['t3', 'other', undefined]]);
+  assert.deepEqual(r.kv.customCats.map(c => c.id), ['c_ok']);
+  assert.deepEqual(Object.entries(r.kv.rules), [['TEH', 'other'], ['KOPI', 'c_ok']]);
+  assert.deepEqual(r.kv.budgets.byCat, { c_ok: 7 });
+  const local = JSON.parse('{"accounts":[],"tx":[],"recurring":[],"kv":{"rules":{"__proto__":{"polluted":1}},"budgets":{"__proto__":{"polluted":1}}}}');
+  const merged = IO.mergeBackup(local, r);
+  assert.equal(merged.kv.rules.KOPI, 'c_ok');
+  assert.equal({}.polluted, undefined);
+  assert.equal(Object.prototype.polluted, undefined);
+  const big = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, accounts: Array.from({ length: 250 }, (_, i) => ({ id: `a${i}` })), recurring: Array.from({ length: 600 }, (_, i) => ({ id: `r${i}`, amount: 1 })), kv: { customCats: Array.from({ length: 60 }, (_, i) => ({ id: `c_${i}` })) } }));
+  assert.deepEqual([big.accounts.length, big.recurring.length, big.kv.customCats.length], [200, 500, 50]);
+  assert.throws(() => IO.readBackup(' '.repeat(IO.LIMITS.backupJson + 1)), /too big/);
+});
+
+test('a fetched body is refused past its cap, by Content-Length or while streaming', async () => {
+  await assert.rejects(IO.readCapped(new Response('x', { headers: { 'content-length': '999999' } }), 100), /too big/);
+  await assert.rejects(IO.readCapped(new Response('x'.repeat(1000)), 100), /too big/);
+  assert.equal(new TextDecoder().decode(await IO.readCapped(new Response('hello'), 100)), 'hello');
 });

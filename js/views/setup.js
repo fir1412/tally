@@ -3,7 +3,7 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
@@ -228,13 +228,15 @@ async function importMoneyManager(buf) {
 
 // ---- bank and e-wallet PDF statements ---------------------------------------------------------------------
 async function importStatement(buf, password) {
+  if (buf.byteLength > LIMITS.fileBytes) return impErr(t('This file is over 25 MB. Split it or export a shorter date range.'));
   impErr(t('Reading the statement…'));
   const pdfjs = await import('../../vendor/pdf.min.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL('../../vendor/pdf.worker.min.mjs', import.meta.url).href;
   let doc;
   try {
-    // isEvalSupported false: the CVE-2024-4367 class of malicious-PDF script is never evaluated; no font loading.
-    doc = await pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), password, isEvalSupported: false, disableFontFace: true }).promise;
+    // isEvalSupported false: the CVE-2024-4367 class of malicious-PDF script is never evaluated; no font loading;
+    // images over 16 megapixels are never decoded (only the text is read).
+    doc = await pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), password, isEvalSupported: false, disableFontFace: true, maxImageSize: 4096 * 4096 }).promise;
   } catch (e) {
     if (e?.name === 'PasswordException') return pdfPassword(buf, !!password);
     throw new Error(t('This PDF could not be opened. Download it again from your bank app.'));
@@ -261,9 +263,12 @@ function pdfPassword(buf, wrong) {
     ${wrong ? `<p class="err">${esc(t('That password did not work. Try again.'))}</p>` : ''}
     <button class="btn wide" data-act="pdf-unlock">${esc(t('Unlock'))}</button>`, { label: t('PDF password') });
 }
-/** Re-encode a photo as JPEG (max 1200 px): smaller, and location data in the original is dropped. */
+/** Re-encode a photo as JPEG (max 1200 px): smaller, and location data in the original is dropped. Only a JPEG or PNG
+ *  within 40 MB and 50 megapixels is decoded, so a crafted image can't exhaust memory; anything else → null. */
 async function reencode(blob) {
   try {
+    const info = blob.size <= LIMITS.photoBytes && imageInfo(new Uint8Array(await blob.slice(0, 1 << 20).arrayBuffer()));
+    if (!info || info.w * info.h > LIMITS.pixels) return null;
     const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
     const k = Math.min(1, 1200 / Math.max(bmp.width, bmp.height));
     const c = Object.assign(document.createElement('canvas'), { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
@@ -291,7 +296,13 @@ async function restoreText(text, zip = {}) {
   closeSheet(); go('home'); render();
   // Photos from a photo backup: only ones a restored transaction points at.
   const wanted = new Set(data.tx.map(x => x.receiptId).filter(Boolean));
-  for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' })); }
+  // Re-encoded like any photo from outside: a crafted file in the zip is dropped, not stored.
+  const todo = Object.entries(zip).filter(([n]) => n.startsWith('photos/') && wanted.has(n.slice(7, -4)));
+  for (const [i, [n, bytes]] of todo.entries()) {
+    if (i % 25 === 0 && todo.length > 25) toast(t('Copying photos… {0} of {1}', i, todo.length));
+    const jpeg = await reencode(new Blob([bytes]));
+    if (jpeg) await savePhoto(n.slice(7, -4), jpeg);
+  }
   toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
 }
 
@@ -385,9 +396,9 @@ export const act = {
     impErr(t('Fetching…'));
     try {
       const res = await fetch(url, { credentials: 'omit', redirect: 'follow', signal: AbortSignal.timeout(20000) });
-      const text = await res.text();
-      if (text.length > LIMITS.fileBytes) throw new Error('big');
-      if (!res.ok || /^\s*<!DOCTYPE html|<html/i.test(text)) throw new Error('private');
+      if (!res.ok) throw new Error('private');
+      const text = new TextDecoder().decode(await readCapped(res, LIMITS.fileBytes));   // 25 MB: Content-Length, then while streaming
+      if (/^\s*<!DOCTYPE html|<html/i.test(text)) throw new Error('private');
       await startMapping(parseCSV(text), t('Google Sheets'));
     } catch { impErr(t('Could not open that sheet. In Google Sheets, tap Share and set "Anyone with the link" to Viewer, or copy the cells and paste them instead.')); }
   },
@@ -413,7 +424,9 @@ export const act = {
         const bytes = (await readPhotos(buf, [p.path]))[p.path];
         const jpeg = bytes && await reencode(new Blob([bytes], { type: 'image/jpeg' }));
         if (!jpeg) continue;
-        const id = uid('p'); await savePhoto(id, jpeg); ids.push(id);
+        const id = uid('p');
+        if (!(await savePhoto(id, jpeg))) continue;
+        ids.push(id);
         want.get(p.txId).receiptId = id;
       }
       return ids;

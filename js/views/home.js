@@ -3,7 +3,7 @@ import { S, today, nowLocal, setKv, cat, booked, scopedAccounts, budgetsFor, inS
 import { t, fmtDate, fmtMonth, monShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey } from '../engine.js';
-import { habitEvent, ics, googleUrl } from '../calendar.js';
+import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render } from '../app.js';
 import { txRow, catLabel, dot, openTxSheet, scopeSwitch } from './money.js';
@@ -173,7 +173,7 @@ export const act = {
   },
   'habit-ics': b => {
     const h = habits(booked(), today())[+b.dataset.n]; if (!h) return;
-    download(`tally-habit-${h.category}.ics`, ics([habitEv(h)]), 'text/calendar');
+    download(`tally-habit-${safeId(h.category)}.ics`, ics([habitEv(h)]), 'text/calendar');
     toast(t('Open the downloaded file to add the reminder.'));
   },
 };

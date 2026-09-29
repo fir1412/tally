@@ -5,6 +5,8 @@ import { fmtRM } from './engine.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+/** table[key] for the table's own keys only: a route or action named "constructor" finds nothing. */
+export const own = (table, key) => (Object.hasOwn(table, key) ? table[key] : undefined);
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ESC[c]);
 
 // ---- charts (SVG, colours from CSS tokens so both themes work) -----------------------------------------

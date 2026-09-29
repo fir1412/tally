@@ -247,6 +247,8 @@ export default {
   "That file is too big (over 200 MB).": "Fail itu terlalu besar (lebih 200 MB).",
   "That is not a Google Sheets link. It should start with https://docs.google.com/spreadsheets/d/": "Itu bukan pautan Google Sheets. Ia sepatutnya bermula dengan https://docs.google.com/spreadsheets/d/",
   "That photo is over 40 MB. Take a new one or send a smaller copy.": "Foto itu lebih 40 MB. Ambil yang baharu atau hantar salinan lebih kecil.",
+  "That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.": "Foto itu lebih 50 megapiksel. Ambil dalam mod kamera biasa, atau hantar salinan lebih kecil.",
+  "This backup is too big to restore (over 50 MB).": "Sandaran ini terlalu besar untuk dipulihkan (lebih 50 MB).",
   "The backup has {0} transactions. This phone has {1}.": "Sandaran ada {0} transaksi. Telefon ini ada {1}.",
   "The difference is spread across the items by size, so your categories stay close. Save anyway?": "Perbezaan diagihkan ke item mengikut saiz, jadi kategori anda tetap hampir tepat. Simpan juga?",
   "The photo is not on this phone (it may have been restored from a backup without photos).": "Foto tiada dalam telefon ini (mungkin dipulihkan dari sandaran tanpa foto).",

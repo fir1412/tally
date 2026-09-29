@@ -1,7 +1,7 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
 import { S, load, settings, onRemoteChange, onSaveFailed, storageMode } from './state.js';
 import { t, setLang, pickLang } from './i18n.js';
-import { $, esc, ICON, toast, closeSheet, sheetOpen } from './ui.js';
+import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
 import * as home from './views/home.js';
 import * as money from './views/money.js';
 import * as review from './views/review.js';
@@ -19,8 +19,9 @@ export function go(r) { if (route() === r) render(); else location.hash = `#/${r
 
 export function render() {
   let r = route();
+  if (!own(VIEWS, r)) r = 'home';   // unknown routes (#/constructor too) show Home
   if (!S.accounts.length && !['welcome', 'settings'].includes(r)) { r = 'welcome'; history.replaceState(null, '', '#/welcome'); }
-  const view = VIEWS[r] || VIEWS.home;
+  const view = VIEWS[r];
   const tabs = [['home', ICON.home, t('Home')], ['activity', ICON.list, t('Activity')], null, ['insights', ICON.chart, t('Insights')], ['budgets', ICON.wallet, t('Budgets')]];
   const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}"><span class="brand" aria-hidden="true">Tally</span>${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
     : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}<a href="#/settings" class="tab desk${r === 'settings' ? ' on' : ''}">${ICON.gear}<span>${esc(t('Settings'))}</span></a></nav>`;
@@ -33,7 +34,7 @@ export function render() {
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
-  const fn = ACT[b.dataset.act];
+  const fn = own(ACT, b.dataset.act);
   if (!fn) return;
   e.preventDefault();
   try { await fn(b, e); } catch (err) { console.error(err); if (b.isConnected) b.disabled = false; toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
@@ -42,7 +43,7 @@ document.addEventListener('click', async e => {
 const typing = el => el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'date', 'time', 'color'].includes(el.type));
 for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   const el = e.target.closest('[data-input]');
-  const fn = el && INPUT[el.dataset.input];
+  const fn = el && own(INPUT, el.dataset.input);
   if (fn && (ev === 'input') === typing(el)) fn(el, e);
 });
 // Screen change: entrance motion plays once (html[data-enter]), and browsers with View Transitions crossfade.

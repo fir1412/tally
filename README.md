@@ -37,7 +37,7 @@ No build step. Serve the folder and open it:
 
 ```sh
 python -m http.server 8770
-# http://127.0.0.1:8770/   add ?today=2026-09-29&now=12:40 to fake the date and time, &notour to skip the tour
+# http://127.0.0.1:8770/   add ?today=2026-09-29&now=12:40 to fake the date and time (localhost only), &notour to skip the tour
 ```
 
 ## Tests

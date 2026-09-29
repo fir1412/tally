@@ -3,7 +3,7 @@ import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, se
 import { t, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
 import { fmtRM, parseAmount, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES } from '../engine.js';
-import { billEvent, ics, googleUrl } from '../calendar.js';
+import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
 
@@ -247,5 +247,5 @@ export const act = {
       <a class="btn wide" href="${esc(googleUrl(billEv(x)))}" target="_blank" rel="noopener">${esc(t('Add to Google Calendar'))}</a>
       <button class="btn ghost wide" data-act="bill-ics" data-id="${esc(x.id)}">${esc(t('Download calendar file (iPhone, Outlook)'))}</button>`, { label: t('Reminder') });
   },
-  'bill-ics': b => { const x = S.recurring.find(y => y.id === b.dataset.id); download(`tally-bill-${x.id}.ics`, ics([billEv(x)]), 'text/calendar'); },
+  'bill-ics': b => { const x = S.recurring.find(y => y.id === b.dataset.id); download(`tally-bill-${safeId(x.id)}.ics`, ics([billEv(x)]), 'text/calendar'); },
 };

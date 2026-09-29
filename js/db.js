@@ -44,8 +44,13 @@ function lsLoad() {
     try { mem[s] = JSON.parse(localStorage.getItem(`${NAME}.${s}`) || '{}'); } catch { mem[s] = {}; }
   }
 }
-function lsSave(store) {
-  try { localStorage.setItem(`${NAME}.${store}`, JSON.stringify(mem[store])); } catch (e) { console.warn('save failed', e); failHandler(e); }
+/** Fallback write: change a copy of the store, keep it only if localStorage took it; otherwise report and reject. */
+function lsWrite(store, change) {
+  const next = { ...mem[store] };
+  change(next);
+  try { localStorage.setItem(`${NAME}.${store}`, JSON.stringify(next)); } catch (e) { console.warn('save failed', e); failHandler(e); throw e; }
+  mem[store] = next;
+  notify(store);
 }
 
 let mode = null;
@@ -67,10 +72,11 @@ export async function init() {
 
 function tx(store, mode, fn) {
   return new Promise((resolve, reject) => {
-    const t = idb.transaction(store, mode);
-    const os = t.objectStore(store);
-    let result;
-    Promise.resolve(fn(os)).then(r => { result = r; });
+    let t, result;
+    try {
+      t = idb.transaction(store, mode);
+      Promise.resolve(fn(t.objectStore(store))).then(r => { result = r; }, () => {});
+    } catch (e) { if (mode === 'readwrite') failHandler(e); try { t?.abort(); } catch {} return reject(e); } // closed database, a value that can't be stored…
     t.oncomplete = () => resolve(result);
     t.onerror = () => { failHandler(t.error); reject(t.error); };
     t.onabort = () => { failHandler(t.error); reject(t.error); };
@@ -84,26 +90,26 @@ export async function all(store) {
 }
 
 export async function put(store, obj) {
-  if (!idb) { const k = store === 'kv' ? obj.key : obj.id; mem[store][k] = obj; lsSave(store); notify(store); return obj; }
+  if (!idb) { lsWrite(store, m => { m[store === 'kv' ? obj.key : obj.id] = obj; }); return obj; }
   await tx(store, 'readwrite', os => { os.put(obj); });
   notify(store);
   return obj;
 }
 
 export async function putMany(store, list) {
-  if (!idb) { for (const o of list) mem[store][store === 'kv' ? o.key : o.id] = o; lsSave(store); notify(store); return; }
+  if (!idb) return lsWrite(store, m => { for (const o of list) m[store === 'kv' ? o.key : o.id] = o; });
   await tx(store, 'readwrite', os => { for (const o of list) os.put(o); });
   notify(store);
 }
 
 export async function del(store, key) {
-  if (!idb) { delete mem[store][key]; lsSave(store); notify(store); return; }
+  if (!idb) return lsWrite(store, m => { delete m[key]; });
   await tx(store, 'readwrite', os => { os.delete(key); });
   notify(store);
 }
 
 export async function clear(store) {
-  if (!idb) { mem[store] = {}; lsSave(store); notify(store); return; }
+  if (!idb) return lsWrite(store, m => { for (const k in m) delete m[k]; });
   await tx(store, 'readwrite', os => { os.clear(); });
   notify(store);
 }
@@ -131,30 +137,36 @@ export async function get(store, key) {
 
 /** Delete many keys in one transaction with one change notice (undo of a big import). */
 export async function delMany(store, keys) {
-  if (!idb) { for (const k of keys) delete mem[store][k]; lsSave(store); notify(store); return; }
+  if (!idb) return lsWrite(store, m => { for (const k of keys) delete m[k]; });
   await tx(store, 'readwrite', os => { for (const k of keys) os.delete(k); });
   notify(store);
 }
 
 /**
- * All-or-nothing write across stores (restore): `clear` empties those stores, then `put` writes {store: [objects]}.
+ * All-or-nothing write across stores (restore): `clear` empties those stores, `del` removes {store: [keys]}, then `put`
+ * writes {store: [objects]}.
  * One IndexedDB transaction, so a crash or full disk mid-way leaves the old data untouched.
  */
-export async function writeAtomic({ clear = [], put = {} }) {
-  const stores = [...new Set([...clear, ...Object.keys(put)])];
+export async function writeAtomic({ clear = [], del = {}, put = {} }) {
+  const stores = [...new Set([...clear, ...Object.keys(del), ...Object.keys(put)])];
   if (!idb) {
     const backup = structuredClone(mem);
     try {
       for (const s of clear) mem[s] = {};
+      for (const [s, keys] of Object.entries(del)) for (const k of keys) delete mem[s][k];
       for (const [s, list] of Object.entries(put)) for (const o of list) mem[s][s === 'kv' ? o.key : o.id] = o;
       for (const s of stores) localStorage.setItem(`${NAME}.${s}`, JSON.stringify(mem[s]));
-    } catch (e) { mem = backup; for (const s of stores) lsSave(s); failHandler(e); throw e; }
+    } catch (e) { mem = backup; for (const s of stores) try { localStorage.setItem(`${NAME}.${s}`, JSON.stringify(mem[s])); } catch {} failHandler(e); throw e; }
     notify('all'); return;
   }
   await new Promise((resolve, reject) => {
-    const t = idb.transaction(stores, 'readwrite');
-    for (const s of clear) t.objectStore(s).clear();
-    for (const [s, list] of Object.entries(put)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
+    let t;
+    try {
+      t = idb.transaction(stores, 'readwrite');
+      for (const s of clear) t.objectStore(s).clear();
+      for (const [s, keys] of Object.entries(del)) for (const k of keys) t.objectStore(s).delete(k);
+      for (const [s, list] of Object.entries(put)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
+    } catch (e) { try { t?.abort(); } catch {} failHandler(e); return reject(e); } // abort: a half-written restore must not commit
     t.oncomplete = resolve;
     t.onerror = t.onabort = () => { failHandler(t.error); reject(t.error); };
   });

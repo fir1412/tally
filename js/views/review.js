@@ -30,12 +30,12 @@ async function pump() {
     if (!ocrReady()) await loadOcr();
     const { receipt, photo, ms, turns } = await readReceipt(next.file);
     const draft = toDraft(receipt);
-    if (photo) { draft.receiptId = uid('p'); await savePhoto(draft.receiptId, photo); }   // saved now so a draft survives a restart
+    if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft };
     await setKv('reviewDraft', { draft, existing: false });
   } catch (e) {
     console.error(e);
-    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
+    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
   }
   deletePhotos([`q_${next.id}`]);   // read (or unreadable): the draft holds its own copy now
   reading = false; refresh();

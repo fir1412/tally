@@ -247,6 +247,8 @@ export default {
   "That file is too big (over 200 MB).": "文件太大（超过 200 MB）。",
   "That is not a Google Sheets link. It should start with https://docs.google.com/spreadsheets/d/": "这不是 Google 表格链接。链接应以 https://docs.google.com/spreadsheets/d/ 开头",
   "That photo is over 40 MB. Take a new one or send a smaller copy.": "照片超过 40 MB。请重新拍一张或使用较小的副本。",
+  "That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.": "照片超过 5000 万像素。请用普通相机模式拍摄，或使用较小的副本。",
+  "This backup is too big to restore (over 50 MB).": "此备份太大，无法恢复（超过 50 MB）。",
   "The backup has {0} transactions. This phone has {1}.": "备份中有 {0} 笔记录，本机有 {1} 笔。",
   "The difference is spread across the items by size, so your categories stay close. Save anyway?": "差额会按金额比例分摊到各项目，类别统计仍然接近准确。仍然保存？",
   "The photo is not on this phone (it may have been restored from a backup without photos).": "本机没有这张照片（可能是从不含照片的备份恢复的）。",

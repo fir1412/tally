@@ -17,12 +17,19 @@ export async function load() {
   S.accounts.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return mode;
 }
-export const setKv = (k, v) => { S.kv[k] = v; return db.setKv(k, v); };
+// Settings apply at once (screens read them straight after) and roll back if the save fails.
+export async function setKv(k, v) {
+  const old = S.kv[k];
+  S.kv[k] = v;
+  try { await db.setKv(k, v); } catch (e) { if (S.kv[k] === v) S.kv[k] = old; throw e; }
+}
 export const settings = () => S.kv.settings;
 export const setSetting = (k, v) => setKv('settings', { ...S.kv.settings, [k]: v });
 
-// ---- dates (overridable for tests and demos: ?today=2026-09-28&now=12:50) -------------------------------------
-const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+// ---- dates (overridable for tests and demos: ?today=2026-09-28&now=12:50, on this computer only) ----------------
+/** The clock override is for local tests and simulations: a shared link to the live site can't move anyone's date. */
+export const clockParams = loc => new URLSearchParams(['localhost', '127.0.0.1', '[::1]'].includes(loc?.hostname) ? loc.search : '');
+const params = clockParams(globalThis.location);
 const pad = n => String(n).padStart(2, '0');
 const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const today = () => (/^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : local(new Date()));
@@ -73,33 +80,34 @@ export async function addCategory(name, color) {
 }
 
 // ---- transactions -----------------------------------------------------------------------------------------------
+// Records are written to the database first and only then shown: a failed save never leaves the screen ahead of the data.
 /** Save a transaction. Saving the same id twice replaces it, so a double tap can never add it twice. */
 export async function saveTx(tx) {
   tx = stamp(tx);
+  await db.put('tx', tx);
   const i = S.tx.findIndex(t => t.id === tx.id);
   if (i >= 0) S.tx[i] = tx; else S.tx.push(tx);
-  await db.put('tx', tx);
   return tx;
 }
 export async function saveTxs(list) {
   list = list.map(stamp);
+  await db.putMany('tx', list);
   const ids = new Set(list.map(t => t.id));
   S.tx = [...S.tx.filter(t => !ids.has(t.id)), ...list];
-  await db.putMany('tx', list);
 }
 /** Delete, returning an undo function. */
 export async function deleteTx(id) {
   const old = S.tx.find(t => t.id === id);
   if (!old) return () => {};
-  S.tx = S.tx.filter(t => t.id !== id);
   await db.del('tx', id);
+  S.tx = S.tx.filter(t => t.id !== id);
   return async () => { await saveTx(old); };
 }
 export async function deleteTxs(ids) {
   const set = new Set(ids);
   const old = S.tx.filter(t => set.has(t.id));
-  S.tx = S.tx.filter(t => !set.has(t.id));
   await db.delMany('tx', ids);
+  S.tx = S.tx.filter(t => !set.has(t.id));
   return async () => saveTxs(old);
 }
 /** Remember the user's category for an item (and optionally for the shop). */
@@ -114,30 +122,32 @@ export async function learn(itemName, category, merchant = null) {
 // ---- accounts, bills, photos ----------------------------------------------------------------------------------
 export async function saveAccount(a) {
   a = { ...a, updatedAt: Date.now() };
+  await db.put('accounts', a);
   const i = S.accounts.findIndex(x => x.id === a.id);
   if (i >= 0) S.accounts[i] = a; else S.accounts.push(a);
-  await db.put('accounts', a);
 }
 export async function deleteAccount(id) {
   if (S.tx.some(t => t.accountId === id || t.toAccountId === id)) throw new Error('in use');
-  S.accounts = S.accounts.filter(a => a.id !== id);
   await db.del('accounts', id);
+  S.accounts = S.accounts.filter(a => a.id !== id);
 }
 export async function saveBill(b) {
+  await db.put('recurring', b);
   const i = S.recurring.findIndex(x => x.id === b.id);
   if (i >= 0) S.recurring[i] = b; else S.recurring.push(b);
-  await db.put('recurring', b);
 }
-export async function deleteBill(id) { S.recurring = S.recurring.filter(b => b.id !== id); await db.del('recurring', id); }
-export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).catch(() => {}); // photos are nice-to-have
+export async function deleteBill(id) { await db.del('recurring', id); S.recurring = S.recurring.filter(b => b.id !== id); }
+/** true when saved. Photos are nice-to-have, so a failure doesn't stop the caller; the user still sees it (onSaveFailed). */
+export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).then(() => true, () => false);
 export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
+const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed'];
 const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
-/** Replace everything with a backup, all or nothing. */
+/** Replace everything with a backup, all or nothing: old photos and the settings a backup carries go too. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {
-  await db.writeAtomic({ clear: ['accounts', 'tx', 'recurring'], put: { accounts, tx, recurring, kv: kvRows(kv) } });
+  await db.writeAtomic({ clear: ['accounts', 'tx', 'recurring', 'receipts'], del: { kv: BACKUP_KV }, put: { accounts, tx, recurring, kv: kvRows(kv) } });
   await load();
 }
 /** Add a merged backup's new records and settings, all or nothing. Existing records are never rewritten. */

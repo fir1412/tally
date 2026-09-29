@@ -135,12 +135,15 @@ export function statementToTx(rows, { accountId, source = 'statement', now = Dat
 
 /** pdf.js text items ({str, transform}) → lines, top to bottom, left to right. Items within 3 units share a line. */
 export function linesFromItems(items) {
-  const rows = [];
-  for (const it of items) {
-    if (!it.str?.trim()) continue;
-    const x = it.transform[4], y = it.transform[5];
-    let row = rows.find(r => Math.abs(r.y - y) <= 3);
-    if (!row) rows.push(row = { y, parts: [] });
+  // Rows are found through buckets of y/3 (a row within 3 units sits in the same or a neighbouring bucket), so a
+  // crafted page of scattered text stays linear. The first row made wins, as before. 20,000 items a page at most.
+  const rows = [], near = new Map();
+  for (const it of items.slice(0, 20_000)) {
+    const x = it.transform?.[4], y = it.transform?.[5], k = Math.round(y / 3);
+    if (!it.str?.trim() || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+    let row = null;
+    for (const j of [k - 1, k, k + 1]) for (const r of near.get(j) || []) if (Math.abs(r.y - y) <= 3 && (!row || r.n < row.n)) row = r;
+    if (!row) { rows.push(row = { y, n: rows.length, parts: [] }); near.set(k, [...(near.get(k) || []), row]); }
     row.parts.push({ x, s: it.str.trim() });
   }
   return rows.sort((a, b) => b.y - a.y).map(r => r.parts.sort((a, b) => a.x - b.x).map(p => p.s).join('  '));

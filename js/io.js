@@ -2,7 +2,7 @@
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
 import { parseAmount, validIso, CATEGORIES, INCOME_CATEGORIES, categorize, allocate } from './engine.js';
 
-export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, rows: 50_000, text: 200 };
+export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
 
 // ---- CSV (adapted from we go gim's io.js) ------------------------------------------------
 export function csvDelimiter(text) {
@@ -45,16 +45,17 @@ export function decodeBytes(u8) {
 export const cleanText = (s, max = LIMITS.text) => String(s ?? '').slice(0, max * 4).normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 // ---- Excel (.xlsx) without a library: a zip of XML files, inflated with the built-in DecompressionStream ----
-const MAX_INFLATE = 60 * 1024 * 1024; // a zip entry may not expand past this (zip bombs)
-async function inflateRaw(bytes) {
-  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
-  const parts = [];
+// Zips are untrusted (.xlsx, Money Manager and photo backups): one inflate budget per unzip call (zip bombs), a cap on entries read, and every offset checked.
+export const ZIP = { budget: 150 * 1024 * 1024, entries: 5000 };
+/** A byte stream → one Uint8Array; 'too big' past `max` bytes (zip entries, a fetched sheet). */
+export async function readAll(stream, max) {
+  const reader = stream.getReader(), parts = [];
   let n = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     n += value.length;
-    if (n > MAX_INFLATE) { await reader.cancel(); throw new Error('too big'); }
+    if (n > max) { await reader.cancel().catch(() => {}); throw new Error('too big'); }
     parts.push(value);
   }
   const out = new Uint8Array(n);
@@ -62,31 +63,45 @@ async function inflateRaw(bytes) {
   for (const part of parts) { out.set(part, at); at += part.length; }
   return out;
 }
+/** A fetch response's bytes, refused past `max`: by Content-Length first, then while streaming. */
+export async function readCapped(res, max) {
+  if (+res.headers.get('content-length') > max) throw new Error('too big');
+  return res.body ? readAll(res.body, max) : new Uint8Array(0);
+}
+const inflateRaw = (bytes, max) => readAll(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')), max);
 /** Zip → {path: Uint8Array} for the paths wanted (stored or deflated entries). Bytes before the zip are
- * allowed (Money Manager backups start with 8 of them): offsets are taken from the first local header. */
-export async function unzip(buf, want) {
+ * allowed (Money Manager backups start with 8 of them): offsets are taken from the first local header.
+ * A deflated entry may not inflate past its declared size, nor all of them past `budget`; a repeated name is read once. */
+export async function unzip(buf, want, { budget = ZIP.budget, entries = ZIP.entries } = {}) {
   const b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const bad = () => { throw new Error('bad zip'); };
+  if (b.length < 22) bad();
   let base = 0;
   while (base < Math.min(64, b.length - 4) && dv.getUint32(base, true) !== 0x04034b50) base++;
   if (dv.getUint32(base, true) !== 0x04034b50) base = 0;
   let eocd = -1;
   for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  if (eocd < 0) throw new Error('bad zip');
+  if (eocd < 0) bad();
   const count = dv.getUint16(eocd + 10, true);
-  let p = base + dv.getUint32(eocd + 16, true);
-  const out = {};
-  for (let n = 0; n < count && p + 46 <= b.length; n++) {
-    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('bad zip');
-    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true);
+  let p = base + dv.getUint32(eocd + 16, true), left = budget, read = 0;
+  const out = Object.create(null); // entry names are untrusted: "__proto__" is just a name here
+  for (let n = 0; n < count; n++) {
+    if (p + 46 > b.length || dv.getUint32(p, true) !== 0x02014b50) bad();
+    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true), full = dv.getUint32(p + 24, true);
     const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), commentLen = dv.getUint16(p + 32, true);
     const local = base + dv.getUint32(p + 42, true);
+    if (p + 46 + nameLen > b.length) bad();
     const name = new TextDecoder().decode(b.subarray(p + 46, p + 46 + nameLen));
-    if (want(name)) {
-      const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
-      const data = b.subarray(start, start + size);
-      out[name] = method === 0 ? data : method === 8 ? await inflateRaw(data) : null;
-    }
     p += 46 + nameLen + extraLen + commentLen;
+    if (!want(name) || name in out) continue;
+    if (++read > entries) break;
+    if (local + 30 > b.length || dv.getUint32(local, true) !== 0x04034b50) bad();
+    const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+    if (start + size > b.length) bad();
+    const data = b.subarray(start, start + size);
+    if (method === 0) { if (size > budget) throw new Error('too big'); out[name] = data; } // stored: a view of the file, no copy
+    else if (method === 8) { if (full > left) throw new Error('too big'); out[name] = await inflateRaw(data, full); left -= out[name].length; }
+    else out[name] = null;
   }
   return out;
 }
@@ -305,21 +320,27 @@ export const BACKUP_APP = 'tally';
 export const makeBackup = ({ accounts, tx, recurring, kv }) => JSON.stringify({ app: BACKUP_APP, v: 1, exportedAt: new Date().toISOString(), accounts, tx, recurring, kv });
 const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
 const okAmt = n => Number.isInteger(n) && n >= 0 && n <= 100_000_000_00;
-const okSigned = n => Number.isInteger(n) && Math.abs(n) <= 100_000_000_00;
-const okId = id => typeof id === 'string' && /^[\w-]{1,60}$/.test(id); // ids end up in calendar files and file names
+export const okSigned = n => Number.isInteger(n) && Math.abs(n) <= 100_000_000_00;
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype']); // never an id or a key: they reach plain objects
+/** Ids end up in calendar files, file names and object keys. */
+export const okId = id => typeof id === 'string' && /^[\w-]{1,60}$/.test(id) && !RESERVED.has(id);
+const list = (x, max) => (Array.isArray(x) ? x.slice(0, max) : []);
 const upd = n => (Number.isSafeInteger(n) && n > 0 ? { updatedAt: Math.min(n, Date.now()) } : {}); // a file can't claim to be edited in the future
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
 export function readBackup(text) {
+  if (String(text).length > LIMITS.backupJson) throw new Error('This backup is too big to restore (over 50 MB).');
   let d;
   try { d = JSON.parse(text); } catch { throw new Error('This file is not a Tally backup (it is not valid JSON).'); }
   if (!isObj(d) || d.app !== BACKUP_APP) throw new Error('This file is not a Tally backup.');
   if (d.v > 1) throw new Error('This backup is from a newer version of Tally. Update the app, then restore.');
-  const customIds = new Set((Array.isArray(d.kv?.customCats) ? d.kv.customCats : []).map(c => c?.id));
+  // Custom categories first: only the ones that pass are category ids anywhere else in the backup.
+  const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' }));
+  const customIds = new Set(customCats.map(c => c.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
-  const accounts = (Array.isArray(d.accounts) ? d.accounts : []).filter(a => isObj(a) && okId(a.id))
+  const accounts = list(d.accounts, 200).filter(a => isObj(a) && okId(a.id))
     .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0, ...(a.scope === 'joint' ? { scope: 'joint' } : {}), ...upd(a.updatedAt) }));
   const ids = new Set(accounts.map(a => a.id));
-  const tx = (Array.isArray(d.tx) ? d.tx : []).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
+  const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId } : {}),
       category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
@@ -328,15 +349,15 @@ export function readBackup(text) {
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
       ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...upd(t.updatedAt),
     }));
-  const recurring = (Array.isArray(d.recurring) ? d.recurring : []).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
+  const recurring = list(d.recurring, 500).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
     .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(28, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60) }));
   const kv = {};
   if (isObj(d.kv)) {
     const bud = b => ({ total: okAmt(b.total) ? b.total : 0, byCat: Object.fromEntries(Object.entries(isObj(b.byCat) ? b.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) });
     if (isObj(d.kv.budgets)) kv.budgets = { ...bud(d.kv.budgets), ...(isObj(d.kv.budgets.joint) ? { joint: { ...bud(d.kv.budgets.joint), ...upd(d.kv.budgets.joint.updatedAt) } } : {}) };
-    if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k));
+    if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k && !RESERVED.has(k)));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
-    if (Array.isArray(d.kv.customCats)) kv.customCats = d.kv.customCats.filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' })).slice(0, 50);
+    if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
   }
   return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30) } : {}) };
 }
@@ -394,6 +415,24 @@ export function mergeJoint(local, incoming) {
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(jb && newer(mine, jb) ? { budgetsJoint: jb } : {}),
   };
+}
+
+/** A JPEG or PNG file's first bytes → {type, w, h}, or null for anything else: the pixel size is known before decoding. */
+export function imageInfo(b) {
+  if (b.length >= 24 && String.fromCharCode(...b.subarray(0, 4), ...b.subarray(12, 16)) === '\x89PNGIHDR') {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), w = dv.getUint32(16), h = dv.getUint32(20);
+    return w && h ? { type: 'image/png', w, h } : null;
+  }
+  if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+  for (let i = 2; i + 9 < b.length;) { // JPEG: walk the segments to the frame header (SOFn)
+    if (b[i] !== 0xff) return null;
+    const m = b[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) { const h = (b[i + 5] << 8) | b[i + 6], w = (b[i + 7] << 8) | b[i + 8]; return w && h ? { type: 'image/jpeg', w, h } : null; }
+    if (m === 0xd9 || m === 0xda) return null;
+    i += m === 0x01 || (m >= 0xd0 && m <= 0xd8) ? 2 : 2 + ((b[i + 2] << 8) | b[i + 3]);
+  }
+  return null;
 }
 
 // ---- browser-only helpers ---------------------------------------------------------------------------

@@ -20,7 +20,7 @@ export function appInfo(version) {
   return `Tally ${version} · ${os} · ${br} · ${installed} · ${innerWidth}px · #/${screen} · ${getLang()}`;
 }
 
-async function post(item) {
+export async function post(item) {
   const body = new URLSearchParams({ [F.type]: item.type, [F.message]: item.message, [F.contact]: item.contact || '', [F.info]: item.info });
   // Google Forms can't be read cross-site (opaque reply); a network error is the only failure we can see.
   await fetch(FORM, { method: 'POST', mode: 'no-cors', body });

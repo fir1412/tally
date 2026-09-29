@@ -1,6 +1,7 @@
 // Reading a receipt photo on the phone: PaddleOCR (vendored, ~40 MB, loaded on first scan and cached offline),
 // then the Malaysian receipt parser. Nothing is uploaded.
 import { parseReceipt } from './parse.js';
+import { imageInfo, LIMITS } from './io.js';
 
 // OCR runs in a worker (js/ocr-worker.js): the screen stays responsive, and the page keeps a strict CSP.
 let worker = null, loading = null, ready = false, seq = 0;
@@ -30,7 +31,10 @@ export function loadOcr() {
 
 async function bitmap(file) {
   if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|heic)$/i.test(file.name)) throw new Error('not an image');
-  if (file.size > 40 * 1024 * 1024) throw new Error('too big');
+  if (file.size > LIMITS.photoBytes) throw new Error('too big');
+  // 50 megapixels at most, read from the header before decoding. ponytail: JPEG and PNG only; WebP/HEIC rely on the 40 MB cap.
+  const info = imageInfo(new Uint8Array(await file.slice(0, 1 << 20).arrayBuffer()));
+  if (info && info.w * info.h > LIMITS.pixels) throw new Error('too many pixels');
   return createImageBitmap(file, { imageOrientation: 'from-image' });
 }
 function draw(bmp, maxSide) {
