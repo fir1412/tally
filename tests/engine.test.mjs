@@ -363,3 +363,18 @@ test('"Only my categories": no guesses from Tally\'s word lists, only what the u
   } finally { E.ownCategories(false); }
   assert.equal(E.categorize('Nasi lemak ayam', 'Restoran Maju'), 'dining');
 });
+
+test('default account: a Singapore receipt to the SGD account, ringgit never to a foreign one, MyDebit/NETS to the bank, a shop to where it was paid before', () => {
+  const accounts = [{ id: 'cash', kind: 'cash' }, { id: 'mbb', kind: 'bank' }, { id: 'tng', kind: 'ewallet' }, { id: 'dbs', kind: 'bank', currency: 'SGD' }, { id: 'idr', kind: 'bank', currency: 'IDR' }];
+  let n = 0; const x = (accountId, o = {}) => ({ id: `x${n++}`, type: 'expense', date: '2026-09-01', amount: 900, category: 'dining', accountId, createdAt: n, ...o });
+  const txs = [x('tng', { merchant: 'Tol Duta' }), x('cash', { merchant: 'Nasi lemak' })];
+  const bal = { cash: 5000, mbb: 200000, tng: 100, dbs: 50000, idr: 750000000 };
+  const pick = o => E.pickAccount({ accounts, txs, bal, ...o });
+  assert.equal(pick({ kind: 'receipt', currency: 'SGD', amount: 1698 }), 'dbs');
+  assert.equal(pick({ kind: 'receipt', currency: 'SGD', pay: 'debit', amount: 1698 }), 'dbs');   // NETS: the SGD bank
+  assert.equal(pick({ kind: 'receipt', pay: 'debit', amount: 1290 }), 'mbb');                     // MyDebit: the ringgit bank
+  assert.equal(pick({ kind: 'receipt', pay: 'card', amount: 1290 }), 'mbb');                      // VISA, no card account: the bank
+  assert.equal(pick({ kind: 'quick', amount: 25000 }), 'mbb');                                    // short cash: a ringgit account, never the IDR one
+  assert.equal(pick({ kind: 'quick', shop: 'Tol Duta', amount: 850 }), 'tng');                    // this shop's habit
+  assert.equal(E.pickAccount({ accounts, txs: [...txs, x('mbb', { source: 'receipt', createdAt: 99 })], bal, kind: 'quick', amount: 500 }), 'cash');   // a scanned receipt isn't the everyday account
+});

@@ -233,6 +233,8 @@ export function parseReceipt(text) {
   // A whole-bill discount is a line of its own when the receipt adds up with it and not without ("You saved 5.00" is often already in the subtotal).
   if (billOff && !r.check.ok) { const d = { name: 'Discount', cents: -billOff }; r.items.push(d); r.check = checksum(r); if (!r.check.ok) { r.items.pop(); r.check = checksum(r); } }
   r.pay = payKind(lines);
+  // Printed in Singapore dollars (a JB commuter's FairPrice receipt): it goes to an SGD account when there is one.
+  r.currency = lines.some(l => /\bS\$|\bSGD\b|\bsingapore\b|\bpaynow\b|\bUEN\b|\bnets\b/i.test(l)) ? 'SGD' : 'MYR';
   // A meal out: a service charge, or a table, pax, dine-in or take-away line. Its eggs and rice are dishes, not groceries.
   r.meal = r.service != null || lines.some(l => /\b(table|meja|pax|dine[- ]?in|take[- ]?away|takeaway|bungkus|tapau|makan sini|server|waiter)\b|堂食|外带|外帶|桌号|桌號/i.test(l));
   // A refund or return slip is money back, not spending (words only: a "-38.80" alone is often OCR noise).
@@ -243,7 +245,9 @@ export function parseReceipt(text) {
 /** How it was paid, from the payment line: 'card', 'ewallet' or 'cash' (null when the receipt doesn't say).
  *  A card or wallet line wins over cash: "CASH BILL" / "CASH SALE" is a receipt title, not how it was paid. */
 export function payKind(lines) {
-  if (lines.some(l => /\b(visa|master ?card|amex|[mh]y ?debit|debit ?card|credit ?card|kad (debit|kredit)|card ?no|contactless|paywave)\b|信用卡|扣账卡/i.test(l))) return 'card';
+  // A debit card (MyDebit, NETS in Singapore) is the bank account; a credit card is the card.
+  if (lines.some(l => /\b([mh]y ?debit|debit ?card|kad debit|nets|eftpos)\b|扣账卡/i.test(l))) return 'debit';
+  if (lines.some(l => /\b(visa|master ?card|amex|credit ?card|kad kredit|card ?no|contactless|paywave)\b|信用卡/i.test(l))) return 'card';
   if (lines.some(l => /touch ?'?n ?go|\btng\b|e-?wallet|grab ?pay|\bboost\b|shopee ?pay|duitnow|\bmae\b|setel|big ?pay|电子钱包/i.test(l))) return 'ewallet';
   if (lines.some(l => /^(cash|tunai|现金|現金)\b(?! ?(bill|sale|sales|receipt))(.*\d|\s*[:：]?\s*$)/i.test(l))) return 'cash';   // "CASH 95.00", or "CASH" with the amount on the next line
   return null;

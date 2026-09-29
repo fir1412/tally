@@ -89,6 +89,8 @@ export const input = {
   'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; refilter(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   // Typing a name picks the category it had before (until one is tapped): "Grab to office" → Transport.
   'tx-name': el => {
+    // The account this shop was paid from before (a toll on TNG), unless one was picked by hand.
+    if (draft && !accPicked && draft.type === 'expense' && S.tx.length) { const id = defaultAccount('quick', { shop: el.value, amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel && sel.value !== id) { sel.value = id; draft.accountId = id; } }
     if (!draft || catPicked || draft.type === 'transfer' || draft.items?.length) return;
     const c = guessCategory(el.value, draft.type), sheet = el.closest('.sheet');
     if (!c || c === draft.category || !sheet?.querySelector(`[data-act="tx-cat"][data-c="${CSS.escape(c)}"]`)) return;

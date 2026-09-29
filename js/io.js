@@ -729,25 +729,30 @@ export function mergeJoint(local, incoming) {
   const newer = (mine, theirs) => !mine || (theirs.updatedAt || 0) > (mine.updatedAt || 0);
   const acc = new Map(local.accounts.map(a => [a.id, a])), txs = new Map(local.tx.map(t => [t.id, t]));
   const personal = new Set(local.accounts.filter(a => a.scope !== 'joint').map(a => a.id));
-  const joint = incoming.accounts.filter(a => a.scope === 'joint' && !personal.has(a.id)), ids = new Set(joint.map(a => a.id));
+  // Before the first swap each phone made its own joint account: it is the same account as the partner's (by name, or
+  // the only one on each side). The one with the smaller id survives on both phones, so swaps that cross (both import
+  // at once) agree, and what was added to the other one moves into it.
+  const theirsAll = incoming.accounts.filter(a => a.scope === 'joint' && !personal.has(a.id));
+  const same = n => String(n || '').trim().toLowerCase(), newTheirs = theirsAll.filter(a => !acc.has(a.id)), mineOnly = local.accounts.filter(a => a.scope === 'joint' && !theirsAll.some(x => x.id === a.id));
+  const pairs = [];
+  for (const a of mineOnly) {
+    const b = newTheirs.find(x => same(x.name) === same(a.name) && !pairs.some(p => p.b === x.id)) || (mineOnly.length === 1 && newTheirs.length === 1 ? newTheirs[0] : null);
+    if (b) pairs.push({ a: a.id, b: b.id });
+  }
+  const into = new Map(pairs.filter(p => p.b < p.a).map(p => [p.a, p.b])), keep = new Map(pairs.filter(p => p.a < p.b).map(p => [p.b, p.a]));   // ours → theirs, theirs → ours
+  const ours = id => keep.get(id) || id, remap = x => (keep.has(x.accountId) || keep.has(x.toAccountId) ? { ...x, accountId: ours(x.accountId), ...(x.toAccountId ? { toAccountId: ours(x.toAccountId) } : {}) } : x);
+  const joint = theirsAll.filter(a => !keep.has(a.id)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
   const myGone = local.kv.jointGone || {}, theirGone = incoming.gone || {}, me = local.kv.settings?.myName || '';
-  const tx = incoming.tx.filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
+  const tx = incoming.tx.map(remap).filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
     .filter(t => { const m = txs.get(t.id); return !(m && (personal.has(m.accountId) || personal.has(m.toAccountId))) && newer(m, t) && !((myGone[t.id] || 0) >= (t.updatedAt || 0)); })
     .map(t => { const m = txs.get(t.id); return m ? { ...t, ...(m.spouse ? { spouse: true } : {}), ...(m.by && !t.by ? { by: m.by } : {}) } : { ...t, ...(me && t.by === me ? {} : { spouse: true }) }; });
   const jointHere = new Set(local.accounts.filter(a => a.scope === 'joint').map(a => a.id));
-  const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id);
+  const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id), dropped = new Set(drop);
   const gone = Object.fromEntries(Object.keys({ ...theirGone, ...myGone }).map(id => [id, Math.max(theirGone[id] || 0, myGone[id] || 0)]).sort((a, b) => a[1] - b[1]).slice(-1000));
-  // Before the first swap each phone made its own joint account: it is the same account as theirs. Ours joins theirs
-  // (by name, or the only one on each side), and what was added to ours moves into it, so both phones have one account.
-  const same = n => String(n || '').trim().toLowerCase(), newTheirs = joint.filter(a => !acc.has(a.id)), mineOnly = local.accounts.filter(a => a.scope === 'joint' && !ids.has(a.id));
-  const empty = [], into = new Map();
-  for (const a of mineOnly) {
-    const b = newTheirs.find(x => same(x.name) === same(a.name) && ![...into.values()].includes(x.id)) || (mineOnly.length === 1 && newTheirs.length === 1 ? newTheirs[0] : null);
-    if (b) { into.set(a.id, b.id); empty.push({ ...a, moved: local.tx.filter(t => t.accountId === a.id || t.toAccountId === a.id).length }); }
-  }
-  const now = Date.now(), to = id => into.get(id) || id;   // moved rows are edits: they go back to the partner in the next file
-  const moved = local.tx.filter(t => into.has(t.accountId) || into.has(t.toAccountId)).map(t => ({ ...t, accountId: to(t.accountId), ...(t.toAccountId ? { toAccountId: to(t.toAccountId) } : {}), updatedAt: now }));
-  const movedBills = (local.recurring || []).filter(r => into.has(r.accountId)).map(r => ({ ...r, accountId: to(r.accountId), updatedAt: now }));
+  const empty = mineOnly.filter(a => into.has(a.id)).map(a => ({ ...a, moved: local.tx.filter(t => t.accountId === a.id || t.toAccountId === a.id).length }));
+  const to = id => into.get(id) || id;   // moved rows keep their edit time: a newer edit on the other phone still wins; a deleted one stays deleted
+  const moved = local.tx.filter(t => (into.has(t.accountId) || into.has(t.toAccountId)) && !dropped.has(t.id)).map(t => ({ ...t, accountId: to(t.accountId), ...(t.toAccountId ? { toAccountId: to(t.toAccountId) } : {}) }));
+  const movedBills = (local.recurring || []).filter(r => into.has(r.accountId)).map(r => ({ ...r, accountId: to(r.accountId) }));
   const have = new Set((local.kv.customCats || []).map(c => c.id));
   // Joint budgets: the newer one wins per category, and a category only one phone has budgeted is kept.
   const jb = incoming.kv.budgets?.joint, mine = local.kv.budgets?.joint;
@@ -756,7 +761,7 @@ export function mergeJoint(local, incoming) {
   const bills = new Map((local.recurring || []).map(r => [r.id, r]));
   return {
     accounts: joint.filter(a => newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty,
-    recurring: [...(incoming.recurring || []).filter(r => ids.has(r.accountId) && newer(bills.get(r.id), r)), ...movedBills],
+    recurring: [...(incoming.recurring || []).map(remap).filter(r => ids.has(r.accountId) && newer(bills.get(r.id), r)), ...movedBills],
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(budgetsJoint && JSON.stringify(budgetsJoint) !== JSON.stringify(mine) ? { budgetsJoint } : {}),
   };

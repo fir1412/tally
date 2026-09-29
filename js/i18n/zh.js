@@ -1065,4 +1065,6 @@ export default {
   "Your receipt is read.": "收据已读好。",
   "Check it": "查看",
   "Use Tally while it downloads": "下载时先用 Tally",
+  "Total ({0})": "总额（{0}）",
+  "This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.": "这张收据是 {0}，但 {1} 是 {2}。请选一个 {0} 账户，或检查金额。",
 };

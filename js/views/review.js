@@ -4,7 +4,7 @@ import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
+import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES } from '../scan.js';
 let saved = false; ocrSaved().then(v => { saved = v; }, () => {});   // already on this phone: starting it is not a download
@@ -99,7 +99,7 @@ function toDraft(r) {
   const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
-    accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay }), category, items,
+    accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay, currency: r.currency }), currency: r.currency, category, items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
     ...(r.refund ? { refund: true } : {}),
   };
@@ -185,7 +185,9 @@ export const reviewView = {
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
         <label class="check"><input type="checkbox" id="rv-refund" data-input="rv-refund"${d.refund ? ' checked' : ''}> ${esc(t('Refund: money back to this account'))}</label>
-        <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
+        ${(() => { const a = S.accounts.find(x => x.id === d.accountId), cur = a?.currency || 'MYR';   // the receipt's money vs the account's: said, never silently mixed
+          return d.currency && d.currency !== cur ? `<p class="warnbox">${ICON.alert}<span>${esc(t('This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.', d.currency, a?.name || '', cur === 'MYR' ? 'RM' : cur))}</span></p>` : ''; })()}
+        <label class="field big"><span>${esc(isFx(S.accounts.find(x => x.id === d.accountId)) ? t('Total ({0})', S.accounts.find(x => x.id === d.accountId).currency) : t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
       </section>
       ${current.thumb ? `<figure class="receipt-thumb"><button class="thumb-btn" data-act="rv-zoom" aria-expanded="false" aria-label="${esc(t('Show the whole receipt'))}"><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></button></figure>` : ''}
       <div id="rv-status">${status}${d.total != null && c && !c.ok && maths ? `<p class="maths">${esc(maths)} ≠ ${esc(fmtRM(d.total, { plain: true }))}</p>` : ''}</div>
@@ -217,6 +219,7 @@ export const input = {
     if (k === 'total') { const v = calcAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; el.setAttribute('aria-invalid', String(!!el.value.trim() && d.total == null)); updateStatus(); return; }
     d[k] = el.value;
     if (k === 'date') d.dateFound = true;
+    if (k === 'accountId') refresh();   // the total's currency and the receipt-vs-account note follow the account
   },
   'rv-item': el => {
     const i = current?.draft?.items[+el.dataset.n]; if (!i) return;
@@ -339,7 +342,7 @@ export const act = {
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
     landed(tx.id);
     const first = !current.existing && firstWord(tx.receiptId ? 'receipt' : 'entry');
-    toast(first || (tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtRM(tx.amount), fmtMonth(tx.date.slice(0, 7)))), { icon: 'check', ...(first ? { k: 'good', cheer: true } : {}) });
+    toast(first || (tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtAcct(S.accounts.find(a => a.id === tx.accountId), tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtAcct(S.accounts.find(a => a.id === tx.accountId), tx.amount), fmtMonth(tx.date.slice(0, 7)))), { icon: 'check', ...(first ? { k: 'good', cheer: true } : {}) });
     await finish();
     if (queue.length) { pump(); render(); } else go('home');
   },

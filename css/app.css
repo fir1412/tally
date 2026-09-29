@@ -767,3 +767,12 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, #view [tabindex="-1"]:focus:no
 details > summary { min-height: 44px; padding-block: 10px; box-sizing: border-box; cursor: pointer; }   /* every fold-out row is a 44px target */
 a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* the LHDN source link */
 [data-act="bill-edit"] { min-width: 44px; }
+/* Big text on the smallest phones (130% on 320–360px): nothing wider than the screen. */
+.mrow > * { min-width: 0; }
+.card.month .spent { font-size: min(var(--fs-xl), 7vw); }   /* the month's figure shrinks before it pushes the page wider */
+.rowb:has(> .segs.mini) { flex-wrap: wrap; row-gap: var(--sp-2); }
+.mtable { width: 100%; table-layout: fixed; } .mtable th, .mtable td { overflow-wrap: anywhere; }
+.row2 > .btn { min-width: 0; white-space: normal; text-align: center; }
+.tabs > .tab { min-width: 0; } .tabs > .tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.hero .big { font-size: min(var(--fs-2xl), 10.5vw); }   /* the balance stays on one line, inside the screen */
+.demo-r span { min-width: 0; } .demo-r span i:first-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .demo-r span i:last-child { flex: none; }   /* a long name gives way; the price always shows */

@@ -1065,4 +1065,6 @@ export default {
   "Your receipt is read.": "Resit anda sudah dibaca.",
   "Check it": "Semak",
   "Use Tally while it downloads": "Guna Tally sementara ia dimuat turun",
+  "Total ({0})": "Jumlah ({0})",
+  "This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.": "Resit ini dalam {0}, tetapi {1} dalam {2}. Pilih akaun dalam {0}, atau semak jumlahnya.",
 };

@@ -461,7 +461,9 @@ const BIG = 5000, HABIT_CATS = ['transport', 'groceries'];   // RM 50 or more, f
  * design) while another has the money; the one with the most money instead. → an account id.
  * bal: {id: sen} now; txs: the entries to learn from.
  */
-export function pickAccount({ accounts, txs = [], bal = {}, kind = 'quick', amount = 0, shop = '', category = '', pay = null }) {
+export function pickAccount({ accounts: all, txs = [], bal = {}, kind = 'quick', amount = 0, shop = '', category = '', pay = null, currency = 'MYR' }) {
+  // Only accounts in the money of the entry (a Singapore receipt: the SGD account; anything typed: ringgit), when there are any.
+  const inCur = a => (a.currency || 'MYR') === (currency || 'MYR'), accounts = all.some(inCur) ? all.filter(inCur) : all;
   const byId = new Map(accounts.map(a => [a.id, a]));
   const most = (list, ok = () => true) => {
     const n = new Map();
@@ -473,21 +475,25 @@ export function pickAccount({ accounts, txs = [], bal = {}, kind = 'quick', amou
     || accounts.find(bank)?.id || accounts.find(notCash)?.id || accounts[0]?.id;
   if (kind === 'bill') return main();
   if (kind === 'income') return most(txs.filter(x => x.type === 'income')) || main();
-  // The receipt says how it was paid (VISA, TNG eWallet, cash): an account of that kind, the one used most.
-  if (kind === 'receipt' && pay && accounts.some(a => a.kind === pay)) return most(txs.filter(x => x.type === 'expense'), a => a.kind === pay) || accounts.find(a => a.kind === pay).id;
-  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && byId.has(x.accountId))
-    .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts[0]?.id;
+  // The receipt says how it was paid: VISA → the card (or the bank without one), MyDebit / NETS → the bank, TNG → the e-wallet, cash → cash.
+  if (kind === 'receipt' && pay) {
+    const want = pay === 'debit' ? 'bank' : pay;
+    if (accounts.some(a => a.kind === want)) return most(txs.filter(x => x.type === 'expense'), a => a.kind === want) || accounts.find(a => a.kind === want).id;
+    if (pay === 'card' || pay === 'debit') return main();
+  }
+  // The latest everyday account, from what was typed (a card used for one big receipt isn't where the kopi goes).
+  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId))
+    .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts.find(a => a.kind === 'cash')?.id || accounts[0]?.id;
   const spend = txs.filter(x => x.type === 'expense');
   let id = null;
-  if (kind === 'receipt') {
-    const k = shop && shopWord(shop);
-    if (k) id = most(spend.filter(x => x.merchant && shopWord(x.merchant) === k));
-    if (!id && (amount >= BIG || HABIT_CATS.includes(category))) id = most(spend.filter(x => x.amount >= BIG || HABIT_CATS.includes(x.category)), notCash) || main();
-  }
+  const k = shop && shopWord(shop);
+  if (k) id = most(spend.filter(x => x.merchant && shopWord(x.merchant) === k));   // this shop (a toll on TNG): where it was paid before
+  if (!id && kind === 'receipt' && (amount >= BIG || HABIT_CATS.includes(category))) id = most(spend.filter(x => x.amount >= BIG || HABIT_CATS.includes(x.category)), notCash) || main();
   id ||= everyday();
+  if (k && id) return id;   // a habit is a habit, even when the balance looks short
   const short = a => a && a.kind !== 'card' && (bal[a.id] || 0) < Math.max(amount, 1);
   if (!short(byId.get(id))) return id;
-  const rich = accounts.filter(a => a.kind !== 'card' && !short(a)).sort((a, b) => (bal[b.id] || 0) - (bal[a.id] || 0))[0];
+  const rich = accounts.filter(a => a.kind !== 'card' && !short(a)).sort((a, b) => (bal[b.id] || 0) - (bal[a.id] || 0))[0];   // same currency: the balances compare
   return rich?.id || id;
 }
 
