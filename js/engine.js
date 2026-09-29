@@ -76,7 +76,7 @@ export function fmtRM(sen, { plain = false } = {}) {
   if (sen == null || !Number.isFinite(sen)) return '–';
   const a = Math.abs(Math.round(sen));
   const s = `${Math.floor(a / 100).toLocaleString('en-MY')}.${String(a % 100).padStart(2, '0')}`;
-  return (sen < 0 ? '−' : '') + (plain ? s : 'RM ' + s);
+  return (sen < 0 ? '−' : '') + (plain ? s : 'RM ' + s)   // never split "RM" from its figure;
 }
 
 // ---- dates -------------------------------------------------------------------------------
@@ -305,18 +305,20 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
     out.push({ id: `item-${k}-${ym}`, kind: 'item', level: 'info', title: ['You bought {0} {1}× this month ({2})', { raw: v.name }, v.n, fmtRM(v.cents)], body: change == null ? ['Not bought last month.'] : change === 0 ? ['Same as last month.'] : [change > 0 ? '{0}% more than last month.' : '{0}% less than last month.', Math.abs(change)] });
   }
   // Price changes in the last 30 days: the same item costs 10%+ more (or less) than the previous time.
-  const seen = {};
+  // Only each item's latest change, and the 3 most recent of those.
+  const seen = {}, moved = {};
   for (const t of txs.filter(t => t.type === 'expense').sort((a, b) => a.date.localeCompare(b.date))) {
     for (const it of t.items || []) {
       const k = itemKey(it.name), unit = it.unit ?? it.cents;
       if (!k || !(unit > 0)) continue;
       if (seen[k] && t.date >= addDays(today, -30) && seen[k].date < t.date) {
         const ch = (unit - seen[k].unit) / seen[k].unit;
-        if (Math.abs(ch) >= 0.1) out.push({ id: `price-${k}-${t.date}`, kind: 'price', level: ch > 0 ? 'info' : 'good', title: [ch > 0 ? '{0} went up {1}%' : '{0} went down {1}%', { raw: it.name }, Math.round(Math.abs(ch) * 100)], body: ['You paid {0}, {1} on {2}.', fmtRM(unit), fmtRM(seen[k].unit), { date: seen[k].date }] });
+        if (Math.abs(ch) >= 0.1) moved[k] = { id: `price-${k}-${t.date}`, kind: 'price', level: ch > 0 ? 'info' : 'good', date: t.date, title: [ch > 0 ? '{0} went up {1}%' : '{0} went down {1}%', { raw: it.name }, Math.round(Math.abs(ch) * 100)], body: ['This time {0}, last time ({1}) {2}', fmtRM(unit), { date: seen[k].date }, fmtRM(seen[k].unit)] };
       }
       seen[k] = { unit, date: t.date };
     }
   }
+  out.push(...Object.values(moved).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3));
   // Recurring: same shop and about the same amount in 3+ different months, not yet set up as a bill.
   for (const r of recurringCandidates(txs, knownBills)) out.push({ id: `rec-${r.key}`, kind: 'recurring', level: 'info', title: ['{0} looks like a monthly bill ({1})', { raw: r.merchant }, fmtRM(r.amount)], body: ['Add it to your bills to get a reminder before it is due.'], rec: r });
   // Month recap: the first 5 days of a month look back at the last one.

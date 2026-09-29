@@ -40,8 +40,10 @@ function banner() {
   if (location.host === 'fir1412.github.io') return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(t('Tally has moved to tallymy.github.io'))}</b><small>${esc(t('Back up here, then open the new address and restore the file there. This address will stop getting updates.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><a class="btn small ghost" href="https://tallymy.github.io/" rel="noopener">${esc(t('Open the new address'))}</a></span></div>`;
   const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && bal[a.id] < 0);
-  if (cash && !dismissed().includes(`cash-${tdy}`)) return `<div class="banner warn">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero ({1})', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('Took cash out at an ATM? Add it as a transfer from your bank so your cash adds up.'))}</small></span>
-    <span class="bactions"><button class="btn small" data-act="atm" data-to="${esc(cash.id)}">${esc(t('Add a cash withdrawal'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-${tdy}">${esc(t('Later'))}</button></span></div>`;
+  // Cash can't really be below zero: something wasn't added. The fixes, most likely first; the account editor has Balance today.
+  if (cash && !dismissed().includes(`cash-${tdy}`)) return `<div class="banner warn">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero: {1}', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('What happened?'))}</small></span>
+    <span class="bactions"><button class="btn small" data-act="acc-edit" data-id="${esc(cash.id)}">${esc(t('Correct the balance'))}</button><button class="btn small ghost" data-act="atm" data-to="${esc(cash.id)}">${esc(t('Add a cash withdrawal'))}</button>
+      <button class="btn small ghost" data-act="cash-gift" data-to="${esc(cash.id)}">${esc(t('Family gave me cash'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-${tdy}">${esc(t('Later'))}</button></span></div>`;
   const lastDay = booked().reduce((m, x) => (x.date > m ? x.date : m), ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
   if (S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
@@ -167,6 +169,7 @@ const habitEv = h => habitEvent({ ...h, title: t('Tally: did you spend on {0}?',
 const addDaysIso = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const act = {
   atm: b => { const bank = S.accounts.find(a => a.kind === 'bank') || S.accounts.find(a => a.id !== b.dataset.to); openTxSheet({ type: 'transfer', category: 'other', accountId: bank?.id, toAccountId: b.dataset.to, merchant: t('Cash withdrawal') }); },
+  'cash-gift': b => openTxSheet({ type: 'income', category: 'family', accountId: b.dataset.to }),
   'gap-add': b => openTxSheet({ date: b.dataset.d, time: '' }),
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
   'nudge-add': b => openTxSheet({ category: b.dataset.c, amount: +b.dataset.a, ...(b.dataset.at ? { time: b.dataset.at } : {}) }),

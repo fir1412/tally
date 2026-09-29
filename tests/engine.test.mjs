@@ -10,8 +10,8 @@ test('parseAmount: Malaysian and messy inputs, rejects junk and absurd values', 
 });
 
 test('fmtRM', () => {
-  assert.equal(E.fmtRM(123450), 'RM 1,234.50');
-  assert.equal(E.fmtRM(-5), '−RM 0.05');
+  assert.equal(E.fmtRM(123450), 'RM 1,234.50');   // no line break inside an amount
+  assert.equal(E.fmtRM(-5), '−RM 0.05');
   assert.equal(E.fmtRM(7, { plain: true }), '0.07');
 });
 
@@ -84,6 +84,16 @@ test('findDuplicate: same day, same amount, similar shop (a lunch repeated tomor
   assert.equal(E.findDuplicate({ id: 'e', type: 'expense', amount: 2555, date: '2026-09-02', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
   assert.equal(E.findDuplicate({ id: 'c', type: 'expense', amount: 2555, date: '2026-09-09', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
   assert.equal(E.findDuplicate({ id: 'd', type: 'expense', amount: 2556, date: '2026-09-01', merchant: 'RESTORAN MAJU JAYA' }, [a]), null);
+});
+
+test('insights: only the latest price change per item, at most 3', () => {
+  const buy = (date, name, cents) => ({ id: date + name, date, type: 'expense', amount: cents, items: [{ name, cents, category: 'groceries' }] });
+  const txs = [];
+  for (const name of ['Ikan', 'Ayam', 'Sayur', 'Telur']) txs.push(buy('2026-09-01', name, 500), buy('2026-09-04', name, 600), buy('2026-09-10', name, 700));
+  txs.push(buy('2026-09-12', 'Telur', 800));
+  const p = E.insights({ txs, today: '2026-09-20' }).filter(i => i.kind === 'price');
+  assert.deepEqual(p.map(i => i.title[1].raw), ['Telur', 'Ikan', 'Ayam']);
+  assert.deepEqual(p[0].body, ['This time {0}, last time ({1}) {2}', E.fmtRM(800), { date: '2026-09-10' }, E.fmtRM(700)]);
 });
 
 test('insights: pace warning, item pattern, recurring bill, recap', () => {
