@@ -41,7 +41,9 @@ export function lineChart(series, { goal = null, height = 160, label = 'chart', 
   g += `<text class="endlabel" x="${Math.min(lp[0], W - R)}" y="${Math.max(12, lp[1] - 9).toFixed(1)}" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">${esc(fmtRM(series.at(-1).v))}</text>`;
   g += `<text x="${L}" y="${H - 5}" font-size="11" fill="var(--mute)">${esc(fmtDate(series[0].date))}</text>`;
   if (series.length > 1) g += `<text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="11" fill="var(--mute)">${esc(fmtDate(series.at(-1).date))}</text>`;
-  return `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}</svg>`;
+  const lo = Math.min(...series.map(p => p.v)), hi = Math.max(...series.map(p => p.v));
+  const said = t('{0}: from {1} to {2}, lowest {3}, highest {4}', label, fmtRM(series[0].v), fmtRM(series.at(-1).v), fmtRM(lo), fmtRM(hi));
+  return `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(said)}">${g}</svg>`;
 }
 /** Grouped bars: data [{label, a, b}] (sen), two series with names and colour tokens. */
 export function pairBars(data, { names = ['a', 'b'], ks = ['chart-good', 'chart-bad'], height = 150, label = 'chart' } = {}) {
@@ -70,14 +72,17 @@ export function donut(parts, center) {
 
 // ---- sheets & toasts (from we go gim) ------------------------------------------------------------
 let sheetClose = null, staleHref = null;
-export function openSheet(html, { onClose, label = 'Dialog' } = {}) {
-  closeSheet();
+/** stack: open over the sheet already open (a confirmation), which comes back as it was when this one closes. */
+export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {}) {
+  const under = stack && sheetClose ? [...document.querySelectorAll('.scrim:not(.out)')].at(-1) : null, below = under ? sheetClose : null;
+  if (!under) while (sheetClose) closeSheet();
   const opener = document.activeElement, app = document.getElementById('app');
   const wrap = document.createElement('div');
   wrap.className = 'scrim';
   wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(label)}" tabindex="-1"><div class="grab" aria-hidden="true"></div>${html}</div>`;
   document.body.appendChild(wrap);
   app?.setAttribute('inert', '');
+  under?.setAttribute('inert', '');
   const sheet = wrap.querySelector('.sheet');
   wrap.addEventListener('click', e => { if (e.target === wrap) closeSheet(); });
   wrap.addEventListener('keydown', e => {
@@ -91,11 +96,11 @@ export function openSheet(html, { onClose, label = 'Dialog' } = {}) {
   });
   if (!history.state?.sheet) history.pushState({ sheet: true }, ''); // Android back closes the sheet
   sheetClose = () => {
-    sheetClose = null;
+    sheetClose = below;
     wrap.classList.add('out'); wrap.style.pointerEvents = 'none';   // exit animation, then gone
     setTimeout(() => wrap.remove(), 200);
-    staleHref = history.state?.sheet ? location.href : null;
-    app?.removeAttribute('inert');
+    if (under) under.removeAttribute('inert');
+    else { staleHref = history.state?.sheet ? location.href : null; app?.removeAttribute('inert'); }
     if (opener?.isConnected) opener.focus({ preventScroll: true });
     onClose?.();
   };
@@ -111,7 +116,7 @@ if (typeof window !== 'undefined') {
     const skip = staleHref && location.href === staleHref; staleHref = null;
     if (skip) history.back();
   });
-  window.addEventListener('hashchange', () => { staleHref = null; });
+  window.addEventListener('hashchange', () => { staleHref = null; while (sheetClose) closeSheet(); });   // stacked ones too
 }
 /** In-app confirmation (never window.confirm). Resolves true / false. */
 export function confirmSheet({ title, body = '', ok = t('Confirm'), no = t('Cancel'), danger = false }) {
@@ -119,15 +124,27 @@ export function confirmSheet({ title, body = '', ok = t('Confirm'), no = t('Canc
     let done = false;
     const el = openSheet(`<h2 class="sh-title">${esc(title)}</h2>${body ? `<p class="sh-body">${esc(body)}</p>` : ''}
       <div class="row2"><button class="btn ghost" data-x="no">${esc(no)}</button><button class="btn ${danger ? 'danger' : ''}" data-x="yes">${esc(ok)}</button></div>`,
-    { label: title, onClose: () => { if (!done) resolve(false); } });
+    { label: title, stack: true, onClose: () => { if (!done) resolve(false); } });
     el.addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (!b) return; done = true; resolve(b.dataset.x === 'yes'); closeSheet(); });
   });
 }
-let toastT;
+let toastT, toastLeft = 0, toastEnd = 0;
+/** The toast waits while Undo is hovered or focused, and goes on from where it was after. */
+const hold = on => {
+  if (!toastEnd && !toastLeft) return;
+  if (on) { if (toastEnd) { toastLeft = Math.max(0, toastEnd - Date.now()); toastEnd = 0; clearTimeout(toastT); } }
+  else if (toastLeft) { toastEnd = Date.now() + toastLeft; toastLeft = 0; toastT = setTimeout(hideToast, toastEnd - Date.now()); }
+  $('#toast')?.classList.toggle('held', on);
+};
 /** Short message in a live region; optional Undo. */
 export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false } = {}) {
   let el = $('#toast');
-  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true'); document.body.appendChild(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true'); document.body.prepend(el); }
+  if (!el.dataset.hold) {
+    el.dataset.hold = '1';
+    for (const [ev, on] of [['pointerover', true], ['pointerout', false], ['focusin', true], ['focusout', false]]) el.addEventListener(ev, () => hold(on));
+  }
+  el.classList.remove('held'); toastLeft = 0;
   el.textContent = msg;
   if (icon) el.insertAdjacentHTML('afterbegin', ICON[icon] || '');
   el.classList.toggle('has-undo', !!undo);
@@ -142,9 +159,10 @@ export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false 
   el.classList.add('on');
   el.classList.remove('cheer'); if (cheer) { void el.offsetWidth; el.classList.add('cheer'); }   // a small shine; none with reduced motion (CSS)
   clearTimeout(toastT);
-  toastT = setTimeout(hideToast, undo ? 12000 : Math.min(7000, Math.max(2600, String(msg).length * 55)));
+  const ms = undo ? 12000 : Math.min(7000, Math.max(2600, String(msg).length * 55));
+  toastEnd = Date.now() + ms; toastT = setTimeout(hideToast, ms);
 }
-export function hideToast() { const el = $('#toast'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!el.classList.contains('on')) el.textContent = ''; }, 250); } }
+export function hideToast() { toastEnd = 0; toastLeft = 0; const el = $('#toast'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!el.classList.contains('on')) el.textContent = ''; }, 250); } }
 
 // ---- small rewards: motion that means something, all of it skipped under reduced motion --------------------------------
 export const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

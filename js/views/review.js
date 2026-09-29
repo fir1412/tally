@@ -1,8 +1,8 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
+import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
-import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced } from '../ui.js';
+import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
 import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
@@ -12,10 +12,11 @@ import { accName } from './money.js';
 import { startScan } from '../camera.js';
 
 // The first download's progress, drawn in place so the bar moves without redrawing the screen.
-let dlPct = 0, dlText = '';
+let dlPct = 0, dlText = '', dlSaid = 0;
 const mb = n => (n / 1048576).toFixed(1);
 ocrProgress((got, total) => {
   dlPct = Math.round(got / total * 100); dlText = t('{0} of {1} MB', mb(got), mb(total));
+  if (dlPct >= dlSaid + 25) { dlSaid = dlPct - dlPct % 25; announce(`${t('Downloading the receipt reader')}: ${dlSaid}%`); }   // every quarter, for screen readers
   const bar = document.getElementById('ocr-prog'), txt = document.getElementById('ocr-pct');
   if (bar) bar.value = dlPct; if (txt) txt.textContent = dlText;
 });
@@ -39,13 +40,15 @@ async function pump() {
   if (!next) { current = null; return; }
   current = { ...next, status: 'reading', thumb: URL.createObjectURL(next.file) };
   saveQueue();
-  reading = true; refresh();
+  reading = true; refresh(); announce(t('Reading…'));
   try {
     if (!ocrReady()) await loadOcr();
     const { receipt, photo, ms, turns } = await readReceipt(next.file);
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft, reveal: true };
+    const n = draft.items.length;
+    announce([n === 1 ? t('1 item') : t('{0} items', n), draft.total != null && t('Total {0}', fmtRM(draft.total))].filter(Boolean).join(', '));
     await setKv('reviewDraft', { draft, existing: false });
     await saveQueue();
   } catch (e) {
@@ -90,9 +93,10 @@ function toDraft(r) {
   // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: categorize(i.name, merchant, S.kv.rules), flag: !!i.flag }));
+  const category = shopCategory(merchant, S.kv.rules);
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
-    accountId: usualAccount(), category: shopCategory(merchant, S.kv.rules), items,
+    accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category }), category, items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
   };
 }
@@ -106,6 +110,9 @@ export function editExisting(tx, { manual = false, lines = '' } = {}) {
 
 const guessFor = (name, d) => { const c = categorize(name, d.merchant, S.kv.rules); return c === 'other' && d.category && d.category !== 'other' ? d.category : c; };
 const itemsSum = d => d.items.reduce((s, i) => s + (i.cents || 0), 0);
+/** What the printed total has beyond the items and their extras (tax not included, service, rounding): shown as its own line. */
+const gapOf = d => (d.total == null ? 0 : d.total - itemsSum(d) - (d.service || 0) - (d.taxIncluded ? 0 : d.tax || 0) - (d.rounding || 0));
+const gapCat = d => d.gapCat || (d.items.length ? mostSpent(d.items) : d.category);
 const check = d => checksum({ items: d.items.map(i => ({ cents: i.cents || 0 })), total: d.total, tax: d.tax || null, service: d.service || null, rounding: d.rounding || null });
 
 export const reviewView = {
@@ -161,8 +168,11 @@ export const reviewView = {
       : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('No total found. Type the total from the receipt.'))}<button class="link tipsrow" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></span></div>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
       : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
+    const gap = !current.manual && c && !c.ok && d.items.length ? gapOf(d) : 0;
+    const gapLine = gap > 0 ? `<div class="gapline"><b class="grow">${esc(t('Not itemised'))}</b><span class="amt">${esc(fmtRM(gap))}</span>
+      <select class="icat" data-input="rv-f" data-k="gapCat" aria-label="${esc(`${t('Not itemised')}: ${t('Category')}`)}">${catOpts(gapCat(d))}</select></div>` : '';
     const maths = [[t('Items'), itemsSum(d)], [t('Service'), d.service], [t('Tax'), d.taxIncluded ? 0 : d.tax], [t('Rounding'), d.rounding]].filter(([, v]) => v).map(([k, v]) => `${k} ${fmtRM(v, { plain: true })}`).join(' + ');
-    return `<header class="top"><h1>${esc(current.manual ? t('Your items') : t('Review receipt'))}</h1>${waiting ? `<span class="fine">${esc(t('{0} more waiting', waiting))}</span>` : ''}</header>
+    return `<header class="top"><h1>${esc(current.manual || (current.existing && !d.receiptId) ? t('Your items') : t('Review receipt'))}</h1>${waiting ? `<span class="fine">${esc(t('{0} more waiting', waiting))}</span>` : ''}</header>
       ${old ? `<div class="warnbox">${ICON.clock}<span class="grow">${esc(t('This receipt is dated {0}. It will be filed under {1}, not this month.', fmtDate(d.date, { year: true }), fmtMonth(d.date.slice(0, 7))))}
         <button class="btn small ghost" data-act="rv-today">${esc(t("Use today's date"))}</button></span></div>` : ''}
       ${dup ? `<p class="warnbox">${ICON.alert}${esc(t('Looks like you already added this: {0} on {1}.', fmtRM(dup.amount), fmtDate(dup.date)))}</p>` : ''}
@@ -170,7 +180,7 @@ export const reviewView = {
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
-        <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
+        <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
       </section>
       ${current.thumb ? `<figure class="receipt-thumb"><button class="thumb-btn" data-act="rv-zoom" aria-expanded="false" aria-label="${esc(t('Show the whole receipt'))}"><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></button></figure>` : ''}
       <div id="rv-status">${status}${d.total != null && c && !c.ok && maths ? `<p class="maths">${esc(maths)} ≠ ${esc(fmtRM(d.total, { plain: true }))}</p>` : ''}</div>
@@ -181,7 +191,8 @@ export const reviewView = {
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
         <button class="icon-btn" data-act="rv-del" data-n="${n}" aria-label="${esc(t('Remove {0}', i.name || t('item')))}">${ICON.x}</button>
         ${i.raw && i.raw !== i.name ? `<small class="raw">${esc(i.raw)}</small>` : i.qty ? `<small class="raw">${esc(`${i.qty} × ${fmtRM(i.unit, { plain: true })}`)}</small>` : ''}</li>`).join('')}</ul>
-      <button class="btn ghost wide" data-act="rv-add">${ICON.plus}${esc(current.manual ? t('Add an item') : t('Add a missing item'))}</button>
+      <div id="rv-gap">${gapLine}</div>
+      <button class="btn ghost wide" data-act="rv-add">${ICON.plus}${esc(current.manual || (current.existing && !d.receiptId) ? t('Add an item') : t('Add a missing item'))}</button>
       <details class="typebox"${(current.manual && !d.items.length) || current.unread ? ' open' : ''}><summary>${esc(t('Type or paste several items'))}</summary>
         <label class="field"><span>${esc(t('One item per line with its price. Tally sorts each into a category; change any it gets wrong.'))}</span><textarea id="rv-lines" rows="4" placeholder="${esc(EXAMPLE[getLang()] || EXAMPLE.en)}">${esc(current.unread || '')}</textarea></label>
         <button class="btn ghost wide" data-act="rv-lines">${esc(t('Add these items'))}</button></details>
@@ -197,14 +208,14 @@ export const input = {
     const k = el.dataset.k;
     persist();
     if (k === 'merchant' && current.manual) for (const i of d.items) if (!i.changed) i.category = categorize(i.name, el.value, S.kv.rules);
-    if (k === 'total') { const v = calcAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; updateStatus(); return; }
+    if (k === 'total') { const v = calcAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; el.setAttribute('aria-invalid', String(!!el.value.trim() && d.total == null)); updateStatus(); return; }
     d[k] = el.value;
     if (k === 'date') d.dateFound = true;
   },
   'rv-item': el => {
     const i = current?.draft?.items[+el.dataset.n]; if (!i) return;
     persist();
-    if (el.dataset.k === 'cents') { const v = calcAmount(el.value); el.classList.toggle('bad', v == null); if (v != null) { i.cents = v; if (i.qty) i.unit = Math.round(v / i.qty); } updateStatus(); }
+    if (el.dataset.k === 'cents') { const v = calcAmount(el.value); el.classList.toggle('bad', v == null); el.setAttribute('aria-invalid', String(v == null)); if (v != null) { i.cents = v; if (i.qty) i.unit = Math.round(v / i.qty); } updateStatus(); }
     else if (el.dataset.k === 'category') { i.category = el.value; i.changed = true; unflag(i, el); }
     else {
       i.name = el.value.slice(0, 80); unflag(i, el);
@@ -220,10 +231,11 @@ function unflag(i, el) {
   const tmp = document.createElement('div'); tmp.innerHTML = reviewView.render();
   for (const sel of ['main h2 .fine', '[data-act="rv-save"]']) { const a = document.querySelector(sel), b = tmp.querySelector(sel.replace('main ', '')); if (a && b) a.textContent = b.textContent; }
 }
-function updateStatus() { // re-render only the status line so typing keeps focus
+function updateStatus() { // re-render only the status line (and the not-itemised line) so typing keeps focus
   const box = $('#rv-status'); if (!box) return;
   const tmp = document.createElement('div'); tmp.innerHTML = reviewView.render();
   box.innerHTML = tmp.querySelector('#rv-status').innerHTML;
+  const gap = $('#rv-gap'); if (gap) gap.innerHTML = tmp.querySelector('#rv-gap')?.innerHTML || '';
 }
 
 const mostSpent = items => { const by = {}; for (const i of items) by[i.category] = (by[i.category] || 0) + i.cents; return Object.entries(by).sort((a, b) => b[1] - a[1])[0][0]; };
@@ -303,10 +315,12 @@ export const act = {
     if (!validIso(d.date)) { toast(t('Pick a date.'), { k: 'warn' }); return; }
     if (d.totalGuessed && !(await confirmSheet({ title: t('Is {0} the total?', fmtRM(d.total)), body: t('Tally guessed this total. Check it against the receipt.'), ok: t('Yes, save') }))) { $('#rv-total')?.focus(); return; }
     if (!d.dateFound && !(await confirmSheet({ title: t('Use today as the date?'), body: t('No date was found on the receipt.'), ok: t('Yes, save') }))) { $('#rv-date')?.focus(); return; }
-    if (d.items.length && !check(d).ok && !(await confirmSheet({ title: t('Items do not add up'), body: t('The difference is spread across the items by size, so your categories stay close. Save anyway?'), ok: t('Save anyway') }))) return;
+    const gap = !current.manual && d.items.length && !check(d).ok ? gapOf(d) : 0;   // more on the receipt than the items: its own line
+    if (gap < 0 && !(await confirmSheet({ title: t('Items do not add up'), body: t('The difference is spread across the items by size, so your categories stay close. Save anyway?'), ok: t('Save anyway') }))) return;
     b.disabled = true;
     const learnIt = $('#rv-learn')?.checked;
     const items = d.items.filter(i => i.name || i.cents).map(({ name, raw, cents, category, qty, unit }) => ({ name: name || raw || t('Item'), raw, cents, category, ...(qty ? { qty, unit } : {}) }));
+    if (gap > 0) items.push({ name: t('Not itemised'), raw: '', cents: gap, category: gapCat(d) });
     // Editing an entry keeps what the review doesn't show: who added it (a spouse's stays theirs), its bill, its source.
     const was = current.existing ? S.tx.find(x => x.id === d.id) || {} : {};
     const tx = { ...was, id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',

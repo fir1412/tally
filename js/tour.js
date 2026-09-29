@@ -1,7 +1,7 @@
 // First-run tour, What's new after an update, install prompt and update check (pattern from we go gim).
 import { S, settings, setKv, persistStorage } from './state.js';
 import { t } from './i18n.js';
-import { esc, ICON, openSheet, closeSheet, toast, hideToast } from './ui.js';
+import { esc, ICON, openSheet, closeSheet, toast, hideToast, announce } from './ui.js';
 import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
@@ -27,7 +27,7 @@ export const WHATS_NEW = {
   ],
   '0.4.0': [
     'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
-    'Share joint accounts with your spouse as a file; their changes come back the same way, and newer edits win',
+    'Share joint accounts with your partner as a file; their changes come back the same way, and newer edits win',
     'Lock Tally with a PIN, and your fingerprint or face where the phone has one (Settings)',
     'Bills can add themselves on the day: monthly, weekly or yearly, with a number of payments for instalments. A bill is paid once anything with its name is added that month, and unpaid ones stay on Home',
     'Type sums in any amount field, like 12.50+8*2',
@@ -90,6 +90,7 @@ export function showTour(start = 0) {
       <div class="row2"><button class="btn ghost" data-t="${i ? 'back' : 'skip'}">${esc(i ? t('Back') : t('Skip'))}</button><button class="btn" data-t="next">${esc(last ? t('Start using Tally') : i ? t('Next') : t('Show me'))}</button></div>
       ${i && !last ? `<button class="link tourskip" data-t="skip">${esc(t('Skip the tour'))}</button>` : ''}</div>`;
     setTimeout(() => sheet.querySelector('[data-t="next"]')?.focus({ preventScroll: true }), 40);
+    announce(`${title()}. ${body()}`);   // the tip changes in place: said, not only shown
   };
   sheet.addEventListener('click', async e => {
     const b = e.target.closest('[data-t]'); if (!b) return;

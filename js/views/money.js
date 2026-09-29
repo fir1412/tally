@@ -1,7 +1,7 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount, saveTxs, deleteTxs, startDay, thisMonth } from '../state.js';
+import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
-import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed } from '../ui.js';
+import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
 import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
@@ -11,8 +11,16 @@ import { render, go } from '../app.js';
 export const accName = id => S.accounts.find(a => a.id === id)?.name || t('Deleted account');
 export const catLabel = id => t(cat(id).name);
 export const dot = c => `<span class="dot" style="background:${esc(cat(c).color)}" aria-hidden="true"></span>`;
-/** Me · Joint · All, on Home, Activity, Insights and Budgets once a joint account exists. */
-export const scopeSwitch = () => (hasJoint() ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${[['me', t('Me')], ['joint', t('Joint')], ['all', t('All')]].map(([k, n]) => `<button class="seg${scope() === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${scope() === k}">${esc(n)}</button>`).join('')}</div>` : '');
+const scopeName = sc => ({ me: t('Me'), joint: t('Joint'), all: t('All') })[sc];
+/** Me · Joint · All, on Home, Activity, Insights and Budgets once a joint account exists (Budgets: Me · Joint, see budScope). */
+export const scopeSwitch = (sc = scope(), keys = ['me', 'joint', 'all']) => (hasJoint() ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${keys.map(k => `<button class="seg${sc === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${sc === k}">${esc(scopeName(k))}</button>`).join('')}</div>` : '');
+/** In a screen's header: whose money it shows when that isn't all of it, so a switch made on another screen is no surprise.
+ *  A tap shows all again (on Budgets, a label: budgets are set for Me or Joint). */
+export const scopeChip = (sc = scope(), label = false) => (!hasJoint() || sc === 'all' ? ''
+  : label ? `<span class="pill scopechip">${esc(t('Viewing: {0}', scopeName(sc)))}</span>`
+  : `<button class="chip on scopechip" data-act="scope" data-s="all" aria-label="${esc(t('Viewing: {0}. Show all', scopeName(sc)))}">${esc(t('Viewing: {0}', scopeName(sc)))}${ICON.x}</button>`);
+/** Budgets are set for Me or for Joint: with All chosen elsewhere, Budgets shows Me (where the fields can be changed). */
+const budScope = () => (scope() === 'joint' ? 'joint' : 'me');
 /** One transaction row (used by Home and Activity). */
 export function txRow(x) {
   const cats = x.items?.length ? [...new Set(x.items.map(i => i.category))] : [x.category];
@@ -49,7 +57,7 @@ export const activityView = {
       html += txRow(x);
     }
     if (day) html += '</ul>';
-    return `<header class="top"><h1>${esc(t('Activity'))}</h1><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
+    return `<header class="top"><h1>${esc(t('Activity'))}</h1>${scopeChip()}<button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
       ${scopeSwitch()}<div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
         <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m, sd))}</option>`).join('')}</select>
@@ -63,22 +71,24 @@ export const activityView = {
   },
 };
 let qTimer;
+/** Activity after a filter change: drawn again, and the count said (screen readers). */
+const refilter = () => { render(); announce($('#act-sum')?.textContent || ''); };
 let budT, budFirst = false, budRevision = 0;
 const anyBudget = b => !!(b.total || Object.keys(b.byCat || {}).length || b.joint?.total || Object.keys(b.joint?.byCat || {}).length);
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
-  'tx-amt': el => { const b = $('#tx-words'); if (b) b.hidden = !hasWords(el.value); },
-  'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; render(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
+  'tx-amt': el => { const b = $('#tx-words'); if (b) b.hidden = !hasWords(el.value); el.removeAttribute('aria-invalid'); },
+  'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; refilter(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   // Typing a name picks the category it had before (until one is tapped): "Grab to office" → Transport.
   'tx-name': el => {
     if (!draft || catPicked || draft.type === 'transfer' || draft.items?.length) return;
     const c = guessCategory(el.value, draft.type), sheet = el.closest('.sheet');
     if (!c || c === draft.category || !sheet?.querySelector(`[data-act="tx-cat"][data-c="${CSS.escape(c)}"]`)) return;
     draft.category = c;
-    for (const chip of sheet.querySelectorAll('[data-act="tx-cat"]')) { const on = chip.dataset.c === c; chip.classList.toggle('on', on); chip.setAttribute('aria-checked', on); }
+    for (const chip of sheet.querySelectorAll('[data-act="tx-cat"]')) { const on = chip.dataset.c === c; chip.classList.toggle('on', on); chip.setAttribute('aria-pressed', on); }
   },
-  'act-f': el => { F[el.dataset.k] = el.value; F.limit = 200; render(); },
+  'act-f': el => { F[el.dataset.k] = el.value; F.limit = 200; refilter(); },
   'bud': el => {
     const revision = ++budRevision, err = document.getElementById(`be-${el.dataset.cat}`);
     el.parentElement.classList.remove('saved');
@@ -88,7 +98,7 @@ export const input = {
     if (err) err.textContent = v == null || v < 0 ? t('Enter an amount, for example 12.50.') : '';
     if (v == null || v < 0) return;
     if (!anyBudget(S.kv.budgets)) budFirst = true;   // the very first budget gets a warm word once typing stops
-    const all = structuredClone(S.kv.budgets), b = scope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
+    const all = structuredClone(S.kv.budgets), b = budScope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
     if (el.dataset.cat === 'total') b.total = v; else if (v) b.byCat[el.dataset.cat] = v; else delete b.byCat[el.dataset.cat];
     if (b !== all) b.updatedAt = Date.now();   // joint budgets merge by newest edit
     // Keep typing in place; show the saved tick only once storage confirms the write.
@@ -130,11 +140,11 @@ function sheetHtml() {
     </div>`;
   return `<h2 class="sh-title">${esc(!isNew ? t('Edit') : day ? t('Add for {0}', day) : t('Add'))}</h2>
     <div class="segs" role="group" aria-label="${esc(t('Type'))}">${seg}</div>
-    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
+    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" aria-describedby="tx-err" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
     ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
-    ${d.type === 'transfer' ? '' : `<div class="chips" role="radiogroup" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" role="radio" aria-checked="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
+    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc">${accOpts(d.accountId)}</select></label>
       ${d.type === 'transfer' ? `<label class="field"><span>${esc(t('To'))}</span><select id="tx-to">${accOpts(d.toAccountId || S.accounts.find(a => a.id !== d.accountId)?.id)}</select></label>` : ''}
@@ -177,13 +187,18 @@ function readForm() {
   draft.time = hhmmIn($('#tx-time')?.value);
   draft.merchant = ($('#tx-merchant')?.value || '').trim().slice(0, 80);
 }
+/** The chosen category in the middle of its row, where the row scrolls sideways (phones). */
+function catInView(sh) {
+  const c = sh?.querySelector('.cats .chip.on'), box = c?.parentElement;
+  if (box && box.scrollWidth > box.clientWidth) box.scrollLeft += c.getBoundingClientRect().left - box.getBoundingClientRect().left - (box.clientWidth - c.offsetWidth) / 2;
+}
 function reopen() {
   const typed = $('#tx-amt')?.value;   // words typed as the amount stay put (and keep their Split offer)
   readForm();
   const sh = document.querySelector('.scrim:not(.out) .sheet');
-  if (!sh) return openSheet(sheetHtml(), { label: t('Transaction') });
+  if (!sh) return catInView(openSheet(sheetHtml(), { label: t('Transaction') }));
   const focus = document.activeElement?.id;   // redraw in place: no second sheet, nothing typed goes astray
-  sh.innerHTML = `<div class="grab" aria-hidden="true"></div>${sheetHtml()}`;
+  sh.innerHTML = `<div class="grab" aria-hidden="true"></div>${sheetHtml()}`; catInView(sh);
   const amt = $('#tx-amt'); if (amt && !amt.readOnly && typed && hasWords(typed)) { amt.value = typed; input['tx-amt'](amt); }
   if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
 }
@@ -194,16 +209,17 @@ const usualCategory = () => {
 };
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
 export function openTxSheet(preset = {}) {
-  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: usualAccount(), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
+  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: defaultAccount('quick', { amount: preset.amount || 0 }), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
   catPicked = !!preset.category;
-  openSheet(sheetHtml(), { label: t('Add') });
+  catInView(openSheet(sheetHtml(), { label: t('Add') }));
 }
 
 // ---- Budgets ----------------------------------------------------------------------------------------------------------
 export const budgetsView = {
   title: 'Budgets',
   render() {
-    const sd = startDay(), ym = thisMonth(), tdy = today(), now = monthSpend(booked(), ym, sd), B = budgetsFor(), ro = scope() === 'all' ? ' disabled' : '';
+    const sd = startDay(), ym = thisMonth(), tdy = today(), sc = budScope();
+    const txs = sc === scope() ? booked() : S.tx.filter(x => x.date <= tdy && inScope(x, sc)), now = monthSpend(txs, ym, sd), B = budgetsFor(sc);
     const bar = (spent, budget, c) => {
       if (!budget) return `<span class="fine">${esc(t('{0} spent', fmtRM(spent)))}</span>`;
       const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] }), pct = Math.min(100, Math.round(spent / budget * 100));
@@ -212,22 +228,23 @@ export const budgetsView = {
       return `<div class="meter ${state}" role="img" aria-label="${esc(`${pct}%`)}"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;
     };
     // Cumulative spend this month vs the budget line.
-    let run = 0; const series = [];
-    for (let iso = cycleSpan(ym, sd).start; iso <= tdy; iso = addDays(iso, 1)) { run += booked().filter(x => x.type === 'expense' && x.date === iso).reduce((s, x) => s + x.amount, 0); series.push({ date: iso, v: run }); }
-    const cand = recurringCandidates(booked(), S.recurring.map(b => b.key).filter(Boolean)).filter(r => !S.kv.dismissed.includes(`bill-sugg-${r.key}`));
+    let run = 0; const series = [], byDay = {};
+    for (const x of txs) if (x.type === 'expense') byDay[x.date] = (byDay[x.date] || 0) + x.amount;
+    for (let iso = cycleSpan(ym, sd).start; iso <= tdy; iso = addDays(iso, 1)) { run += byDay[iso] || 0; series.push({ date: iso, v: run }); }
+    const cand = recurringCandidates(txs, S.recurring.map(b => b.key).filter(Boolean)).filter(r => !S.kv.dismissed.includes(`bill-sugg-${r.key}`));
     // Categories with spending or a limit first (most spent on top); the rest fold away.
     const spentOn = c => now.byCat[c.id] || 0, cats = [...expenseCats()].sort((a, b) => spentOn(b) - spentOn(a));
     const active = cats.filter(c => spentOn(c) || B.byCat[c.id]), idle = cats.filter(c => !spentOn(c) && !B.byCat[c.id]);
     const row = c => `<li><div class="brow"><button class="link" data-act="cat-show" data-c="${esc(c.id)}">${dot(c.id)}${esc(t(c.name))}</button>
-        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" aria-describedby="be-${esc(c.id)}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"${ro}></span></div><p class="err bud-err" id="be-${esc(c.id)}" role="alert"></p><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
-    const bills = S.recurring.filter(b => inScope(b));
+        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" aria-describedby="be-${esc(c.id)}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"></span></div><p class="err bud-err" id="be-${esc(c.id)}" role="alert"></p><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
+    const bills = S.recurring.filter(b => inScope(b, sc));
     // No budget yet: what the last 3 full months cost on average (months with spending), to the nearest RM 50.
-    const past = [1, 2, 3].map(k => monthSpend(booked(), addMonths(ym, -k), sd).total).filter(Boolean);
+    const past = [1, 2, 3].map(k => monthSpend(txs, addMonths(ym, -k), sd).total).filter(Boolean);
     const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
-    return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
-      ${scopeSwitch()}${ro ? `<p class="fine">${esc(t('All shows your budgets and the joint ones added up. Pick Me or Joint to change them.'))}</p>` : ''}
-      <section class="card"><label class="field"><span>${esc(scope() === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"${ro}></span></label><p class="err bud-err" id="be-total" role="alert"></p>
-        ${avg && !B.total && !ro ? `<p class="fine">${esc(t('You spent about {0} a month lately.', fmtRM(avg)))} <button class="link" data-act="bud-use" data-v="${avg}">${esc(t('Use {0}', fmtRM(avg)))}</button></p>` : ''}<div id="bs-total">${bar(now.total, B.total, 'total')}
+    return `<header class="top"><h1>${esc(t('Budgets'))}</h1>${scopeChip(sc, true)}<span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
+      ${scopeSwitch(sc, ['me', 'joint'])}
+      <section class="card"><label class="field"><span>${esc(sc === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"></span></label><p class="err bud-err" id="be-total" role="alert"></p>
+        ${avg && !B.total ? `<p class="fine">${esc(t('You spent about {0} a month lately.', fmtRM(avg)))} <button class="link" data-act="bud-use" data-v="${avg}">${esc(t('Use {0}', fmtRM(avg)))}</button></p>` : ''}<div id="bs-total">${bar(now.total, B.total, 'total')}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>
       <h2>${esc(t('By category'))}</h2><p class="fine">${esc(t('Set a limit for the categories you want to watch. Leave the rest empty.'))}</p>
       <ul class="list budgets">${active.map(row).join('')}</ul>
@@ -249,7 +266,7 @@ function billSheet(b) {
   const freqs = [['monthly', t('Every month')], ['weekly', t('Every week')], ['yearly', t('Every year')]];
   openSheet(`<h2 class="sh-title">${esc(b.id ? t('Edit bill') : t('Add a bill'))}</h2>
     <label class="field"><span>${esc(t('Name'))}</span><input id="b-name" maxlength="60" value="${esc(b.name || '')}" autofocus></label>
-    <div class="grid2"><label class="field"><span>${esc(t('Amount (RM)'))}</span><input id="b-amt" inputmode="decimal" value="${b.amount ? (b.amount / 100).toFixed(2) : ''}"></label>
+    <div class="grid2"><label class="field"><span>${esc(t('Amount (RM)'))}</span><input id="b-amt" inputmode="decimal" aria-describedby="b-err" value="${b.amount ? (b.amount / 100).toFixed(2) : ''}"></label>
     <label class="field"><span>${esc(t('How often'))}</span><select id="b-freq">${freqs.map(([k, n]) => `<option value="${k}"${(b.freq || 'monthly') === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label></div>
     <div class="grid2"><label class="field"><span>${esc(t('Next payment'))}</span><input id="b-date" type="date" min="1990-01-01" value="${esc(next)}"></label>
     <label class="field"><span>${esc(t('Payments left (instalments)'))}</span><input id="b-count" type="number" inputmode="numeric" min="1" max="600" value="${left}" placeholder="${esc(t('No end'))}"></label></div>
@@ -274,7 +291,7 @@ const billEv = x => {
 export async function postBills() {
   const tdy = today();
   if (!S.accounts.length) return 0;
-  const txs = dueBillTxs(S.recurring, tdy, S.tx).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: usualAccount() }));
+  const txs = dueBillTxs(S.recurring, tdy, S.tx).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: defaultAccount('bill') }));
   if (txs.length) await saveTxs(txs);
   for (const r of S.recurring) if (r.auto && !(r.last >= tdy)) await saveBill({ ...r, last: tdy }, { edited: false });
   if (txs.length) toast(txs.length === 1 ? t('Added {0} {1}', txs[0].merchant, fmtRM(txs[0].amount)) : t('Added {0} regular payments: {1}', txs.length, [...new Set(txs.map(x => x.merchant))].join(', ')), { icon: 'check', undo: async () => { await deleteTxs(txs.map(x => x.id)); render(); } });
@@ -289,7 +306,7 @@ export const act = {
   'tx-new': () => openTxSheet(),
   'sheet-close': () => closeSheet(),
   'cat-show': b => showCategory(b.dataset.c, b.dataset.m || undefined),
-  'tx-open': b => { const x = S.tx.find(y => y.id === b.dataset.id); if (!x) return; draft = structuredClone(x); catPicked = true; openSheet(sheetHtml(), { label: t('Transaction') }); },
+  'tx-open': b => { const x = S.tx.find(y => y.id === b.dataset.id); if (!x) return; draft = structuredClone(x); catPicked = true; catInView(openSheet(sheetHtml(), { label: t('Transaction') })); },
   'tx-type': b => { readForm(); draft.type = b.dataset.type; if (draft.type === 'income' && !INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'other'; reopen(); },
   'tx-cat': b => { readForm(); catPicked = true; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.
@@ -307,7 +324,7 @@ export const act = {
   'tx-save': async b => {
     readForm();
     const err = m => { $('#tx-err').textContent = m; };
-    if (!draft.amount || draft.amount <= 0) return err(t('Enter an amount, for example 12.50.'));
+    if (!draft.amount || draft.amount <= 0) { $('#tx-amt')?.setAttribute('aria-invalid', 'true'); $('#tx-amt')?.focus(); return err(t('Enter an amount, for example 12.50.')); }
     if (!validIso(draft.date)) return err(t('Pick a date.'));
     if (draft.type === 'transfer' && (!draft.toAccountId || draft.toAccountId === draft.accountId)) return err(t('Pick two different accounts.'));
     const isNew = !S.tx.some(x => x.id === draft.id);
@@ -330,15 +347,16 @@ export const act = {
     closeSheet(); render();
     toast(t('Deleted'), { undo: async () => { await undo(); render(); } });
   },
-  'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: S.accounts[0]?.id, category: 'bills' }),
-  'act-photo': () => { F.photo = !F.photo; F.limit = 200; render(); },
-  'act-ids': () => { F.ids = null; render(); },
-  'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: ['groceries', 'dining', 'other'].includes(r.category) ? 'bills' : r.category, accountId: S.accounts[0]?.id, key: r.key }); },
+  'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
+  'act-photo': () => { F.photo = !F.photo; F.limit = 200; refilter(); },
+  'act-ids': () => { F.ids = null; refilter(); },
+  'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: ['groceries', 'dining', 'other'].includes(r.category) ? 'bills' : r.category, accountId: defaultAccount('bill'), key: r.key }); },
   'bill-save': async b => {
     const amount = calcAmount($('#b-amt').value), name = $('#b-name').value.trim(), start = $('#b-date').value, until = $('#b-until').value || undefined;
     const count = Math.min(600, parseInt($('#b-count').value, 10) || 0) || undefined, err = m => ($('#b-err').textContent = m);
     if (!name) return err(t('Give the bill a name.'));
-    if (!amount || amount <= 0) return err(t('Enter an amount, for example 12.50.'));
+    if (!amount || amount <= 0) { $('#b-amt').setAttribute('aria-invalid', 'true'); return err(t('Enter an amount, for example 12.50.')); }
+    $('#b-amt').removeAttribute('aria-invalid');
     if (!validIso(start)) return err(t('Pick a date.'));
     if (until && !(validIso(until) && until >= start)) return err(t('The end date must be after the next payment.'));
     const old = S.recurring.find(x => x.id === b.dataset.id) || {};
@@ -350,7 +368,7 @@ export const act = {
   // Paid by hand: dated on the day it was due, from the bill's own account, tagged so it isn't mistaken for everyday spending.
   'bill-paid': b => {
     const x = S.recurring.find(y => y.id === b.dataset.id); if (!x) return;
-    openTxSheet({ amount: x.amount, category: x.category || 'bills', accountId: S.accounts.some(a => a.id === x.accountId) ? x.accountId : usualAccount(), merchant: x.name, bill: x.id, date: b.dataset.d || billStatus(x, today(), S.tx).date || today(), time: '' });
+    openTxSheet({ amount: x.amount, category: x.category || 'bills', accountId: S.accounts.some(a => a.id === x.accountId) ? x.accountId : defaultAccount('bill'), merchant: x.name, bill: x.id, date: b.dataset.d || billStatus(x, today(), S.tx).date || today(), time: '' });
   },
   'bill-cal': b => {
     const x = S.recurring.find(y => y.id === b.dataset.id);

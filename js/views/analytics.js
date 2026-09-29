@@ -142,10 +142,10 @@ function reliefCard(M) {
 // ---- 8. couples: who put money into the joint account --------------------------------------------------------------------------
 function jointCard(M) {
   const sd = startDay(), rows = jointIn(booked(), new Set(S.accounts.filter(a => a.scope === 'joint').map(a => a.id)), M, sd);
-  const who = r => (r.me ? settings().myName || t('You') : r.name || t('Your spouse'));
+  const who = r => (r.me ? settings().myName || t('You') : r.name || t('Your partner'));
   const colors = ['var(--accent)', '#D946EF', 'var(--warn)'];
   return card('joint', t('Into the joint account'), rows.length ? rows.map(r => `${who(r)} ${fmtRM(r.v)}`).join(' · ') : t('Nothing put in yet this month'),
-    `${rows.length ? split(rows.map((r, i) => ({ label: who(r), v: r.v, color: colors[i % 3] })), t('Into the joint account')) : ''}<p class="fine">${esc(t('Transfers and income into joint accounts in {0}. Entries from your spouse\'s file count as theirs.', fmtMonth(M, sd)))}</p>`);
+    `${rows.length ? split(rows.map((r, i) => ({ label: who(r), v: r.v, color: colors[i % 3] })), t('Into the joint account')) : ''}<p class="fine">${esc(t('Transfers and income into joint accounts in {0}. Entries from your partner\'s file count as theirs.', fmtMonth(M, sd)))}</p>`);
 }
 
 /** The analytics cards for month M, most useful first; one short placeholder for a new user instead of empty charts. */

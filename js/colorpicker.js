@@ -27,6 +27,13 @@ export function readable(hex, surfaces, min = 4.5) {
   for (let k = 0; k <= 20; k++) { const c = mix(hex, toward, k / 20); if (surfaces.every(s => contrast(c, s) >= min)) return c; }
   return toward;
 }
+/** A plain name for a colour, for screen readers: "Blue", "Grey"… */
+export function colourName(hex) {
+  const [r, g, b] = rgb(hex).map(v => v / 255), mx = Math.max(r, g, b), c = mx - Math.min(r, g, b), l = mx - c / 2;
+  if (c < 0.1) return l > 0.95 ? t('White') : l < 0.08 ? t('Black') : t('Grey');
+  const h = ((mx === r ? ((g - b) / c + 6) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4) * 60);
+  return h < 15 || h >= 345 ? t('Red') : h < 45 ? t('Orange') : h < 70 ? t('Yellow') : h < 170 ? t('Green') : h < 195 ? t('Teal') : h < 255 ? t('Blue') : h < 290 ? t('Purple') : t('Pink');
+}
 const hsv = (h, s, v) => { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return toHex([f(5), f(3), f(1)].map(x => x * 255)); };
 
 export const RINGS = 5;
@@ -94,7 +101,7 @@ export function pickColor({ value = '#1E40AF', title = t('Colour'), reset = null
     let cur = parseHex(value) || '#1E40AF', done = false;
     const at = h => CELLS.findIndex(c => c.hex === h);
     const start = at(cur) >= 0 ? at(cur) : at('#FFFFFF');   // the chosen colour, or the white centre
-    const cells = CELLS.map((c, i) => `<polygon class="hx" points="${hexPts}" transform="translate(${c.cx.toFixed(2)} ${c.cy.toFixed(2)})" fill="${c.hex}" role="radio" aria-label="${c.hex}" aria-checked="false" tabindex="${i === start ? 0 : -1}" data-i="${i}"${i === start ? ' autofocus' : ''}/>`).join('');
+    const cells = CELLS.map((c, i) => `<polygon class="hx" points="${hexPts}" transform="translate(${c.cx.toFixed(2)} ${c.cy.toFixed(2)})" fill="${c.hex}" role="radio" aria-label="${esc(`${c.hex} ${colourName(c.hex).toLocaleLowerCase()}`)}" aria-checked="false" tabindex="${i === start ? 0 : -1}" data-i="${i}"${i === start ? ' autofocus' : ''}/>`).join('');
     const sheet = openSheet(`<h2 class="sh-title">${esc(title)}</h2>
       <div class="cp-top"><span class="cp-prev" aria-hidden="true"><i style="background:${cur}"></i><i id="cp-new">Aa</i></span>
         <label class="field cp-hex"><span>${esc(t('Hex code'))}</span><input id="cp-hex" value="${cur}" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="cp-msg"></label></div>

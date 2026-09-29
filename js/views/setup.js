@@ -11,14 +11,15 @@ import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
-import { pickColor, ACCENTS, onColor, applyLook, parseHex } from '../colorpicker.js';
+import { demoCard } from './home.js';
+import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${k === 'zh' ? 'zh-Hans' : k}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
 
 const SIZES = [100, 115, 130];
 /** A / A+ / A++, the same sizes as Settings → Text size, drawn at the size they give. */
-const sizeButtons = () => `<div class="segs sizes" role="group" aria-label="${esc(t('Text size'))}">${SIZES.map((n, i) => `<button class="seg${(settings().textSize || 100) === n ? ' on' : ''}" data-act="set-size" data-n="${n}" aria-pressed="${(settings().textSize || 100) === n}" aria-label="${n}%" style="font-size:${n}%">A${'+'.repeat(i)}</button>`).join('')}</div>`;
+const sizeButtons = () => `<div class="segs sizes" role="group" aria-label="${esc(t('Text size'))}">${SIZES.map((n, i) => `<button class="seg${(settings().textSize || 100) === n ? ' on' : ''}" data-act="set-size" data-n="${n}" aria-pressed="${(settings().textSize || 100) === n}" aria-label="A${'+'.repeat(i)}, ${n}%" style="font-size:${n}%">A${'+'.repeat(i)}</button>`).join('')}</div>`;
 const setSize = async n => { await setSetting('textSize', n); document.documentElement.style.fontSize = `${n}%`; };
 
 // ---- Appearance & personal: few words, the controls show what they do ------------------------------------------------
@@ -30,7 +31,7 @@ function lookCard() {
   const sw = (hex, label) => `<li><button class="sw" style="--c:${hex};--on:${onColor(hex)}" data-act="set-accent" data-v="${hex}" aria-pressed="${acc === hex}" aria-label="${esc(label)}" title="${esc(label)}">${acc === hex ? ICON.check : ''}</button></li>`;
   return `<section class="card" id="look"><h2>${esc(t('Appearance & personal'))}</h2>${langButtons()}
     <div class="lookrow"><span>${ICON.sun}${esc(t('Theme'))} · ${esc(themes.find(x => x[0] === theme)[1])}</span><div class="segs icons" role="group" aria-label="${esc(t('Theme'))}">${themes.map(([v, l, i]) => seg('set-theme', v, theme === v, l, i)).join('')}</div></div>
-    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(ACCENTS[0], `${t('Default')} ${ACCENTS[0]}`)}${ACCENTS.slice(1).map(h => sw(h, h)).join('')}${ACCENTS.includes(acc) ? '' : sw(acc, acc)}
+    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(ACCENTS[0], `${colourName(ACCENTS[0])} (${t('Default')})`)}${ACCENTS.slice(1).map(h => sw(h, colourName(h))).join('')}${ACCENTS.includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
       <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>
     <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(s.textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Your name'))}</span><input data-input="my-name" maxlength="30" value="${esc(s.myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
@@ -51,14 +52,6 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
     <div class="lookrow"><span>${esc(t('Colour'))}</span><ul class="chips"><li><button class="chip dotbtn" id="cat-color" data-act="cat-add-color" data-v="${esc(color)}"${name ? ' autofocus' : ''}><span class="dot" style="background:${esc(color)}"></span><span class="num">${esc(color)}</span></button></li></ul></div>
     <button class="btn wide" data-act="cat-save">${esc(t('Save'))}</button>`, { label: t('Category') });
 
-/** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
-const demoCard = () => {
-  const lines = [['MILO 1KG', 'groceries', 2890], ['GARDENIA', 'groceries', 450], ['DYNAMO 2.8KG', 'household', 3290], ['NASI LEMAK', 'dining', 600]];
-  const by = {}; for (const [, c, v] of lines) by[c] = (by[c] || 0) + v;
-  return `<div class="demo" aria-hidden="true"><div class="demo-r"><b>KEDAI RUNCIT JAYA</b>${lines.map(([n, , v]) => `<span><i>${n}</i><i>${(v / 100).toFixed(2)}</i></span>`).join('')}<span class="tot"><i>TOTAL</i><i>72.30</i></span></div>
-    <div class="demo-a">${ICON.back}</div><ul class="demo-c">${Object.entries(by).map(([c, v]) => `<li>${dotFor(c)}<span class="grow">${esc(t(CATEGORIES.find(x => x.id === c).name))}</span><b>${esc(fmtRM(v))}</b></li>`).join('')}</ul></div>`;
-};
-const dotFor = c => `<span class="dot" style="background:${esc(CATEGORIES.find(x => x.id === c).color)}"></span>`;
 
 // ---- Welcome ----------------------------------------------------------------------------------------------------------
 export const welcomeView = {
@@ -96,7 +89,7 @@ function accountSheet(a = {}) {
     ${isNew ? '' : `<label class="field"><span>${esc(t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
-    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my spouse)'))}</option></select></label>
+    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
 }
@@ -129,9 +122,9 @@ export const settingsView = {
       <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
-        <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your spouse as a file. They import it in Tally, and their changes come back the same way.') : t('Married? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your spouse.'))}</p>
+        <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your partner as a file. They import it in Tally, and their changes come back the same way.') : t('In a couple? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your partner.'))}</p>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
-        <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
+        <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my partner'))}</button></section>
       <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
         <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num"></span></div>
         <button class="btn ghost wide" data-act="reader-get">${ICON.download}${esc(t('Download the receipt reader now'))}</button></section>
@@ -313,7 +306,7 @@ function showMapping() {
   const choices = catChoices(), cats = [...expenseCats(), ...INCOME_CATEGORIES], tabs = IMP.tabs;
   const intoAcc = `<label class="field"><span>${esc(map.account != null ? t('Rows without an account go into') : t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('A new account'))}</option></select></label>
     ${IMP.accountId === 'new' ? `<label class="field"><span>${esc(t('Name of the new account'))}</span><input data-input="imp-accname" maxlength="40" value="${esc(newAccName())}"></label>
-      <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my spouse)'))}</label>
+      <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my partner)'))}</label>
       ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}`;
   openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(rows.length === 1 ? t('1 row') : t('{0} rows', rows.length))}</p>
     ${IMP.preset ? `<p class="okbox">${esc(t('Recognised: {0} export. Columns, accounts, transfers and categories are matched for you; change anything that looks wrong.', IMP.preset.name))}</p>` : ''}
@@ -490,7 +483,7 @@ const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBack
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
 async function importJoint(data, zip = {}) {
-  const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, data), from = data.by || t('your spouse');
+  const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, data), from = data.by || t('your partner');
   const body = [t('New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.', m.tx.length, m.drop.length),
     m.budgetsJoint ? t('Joint budgets are updated.') : '', m.recurring.length ? t('Joint bills: {0}.', m.recurring.length) : '',
     ...m.empty.map(a => t('Your empty joint account "{0}" is replaced by theirs.', a.name))].filter(Boolean).join(' ');
@@ -547,7 +540,7 @@ export const act = {
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
       <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
-      <label class="field"><span>${esc(t('Joint account with your spouse (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
+      <label class="field"><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
@@ -720,7 +713,7 @@ export const act = {
     openSheet(`<h2 class="sh-title">${esc(t('Back up'))}</h2>
       <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories.', S.tx.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
-      ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos"> ${esc(photoCount() === 1 ? t('Include 1 receipt photo (a bigger .zip file)') : t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
+      ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos" checked> ${esc(photoCount() === 1 ? t('Include 1 receipt photo (a bigger .zip file)') : t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
       ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
@@ -745,10 +738,10 @@ export const act = {
       <p class="sh-body">${esc(t('One file with your {0} joint accounts, their {1} entries, joint budgets and the categories they use. Nothing from your personal accounts.', jointIds().size, rows.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
       ${photos ? `<label class="check"><input type="checkbox" id="jt-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photos))}</label>` : ''}
-      <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it. Send it only to your spouse.'))}</span></p>
-      ${canShare ? `<button class="btn wide" data-act="jt-send">${esc(t('Send to my spouse (WhatsApp, email)'))}</button>` : ''}
+      <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it. Send it only to your partner.'))}</span></p>
+      ${canShare ? `<button class="btn wide" data-act="jt-send">${esc(t('Send to my partner (WhatsApp, email)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="jt-save">${esc(t('Save to this phone (Downloads)'))}</button>
-      <p class="fine">${esc(t('Your spouse opens Tally, taps Settings → Import from my spouse and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry does not delete it on the other phone: delete it there too.'))}</p>`, { label: t('Share joint accounts') });
+      <p class="fine">${esc(t('Your partner opens Tally, taps Settings → Import from my partner and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry does not delete it on the other phone: delete it there too.'))}</p>`, { label: t('Share joint accounts') });
   },
   'jt-send': async () => {
     const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());

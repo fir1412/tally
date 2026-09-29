@@ -44,23 +44,28 @@ test('streak: days in a row, today not logged yet never breaks it', () => {
   const s = streak(new Set(days('2026-09-21', 8)), '2026-09-29');   // Mon 21 to Mon 28
   assert.equal(s.streak, 8); assert.equal(s.best, 8); assert.equal(s.loggedToday, false); assert.equal(s.earned[7], '2026-09-27');
   assert.equal(streak(new Set(days('2026-09-21', 9)), '2026-09-29').loggedToday, true);
-  assert.deepEqual(streak(new Set(), '2026-09-29'), { streak: 0, best: 0, rest: null, loggedToday: false, earned: {} });
+  assert.deepEqual(streak(new Set(), '2026-09-29'), { streak: 0, best: 0, rests: [], loggedToday: false, earned: {} });
   assert.equal(streak(new Set(['2026-10-01']), '2026-09-29').streak, 0);   // a future-dated entry doesn't count yet
 });
-test('streak: one rest day a week keeps it, a second missed day in the week breaks it', () => {
-  const week = days('2026-09-21', 7);   // Mon to Sun
-  const one = new Set(week.filter(d => d !== '2026-09-23'));
-  let s = streak(one, '2026-09-27');
-  assert.equal(s.streak, 6); assert.equal(s.rest, '2026-09-23');
+test('streak: up to 2 rest days in any 7 keep it, a third missed day in 7 breaks it', () => {
+  const week = days('2026-09-21', 7);
   const two = new Set(week.filter(d => d !== '2026-09-23' && d !== '2026-09-25'));
-  s = streak(two, '2026-09-27');
-  assert.equal(s.streak, 2); assert.equal(s.best, 3); assert.equal(s.rest, '2026-09-23');   // this week's rest day is spent
-  // A new week brings a new rest day: Sunday missed, Monday missed, the streak survives both.
-  const across = new Set([...days('2026-09-21', 6), ...days('2026-09-29', 2)]);   // Mon-Sat, then Tue-Wed
-  s = streak(across, '2026-09-30');
-  assert.equal(s.streak, 8); assert.equal(s.rest, '2026-09-28');
-  // Two days missed in a row inside one week: gone.
-  assert.equal(streak(new Set([...days('2026-09-21', 2), ...days('2026-09-25', 2)]), '2026-09-26').streak, 2);
+  let s = streak(two, '2026-09-27');
+  assert.equal(s.streak, 5); assert.deepEqual(s.rests, ['2026-09-23', '2026-09-25']);
+  // Two in a row are fine too.
+  assert.equal(streak(new Set([...days('2026-09-21', 2), ...days('2026-09-25', 3)]), '2026-09-27').streak, 5);
+  // A third inside 7 days: gone, and the rest days go with it.
+  const three = new Set(week.filter(d => !['2026-09-22', '2026-09-24', '2026-09-26'].includes(d)));
+  s = streak(three, '2026-09-27');
+  assert.equal(s.streak, 1); assert.equal(s.best, 3); assert.deepEqual(s.rests, []);
+  // Rolling, not by calendar week: a rest day drops out 7 days later.
+  s = streak(new Set(days('2026-09-01', 29).filter(d => !['2026-09-03', '2026-09-08', '2026-09-10', '2026-09-15'].includes(d))), '2026-09-29');
+  assert.equal(s.streak, 25); assert.deepEqual(s.rests, []);
+});
+test('streak: logging 24 of 28 days keeps a long streak', () => {
+  const miss = ['2026-09-04', '2026-09-05', '2026-09-17', '2026-09-24'];   // two in a row once, then here and there
+  const s = streak(new Set(days('2026-09-01', 28).filter(d => !miss.includes(d))), '2026-09-29');
+  assert.equal(s.streak, 24); assert.equal(s.best, 24); assert.deepEqual(s.rests, ['2026-09-24']); assert.equal(s.earned[7], '2026-09-09');
 });
 test('streak: counts entries the user made and no-spend check-ins, not imports, auto bills or a spouse', () => {
   const list = [tx('2026-09-27'), tx('2026-09-28', { source: 'import' }), tx('2026-09-28', { source: 'recurring' }), tx('2026-09-28', { by: 'Ali' }), tx('2026-09-29', { source: 'receipt', by: 'Siti' })];

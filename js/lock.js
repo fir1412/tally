@@ -46,10 +46,29 @@ async function bioCheck(id) {
 }
 
 // ---- the lock screen -----------------------------------------------------------------------------------------------
+/**
+ * One try per PIN entered. An empty field, or a second submit while that PIN is still being checked (it submits itself at
+ * full length, then Unlock is tapped), is not a try. From the 5th wrong PIN: a wait of 30 s, 30 s longer each time.
+ * st: {fails, until} (kept by the caller). → 'ok' | 'wrong' | 'wait' | 'ignored'.
+ */
+export function pinGuard(check, st, now = () => Date.now()) {
+  let busy = false;
+  return async pin => {
+    if (!pin || busy) return 'ignored';
+    if (now() < st.until) return 'wait';
+    busy = true;
+    try {
+      if (await check(pin)) { st.fails = 0; st.until = 0; return 'ok'; }
+      st.fails++; if (st.fails >= 5) st.until = now() + 30_000 * (st.fails - 4);
+      return 'wrong';
+    } finally { busy = false; }
+  };
+}
 // Wrong tries survive a reload, so reloading doesn't buy 5 fresh guesses. (localStorage can throw: then memory only.)
 const tries = { get: () => { try { return JSON.parse(localStorage.getItem('tally-pin-tries')) || [0, 0]; } catch { return [0, 0]; } },
   set: v => { try { localStorage.setItem('tally-pin-tries', JSON.stringify(v)); } catch {} } };
-let pending = null, [fails, waitUntil] = tries.get();
+let pending = null;
+const st = (([fails, until]) => ({ fails, until }))(tries.get());
 /** Cover everything with the lock screen until the PIN or fingerprint is right. Resolves at once without a lock. */
 export function gate() {
   if (!lockOn()) return Promise.resolve();
@@ -61,7 +80,7 @@ export function gate() {
   document.body.append(el);
   pending = new Promise(resolve => {
     const lock = settings().lock;
-    const done = () => { el.remove(); for (const x of kids) { x.classList.remove('veiled'); if (!wasInert.has(x)) x.inert = false; } pending = null; fails = 0; waitUntil = 0; tries.set([0, 0]); resolve(); };
+    const done = () => { el.remove(); for (const x of kids) { x.classList.remove('veiled'); if (!wasInert.has(x)) x.inert = false; } pending = null; st.fails = 0; st.until = 0; tries.set([0, 0]); resolve(); };
     const err = m => { el.querySelector('#lock-err').textContent = m; };
     const main = () => {
       el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h1>Tally</h1><p>${esc(t('Enter your PIN'))}</p>
@@ -78,14 +97,15 @@ export function gate() {
         <button class="btn ${confirm ? 'danger' : 'ghost danger'} wide" data-l="${confirm ? 'erase-yes' : 'erase'}">${esc(t('Erase everything'))}</button>
         <button class="btn ghost wide" data-l="back">${esc(t('Back'))}</button></div>`;
     };
+    const guard = pinGuard(pin => checkPin(pin, lock), st);
     const tryPin = async () => {
-      const pin = el.querySelector('#lock-pin').value;
-      if (Date.now() < waitUntil) { const s = Math.ceil((waitUntil - Date.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
-      if (await checkPin(pin, lock)) return done();
-      fails++; if (fails >= 5) waitUntil = Date.now() + 30_000 * (fails - 4);
-      tries.set([fails, waitUntil]);
+      const r = await guard(el.querySelector('#lock-pin').value);
+      if (r === 'ok') return done();
+      if (r === 'wait') { const s = Math.ceil((st.until - Date.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
+      if (r !== 'wrong') return;
+      tries.set([st.fails, st.until]);
       el.querySelector('#lock-pin').value = '';
-      err(fails >= 5 ? t('Too many tries. Wait {0} seconds.', 30 * (fails - 4)) : t('That PIN is not right.'));
+      err(st.fails >= 5 ? t('Too many tries. Wait {0} seconds.', 30 * (st.fails - 4)) : t('That PIN is not right.'));
     };
     el.addEventListener('click', async e => {
       const k = e.target.closest('[data-l]')?.dataset.l;

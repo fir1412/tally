@@ -161,3 +161,18 @@ test('app lock keeps only a salted PBKDF2 hash of the PIN, never the PIN', async
   assert.match(read('js/lock.js'), /userVerification: 'required'/);
   assert.ok(!/makeBackup\([^)]*settings/.test(read('js/views/setup.js')));   // settings (and the lock) never go into backups
 });
+test('app lock: one try per PIN entered (auto-submit then Unlock is one), a wait after 5 real tries', async () => {
+  const { pinGuard } = await import('../js/lock.js');
+  let clock = 1000, release;
+  const st = { fails: 0, until: 0 }, slow = () => new Promise(r => { release = r; });
+  const guard = pinGuard(() => slow().then(() => false), st, () => clock);
+  const first = guard('1111'), again = await guard('1111');   // Unlock tapped while the auto-submitted PIN is checked
+  assert.equal(again, 'ignored'); release(); assert.equal(await first, 'wrong'); assert.equal(st.fails, 1);
+  assert.equal(await guard(''), 'ignored'); assert.equal(st.fails, 1);   // the field was cleared: Unlock on nothing is no try
+  const quick = pinGuard(async p => p === '4821', st, () => clock);
+  for (const p of ['2222', '3333', '4444']) assert.equal(await quick(p), 'wrong');
+  assert.equal(st.until, 0);                                            // 4 wrong: no wait yet
+  assert.equal(await quick('5555'), 'wrong'); assert.equal(st.fails, 5); assert.equal(st.until, 31_000);
+  assert.equal(await quick('4821'), 'wait');                            // even the right PIN waits
+  clock = 31_000; assert.equal(await quick('4821'), 'ok'); assert.deepEqual(st, { fails: 0, until: 0 });
+});

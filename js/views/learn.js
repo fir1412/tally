@@ -5,7 +5,7 @@ import { t, fmtDate, getLang } from '../i18n.js';
 import { esc, ICON, toast, sheetOpen, burst, haptic, replay } from '../ui.js';
 import { render, go, route } from '../app.js';
 import { progress, doneByData, missionFor, byUser } from '../learn.js';
-import { streak, loggedDays, earned, BADGES } from '../gamify.js';
+import { streak, loggedDays, earned, BADGES, RESTS } from '../gamify.js';
 
 const TEXT = {
   scan: () => [t('Scan a receipt'), t('Tap the camera and snap a receipt. Tally reads it on this phone and splits it into items and categories.')],
@@ -19,7 +19,7 @@ const TEXT = {
   backup: () => [t('Back up your data'), t('Everything lives only on this phone. A backup file, with or without photos, keeps it safe.')],
   import: () => [t('Import from another app or a bank statement'), t('Bring your history from Money Manager, Excel, Google Sheets or a bank PDF.')],
   lock: () => [t('Turn on the app lock'), t('A PIN, or your fingerprint, keeps Tally private when someone picks up your phone.')],
-  joint: () => [t('Share with your spouse'), t('Send your joint accounts as a file. Their changes come back the same way.')],
+  joint: () => [t('Share with your partner'), t('Send your joint accounts as a file. Their changes come back the same way.')],
 };
 const BTEXT = {
   scan1: () => [t('First scan'), t('Scanned your first receipt.')],
@@ -40,10 +40,11 @@ const data = () => ({ tx: S.tx, recurring: S.recurring, accounts: S.accounts, se
 export const gameOn = () => settings().gamify === true;
 const game = () => {
   const s = settings(), p = progress(data());
-  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null, weekStart: weekStart() };
+  return { tx: S.tx, today: today(), startDay: startDay(), budget: budgetsFor('all').total, noSpend: s.noSpend || [], lastBackup: S.kv.lastBackup, me: s.myName || '', learnedOn: p.all ? Object.values(s.learn || {}).sort().pop() : null };
 };
-const weekStart = () => (settings().weekStart === 0 ? 0 : 1);   // 1 Monday, 0 Sunday (Settings)
-const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today(), weekStart());
+const myStreak = () => streak(loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), today());
+/** Best, and the rest days ("freezes") left, in one line. */
+const bestLine = st => [st.best && t('Best: {0} days', st.best), st.streak && t('{0} of {1} rest days left', RESTS - st.rests.length, RESTS)].filter(Boolean).join(' · ');
 const meter = p => `<div class="meter" role="progressbar" aria-label="${esc(t('Missions done'))}" aria-valuemin="0" aria-valuemax="${p.total}" aria-valuenow="${p.n}"><i style="width:${Math.round(p.n / p.total * 100)}%"></i></div>`;
 const chip = (m, done) => `<span class="lic${done ? ' done' : ''}">${done ? `${ICON.check}<span class="sr">${esc(t('Done'))}</span>` : ICON[m.icon]}</span>`;
 
@@ -64,8 +65,7 @@ const flame = n => (0.8 + Math.min(n, 30) / 30 * 0.5).toFixed(2);
 export function streakHome() {
   if (!gameOn()) return '';
   const st = myStreak();
-  const sub = [st.loggedToday ? t('Logged today') : st.streak ? t('Add something today to keep it going') : t('Add what you spend today, or mark a day with nothing spent'),
-    st.best > st.streak && t('Best: {0} days', st.best), st.rest && t('Rest day used this week')].filter(Boolean).join(' · ');
+  const sub = [st.loggedToday ? t('Logged today') : st.streak ? t('Add something today to keep it going') : t('Add what you spend today, or mark a day with nothing spent'), bestLine(st)].filter(Boolean).join(' · ');
   return `<section class="streak${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><a href="#/badges" class="streak-go">${ICON.flame}<span class="grow"><b>${esc(st.streak ? t('{0}-day logging streak', st.streak) : t('Start a logging streak'))}</b><small>${esc(sub)}</small></span></a>
     ${st.loggedToday ? '' : `<button class="btn small ghost" data-act="no-spend">${esc(t('Nothing spent today'))}</button>`}</section>`;
 }
@@ -105,15 +105,15 @@ export const badgesView = {
     const tdy = today(), st = myStreak(), days = loggedDays(S.tx, settings().noSpend || [], settings().myName || ''), got = earned(game());
     // The last 7 days up to today, so the ticks match the streak's count (a Monday-to-Sunday week didn't).
     const week = Array.from({ length: 7 }, (_, i) => plusDays(tdy, i - 6)).map(d => {
-      const k = days.has(d) ? 'logged' : d === st.rest ? 'rest' : d === tdy ? 'now' : 'missed';
+      const k = days.has(d) ? 'logged' : st.rests.includes(d) ? 'rest' : d === tdy ? 'now' : 'missed';
       const word = { logged: t('logged'), rest: t('rest day'), now: t('today'), missed: t('not logged') }[k];
       return `<li class="${k}"><span aria-hidden="true">${esc(weekday(d))}</span><i aria-hidden="true">${k === 'logged' ? ICON.check : ''}</i><span class="sr">${esc(fmtDate(d))}${word ? `: ${esc(word)}` : ''}</span></li>`;
     }).join('');
     const n = Object.keys(got).length;
     return `${head(t('Streaks and badges'))}
-      <section class="card streakcard${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}${st.best ? ` · ${esc(t('Best: {0} days', st.best))}` : ''}</small></span></div>
+      <section class="card streakcard${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}</small></span></div>
         <ol class="week" aria-label="${esc(t('Last 7 days'))}">${week}</ol>
-        <p class="fine">${esc(st.rest ? t('Rest day used this week. Another missed day starts the streak again.') : t('One rest day a week: missing a single day will not break your streak.'))}</p>
+        <p class="fine">${esc([bestLine(st), t('Miss up to {0} days in any 7 and the streak keeps going.', RESTS)].filter(Boolean).join(' · '))}</p>
         ${st.loggedToday ? '' : `<button class="btn ghost wide" data-act="no-spend">${ICON.leaf}${esc(t('Nothing spent today'))}</button>`}</section>
       <div class="rowb"><h2>${esc(t('Badges'))}</h2><span class="fine num">${n}/${BADGES.length}</span></div>
       <ul class="badges">${BADGES.map(b => {

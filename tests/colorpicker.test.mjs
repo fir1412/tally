@@ -49,6 +49,12 @@ test('honeycomb: a hexagon of hexagons, white in the middle, hues around, strong
   assert.equal(C.GREYS[0], '#FFFFFF'); assert.equal(C.GREYS.at(-1), '#000000');
 });
 
+test('every accent and honeycomb cell has a plain colour name (screen readers)', () => {
+  assert.deepEqual(C.ACCENTS.map(C.colourName), ['Blue', 'Blue', 'Teal', 'Green', 'Orange', 'Orange', 'Red', 'Pink', 'Purple']);
+  assert.deepEqual(['#FFFFFF', '#000000', '#777777', '#FACC15', '#65A30D'].map(C.colourName), ['White', 'Black', 'Grey', 'Yellow', 'Green']);
+  for (const h of [...C.GREYS, ...C.honeycomb().map(c => c.hex)]) assert.ok(C.colourName(h), h);
+});
+
 test('arrow keys move to the neighbouring cell', () => {
   const W = Math.sqrt(3) * 10, cells = C.honeycomb().map(c => ({ cx: c.x * W, cy: c.y * W, c }));
   const mid = cells.findIndex(x => x.c.ring === 0), at = (q, r) => cells.findIndex(x => x.c.q === q && x.c.r === r);
@@ -69,10 +75,8 @@ test('backups keep category colours, cleaned; a merge keeps the local ones', () 
   assert.deepEqual(m.kv.catColors, { dining: '#0000FF', c_x: '#00aa00', other: '#333333' });
 });
 
-test('streak: the one rest day a week follows the chosen first day of the week', () => {
-  // Sun 27 and Mon 28 missed: one week with Monday starts (Sun ends it, Mon starts the next, one miss each: kept),
-  // the same week with Sunday starts (two misses: broken).
+test('streak: rest days count over any 7 days, whatever day the week starts on', () => {
+  // Sun 27 and Mon 28 missed: two in 7 days, kept (they used to break it with Sunday week starts).
   const d2 = new Set(['2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-29']);
-  assert.equal(streak(d2, '2026-09-29', 1).streak, 6);
-  assert.equal(streak(d2, '2026-09-29', 0).streak, 1);
+  assert.equal(streak(d2, '2026-09-29').streak, 6);
 });

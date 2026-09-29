@@ -2,12 +2,14 @@
 import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, belowSince, CATEGORIES } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
-import { txRow, catLabel, dot, openTxSheet, scopeSwitch } from './money.js';
+import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip } from './money.js';
 import { learnHome, streakHome } from './learn.js';
+import { byUser } from '../learn.js';
+import { dayOf } from '../gamify.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
 
@@ -35,18 +37,20 @@ const greeting = () => {
   return !n ? '' : h < 12 ? t('Good morning, {0}', n) : h < 18 ? t('Good afternoon, {0}', n) : t('Good evening, {0}', n);
 };
 const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), id].slice(-300));
-
-/** The backup reminder has its own slot (it used to hide nudges for weeks). */
+/** Fewer entries than this: a new user's Home stays quiet (no missed-days, habit, insight, recap or find cards; one card at most). */
+const NEW = 5;
+/** The backup reminder has its own slot (it used to hide nudges for weeks). From 5 entries, or 3 days after starting. */
 function backupBanner() {
-  const tdy = today(), last = S.kv.lastBackup;
-  if (booked().length >= 10 && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
+  const tdy = today(), last = S.kv.lastBackup, began = Math.min(...S.accounts.map(a => a.createdAt).filter(Boolean));
+  if (S.tx.length && (S.tx.length >= NEW || (began < Infinity && daysBetween(dayOf(began), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
     return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. A backup file keeps it safe if the phone is lost.'))}</small></span>
       <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><button class="btn small ghost" data-act="dismiss" data-id="backup-${tdy}">${esc(t('Later'))}</button></span></div>`;
   }
   return '';
 }
-/** The one other banner Home shows, most important first: a bill due, cash below zero, days not logged, a habit nudge, an insight. */
-function banner(skip = null) {
+/** The one other banner Home shows, most important first: a bill due, cash below zero, a daily reminder (once, on the
+ *  3rd day with something logged), days not logged, a habit nudge, an insight. `fresh`: a new user, none of the last three. */
+function banner(skip = null, fresh = false) {
   const tdy = today();
   if (location.host === 'fir1412.github.io') return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(t('Tally has moved to tallymy.github.io'))}</b><small>${esc(t('Back up here, then open the new address and restore the file there. This address will stop getting updates.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><a class="btn small ghost" href="https://tallymy.github.io/" rel="noopener">${esc(t('Open the new address'))}</a></span></div>`;
@@ -57,14 +61,21 @@ function banner(skip = null) {
     return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
     <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
   }
-  const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && bal[a.id] < 0);
-  // Cash can't really be below zero: something wasn't added. The fixes, most likely first; the account editor has Balance today.
-  if (cash && !dismissed().includes(`cash-${tdy}`)) return `<div class="banner warn">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero: {1}', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('What happened?'))}</small></span>
+  const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && bal[a.id] < 0 && !dismissed().includes(`cash-off-${a.id}`));
+  // Cash can't really be below zero: something wasn't added. Said once per time it goes below zero (on the day it is first
+  // seen, or until Later), never for an account the user said not to. The fixes, most likely first.
+  const ep = cash && `cash-${cash.id}-${belowSince(cash, booked())}`;
+  if (cash && !dismissed().some(x => x.startsWith(`${ep}:`) && x !== `${ep}:${tdy}`)) return `<div class="banner warn" data-seen="${esc(`${ep}:${tdy}`)}">${ICON.wallet}<span class="grow"><b>${esc(t('{0} is below zero: {1}', cash.name, fmtRM(bal[cash.id])))}</b><small>${esc(t('What happened?'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="acc-edit" data-id="${esc(cash.id)}">${esc(t('Correct the balance'))}</button><button class="btn small ghost" data-act="atm" data-to="${esc(cash.id)}">${esc(t('Add a cash withdrawal'))}</button>
-      <button class="btn small ghost" data-act="cash-gift" data-to="${esc(cash.id)}">${esc(t('Family gave me cash'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-${tdy}">${esc(t('Later'))}</button></span></div>`;
+      <button class="btn small ghost" data-act="cash-gift" data-to="${esc(cash.id)}">${esc(t('Family gave me cash'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-off-${esc(cash.id)}">${esc(t("Don't warn for this account"))}</button>
+      <button class="btn small ghost" data-act="dismiss" data-id="${esc(`${ep}:later`)}" aria-label="${esc(t('Later'))}">${ICON.x}</button></span></div>`;
+  const days = new Set(S.tx.filter(x => byUser(x, settings().myName || '')).map(x => x.date)).size;
+  if (days >= 3 && days <= 4 && !dismissed().includes('remind-card')) return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(t('Want a daily nudge at 21:00?'))}</b></span>
+    <span class="bactions"><button class="btn small" data-act="remind-open">${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="remind-card" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
+  if (fresh) return '';
   const lastDay = booked().reduce((m, x) => (x.date > m ? x.date : m), ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
   if (shown('gap') && S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
-    <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
+    <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="remind-open">${ICON.bell}${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
   const nudge = shown('nudge') && dueNudge(habits(booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
@@ -100,11 +111,25 @@ function findCard(f, tdy) {
   const to = f.kind === 'catdown' ? `data-act="cat-show" data-c="${esc(f.cat)}"` : `data-act="go" data-to="${f.kind === 'bill' ? 'budgets' : f.kind === 'nospend' ? 'badges' : 'insights'}"`;
   return `<div class="banner good find">${ICON.sparkles}<button class="grow find-go" ${to}><b>${esc(text)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</button><button class="icon-btn" data-act="dismiss" data-id="find-${esc(tdy)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>`;
 }
+/** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
+export const demoCard = () => {
+  const lines = [['MILO 1KG', 'groceries', 2890], ['GARDENIA', 'groceries', 450], ['DYNAMO 2.8KG', 'household', 3290], ['NASI LEMAK', 'dining', 600]];
+  const by = {}; for (const [, c, v] of lines) by[c] = (by[c] || 0) + v;
+  return `<div class="demo" aria-hidden="true"><div class="demo-r"><b>KEDAI RUNCIT JAYA</b>${lines.map(([n, , v]) => `<span><i>${n}</i><i>${(v / 100).toFixed(2)}</i></span>`).join('')}<span class="tot"><i>TOTAL</i><i>72.30</i></span></div>
+    <div class="demo-a">${ICON.back}</div><ul class="demo-c">${Object.entries(by).map(([c, v]) => `<li>${dotFor(c)}<span class="grow">${esc(t(CATEGORIES.find(x => x.id === c).name))}</span><b>${esc(fmtRM(v))}</b></li>`).join('')}</ul></div>`;
+};
+const dotFor = c => `<span class="dot" style="background:${esc(CATEGORIES.find(x => x.id === c).color)}"></span>`;
+/** Until the first receipt is saved: what a scan does, and the two ways to start one. */
+const firstScan = () => `<section class="card firstscan"><div class="rowb"><h2>${esc(t('Scan your first receipt'))}</h2><button class="icon-btn" data-act="dismiss" data-id="first-scan" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>
+  ${demoCard()}<p class="fine">${esc(t('Receipts are read on this phone and split into categories automatically.'))}</p>
+  <div class="row2"><button class="btn" data-act="scan">${ICON.camera}${esc(t('Take a photo'))}</button><button class="btn ghost" data-act="scan-pick">${ICON.image}${esc(t('From gallery'))}</button></div></section>`;
 let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
 export const homeView = {
   title: 'Home',
   /** A save just made lands here: its row flashes, the balance and month count to their new values, the ring moves. */
   after() {
+    const seen = document.querySelector('.banner[data-seen]')?.dataset.seen;   // the cash warning, shown today: not again after today
+    if (seen && !dismissed().includes(seen)) dismiss(seen).catch(console.error);
     const was = onScreen; onScreen = drawn;
     if (!landing.id || Date.now() - landing.at > 4000) return;
     const id = landing.id; landing.id = null;
@@ -131,16 +156,17 @@ export const homeView = {
     const rg = ring({ budget: B, spent, before, p });
     drawn = { bal: bal.total, spent, frac: rg?.frac };
     // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
-    const ws = settings().weekStart === 0 ? 0 : 1, rc = shown('insight') && weekRecap(upToday, tdy, ws);
+    const fresh = S.tx.length < NEW, ws = settings().weekStart === 0 ? 0 : 1, rc = !fresh && shown('insight') && weekRecap(upToday, tdy, ws);
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
-    const find = !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(niceFinds({ txs: upToday, today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)) }), tdy);
-    return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1>${greeting() ? `<span class="grow"><b class="hi">${esc(greeting())}</b><small>${esc(fmtDate(tdy, { year: true }))}</small></span>` : `<span class="fine">${esc(fmtDate(tdy, { year: true }))}</span>`}<button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
+    const find = !fresh && !recap && shown('insight') && !dismissed().includes(`find-${tdy}`) && pickFind(niceFinds({ txs: upToday, today: tdy, startDay: sd, noSpend: settings().noSpend || [], bills: S.recurring.filter(b => inScope(b)) }), tdy);
+    return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
         <span class="label">${esc(t('Current balance'))} · ${esc(accts.length === 1 ? t('1 account') : t('{0} accounts', accts.length))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>
         <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtRM(bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
       </section>
+      ${S.tx.some(x => x.receiptId) || dismissed().includes('first-scan') ? '' : firstScan()}
       <section class="card month">
         <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym, sd)))}</span>${p ? `<span class="pill ${rg.tone}">${esc(word)}</span>` : `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>`}</div>
         <div class="mrow">${rg ? ringHtml(rg, { spent, B, before, lastYm, sd, word }) : ''}<div class="grow">
@@ -149,9 +175,7 @@ export const homeView = {
         </div></div>
       </section>
       ${recap}${find ? findCard(find, tdy) : ''}
-      ${streakHome()}
-      ${backupBanner()}
-      ${banner(find?.kind === 'price' ? find.id : null)}
+      ${(cards => (fresh ? cards.find(Boolean) || '' : cards.join('')))([streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null, fresh)])}
       ${learnHome()}
       </div><div class="col">
       <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
@@ -199,7 +223,7 @@ export const insightsView = {
     const tCats = [...new Set(tSpend.flatMap(s => Object.keys(s.byCat)))].sort((a, b) => catSum(b) - catSum(a));
     const cell = v => (v ? esc(fmtRM(v, { plain: true })) : '<span class="nil">–</span>');
     const curCol = k => (tMonths[k] === M ? ' class="cur"' : '');
-    return `<header class="top"><h1>${esc(t('Insights'))}</h1>
+    return `<header class="top"><h1>${esc(t('Insights'))}</h1>${scopeChip()}
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M, sd))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
       ${scopeSwitch()}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 2).map(feedItem).join('')}</ul>${feed.length > 2 ? `<details class="card billsugg"><summary>${ICON.chart}${esc(t('{0} more insights', Math.min(6, feed.length) - 2))}</summary><ul class="feed">${feed.slice(2, 6).map(feedItem).join('')}</ul></details>` : ''}` : ''}
       ${M === cur ? forecastCard() : ''}
@@ -220,7 +244,7 @@ export const insightsView = {
           <tr class="net"><th scope="row">${esc(t('Net'))}</th>${tIn.map((v, k) => { const n = v - tSpend[k].total; return `<td${curCol(k)}><span class="${n < 0 ? 'bad' : 'good'}">${n ? esc(fmtRM(n, { plain: true })) : '–'}</span></td>`; }).join('')}</tr></tfoot></table></div></section>` : ''}
       <section class="card"><h2>${esc(t('Money in and out'))}</h2><p class="legendrow"><span class="key good"></span>${esc(t('Received'))} <span class="key bad"></span>${esc(t('Spent'))}</p>
         ${pairBars(flow, { names: [t('Received'), t('Spent')], label: t('Money in and out, last 6 months') })}
-        <div class="sr"><table><caption>${esc(t('Money in and out'))}</caption>${flowRaw.map(f => `<tr><th>${esc(fmtMonth(f.ym, sd))}</th><td>${esc(fmtRM(f.income))}</td><td>${esc(fmtRM(f.expense))}</td></tr>`).join('')}</table></div></section>
+        <div class="sr"><table><caption>${esc(t('Money in and out'))}</caption><thead><tr><th scope="col">${esc(t('Month'))}</th><th scope="col">${esc(t('Received'))}</th><th scope="col">${esc(t('Spent'))}</th></tr></thead>${flowRaw.map(f => `<tr><th scope="row">${esc(fmtMonth(f.ym, sd))}</th><td>${esc(fmtRM(f.income))}</td><td>${esc(fmtRM(f.expense))}</td></tr>`).join('')}</table></div></section>
       <section class="card"><h2>${esc(t('Balance'))}</h2>${lineChart(trend, { label: t('Balance over the last 6 months') })}</section>
       ${topItems.length ? `<section class="card"><h2>${esc(t('What you bought most'))}</h2><ul class="list">${topItems.map(i => `<li class="rowb"><span class="grow">${esc(i.name)}</span><span class="fine">${i.n}×</span><span class="num">${esc(fmtRM(i.v))}</span></li>`).join('')}</ul></section>` : ''}
       <section class="card"><h2>${esc(t('Your spending habits'))}</h2>
@@ -237,6 +261,14 @@ export const act = {
   atm: b => { const bank = S.accounts.find(a => a.kind === 'bank') || S.accounts.find(a => a.id !== b.dataset.to); openTxSheet({ type: 'transfer', category: 'other', accountId: bank?.id, toAccountId: b.dataset.to, merchant: t('Cash withdrawal') }); },
   'cash-gift': b => openTxSheet({ type: 'income', category: 'family', accountId: b.dataset.to }),
   'gap-add': b => openTxSheet({ date: b.dataset.d, time: '' }),
+  'scan-pick': () => document.getElementById('scan-input')?.click(),
+  // Daily reminder: Settings has the card (#remind); this goes there and puts focus in it.
+  'remind-open': async () => {
+    if (!dismissed().includes('remind-card')) await dismiss('remind-card');
+    go('settings');
+    let n = 0; const find = () => { const r = document.getElementById('remind'); if (r) { r.scrollIntoView({ block: 'start' }); r.querySelector('button, input, select')?.focus({ preventScroll: true }); } else if (n++ < 15) setTimeout(find, 100); };
+    setTimeout(find, 100);
+  },
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
   'recap-go': async b => { await dismiss(b.dataset.id); go('insights'); },
   'nudge-add': b => openTxSheet({ category: b.dataset.c, amount: +b.dataset.a, ...(b.dataset.at ? { time: b.dataset.at } : {}) }),
