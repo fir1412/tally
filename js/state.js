@@ -94,7 +94,9 @@ const stamp = x => {
 };
 /** The account a new entry starts on, in the current scope: kind 'quick', 'receipt' ({amount, shop, category}) or 'bill' (engine.pickAccount). */
 export function defaultAccount(kind = 'quick', o = {}) {
-  const accounts = scopedAccounts().length ? scopedAccounts() : S.accounts, txs = scopedTx(), d = today();
+  // A receipt is paid however it was paid, whatever screen is showing (the Business view left on doesn't make a
+  // Guardian receipt the stall's): every account and every entry. Typed entries follow the view.
+  const all = kind === 'receipt', accounts = all || !scopedAccounts().length ? S.accounts : scopedAccounts(), txs = all ? rmTx() : scopedTx(), d = today();
   return pickAccount({ accounts, txs, bal: balances(accounts, txs.filter(x => x.date <= d)).by, kind, ...o });
 }
 /** The day budget months start on (a payday), 1 = calendar months; and the key of the month holding today. */

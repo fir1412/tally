@@ -779,7 +779,7 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 @media (max-width: 420px) { .calcbar [data-op="("], .calcbar [data-op=")"] { display: none; } }   /* the result has room on a phone; ( ) still type from the keyboard */
 .bulkbar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; position: sticky; top: 0; z-index: 2; background: var(--bg); }
 .items-edit.selecting li { grid-template-columns: 28px 1fr auto; } .ipick { width: 24px; height: 24px; }
-.rawbtn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; min-height: 32px; color: var(--mute); font: 500 var(--fs-xs)/1.2 var(--mono); cursor: pointer; text-align: left; } .rawbtn svg { width: 14px; height: 14px; }
+.rawbtn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; min-height: 44px; min-width: 44px; color: var(--mute); font: 500 var(--fs-xs)/1.2 var(--mono); cursor: pointer; text-align: left; } .rawbtn svg { width: 14px; height: 14px; }
 .cropview canvas { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
 .mono { font-family: var(--mono); }
 .view-review .grid2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }   /* Date and Paid from side by side while they fit; stacked at big text on a tablet */

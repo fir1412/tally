@@ -187,3 +187,11 @@ test('spending in SGD keeps the rate of its day: a new rate does not re-value la
   const rm = st.rmTx();
   assert.deepEqual([monthSpend(rm, '2026-08').total, monthSpend(rm, '2026-09').total], [3300, 3500]);
 });
+
+test('a receipt goes where it was paid, whatever view is showing; typed entries follow the view', async () => {
+  const st = await import('../js/state.js');
+  Object.assign(S, { accounts: [{ id: 'cash', name: 'Cash', kind: 'cash', opening: 5000 }, { id: 'visa', name: 'Visa', kind: 'card', opening: 0 }, { id: 'gp', name: 'GrabPay Driver', kind: 'ewallet', opening: 20000, scope: 'business' }],
+    tx: [], kv: { settings: { scope: 'business' }, budgets: { total: 0, byCat: {} }, customCats: [], rules: {} } });
+  assert.equal(st.defaultAccount('receipt', { pay: 'card', amount: 3000 }), 'visa');
+  assert.equal(st.defaultAccount('quick', { amount: 500 }), 'gp');
+});
