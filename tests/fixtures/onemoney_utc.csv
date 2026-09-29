@@ -1,0 +1,8 @@
+Date (UTC),Type,From account / from category,From subcategory,To account / to category,To subcategory,Amount 1,Currency 1,Amount 2,Currency 2,Commission,Commission currency,Tax,Tax currency,Comment
+2026-09-01T02:00:00.000Z,Income,Salary,,Maybank,,3500,MYR,3500,MYR,,,,,September pay
+2026-09-02T02:00:00.000Z,Transfer,Maybank,,TNG,,100,MYR,100,MYR,,,,,Reload
+2026-09-03T02:00:00.000Z,Expense,Cash,,Food,,12.5,MYR,12.5,MYR,,,,,Nasi lemak
+2026-09-05T02:00:00.000Z,Transfer,Maybank,,Cash,,200,MYR,200,MYR,,,,,ATM
+2026-09-13T02:00:00.000Z,Expense,Maybank,,Groceries,,85.4,MYR,85.4,MYR,,,,,Tesco
+2026-09-14T02:00:00.000Z,Expense,TNG,,Transport,,30,MYR,30,MYR,,,,,Toll
+2026-09-20T02:00:00.000Z,Income,Gifts,,Cash,,20,MYR,20,MYR,,,,,Refund
