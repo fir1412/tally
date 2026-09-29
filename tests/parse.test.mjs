@@ -261,10 +261,10 @@ test('dates the reader mangles: glued to a time, compact before a time, a missin
 });
 
 test('a FeedMe slip: time glued to the year, the company glued to the name, a misread Qty line, a unit price in the name', () => {
-  assert.equal(parseDate('Date:29/09/20261733 Invoice no:378672'), '2026-09-29');
-  const r = parseReceipt('GOOD TIMING FOOD VILLAGE MCGOODTIMING SDN BHD\nDate:29/09/20261733\nQty Item Price (MYR)\n4.50\nCHAMCICE (L) (4.50/ea)\nLESS ICE\naly 4.50\nTotal(MYR) 4.50\nChange 0.00');
+  assert.equal(parseDate('Date:01/01/20251205 Invoice no:100001'), '2025-01-01');
+  const r = parseReceipt('GOOD TIMING FOOD VILLAGE MCGOODTIMING SDN BHD\nDate:01/01/20251205\nQty Item Price (MYR)\n3.80\nTEH O AIS (L) (3.80/ea)\nLESS SUGAR\naly 3.80\nTotal(MYR) 3.80\nChange 0.00');   // an invented slip in that layout
   assert.equal(r.merchant, 'Good Timing Food Village');
-  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['CHAMCICE (L)', 450]]);
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['TEH O AIS (L)', 380]]);
   assert.equal(r.check.ok, true);
 });
 
@@ -279,9 +279,9 @@ test('typed items on one line with spaces only are split after each price, never
 });
 
 test('Village Grocer slips: "Barcode: 955…" lines are never names, unit words come off, OCR C-for-G still finds the brand', () => {
-  const r = parseReceipt('VILLAGE CROCER @ LEISURE MALL\nDate: 29/09/26 6:42\nBarcode: 9555C39200019\nNUTRIPLUS EGGS OMEGA unit 8.00 Z\nBarcode: 6936489102239\nDURIAN SWEET POTATO pkt 8.80\nTotal RM 16.80');
+  const r = parseReceipt('VILLAGE CROCER @ SAMPLE BRANCH\nDate: 01/01/25 10:00\nBarcode: 9550000C00017\nFRESH MILK 1L unit 7.50 Z\nBarcode: 9550000000024\nROLLED OATS pkt 12.90\nTotal RM 20.40');   // an invented slip in that layout
   assert.equal(r.merchant, 'Village Grocer');
-  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['NUTRIPLUS EGGS OMEGA', 800], ['DURIAN SWEET POTATO', 880]]);
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['FRESH MILK 1L', 750], ['ROLLED OATS', 1290]]);
 });
 
 test('a return window or a warranty printed on the slip is found (for an optional reminder); "no refund" is not one', () => {

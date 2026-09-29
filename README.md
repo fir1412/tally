@@ -54,7 +54,7 @@ python -m http.server 8770
 npm test            # node --test tests/*.test.mjs: parsers, engine, import/export, i18n, security, syntax
 ```
 
-`spike/bench.mjs` measures the receipt reader on the public SROIE receipts. Persona and crowd simulations run
+The receipt reader was measured on the public SROIE receipts; that benchmark, and the persona and crowd simulations, run
 outside the repo.
 
 ## Structure
