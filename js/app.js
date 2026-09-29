@@ -189,6 +189,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     await setLang(settings().lang || pickLang(navigator.languages || [navigator.language]));
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
     await gate();   // app lock: nothing is shown before the PIN
+    if (settings().lock?.enc) await load();   // encrypted: the data could only be read once the PIN unlocked its key
     onRemoteChange(async () => { await load(); refresh(); });
     setTimeout(() => sweepPhotos().catch(() => {}), 8000);   // photos of entries deleted before this start (after their Undo was over)
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));

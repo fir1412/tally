@@ -1,12 +1,16 @@
-// App lock: a PIN (4–6 digits) and, where the phone has one, its fingerprint or face (WebAuthn platform
-// authenticator). Asked when Tally opens and after it was in the background for over a minute.
-// Honest scope: a privacy screen against someone holding the unlocked phone. The data itself is NOT encrypted.
-// Stored in settings (never in backups): {hash: PBKDF2-SHA-256 of the PIN, salt, iter, len, cred?: credential id}.
-import { settings, setSetting, eraseAll } from './state.js';
+// App lock: a PIN (4–6 digits) or a password (8+ characters) and, where the phone has one, its fingerprint or face
+// (WebAuthn platform authenticator). Asked when Tally opens and after it was in the background for over a minute.
+// Optionally the data is encrypted too (db.js): a random data key, wrapped (AES-GCM) with a key made from the PIN or
+// password (PBKDF2-SHA-256). Changing the PIN re-wraps that key; nothing is re-encrypted. A fingerprint can't give
+// the key, so while encrypted only the PIN or password opens Tally.
+// Stored in settings (never in backups): {hash, salt, iter, kind: 'pin'|'pass', len (PIN only), cred?} or, encrypted,
+// {kind, len, cred?, enc: {salt, iter, iv, key}}: no fast hash to guess against, only the slow unwrap.
+import { S, settings, setSetting, eraseAll } from './state.js';
+import * as db from './db.js';
 import { t } from './i18n.js';
 import { esc, ICON, openSheet, closeSheet, toast } from './ui.js';
 
-const ITER = 210_000, AWAY = 60_000;
+const ITER = 600_000, AWAY = 60_000;   // PBKDF2-SHA-256 rounds for new PINs (OWASP 2023); older locks keep theirs
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const rand = n => crypto.getRandomValues(new Uint8Array(n));
@@ -17,12 +21,81 @@ export async function hashPin(pin, salt, iter = ITER) {
   return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(salt), iterations: iter }, key, 256));
 }
 export const validPin = p => /^\d{4,6}$/.test(p);
-export async function makeLock(pin, cred = null) {
+/** A PIN of 4–6 digits, or a password of 8–64 characters. */
+export const validCode = (p, kind) => (kind === 'pass' ? p.length >= 8 && p.length <= 64 : validPin(p));
+export async function makeLock(pin, cred = null, kind = 'pin') {
   const salt = b64(rand(16));
-  return { hash: await hashPin(pin, salt), salt, iter: ITER, len: pin.length, ...(cred ? { cred } : {}) };
+  return { hash: await hashPin(pin, salt), salt, iter: ITER, kind, ...(kind === 'pin' ? { len: pin.length } : {}), ...(cred ? { cred } : {}) };
 }
-export const checkPin = async (pin, lock) => !!lock?.hash && (await hashPin(pin, lock.salt, lock.iter)) === lock.hash;
-export const lockOn = () => !!settings().lock?.hash;
+
+// ---- encryption: the data key, wrapped with a key made from the PIN or password ------------------------------------
+const ENC_ITER = 600_000;
+const kekOf = async (code, salt, iter) => crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(salt), iterations: iter },
+  await crypto.subtle.importKey('raw', new TextEncoder().encode(code), 'PBKDF2', false, ['deriveKey']), { name: 'AES-GCM', length: 256 }, false, ['wrapKey', 'unwrapKey']);
+export async function wrapDek(dek, code) {
+  const salt = b64(rand(16)), iv = rand(12);
+  return { salt, iter: ENC_ITER, iv: b64(iv), key: b64(await crypto.subtle.wrapKey('raw', dek, await kekOf(code, salt, ENC_ITER), { name: 'AES-GCM', iv })) };
+}
+/** The data key, or a rejection when the PIN or password is wrong (AES-GCM checks it). */
+export const unwrapDek = async (code, enc) => crypto.subtle.unwrapKey('raw', unb64(enc.key), await kekOf(code, enc.salt, enc.iter), { name: 'AES-GCM', iv: unb64(enc.iv) }, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+export const encOn = () => !!settings().lock?.enc;
+const chunks = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
+/** Encrypt everything on this phone with the current PIN or password (checked first). Photos go a few at a time. */
+const encLock = ({ hash, salt, iter, ...rest }, enc) => ({ ...rest, enc });   // the fast PIN hash goes: the unwrap checks
+export async function encryptOn(code) {
+  const lock = settings().lock;
+  if (!lock?.hash || !(await checkPin(code, lock))) throw new Error('wrong');
+  const dek = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']), enc = await wrapDek(dek, code);
+  const [accounts, tx, recurring, kv] = await Promise.all(['accounts', 'tx', 'recurring', 'kv'].map(s => db.all(s)));
+  const next = { ...settings(), lock: encLock(lock, enc) };
+  db.setKey(dek); db.expectSealed(true);
+  try { await db.writeAtomic({ put: { accounts, tx, recurring, kv: [...kv.filter(r => r.key !== 'settings'), { key: 'settings', value: next }] } }); }
+  catch (e) { db.setKey(null); db.expectSealed(false); throw e; }
+  S.kv.settings = next;
+  for (const ids of chunks(await db.keys('receipts'), 20)) await db.putMany('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
+}
+/** Back to plain storage with the current PIN or password (it gets its hash back). Photos first, while the key is here. */
+export async function encryptOff(code) {
+  const key = db.getKey(), old = settings().lock;
+  if (!key || !(await checkPin(code, old))) throw new Error('wrong');
+  for (const ids of chunks(await db.keys('receipts'), 20)) await db.putRaw('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
+  const [accounts, tx, recurring, kv] = await Promise.all(['accounts', 'tx', 'recurring', 'kv'].map(s => db.all(s)));
+  const next = { ...settings(), lock: await makeLock(code, old.cred, old.kind) };
+  db.setKey(null); db.expectSealed(false);
+  try { await db.writeAtomic({ put: { accounts, tx, recurring, kv: [...kv.filter(r => r.key !== 'settings'), { key: 'settings', value: next }] } }); }
+  catch (e) { db.setKey(key); db.expectSealed(true); throw e; }
+  S.kv.settings = next;
+}
+/** Is this the PIN or password? Encrypted: only if it unwraps the data key (kept for the lock screen: `opened`). */
+let opened = null;
+export async function checkPin(pin, lock) {
+  if (lock?.enc) { try { opened = await unwrapDek(pin, lock.enc); return true; } catch { return false; } }
+  return !!lock?.hash && (await hashPin(pin, lock.salt, lock.iter)) === lock.hash;
+}
+export const lockOn = () => !!(settings().lock?.hash || settings().lock?.enc);
+/** Ask for the current PIN or password before a change to the lock. → the code, or null if cancelled. */
+export function askCode(title) {
+  const lock = settings().lock, pass = lock.kind === 'pass';
+  return new Promise(done => {
+    const el = openSheet(`<h2 class="sh-title">${esc(title)}</h2>
+      <label class="field"><span>${esc(pass ? t('Your password') : t('Your PIN'))}</span><input id="ask-code" type="password" ${pass ? 'maxlength="64"' : 'inputmode="numeric" pattern="[0-9]*" maxlength="6"'} autocomplete="current-password" autofocus></label>
+      <p class="err" id="ask-err" role="alert"></p>
+      <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="ok">${esc(t('Continue'))}</button></div>`, { label: title, onClose: () => done(null) });
+    let tries = 0;
+    const go = async () => {
+      const code = el.querySelector('#ask-code').value;
+      if (!code) return;
+      el.querySelector('[data-x="ok"]').disabled = true;
+      const ok = await checkPin(code, lock);
+      el.querySelector('[data-x="ok"]').disabled = false;
+      if (ok) { done(code); return closeSheet(); }
+      if (++tries >= 5) { done(null); return closeSheet(); }
+      el.querySelector('#ask-code').value = ''; el.querySelector('#ask-err').textContent = pass ? t('That password is not right.') : t('That PIN is not right.');
+    };
+    el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x === 'no') { done(null); closeSheet(); } else if (x === 'ok') go(); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  });
+}
 
 // ---- fingerprint / face ------------------------------------------------------------------------------------------
 export async function bioAvailable() {
@@ -79,28 +152,31 @@ export function gate() {
   el.className = 'lock'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', t('Tally is locked'));
   document.body.append(el);
   pending = new Promise(resolve => {
-    const lock = settings().lock;
+    const lock = settings().lock, pass = lock.kind === 'pass', bio = lock.cred && !lock.enc;
     const done = () => { el.remove(); for (const x of kids) { x.classList.remove('veiled'); if (!wasInert.has(x)) x.inert = false; } pending = null; st.fails = 0; st.until = 0; tries.set([0, 0]); resolve(); };
     const err = m => { el.querySelector('#lock-err').textContent = m; };
     const main = () => {
-      el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h1>Tally</h1><p>${esc(t('Enter your PIN'))}</p>
-        <input id="lock-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" enterkeyhint="done" aria-label="${esc(t('PIN'))}">
+      el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h1>Tally</h1><p>${esc(pass ? t('Enter your password') : t('Enter your PIN'))}</p>
+        <input id="lock-pin" type="password" ${pass ? 'maxlength="64"' : 'inputmode="numeric" pattern="[0-9]*" maxlength="6"'} autocomplete="off" enterkeyhint="done" aria-label="${esc(pass ? t('Password') : t('PIN'))}">
         <p class="err" id="lock-err" role="alert"></p><button class="btn wide" data-l="pin">${esc(t('Unlock'))}</button>
-        ${lock.cred ? `<button class="btn ghost wide" data-l="bio">${ICON.lock}${esc(t('Use fingerprint or face'))}</button>` : ''}
-        <button class="link" data-l="forgot">${esc(t('Forgot PIN?'))}</button></div>`;
+        ${bio ? `<button class="btn ghost wide" data-l="bio">${ICON.lock}${esc(t('Use fingerprint or face'))}</button>` : ''}
+        <button class="link" data-l="forgot">${esc(pass ? t('Forgot your password?') : t('Forgot PIN?'))}</button></div>`;
       setTimeout(() => el.querySelector('#lock-pin')?.focus(), 30);
     };
     const forgot = (confirm = false) => {
       el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h2>${esc(confirm ? t('Erase everything?') : t('Forgot your PIN?'))}</h2>
         <p>${esc(confirm ? t('This deletes all accounts, transactions and photos on this phone. It cannot be undone. Back up first if you might want them.') : t('Tally keeps no copy of your PIN, so it cannot be shown or reset. You can still get in with your fingerprint or face if you set it up, or erase everything and start again (a backup file can be restored afterwards).'))}</p>
-        ${!confirm && lock.cred ? `<button class="btn wide" data-l="bio">${esc(t('Use fingerprint or face'))}</button>` : ''}
+        ${!confirm && bio ? `<button class="btn wide" data-l="bio">${esc(t('Use fingerprint or face'))}</button>` : ''}
         <button class="btn ${confirm ? 'danger' : 'ghost danger'} wide" data-l="${confirm ? 'erase-yes' : 'erase'}">${esc(t('Erase everything'))}</button>
         <button class="btn ghost wide" data-l="back">${esc(t('Back'))}</button></div>`;
     };
     const guard = pinGuard(pin => checkPin(pin, lock), st);
     const tryPin = async () => {
-      const r = await guard(el.querySelector('#lock-pin').value);
-      if (r === 'ok') return done();
+      const code = el.querySelector('#lock-pin').value, r = await guard(code);
+      if (r === 'ok') {
+        if (!lock.enc) return done();
+        db.setKey(opened); opened = null; return done();
+      }
       if (r === 'wait') { const s = Math.ceil((st.until - Date.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
       if (r !== 'wrong') return;
       tries.set([st.fails, st.until]);
@@ -110,14 +186,14 @@ export function gate() {
     el.addEventListener('click', async e => {
       const k = e.target.closest('[data-l]')?.dataset.l;
       if (k === 'pin') tryPin();
-      else if (k === 'bio') { if (await bioCheck(lock.cred)) done(); else if (el.querySelector('#lock-err')) err(t('Not recognised. Use your PIN.')); }
+      else if (k === 'bio') { if (bio && await bioCheck(lock.cred)) done(); else if (el.querySelector('#lock-err')) err(t('Not recognised. Use your PIN.')); }
       else if (k === 'forgot') forgot();
       else if (k === 'erase') forgot(true);
       else if (k === 'back') main();
       else if (k === 'erase-yes') { await eraseAll(); location.hash = '#/welcome'; location.reload(); }
     });
     el.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'lock-pin') tryPin(); });
-    el.addEventListener('input', e => { if (e.target.id === 'lock-pin' && e.target.value.length === lock.len) tryPin(); });
+    el.addEventListener('input', e => { if (e.target.id === 'lock-pin' && !pass && e.target.value.length === lock.len) tryPin(); });
     main();
   });
   return pending;
@@ -136,10 +212,11 @@ export function watch(onResume) {
 // ---- Settings → Lock Tally ----------------------------------------------------------------------------------------
 /** Set or change the PIN (and fingerprint). `after` runs once saved. */
 export async function lockSheet(after) {
-  const bio = await bioAvailable();
+  const bio = (await bioAvailable()) && !encOn();   // encrypted: only the PIN or password can unlock the key
   const el = openSheet(`<h2 class="sh-title">${esc(lockOn() ? t('Change PIN') : t('Lock Tally'))}</h2>
-    <p class="sh-body">${esc(t('Tally will ask for a PIN when it opens and after it has been in the background for a minute. This is a privacy lock: it keeps people who pick up your phone out of Tally, but the data on the phone is not encrypted.'))}</p>
-    <label class="field"><span>${esc(t('New PIN (4 to 6 digits)'))}</span><input id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" autofocus></label>
+    <p class="sh-body">${esc(encOn() ? t('Tally will ask for it when it opens and after it has been in the background for a minute. Your data stays encrypted; it is locked with the new one from now on.') : t('Tally will ask for a PIN when it opens and after it has been in the background for a minute. This is a privacy lock: it keeps people who pick up your phone out of Tally, but the data on the phone is not encrypted.'))}</p>
+    <label class="check"><input type="checkbox" id="pin-pass"${settings().lock?.kind === 'pass' ? ' checked' : ''}> ${esc(t('Use a password (8 or more characters) instead of a PIN'))}</label>
+    <label class="field"><span id="pin1-l">${esc(t('New PIN (4 to 6 digits)'))}</span><input id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" autofocus></label>
     <label class="field"><span>${esc(t('Enter it again'))}</span><input id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password"></label>
     ${bio ? `<label class="check"><input type="checkbox" id="pin-bio"${!lockOn() || settings().lock.cred ? ' checked' : ''}> ${esc(t('Also unlock with fingerprint or face'))}</label>` : ''}
     <p class="fine">${esc(t('If you forget the PIN, the only way back in is your fingerprint or face (if set) or erasing everything. Keep a backup.'))}</p>
@@ -150,13 +227,24 @@ export async function lockSheet(after) {
     if (x === 'no') return closeSheet();
     if (x !== 'yes') return;
     const p1 = el.querySelector('#pin1').value, p2 = el.querySelector('#pin2').value, err = m => { el.querySelector('#pin-err').textContent = m; };
-    if (!validPin(p1)) return err(t('Use 4 to 6 digits.'));
-    if (p1 !== p2) return err(t('The two PINs are different.'));
+    const kind = el.querySelector('#pin-pass').checked ? 'pass' : 'pin';
+    if (!validCode(p1, kind)) return err(kind === 'pass' ? t('Use 8 or more characters.') : t('Use 4 to 6 digits.'));
+    if (p1 !== p2) return err(kind === 'pass' ? t('The two passwords are different.') : t('The two PINs are different.'));
     let cred = null;
     if (el.querySelector('#pin-bio')?.checked) cred = settings().lock?.cred || await bioRegister().catch(() => null);
-    await setSetting('lock', await makeLock(p1, cred));
+    const key = db.getKey();
+    if (encOn() && !key) return err(t('Could not unlock the data with this PIN.'));
+    const made = await makeLock(p1, cred, kind), next = encOn() ? encLock(made, await wrapDek(key, p1)) : made;
+    await setSetting('lock', next);
     closeSheet(); after?.();
     toast(el.querySelector('#pin-bio')?.checked && !cred ? t('PIN lock on. Fingerprint or face could not be set up; use the PIN.') : t('Tally is locked with your PIN'), { k: 'good', icon: 'check' });
   });
 }
-export const lockOff = () => setSetting('lock', null);
+export async function lockOff(code) { if (encOn()) await encryptOff(code); return setSetting('lock', null); }
+// Switch the PIN fields to a password and back.
+globalThis.document?.addEventListener('change', e => {
+  if (e.target?.id !== 'pin-pass') return;
+  const pass = e.target.checked, lbl = document.getElementById('pin1-l');
+  for (const id of ['pin1', 'pin2']) { const f = document.getElementById(id); if (!f) continue; f.value = ''; if (pass) { f.removeAttribute('inputmode'); f.removeAttribute('pattern'); f.maxLength = 64; } else { f.inputMode = 'numeric'; f.pattern = '[0-9]*'; f.maxLength = 6; } }
+  if (lbl) lbl.textContent = pass ? t('New password (8 or more characters)') : t('New PIN (4 to 6 digits)');
+});

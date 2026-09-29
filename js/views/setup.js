@@ -1,8 +1,8 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
-import { lockOn, lockSheet, lockOff } from '../lock.js';
+import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
 import { fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
@@ -192,9 +192,12 @@ export const settingsView = {
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.'))}</p>
-        <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(lockOn() ? (settings().lock.cred ? t('On: PIN, fingerprint or face') : t('On: PIN')) : t('Off'))}</small></span>
+        <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(!lockOn() ? t('Off') : settings().lock.kind === 'pass' ? t('On: password') : settings().lock.cred && !encOn() ? t('On: PIN, fingerprint or face') : t('On: PIN'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
-        <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
+        ${lockOn() && storageMode() === 'indexeddb' ? `<div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Encrypt data on this phone'))}</b><small>${esc(encOn() ? t('On') : t('Off'))}</small></span><button class="btn small ghost" data-act="${encOn() ? 'enc-off' : 'enc-on'}">${esc(encOn() ? t('Turn off') : t('Turn on'))}</button></div>` : ''}
+        <p class="fine">${esc(!lockOn() ? t('A privacy lock for people who pick up your phone. Turn it on to encrypt your data too.') : !encOn() ? t('A privacy lock for people who pick up your phone. Your data is not encrypted.')
+          : settings().lock.kind === 'pass' ? t('Your entries and photos are encrypted with your password. Without it no one can read them, not even from a copy of the phone.')
+          : t('Your entries and photos are encrypted with your PIN. Someone with a copy of the phone could try every 4–6 digit PIN on a computer; a password of 8 or more characters stops that.'))}</p>
         <button class="btn ghost wide" data-act="net-check">${ICON.check}${esc(t('Check what Tally contacted'))}</button>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
         <p class="legal">${legalLinks()}</p></section>
@@ -669,8 +672,26 @@ export const act = {
   'remind-google': async () => { const ev = await dailyReminder(); window.open(googleUrl(ev), '_blank', 'noopener'); },
   'remind-ics': async () => { download('tally-daily-reminder.ics', ics([await dailyReminder()]), 'text/calendar'); toast(t('Open the file to add the reminder to your calendar.'), { k: 'good', icon: 'check' }); },
   feedback: () => openFeedback(APP_VERSION),
-  'lock-set': () => lockSheet(render),
-  'lock-off': async () => { if (await confirmSheet({ title: t('Turn off the lock?'), body: t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') })) { await lockOff(); render(); } },
+  'lock-set': async () => { if (lockOn() && !(await askCode(t('Change PIN')))) return; lockSheet(render); },
+  'lock-off': async () => {
+    if (!(await confirmSheet({ title: t('Turn off the lock?'), body: encOn() ? t('Anyone with your phone will be able to open Tally, and your data will no longer be encrypted.') : t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') }))) return;
+    const code = await askCode(t('Turn off the lock?')); if (!code) return;
+    try { await lockOff(code); } catch { return toast(t('Could not turn it off. Try again.'), { k: 'bad' }); }
+    render();
+  },
+  // Encryption: everything but the settings, with the lock's PIN or password. Forgetting it means the data is gone.
+  'enc-on': async () => {
+    if (!(await confirmSheet({ title: t('Encrypt data on this phone?'), body: t('Your entries and receipt photos will be stored encrypted with your PIN or password, so no one can read them without it, even from a copy of the phone. Fingerprint or face can no longer open Tally. If you forget the PIN or password, the data cannot be recovered: keep a backup.'), ok: t('Continue') }))) return;
+    const code = await askCode(t('Encrypt data on this phone')); if (!code) return;
+    toast(t('Encrypting…'));
+    try { await encryptOn(code); } catch { return toast(t('Could not encrypt. Nothing was changed.'), { k: 'bad' }); }
+    render(); toast(t('Your data on this phone is encrypted.'), { k: 'good', icon: 'check' });
+  },
+  'enc-off': async () => {
+    const code = await askCode(t('Stop encrypting data?')); if (!code) return;
+    try { await encryptOff(code); } catch { return toast(t('Could not turn it off. Try again.'), { k: 'bad' }); }
+    render(); toast(t('Your data is stored without encryption again.'));
+  },
   tour: () => showTour(1),
   'whats-new': () => showWhatsNew(),
   install: async () => { if (await promptInstall()) render(); },

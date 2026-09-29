@@ -8,6 +8,46 @@ export const STORES = ['accounts', 'tx', 'recurring', 'receipts', 'kv'];
 let idb = null;
 let mem = null; // fallback: {store: {id: obj}}
 
+// ---- encryption at rest (optional, tied to the lock: js/lock.js) -----------------------------------------------------
+// With it on, every record except the settings (language, the lock itself: needed before unlocking) is stored as
+// {id or key, iv, ct}: AES-GCM of the record under a random data key that exists only in memory after unlocking.
+// Receipt photos are sealed too (their bytes after a JSON header). Old plain records still read, so turning it on or
+// off can move the photos a few at a time. IndexedDB only: the localStorage fallback can't hold the bytes.
+let dek = null, sealed = false;
+/** The data key for this session (null: none). */
+export const setKey = k => { dek = k; };
+export const getKey = () => dek;
+/** Whether records must be sealed: then a write without the key is refused rather than stored in the clear. */
+export const expectSealed = v => { sealed = !!v; };
+const plainRec = (store, obj) => store === 'kv' && obj?.key === 'settings';
+const idOf = (store, obj) => (store === 'kv' ? { key: obj.key } : { id: obj.id });
+/** One record, sealed with `key` (receipts: the photo's bytes go in too). */
+export async function sealRecord(store, obj, key) {
+  const { blob, ...rest } = obj;
+  const head = new TextEncoder().encode(JSON.stringify(blob instanceof Blob ? { ...rest, blobType: blob.type } : obj));
+  const body = blob instanceof Blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array(0);
+  const data = new Uint8Array(4 + head.length + body.length);
+  new DataView(data.buffer).setUint32(0, head.length); data.set(head, 4); data.set(body, 4 + head.length);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  return { ...idOf(store, obj), iv, ct: await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data) };
+}
+/** A stored record back as it was; plain records come back as they are. Throws without the right key. */
+export async function openRecord(rec, key) {
+  if (!rec || !rec.ct || !rec.iv) return rec;
+  if (!key) throw new Error('Tally is locked');
+  const data = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: rec.iv }, key, rec.ct));
+  const n = new DataView(data.buffer).getUint32(0), obj = JSON.parse(new TextDecoder().decode(data.subarray(4, 4 + n)));
+  if (obj.blobType == null) return obj;
+  const { blobType, ...rest } = obj;
+  return { ...rest, blob: new Blob([data.subarray(4 + n)], { type: blobType }) };
+}
+async function seal(store, obj) {
+  if (!idb || plainRec(store, obj)) return obj;
+  if (!dek) { if (sealed) throw new Error('Tally is locked'); return obj; }
+  return sealRecord(store, obj, dek);
+}
+const unseal = rec => openRecord(rec, dek);
+
 // Other tabs of the app are told about every write, so two open tabs don't silently overwrite each other.
 const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tally-data') : null;
 bc?.unref?.(); // Node only (tests): an open channel must not keep the process alive
@@ -91,19 +131,21 @@ export async function keys(store) {
 }
 export async function all(store) {
   if (!idb) return Object.values(mem[store]);
-  return tx(store, 'readonly', os => reqP(os.getAll()));
+  return Promise.all((await tx(store, 'readonly', os => reqP(os.getAll()))).map(unseal));
 }
 
 export async function put(store, obj) {
   if (!idb) { lsWrite(store, m => { m[store === 'kv' ? obj.key : obj.id] = obj; }); return obj; }
-  await tx(store, 'readwrite', os => { os.put(obj); });
+  const rec = await seal(store, obj);
+  await tx(store, 'readwrite', os => { os.put(rec); });
   notify(store);
   return obj;
 }
 
 export async function putMany(store, list) {
   if (!idb) return lsWrite(store, m => { for (const o of list) m[store === 'kv' ? o.key : o.id] = o; });
-  await tx(store, 'readwrite', os => { for (const o of list) os.put(o); });
+  const recs = await Promise.all(list.map(o => seal(store, o)));
+  await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
   notify(store);
 }
 
@@ -122,7 +164,7 @@ export async function clear(store) {
 /** One key from the kv store, read directly (never the whole store). */
 export async function getKv(key, fallback = null) {
   if (!idb) { const hit = mem.kv[key]; return hit ? hit.value : fallback; }
-  const hit = await tx('kv', 'readonly', os => reqP(os.get(key)));
+  const hit = await unseal(await tx('kv', 'readonly', os => reqP(os.get(key))));
   return hit ? hit.value : fallback;
 }
 export const setKv = (key, value) => put('kv', { key, value });
@@ -137,7 +179,12 @@ export async function kvKeys(prefix) {
 /** One record by key from any store (receipt photos are read one at a time, never all at once). */
 export async function get(store, key) {
   if (!idb) return mem[store][key] ?? null;
-  return (await tx(store, 'readonly', os => reqP(os.get(key)))) ?? null;
+  return (await unseal(await tx(store, 'readonly', os => reqP(os.get(key))))) ?? null;
+}
+/** Write records exactly as given (turning encryption on or off moves them a few at a time). */
+export async function putRaw(store, recs) {
+  await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
+  notify(store);
 }
 
 /** Delete many keys in one transaction with one change notice (undo of a big import). */
@@ -164,13 +211,14 @@ export async function writeAtomic({ clear = [], del = {}, put = {} }) {
     } catch (e) { mem = backup; for (const s of stores) try { localStorage.setItem(`${NAME}.${s}`, JSON.stringify(mem[s])); } catch {} failHandler(e); throw e; }
     notify('all'); return;
   }
+  const sealedPut = Object.fromEntries(await Promise.all(Object.entries(put).map(async ([s, list]) => [s, await Promise.all(list.map(o => seal(s, o)))])));   // before the transaction: it would close while waiting
   await new Promise((resolve, reject) => {
     let t;
     try {
       t = idb.transaction(stores, 'readwrite');
       for (const s of clear) t.objectStore(s).clear();
       for (const [s, keys] of Object.entries(del)) for (const k of keys) t.objectStore(s).delete(k);
-      for (const [s, list] of Object.entries(put)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
+      for (const [s, list] of Object.entries(sealedPut)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
     } catch (e) { try { t?.abort(); } catch {} failHandler(e); return reject(e); } // abort: a half-written restore must not commit
     t.oncomplete = resolve;
     t.onerror = t.onabort = () => { failHandler(t.error); reject(t.error); };

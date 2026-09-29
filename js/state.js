@@ -6,11 +6,17 @@ import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccoun
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
 
+/** Encrypted and not unlocked yet: nothing but the settings is loaded, and nothing may be saved. */
+export const locked = () => !!S.kv.settings?.lock?.enc && !db.getKey();
 export async function load() {
   const mode = await db.init();
-  [S.accounts, S.tx, S.recurring] = await Promise.all(['accounts', 'tx', 'recurring'].map(s => db.all(s)));
-  for (const k of KV_KEYS) S.kv[k] = await db.getKv(k, null);
-  S.kv.settings ||= {};
+  S.kv.settings = (await db.getKv('settings', null)) || {};
+  db.expectSealed(!!S.kv.settings.lock?.enc);
+  if (locked()) { [S.accounts, S.tx, S.recurring] = [[], [], []]; for (const k of KV_KEYS) if (k !== 'settings') S.kv[k] = null; }
+  else {
+    [S.accounts, S.tx, S.recurring] = await Promise.all(['accounts', 'tx', 'recurring'].map(s => db.all(s)));
+    for (const k of KV_KEYS) if (k !== 'settings') S.kv[k] = await db.getKv(k, null);
+  }
   ownCategories(S.kv.settings.ownCats);
   S.kv.budgets ||= { total: 0, byCat: {} };
   S.kv.rules ||= {};
@@ -236,6 +242,7 @@ export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, 
 }
 export async function eraseAll() {
   for (const s of db.STORES) await db.clear(s);
+  db.setKey(null); db.expectSealed(false);   // nothing encrypted left, and no key for a fresh start
   await load();
 }
 export const storageMode = db.storageMode;
