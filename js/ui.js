@@ -18,7 +18,7 @@ function niceTicks(a, b, n) {
   for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) out.push(v);
   return out;
 }
-const short = sen => { const r = sen / 100; return Math.abs(r) >= 1000 ? `${+(r / 1000).toFixed(1)}k` : `${Math.round(r)}`; };
+export const short = sen => { const r = sen / 100; return Math.abs(r) >= 1000 ? `${+(r / 1000).toFixed(1)}k` : `${Math.round(r)}`; };
 /** Area line over dates. series: [{date, v (sen)}]. goal: a flat line (budget). */
 export function lineChart(series, { goal = null, height = 160, label = 'chart', k = 'accent' } = {}) {
   if (!series.length) return `<p class="fine">${esc(t('Not enough data yet.'))}</p>`;
@@ -127,7 +127,7 @@ let toastT;
 /** Short message in a live region; optional Undo. */
 export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false } = {}) {
   let el = $('#toast');
-  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true'); document.body.appendChild(el); }
   el.textContent = msg;
   if (icon) el.insertAdjacentHTML('afterbegin', ICON[icon] || '');
   el.classList.toggle('has-undo', !!undo);
@@ -191,14 +191,23 @@ if (typeof document !== 'undefined') {
   document.body.append(bar);
   let field = null;
   const isSum = v => parseAmount(v) == null && calcAmount(v) != null;
+  let fullViewport = window.visualViewport?.height || innerHeight;
   const place = () => { const v = window.visualViewport; bar.style.top = `${(v ? v.offsetTop + v.height : innerHeight) - bar.offsetHeight}px`; };
   const show = () => { bar.querySelector('output').textContent = field && isSum(field.value) ? `= ${fmtRM(calcAmount(field.value), { plain: true })}` : ''; };
+  const syncBar = () => {
+    const v = window.visualViewport;
+    const keyboardOpen = fullViewport - (v?.height || innerHeight) > 140;
+    const visible = !!field && field.isConnected && touch.matches && keyboardOpen;
+    bar.hidden = !visible;
+    document.body.classList.toggle('calc-on', visible);
+    if (visible) { place(); show(); }
+  };
   // The room left for the bar goes a moment later, so the tap that left the field (on Save) lands where it aimed.
-  const hide = () => { field = null; bar.hidden = true; setTimeout(() => field || document.body.classList.remove('calc-on'), 400); };
+  const hide = () => { field = null; bar.hidden = true; setTimeout(() => { if (!field) { document.body.classList.remove('calc-on'); fullViewport = window.visualViewport?.height || innerHeight; } }, 400); };
   document.addEventListener('focusin', e => {
     if (!e.target.matches?.(AMT)) return hide();
     field = e.target;
-    if (touch.matches) { bar.hidden = false; document.body.classList.add('calc-on'); place(); show(); }
+    syncBar();
   });
   document.addEventListener('focusout', e => {
     if (e.target !== field) return;
@@ -213,8 +222,8 @@ if (typeof document !== 'undefined') {
     field.setRangeText(op, field.selectionStart ?? field.value.length, field.selectionEnd ?? field.value.length, 'end');
     field.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  window.visualViewport?.addEventListener('resize', () => field && place());
-  window.visualViewport?.addEventListener('scroll', () => field && place());
+  window.visualViewport?.addEventListener('resize', () => { if (field) syncBar(); else fullViewport = window.visualViewport.height; });
+  window.visualViewport?.addEventListener('scroll', () => field && syncBar());
 }
 
 // ---- icons (24px line icons; decorative, controls carry their own labels) ------------------------------

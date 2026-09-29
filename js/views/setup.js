@@ -265,9 +265,10 @@ async function startMapping(rows, name) {
   const saved = settings().importMaps?.[sig], okMap = saved?.map && (saved.preset || null) === (preset?.id || null) && Object.values(saved.map).every(i => Number.isInteger(i) && i >= 0 && i < header.length);
   const have = new Set([...expenseCats(), ...INCOME_CATEGORIES].map(c => c.id));
   const catMap = Object.fromEntries(Object.entries(saved?.catMap || {}).filter(([, v]) => have.has(v)));
-  const existing = prov && findAccount(prov[1], kind);
+  const sourceKey = hash(JSON.stringify([name, rows])), remembered = settings().importSources?.[sourceKey];
+  const existing = S.accounts.find(a => a.id === remembered) || (prov && findAccount(prov[1], kind));
   // Another app's history or a bank's statement is its own account by default (Round 2: imports landed in Cash).
-  IMP = { rows: rows.slice(h + 1), header, sig, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || '', kind, catMap, accIds: {}, name, skipFuture: true, tabs: rows.tabs };
+  IMP = { rows: rows.slice(h + 1), header, sig, sourceKey, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || '', kind, catMap, accIds: {}, name, skipFuture: true, tabs: rows.tabs };
   showMapping();
 }
 /** Their categories, each with its Tally category: chosen, remembered, matched by name, or a new one named after it. */
@@ -336,20 +337,23 @@ function showMapping() {
  * Undo takes everything back: the rows, the transfers (restoring what they replaced), photos, new accounts.
  * `before(fresh)` runs first (photos) and returns photo ids to remove again on Undo.
  */
-async function commitImport(txs, label, { before = async () => [], newAccounts = [], undoMore = async () => {}, tourLater = false } = {}) {
+async function commitImport(txs, label, { before = async () => [], accounts = [], kv = {}, newAccounts = [], undoMore = async () => {}, tourLater = false } = {}) {
   const { fresh, dups } = splitDups(S.tx, txs);
   const photoIds = await before(fresh);
   const pairs = pairTransfers([...S.tx, ...fresh], fresh), paired = new Set(pairs.flat().map(x => x.id));
   const replaced = S.tx.filter(x => paired.has(x.id)), save = [...fresh.filter(x => !paired.has(x.id)), ...pairs.map(asTransfer)];
-  await saveTxs(save);   // save first: a failed write must not leave the replaced rows deleted
   const kept = new Set(save.map(x => x.id)), gone = replaced.filter(x => !kept.has(x.id)).map(x => x.id);
-  if (gone.length) await deleteTxs(gone);
-  for (const id of newAccounts) if (!save.some(x => x.accountId === id || x.toAccountId === id)) await deleteAccount(id).catch(() => {});
-  if (!settings().onboarded) { await setSetting('onboarded', true); if (!tourLater) afterSetup(); }
+  const used = new Set(save.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
+  const stagedAccounts = accounts.filter(a => !newAccounts.includes(a.id) || used.has(a.id));
+  const first = !settings().onboarded;
+  const stagedKv = { ...kv, ...(first ? { settings: { ...(kv.settings || settings()), onboarded: true } } : {}) };
+  try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone }, kv: stagedKv }); }
+  catch (e) { await deletePhotos(photoIds); throw e; }
+  if (first && !tourLater) afterSetup();
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length)}` : ''), { undo: async () => {
-    await deleteTxs(save.map(x => x.id)); await saveTxs(replaced); await deletePhotos(photoIds);
-    for (const id of newAccounts) await deleteAccount(id).catch(() => {});
+    await putAll({ tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) } });
+    await deletePhotos(photoIds);
     await undoMore(); render();
   } });
 }
@@ -402,9 +406,10 @@ async function importStatement(buf, password) {
   for (let i = 1; i <= Math.min(doc.numPages, 80); i++) lines.push(...(i > 1 ? [PAGE_BREAK] : []), ...linesFromItems((await (await doc.getPage(i)).getTextContent()).items));
   const st = parseStatement(lines);
   if (!st.rows.length) return impErr(t('No transactions found in this PDF. If it is a scanned picture, download the statement again from your bank app, or its CSV.'));
-  IMP = { st };
+  const sourceKey = hash(JSON.stringify(st.rows));
+  IMP = { st, sourceKey };
   const name = st.provider?.[1] || t('Bank statement');
-  const existing = st.provider && findAccount(name, st.provider[2]);
+  const existing = S.accounts.find(a => a.id === settings().importSources?.[sourceKey]) || (st.provider && findAccount(name, st.provider[2]));
   openSheet(`<h2 class="sh-title">${esc(name)}</h2>
     <p class="fine">${esc(t('{0} transactions', st.rows.length))} · ${esc(`${st.rows[0].date} → ${st.rows.at(-1).date}`)}</p>
     <p class="${st.reconciled ? 'okbox' : 'warnbox'}">${esc(st.reconciled ? t('Opening and closing balances check out: nothing is missing.') : t('The balances on this statement could not be checked. Look over the rows before importing.'))}</p>
@@ -472,11 +477,13 @@ async function restoreText(text, zip = {}) {
 
 /** The backup, as JSON, or with photos as a zip holding the same JSON plus photos/<id>.jpg. */
 async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx) {
-  if (!withPhotos) return { name, blob: new Blob([text], { type: 'application/json' }) };
+  if (!withPhotos) return { name, blob: new Blob([text], { type: 'application/json' }), missing: 0 };
   const files = [{ name: BACKUP_JSON, data: new TextEncoder().encode(text) }];
-  for (const id of new Set(txs.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); }
-  return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files) };
+  let missing = 0;
+  for (const id of new Set(txs.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); else missing++; }
+  return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files), missing };
 }
+const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
 const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
@@ -621,43 +628,53 @@ export const act = {
   },
   'imp-go': async b => {
     b.disabled = true;
-    const { txs, opening, acc, adjusted } = impPlan(), m = IMP.map, made = [], now = Date.now();
-    if (IMP.accountId === 'new' && txs.some(x => x.accountId === IMP.newId)) {
-      await saveAccount({ id: IMP.newId, name: newAccName(), kind: IMP.kind || (m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash'), opening: opening ?? adjusted[''] ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
+    const { txs, fresh, opening, acc, adjusted } = impPlan(), m = IMP.map, made = [], staged = [], now = Date.now();
+    if (!fresh.length) { b.disabled = false; return impErr(t('All rows are already in Tally. Nothing new to import.')); }
+    if (IMP.accountId === 'new' && fresh.some(x => x.accountId === IMP.newId)) {
+      staged.push({ id: IMP.newId, name: newAccName(), kind: IMP.kind || (m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash'), opening: opening ?? adjusted[''] ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
       made.push(IMP.newId);
     }
-    for (const [n, a] of acc.values.entries()) if (a.isNew) { await saveAccount({ id: a.id, name: a.v, kind: a.kind, opening: adjusted[a.v.toLowerCase()] || 0, createdAt: now + n + 1 }); made.push(a.id); }
-    // Balance corrections into accounts already here move their opening balance too (undone with the import).
-    const bumped = [];
-    const bump = async (id, d) => { const a = S.accounts.find(x => x.id === id); if (!a || !d) return; bumped.push(a); await saveAccount({ ...a, opening: (a.opening || 0) + d }); };
-    if (IMP.accountId !== 'new') await bump(IMP.accountId, adjusted['']);
-    for (const a of acc.values) if (!a.isNew) await bump(a.id, adjusted[a.v.toLowerCase()]);
+    for (const [n, a] of acc.values.entries()) if (a.isNew && fresh.some(x => x.accountId === a.id || x.toAccountId === a.id)) {
+      staged.push({ id: a.id, name: a.v, kind: a.kind, opening: adjusted[a.v.toLowerCase()] || 0, createdAt: now + n + 1 }); made.push(a.id);
+    }
+    // An adjustment has no transaction row. Remember its source so a repeated file cannot move the balance twice.
+    const adjustmentKey = IMP.sourceKey;
+    const seenAdjustments = settings().importAdjustments || [], bumped = [];
+    const bump = (id, d) => { const a = S.accounts.find(x => x.id === id); if (!a || !d) return; if (!bumped.some(x => x.id === id)) bumped.push(a); const i = staged.findIndex(x => x.id === id), prior = i >= 0 ? staged[i] : a; const next = { ...prior, opening: (prior.opening || 0) + d, updatedAt: now }; if (i >= 0) staged[i] = next; else staged.push(next); };
+    if (!seenAdjustments.includes(adjustmentKey)) {
+      if (IMP.accountId !== 'new') bump(IMP.accountId, adjusted['']);
+      for (const a of acc.values) if (!a.isNew) bump(a.id, adjusted[a.v.toLowerCase()]);
+    }
     // "New category: Parents" becomes a real category when a row uses it; the choices are remembered for this header.
-    const choices = catChoices(), madeCats = [];
+    const choices = catChoices(), newCats = [];
     for (const [src, v] of Object.entries(choices)) {
-      if (!v.startsWith('new:') || !txs.some(x => x.category === v)) continue;
-      const c = S.kv.customCats.find(x => norm(x.name) === norm(v.slice(4))) || await addCategory(v.slice(4));
-      madeCats.push(c.id);
+      if (!v.startsWith('new:') || !fresh.some(x => x.category === v)) continue;
+      const c = [...S.kv.customCats, ...newCats].find(x => norm(x.name) === norm(v.slice(4))) || { id: uid('c_'), name: v.slice(4), color: '#64748B' };
+      if (!S.kv.customCats.some(x => x.id === c.id)) newCats.push(c);
       for (const x of txs) if (x.category === v) x.category = c.id;
       choices[src] = c.id;
     }
     const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
-    await setSetting('importMaps', Object.fromEntries(maps));
+    const nextSettings = { ...settings(), importMaps: Object.fromEntries(maps), importSources: Object.fromEntries(Object.entries({ ...settings().importSources, [IMP.sourceKey]: IMP.accountId === 'new' ? IMP.newId : IMP.accountId }).slice(-100)), ...(bumped.length ? { importAdjustments: [...seenAdjustments, adjustmentKey].slice(-100) } : {}) };
     const blind = m.balance == null ? made.filter(id => !(id === IMP.newId ? opening ?? adjusted[''] : adjusted[acc.values.find(a => a.id === id)?.v.toLowerCase()])) : [];   // started at zero: nothing said what they hold
     const first = !settings().onboarded;   // the tour waits until the balances are in
-    await commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, tourLater: blind.length > 0, undoMore: async () => {
+    const sourceKey = IMP.sourceKey, importedAccount = IMP.accountId === 'new' ? IMP.newId : IMP.accountId;
+    await commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { accounts: staged, kv: { settings: nextSettings, ...(newCats.length ? { customCats: [...S.kv.customCats, ...newCats] } : {}) }, newAccounts: made, tourLater: blind.length > 0, undoMore: async () => {
       for (const a of bumped) await saveAccount(a);
-      await setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id)));
+      if (newCats.length) await setKv('customCats', S.kv.customCats.filter(c => !newCats.some(n => n.id === c.id) || S.tx.some(x => x.category === c.id)));
+      const sources = { ...settings().importSources }; if (sources[sourceKey] === importedAccount) delete sources[sourceKey];
+      await setKv('settings', { ...settings(), importSources: sources, importAdjustments: (settings().importAdjustments || []).filter(k => k !== adjustmentKey) });
     } });
     if (blind.length) setTimeout(() => balanceTodaySheet(blind, first ? afterSetup : undefined), 300);   // after the move to Home settles (like the tour)
   },
   'mm-go': async b => {
     b.disabled = true;
     const { mm, buf } = IMP, withPhotos = $('#mm-photos')?.checked;
-    for (const a of mm.accounts) if (!S.accounts.some(x => x.id === a.id)) await saveAccount(a);
+    const fresh = splitDups(S.tx, mm.tx).fresh, used = new Set(fresh.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
+    const accounts = mm.accounts.filter(a => used.has(a.id) && !S.accounts.some(x => x.id === a.id));
     const have = new Set(S.kv.customCats.map(c => c.id));
-    await setKv('customCats', [...S.kv.customCats, ...mm.customCats.filter(c => !have.has(c.id))]);
-    await commitImport(mm.tx, mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { before: async fresh => {
+    const cats = mm.customCats.filter(c => !have.has(c.id) && fresh.some(x => x.category === c.id || x.items?.some(i => i.category === c.id)));
+    await commitImport(mm.tx, mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { accounts, newAccounts: accounts.map(a => a.id), kv: cats.length ? { customCats: [...S.kv.customCats, ...cats] } : {}, before: async fresh => {
       if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
       const want = new Map(fresh.map(x => [x.id, x]));
@@ -673,6 +690,8 @@ export const act = {
         want.get(p.txId).receiptId = id;
       }
       return ids;
+    }, undoMore: async () => {
+      if (cats.length) await setKv('customCats', S.kv.customCats.filter(c => !cats.some(n => n.id === c.id) || S.tx.some(x => x.category === c.id)));
     } });
   },
   'pdf-unlock': () => { const pw = $('#pdf-pw').value; if (pw) importStatement(IMP.pdf, pw).catch(e => impErr(e.message)); },
@@ -680,12 +699,14 @@ export const act = {
     b.disabled = true;
     const { st } = IMP, sel = $('#st-acc').value;
     let accountId = sel;
+    let account = null;
     if (sel === 'new') {
       accountId = uid('a');
       const first = st.rows[0];
-      await saveAccount({ id: accountId, name: st.provider?.[1] || t('Bank statement'), kind: st.provider?.[2] || 'bank', opening: st.opening ?? (first.balance != null ? first.balance - first.amount : 0), createdAt: Date.now() });
+      account = { id: accountId, name: st.provider?.[1] || t('Bank statement'), kind: st.provider?.[2] || 'bank', opening: st.opening ?? (first.balance != null ? first.balance - first.amount : 0), createdAt: Date.now() };
     }
-    await commitImport(importIds(statementToTx(st.rows, { accountId }), 's'), st.provider?.[1] || t('Bank statement'), { newAccounts: sel === 'new' ? [accountId] : [] });
+    const source = Object.fromEntries(Object.entries({ ...settings().importSources, [IMP.sourceKey]: accountId }).slice(-100));
+    await commitImport(importIds(statementToTx(st.rows, { accountId }), 's'), st.provider?.[1] || t('Bank statement'), { accounts: account ? [account] : [], newAccounts: account ? [accountId] : [], kv: { settings: { ...settings(), importSources: source } } });
   },
   'restore-pick': () => {
     // No accept filter (Android hides .mmbackup and some .json files); importFile routes by content and size.
@@ -705,15 +726,17 @@ export const act = {
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
   },
   'bk-share': async () => {
-    const { name, blob } = await backupBlob($('#bk-photos')?.checked);
+    const { name, blob, missing } = await backupBlob($('#bk-photos')?.checked);
     try { if (!(await shareFile(name, blob, blob.type))) return act['bk-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; } // closed the share sheet: nothing sent
     await backedUp(t('Sent {0}. Check it arrived before you rely on it.', name));
+    warnMissingPhotos(missing);
   },
   'bk-save': async b => {
     if (b) b.disabled = true;   // also called from bk-share when the phone can't share files
-    const { name, blob } = await backupBlob($('#bk-photos')?.checked);
+    const { name, blob, missing } = await backupBlob($('#bk-photos')?.checked);
     download(name, blob, blob.type);
-    await backedUp(t('Saved {0} to your Downloads folder.', name));
+    closeSheet(); toast(t('Download started. Check your Downloads folder for {0}.', name), { k: 'good', icon: 'check' });
+    warnMissingPhotos(missing);
   },
   'joint-share': () => {
     const { name, text } = jointFile(), rows = jointTx(), photos = new Set(rows.map(x => x.receiptId).filter(Boolean)).size;
@@ -728,15 +751,15 @@ export const act = {
       <p class="fine">${esc(t('Your spouse opens Tally, taps Settings → Import from my spouse and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry does not delete it on the other phone: delete it there too.'))}</p>`, { label: t('Share joint accounts') });
   },
   'jt-send': async () => {
-    const { name, blob } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
     try { if (!(await shareFile(name, blob, blob.type))) return act['jt-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; }
-    closeSheet(); toast(t('Sent {0}', name), { k: 'good', icon: 'check' });
+    closeSheet(); toast(t('Sent {0}', name), { k: 'good', icon: 'check' }); warnMissingPhotos(missing);
   },
   'jt-save': async b => {
     if (b) b.disabled = true;
-    const { name, blob } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    const { name, blob, missing } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
     download(name, blob, blob.type);
-    closeSheet(); toast(t('Saved {0} to your Downloads folder.', name), { k: 'good', icon: 'check' });
+    closeSheet(); toast(t('Download started. Check your Downloads folder for {0}.', name), { k: 'good', icon: 'check' }); warnMissingPhotos(missing);
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),
   'erase': async () => {

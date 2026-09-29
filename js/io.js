@@ -27,9 +27,10 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
       if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(cell); rows.push(row); row = []; cell = '';
     } else if (cell.length < 2000) cell += c;
-    if (rows.length > LIMITS.rows) break;
+    if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   }
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   return rows.filter(r => r.some(x => x.trim() !== ''));
 }
 /** Bytes → text: UTF-8 (with or without BOM), UTF-16, Big5 for an AndroMoney export, else Windows-1252.
@@ -372,7 +373,7 @@ export function balanceSigns(rows, map, amtOf) {
 export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now(), preset = null, header = [] } = {}) {
   const txs = [], skipped = [], legs = [], opening = {};
   let adjustments = 0;
-  rows = rows.slice(0, LIMITS.rows);
+  if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   // An app that signs its amounts: a file with only money in (a refund, a salary) is still income, not spending.
   const signed = !!preset?.signed || (map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0));
   const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
@@ -557,6 +558,10 @@ export function readBackup(text) {
   try { d = JSON.parse(text); } catch { throw new Error('This file is not a Tally backup (it is not valid JSON).'); }
   if (!isObj(d) || d.app !== BACKUP_APP) throw new Error('This file is not a Tally backup.');
   if (d.v > 1) throw new Error('This backup is from a newer version of Tally. Update the app, then restore.');
+  for (const [key, max] of [['accounts', 200], ['tx', 200_000], ['recurring', 500]]) {
+    if (Array.isArray(d[key]) && d[key].length > max) throw new Error(`This backup has more than ${max} ${key === 'tx' ? 'transactions' : key === 'recurring' ? 'bills' : key}. Nothing was restored.`);
+  }
+  if (Array.isArray(d.kv?.customCats) && d.kv.customCats.length > 50) throw new Error('This backup has more than 50 custom categories. Nothing was restored.');
   // Custom categories first: only the ones that pass are category ids anywhere else in the backup.
   const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' }));
   const customIds = new Set(customCats.map(c => c.id));

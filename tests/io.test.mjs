@@ -173,7 +173,7 @@ test('zip: one inflate budget per file, declared sizes held, entries capped, rep
   for (const b of broken) await assert.rejects(IO.unzip(b, () => true), /bad zip/);
 });
 
-test('backup: reserved ids and keys dropped, only valid custom categories count, lists capped, Object.prototype untouched', () => {
+test('backup: reserved ids and keys dropped, only valid custom categories count, Object.prototype untouched', () => {
   const r = IO.readBackup(`{"app":"tally","v":1,
     "accounts":[{"id":"a","name":"Cash"},{"id":"__proto__"},{"id":"constructor"},{"id":"prototype"}],
     "tx":[{"id":"constructor","date":"2026-09-01","type":"expense","amount":5,"accountId":"a"},
@@ -193,9 +193,18 @@ test('backup: reserved ids and keys dropped, only valid custom categories count,
   assert.equal(merged.kv.rules.KOPI, 'c_ok');
   assert.equal({}.polluted, undefined);
   assert.equal(Object.prototype.polluted, undefined);
-  const big = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, accounts: Array.from({ length: 250 }, (_, i) => ({ id: `a${i}` })), recurring: Array.from({ length: 600 }, (_, i) => ({ id: `r${i}`, amount: 1 })), kv: { customCats: Array.from({ length: 60 }, (_, i) => ({ id: `c_${i}` })) } }));
-  assert.deepEqual([big.accounts.length, big.recurring.length, big.kv.customCats.length], [200, 500, 50]);
+  for (const [key, max] of [['accounts', 200], ['tx', 200_000], ['recurring', 500]]) {
+    const backup = { app: 'tally', v: 1, [key]: Array.from({ length: max + 1 }, () => ({})) };
+    assert.throws(() => IO.readBackup(JSON.stringify(backup)), /Nothing was restored/);
+  }
+  assert.throws(() => IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kv: { customCats: Array.from({ length: 51 }, () => ({})) } })), /Nothing was restored/);
   assert.throws(() => IO.readBackup(' '.repeat(IO.LIMITS.backupJson + 1)), /too big/);
+});
+
+test('CSV rejects over 50,000 rows instead of silently importing a prefix', () => {
+  const text = 'a,b\n'.repeat(IO.LIMITS.rows + 1);
+  assert.throws(() => IO.parseCSV(text), /Split it into smaller files/);
+  assert.equal(IO.parseCSV('a,b\n'.repeat(IO.LIMITS.rows)).length, IO.LIMITS.rows);
 });
 
 test('a fetched body is refused past its cap, by Content-Length or while streaming', async () => {

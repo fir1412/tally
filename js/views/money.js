@@ -24,12 +24,13 @@ export function txRow(x) {
 }
 
 // ---- Activity ------------------------------------------------------------------------------------------------------
-const F = { q: '', month: '', acc: '', cat: '', photo: false, limit: 200 };
+const F = { q: '', month: '', acc: '', cat: '', photo: false, ids: null, idsLabel: '', limit: 200 };
 function matches(x) {
   if (F.month && cycleKey(x.date, startDay()) !== F.month) return false;
   if (F.acc && x.accountId !== F.acc && x.toAccountId !== F.acc) return false;
   if (F.cat && x.category !== F.cat && !(x.items || []).some(i => i.category === F.cat)) return false;
   if (F.photo && !x.receiptId) return false;
+  if (F.ids && !F.ids.includes(x.id)) return false;
   if (!F.q) return true;
   const q = F.q.toLowerCase(), sen = /\d/.test(q) ? parseAmount(q) : null;   // "28.5", "RM28.50": an amount
   if (sen != null && (x.amount === sen || (x.items || []).some(i => i.cents === sen))) return true;
@@ -55,14 +56,14 @@ export const activityView = {
         <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
-      <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button></div>
+      <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button>${F.ids ? `<button class="chip on" data-act="act-ids" aria-label="${esc(t('Show all, not just {0}', F.idsLabel))}">${esc(F.idsLabel)}${ICON.x}</button>` : ''}</div>
       <p class="fine" id="act-sum">${esc(list.length === 1 ? t('1 transaction · {0} spent', fmtRM(spent)) : t('{0} transactions · {1} spent', list.length, fmtRM(spent)))}</p>
       <div id="act-list">${list.length ? html : `<p class="empty">${esc(S.tx.length ? t('Nothing matches. Try another search or filter.') : t('No transactions yet. Scan a receipt or tap Add.'))}</p>`}
       ${list.length > F.limit ? `<button class="btn ghost wide" data-act="act-more">${esc(t('Show more'))}</button>` : ''}</div>`;
   },
 };
 let qTimer;
-let budT, budFirst = false;
+let budT, budFirst = false, budRevision = 0;
 const anyBudget = b => !!(b.total || Object.keys(b.byCat || {}).length || b.joint?.total || Object.keys(b.joint?.byCat || {}).length);
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
@@ -79,26 +80,39 @@ export const input = {
   },
   'act-f': el => { F[el.dataset.k] = el.value; F.limit = 200; render(); },
   'bud': el => {
+    const revision = ++budRevision, err = document.getElementById(`be-${el.dataset.cat}`);
+    el.parentElement.classList.remove('saved');
     const v = el.value.trim() === '' ? 0 : calcAmount(el.value);
     el.classList.toggle('bad', v == null || v < 0);
+    el.setAttribute('aria-invalid', String(v == null || v < 0));
+    if (err) err.textContent = v == null || v < 0 ? t('Enter an amount, for example 12.50.') : '';
     if (v == null || v < 0) return;
     if (!anyBudget(S.kv.budgets)) budFirst = true;   // the very first budget gets a warm word once typing stops
     const all = structuredClone(S.kv.budgets), b = scope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
     if (el.dataset.cat === 'total') b.total = v; else if (v) b.byCat[el.dataset.cat] = v; else delete b.byCat[el.dataset.cat];
     if (b !== all) b.updatedAt = Date.now();   // joint budgets merge by newest edit
-    setKv('budgets', all);
-    // Show the new state straight away without re-rendering (typing keeps its place): status line + a saved tick.
+    // Keep typing in place; show the saved tick only once storage confirms the write.
     clearTimeout(budT);
-    budT = setTimeout(() => {
+    setKv('budgets', all).then(() => {
+      if (revision !== budRevision || !el.isConnected) return;
+      budT = setTimeout(() => {
+      if (revision !== budRevision || !el.isConnected) return;
       const tmp = document.createElement('div'); tmp.innerHTML = budgetsView.render();
       for (const id of ['bs-total', `bs-${el.dataset.cat}`]) { const a = document.getElementById(id), b2 = tmp.querySelector(`#${CSS.escape(id)}`); if (a && b2) a.innerHTML = b2.innerHTML; }
       el.parentElement.classList.remove('saved'); void el.parentElement.offsetWidth; el.parentElement.classList.add('saved');
       if (budFirst && anyBudget(S.kv.budgets)) { budFirst = false; const w = firstWord('budget'); if (w) toast(w, { k: 'good', icon: 'check', cheer: true }); }
-    }, 350);
+      }, 350);
+    }).catch(() => {
+      if (revision !== budRevision || !el.isConnected) return;
+      el.classList.add('bad'); el.setAttribute('aria-invalid', 'true');
+      if (err) err.textContent = t('Could not save. Your phone may be out of space.');
+    });
   },
 };
 /** Show one category's spending: Home, Insights and Budgets link here. */
-export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, limit: 200 }); go('activity'); }
+export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, ids: null, limit: 200 }); go('activity'); }
+/** Activity showing just these entries (from Insights: the payments behind a tax relief line), named by a chip that clears it. */
+export function showIds(ids, label) { Object.assign(F, { q: '', acc: '', cat: '', month: '', photo: false, ids, idsLabel: label, limit: 200 }); go('activity'); }
 
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
 let draft = null; // the transaction being edited; its id is fixed when the sheet opens, so saving twice can't duplicate
@@ -205,14 +219,14 @@ export const budgetsView = {
     const spentOn = c => now.byCat[c.id] || 0, cats = [...expenseCats()].sort((a, b) => spentOn(b) - spentOn(a));
     const active = cats.filter(c => spentOn(c) || B.byCat[c.id]), idle = cats.filter(c => !spentOn(c) && !B.byCat[c.id]);
     const row = c => `<li><div class="brow"><button class="link" data-act="cat-show" data-c="${esc(c.id)}">${dot(c.id)}${esc(t(c.name))}</button>
-        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"${ro}></span></div><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
+        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" aria-describedby="be-${esc(c.id)}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"${ro}></span></div><p class="err bud-err" id="be-${esc(c.id)}" role="alert"></p><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
     const bills = S.recurring.filter(b => inScope(b));
     // No budget yet: what the last 3 full months cost on average (months with spending), to the nearest RM 50.
     const past = [1, 2, 3].map(k => monthSpend(booked(), addMonths(ym, -k), sd).total).filter(Boolean);
     const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
     return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
       ${scopeSwitch()}${ro ? `<p class="fine">${esc(t('All shows your budgets and the joint ones added up. Pick Me or Joint to change them.'))}</p>` : ''}
-      <section class="card"><label class="field"><span>${esc(scope() === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"${ro}></span></label>
+      <section class="card"><label class="field"><span>${esc(scope() === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"${ro}></span></label><p class="err bud-err" id="be-total" role="alert"></p>
         ${avg && !B.total && !ro ? `<p class="fine">${esc(t('You spent about {0} a month lately.', fmtRM(avg)))} <button class="link" data-act="bud-use" data-v="${avg}">${esc(t('Use {0}', fmtRM(avg)))}</button></p>` : ''}<div id="bs-total">${bar(now.total, B.total, 'total')}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>
       <h2>${esc(t('By category'))}</h2><p class="fine">${esc(t('Set a limit for the categories you want to watch. Leave the rest empty.'))}</p>
@@ -318,6 +332,7 @@ export const act = {
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: S.accounts[0]?.id, category: 'bills' }),
   'act-photo': () => { F.photo = !F.photo; F.limit = 200; render(); },
+  'act-ids': () => { F.ids = null; render(); },
   'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: ['groceries', 'dining', 'other'].includes(r.category) ? 'bills' : r.category, accountId: S.accounts[0]?.id, key: r.key }); },
   'bill-save': async b => {
     const amount = calcAmount($('#b-amt').value), name = $('#b-name').value.trim(), start = $('#b-date').value, until = $('#b-until').value || undefined;

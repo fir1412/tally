@@ -22,6 +22,23 @@ const INPUT = { ...money.input, ...setup.input, ...review.input, ...learn.input 
 
 export const route = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
 export function go(r) { if (route() === r) render(); else location.hash = `#/${r}`; }
+let renderedRoute = null;
+function focusAfterRender(app, previous, routeChanged) {
+  const heading = () => {
+    const h = app.querySelector('#view h1');
+    if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  };
+  if (routeChanged) return heading();
+  if (!previous) return;
+  let next = previous.id ? app.querySelector(`#${CSS.escape(previous.id)}`) : null;
+  if (!next && Object.keys(previous.data).length) next = [...app.querySelectorAll('[data-act], [data-input]')].find(el =>
+    el.tagName === previous.tag && Object.entries(previous.data).every(([key, value]) => el.dataset[key] === value));
+  if (!next && previous.href) next = [...app.querySelectorAll('a[href]')].find(el => el.getAttribute('href') === previous.href);
+  if (next) {
+    next.focus({ preventScroll: true });
+    if (previous.selection && next.setSelectionRange) try { next.setSelectionRange(...previous.selection); } catch { /* non-text input */ }
+  } else heading();
+}
 
 export function render() {
   let r = route();
@@ -32,10 +49,17 @@ export function render() {
   const tabs = [['home', ICON.home, t('Home')], ['activity', ICON.list, t('Activity')], null, ['insights', ICON.chart, t('Insights')], ['budgets', ICON.wallet, t('Budgets')]];
   const nav = r === 'welcome' ? '' : `<nav class="tabs" aria-label="${esc(t('Main'))}"><span class="brand" aria-hidden="true">Tally</span>${tabs.map(x => x ? `<a href="#/${x[0]}" class="tab${r === x[0] ? ' on' : ''}"${r === x[0] ? ' aria-current="page"' : ''}>${x[1]}<span>${esc(x[2])}</span></a>`
     : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}<a href="#/settings" class="tab desk${r === 'settings' ? ' on' : ''}">${ICON.gear}<span>${esc(t('Settings'))}</span></a></nav>`;
-  $('#app').innerHTML = `<main id="view" class="view-${r}">${view.render()}</main>${nav}`;
+  const app = $('#app'), active = document.activeElement, routeChanged = renderedRoute !== r;
+  const focused = !sheetOpen() && app.contains(active) ? {
+    id: active.id, tag: active.tagName, data: { ...active.dataset }, href: active.getAttribute('href'),
+    selection: typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null,
+  } : null;
+  app.innerHTML = `<main id="view" class="view-${r}">${view.render()}</main>${nav}`;
+  renderedRoute = r;
   view.after?.();
   learn.afterRender();   // Learn Tally missions and badges, checked a moment later
   document.title = `Tally · ${t(view.title || 'Home')}`;
+  if (!sheetOpen()) focusAfterRender(app, focused, routeChanged);
 }
 
 // ---- events -------------------------------------------------------------------------------------------------------

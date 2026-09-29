@@ -7,7 +7,7 @@ let full = false;
 console.warn = () => {};   // db.js logs each failed save
 const disk = new Map();
 globalThis.localStorage = { getItem: k => disk.get(k) ?? null, setItem: (k, v) => { if (full) throw new Error('QuotaExceededError'); disk.set(k, String(v)); } };
-const { S, load, saveTx, deleteTx, saveAccount, setKv, savePhoto, getPhoto, replaceAll, onSaveFailed } = await import('../js/state.js');
+const { S, load, saveTx, deleteTx, saveAccount, setKv, savePhoto, getPhoto, replaceAll, putAll, onSaveFailed } = await import('../js/state.js');
 const tx = id => ({ id, date: '2026-09-01', type: 'expense', amount: 500, accountId: 'a', category: 'dining' });
 
 test('a failed save rejects, leaves the data on screen as it was, and tells the user', async () => {
@@ -40,4 +40,23 @@ test('"Replace everything" also removes old photos and the settings a backup car
   assert.deepEqual(S.kv.budgets, { total: 0, byCat: {} });
   assert.deepEqual(S.kv.dismissed, ['x']);
   assert.equal(await getPhoto('p_old'), null);
+});
+
+test('a staged import changes accounts, transactions and settings together on success', async () => {
+  await putAll({ accounts: [{ id: 'c', name: 'Wallet', kind: 'ewallet', opening: 1200 }], tx: [{ ...tx('t3'), accountId: 'c' }], kv: { settings: { onboarded: true, importSources: { file1: 'c' } } } });
+  await load();
+  assert.equal(S.accounts.find(a => a.id === 'c')?.opening, 1200);
+  assert.equal(S.tx.find(x => x.id === 't3')?.accountId, 'c');
+  assert.equal(S.kv.settings.importSources.file1, 'c');
+});
+
+test('a failed staged import does not appear in memory or on reload', async () => {
+  full = true;
+  await assert.rejects(putAll({ accounts: [{ id: 'd', name: 'Bank', kind: 'bank', opening: 0 }], tx: [{ ...tx('t4'), accountId: 'd' }], kv: { settings: { importSources: { file2: 'd' } } } }));
+  full = false;
+  assert.equal(S.accounts.some(a => a.id === 'd'), false);
+  assert.equal(S.tx.some(x => x.id === 't4'), false);
+  await load();
+  assert.equal(S.accounts.some(a => a.id === 'd'), false);
+  assert.equal(S.tx.some(x => x.id === 't4'), false);
 });
