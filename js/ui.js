@@ -1,6 +1,7 @@
 // Shared UI helpers: escaping, charts, sheets, toasts, icons. Sheets, toasts and charts adapted from we go gim.
 import { t, fmtDate } from './i18n.js';
 import { fmtRM, parseAmount, calcAmount } from './engine.js';
+import { settings } from './state.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -124,12 +125,13 @@ export function confirmSheet({ title, body = '', ok = t('Confirm'), no = t('Canc
 }
 let toastT;
 /** Short message in a live region; optional Undo. */
-export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
+export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false } = {}) {
   let el = $('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
   el.textContent = msg;
   if (icon) el.insertAdjacentHTML('afterbegin', ICON[icon] || '');
   el.classList.toggle('has-undo', !!undo);
+  el.classList.toggle('drawn', icon === 'check');   // the tick draws itself (CSS; still under reduced motion)
   el.style.setProperty('--k', `var(--${k})`);
   if (undo) {
     const b = document.createElement('button');
@@ -138,10 +140,44 @@ export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
     el.append(' ', b);
   }
   el.classList.add('on');
+  el.classList.remove('cheer'); if (cheer) { void el.offsetWidth; el.classList.add('cheer'); }   // a small shine; none with reduced motion (CSS)
   clearTimeout(toastT);
   toastT = setTimeout(hideToast, undo ? 12000 : Math.min(7000, Math.max(2600, String(msg).length * 55)));
 }
 export function hideToast() { const el = $('#toast'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!el.classList.contains('on')) el.textContent = ''; }, 250); } }
+
+// ---- small rewards: motion that means something, all of it skipped under reduced motion --------------------------------
+export const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** A short tap on phones that have one (Settings → Haptics, on unless turned off). */
+export const haptic = () => { try { if (settings()?.haptics !== false) navigator.vibrate?.(10); } catch { /* not allowed before a tap: fine */ } };
+/** Count a money figure from one amount (sen) to another in about 400 ms. */
+export function countUp(el, from, to, ms = 400, ease = x => 1 - (1 - x) ** 3) {
+  if (!el) return;
+  if (reduced() || from === to) { el.textContent = fmtRM(to); return; }
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    el.textContent = fmtRM(Math.round(from + (to - from) * ease(k)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+/** Confetti-like burst from the middle of an element: CSS particles, gone in half a second. */
+export function burst(el, n = 16) {
+  if (!el?.isConnected || reduced()) return;
+  const r = el.getBoundingClientRect(), box = document.createElement('div');
+  box.className = 'burst'; box.setAttribute('aria-hidden', 'true');
+  box.style.left = `${r.left + r.width / 2}px`; box.style.top = `${r.top + r.height / 2}px`;
+  const tones = ['accent', 'good', 'warn'];
+  box.innerHTML = Array.from({ length: n }, (_, i) => `<i style="--a:${Math.round(i / n * 360 + Math.random() * 18)}deg;--d:${Math.round(34 + Math.random() * 34)}px;--c:var(--${tones[i % 3]})"></i>`).join('');
+  document.body.append(box);
+  setTimeout(() => box.remove(), 700);
+}
+/** A save that should land on Home: its row flashes and the totals count to their new values (views/home.js). */
+export const landing = { id: null, at: 0 };
+export function landed(id) { landing.id = id; landing.at = Date.now(); haptic(); }
+/** Replay a one-shot CSS animation class on an element. */
+export function replay(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function announce(msg) { const el = $('#sr-status'); if (!el) return; el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 60); }
 
 // ---- calculator in amount fields -------------------------------------------------------------------------------------

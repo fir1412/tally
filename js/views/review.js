@@ -2,7 +2,8 @@
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
 import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
-import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$ } from '../ui.js';
+import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced } from '../ui.js';
+import { firstWord } from './learn.js';
 import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, OCR_BYTES } from '../scan.js';
@@ -41,7 +42,7 @@ async function pump() {
     const { receipt, photo, ms, turns } = await readReceipt(next.file);
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
-    current = { ...current, status: 'ready', ms, turns, draft };
+    current = { ...current, status: 'ready', ms, turns, draft, reveal: true };
     await setKv('reviewDraft', { draft, existing: false });
     await saveQueue();
   } catch (e) {
@@ -106,6 +107,36 @@ const check = d => checksum({ items: d.items.map(i => ({ cents: i.cents || 0 }))
 
 export const reviewView = {
   title: 'Review receipt',
+  /** A receipt just read: once its items are on screen they come in one by one, categories sliding into place, while
+   *  the total ticks up; then "adds up" pops. A tap or a key skips to the end; none of it with reduced motion. */
+  after() {
+    if (!current?.reveal) return;
+    current.reveal = false;
+    const main = $('#view'), box = $('#rv-status'), d = current.draft;
+    if (reduced() || !main || !box || !d.items.length || !('IntersectionObserver' in window)) return;
+    const step = Math.round(Math.min(90, 900 / d.items.length)), dur = step * Math.min(d.items.length, 12) + 300;
+    const final = box.innerHTML;
+    box.innerHTML = `<p class="rv-tally num" aria-hidden="true">${esc(fmtRM(0))}</p>`;
+    main.style.setProperty('--step', `${step}ms`); main.classList.add('reveal-wait');
+    let done = false, timer = 0;
+    const end = () => {
+      if (done) return; done = true; clearTimeout(timer); io.disconnect();
+      removeEventListener('click', end, true); removeEventListener('keydown', end, true);
+      main.classList.remove('reveal', 'reveal-wait');
+      if (!box.isConnected) return;
+      box.innerHTML = final;
+      if (d.total != null && check(d).ok) box.firstElementChild?.classList.add('pop');
+    };
+    // On a phone the items are below the photo: the reveal waits until they are scrolled into view.
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting || done) return;
+      io.disconnect(); main.classList.replace('reveal-wait', 'reveal');
+      countUp(box.firstChild, 0, d.total ?? itemsSum(d), dur, x => x);   // steady, in time with the items
+      timer = setTimeout(end, dur + 80);
+    }, { threshold: 0.6 });
+    io.observe(box);
+    addEventListener('click', end, true); addEventListener('keydown', end, true);
+  },
   render() {
     const waiting = queue.length;
     if (!current) return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
@@ -141,7 +172,7 @@ export const reviewView = {
       ${current.thumb ? `<figure class="receipt-thumb"><button class="thumb-btn" data-act="rv-zoom" aria-expanded="false" aria-label="${esc(t('Show the whole receipt'))}"><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></button></figure>` : ''}
       <div id="rv-status">${status}${d.total != null && c && !c.ok && maths ? `<p class="maths">${esc(maths)} ≠ ${esc(fmtRM(d.total, { plain: true }))}</p>` : ''}</div>
       <h2>${esc(t('Items'))} <span class="fine">${esc(flagged ? t('{0} to check', flagged) : '')}</span></h2>
-      <ul class="list items-edit">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}"${i.flag ? ` data-why="${esc(flagWhy(i))}"` : ''}>
+      <ul class="list items-edit">${d.items.map((i, n) => `<li class="${i.flag ? 'flag' : ''}" style="--i:${Math.min(n, 12)}"${i.flag ? ` data-why="${esc(flagWhy(i))}"` : ''}>
         <input class="iname" value="${esc(i.name)}" maxlength="80" aria-label="${esc(t('Item name'))}" data-input="rv-item" data-n="${n}" data-k="name" placeholder="${esc(t('Item name'))}">
         <input class="iamt" inputmode="decimal" value="${(i.cents / 100).toFixed(2)}" aria-label="${esc(t('Price'))}" data-input="rv-item" data-n="${n}" data-k="cents">
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
@@ -275,7 +306,9 @@ export const act = {
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop
       await setKv('shopNames', Object.fromEntries([...Object.entries(S.kv.shopNames || {}), [itemKey(d.readName), tx.merchant.slice(0, 80)]].slice(-500)));
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
-    toast(tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtRM(tx.amount), fmtMonth(tx.date.slice(0, 7))), { icon: 'check' });
+    landed(tx.id);
+    const first = !current.existing && firstWord(tx.receiptId ? 'receipt' : 'entry');
+    toast(first || (tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtRM(tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtRM(tx.amount), fmtMonth(tx.date.slice(0, 7)))), { icon: 'check', ...(first ? { k: 'good', cheer: true } : {}) });
     await finish();
     if (queue.length) { pump(); render(); } else go('home');
   },

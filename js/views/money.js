@@ -1,7 +1,8 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
 import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount, saveTxs, deleteTxs, startDay, thisMonth } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
-import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
+import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed } from '../ui.js';
+import { firstWord } from './learn.js';
 import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
@@ -61,7 +62,8 @@ export const activityView = {
   },
 };
 let qTimer;
-let budT;
+let budT, budFirst = false;
+const anyBudget = b => !!(b.total || Object.keys(b.byCat || {}).length || b.joint?.total || Object.keys(b.joint?.byCat || {}).length);
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
@@ -80,6 +82,7 @@ export const input = {
     const v = el.value.trim() === '' ? 0 : calcAmount(el.value);
     el.classList.toggle('bad', v == null || v < 0);
     if (v == null || v < 0) return;
+    if (!anyBudget(S.kv.budgets)) budFirst = true;   // the very first budget gets a warm word once typing stops
     const all = structuredClone(S.kv.budgets), b = scope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
     if (el.dataset.cat === 'total') b.total = v; else if (v) b.byCat[el.dataset.cat] = v; else delete b.byCat[el.dataset.cat];
     if (b !== all) b.updatedAt = Date.now();   // joint budgets merge by newest edit
@@ -90,6 +93,7 @@ export const input = {
       const tmp = document.createElement('div'); tmp.innerHTML = budgetsView.render();
       for (const id of ['bs-total', `bs-${el.dataset.cat}`]) { const a = document.getElementById(id), b2 = tmp.querySelector(`#${CSS.escape(id)}`); if (a && b2) a.innerHTML = b2.innerHTML; }
       el.parentElement.classList.remove('saved'); void el.parentElement.offsetWidth; el.parentElement.classList.add('saved');
+      if (budFirst && anyBudget(S.kv.budgets)) { budFirst = false; const w = firstWord('budget'); if (w) toast(w, { k: 'good', icon: 'check', cheer: true }); }
     }, 350);
   },
 };
@@ -301,8 +305,9 @@ export const act = {
     const x = { ...draft, createdAt: draft.createdAt || Date.now() };
     await saveTx(x);
     if (x.merchant && x.type === 'expense' && !x.items?.length) await learn(x.merchant, x.category);
-    closeSheet(); render();
-    toast(isNew ? t('Added {0}', fmtRM(x.amount)) : t('Saved'), { icon: 'check' });
+    closeSheet(); landed(x.id); render();
+    const first = isNew && firstWord('entry');
+    toast(first || (isNew ? t('Added {0}', fmtRM(x.amount)) : t('Saved')), { icon: 'check', ...(first ? { k: 'good', cheer: true } : {}) });
   },
   'tx-again': () => { readForm(); const { type, amount, category, accountId, merchant } = draft; closeSheet(); setTimeout(() => openTxSheet({ type, amount, category, accountId, merchant }), 220); },
   'tx-del': async () => {

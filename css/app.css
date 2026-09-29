@@ -576,3 +576,86 @@ input.switch:checked::before { transform: translateX(20px); background: var(--bt
 .cp-reset { align-self: flex-start; }
 .top .hi { font: 700 var(--fs-lg)/1.25 var(--display); letter-spacing: -.01em; white-space: normal; }
 #look .segs .seg { white-space: normal; line-height: 1.2; padding-inline: 4px; }   /* "Bahasa Melayu" at 130% on a phone */
+
+/* ---- Delight: rewards for real progress (js/delight.js, views/home.js). Motion 400 ms or less, eased; none under reduced motion. */
+/* Month ring on Home: what's left of the budget (or this month against last), coloured by pace; tap for Budgets. */
+.mrow { display: flex; align-items: center; gap: var(--sp-4); }
+.mrow .rowb { flex-wrap: wrap; justify-content: flex-start; gap: 0 var(--sp-2); }
+.mrow .spent, .rrow .grow b { overflow: visible; white-space: nowrap; }   /* a money figure is never cut short: the line wraps instead */
+.ring { position: relative; flex: none; width: 5.5rem; height: 5.5rem; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; transition: transform 120ms var(--ease-out); }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 5; }
+.ring .track { stroke: var(--panel2); }
+.ring .arc { stroke: var(--good); stroke-linecap: round; stroke-dasharray: var(--f) 100; }
+.ring.warn .arc { stroke: var(--warn); } .ring.bad .arc { stroke: var(--bad); }
+.ring.bad .track { stroke: color-mix(in srgb, var(--bad) 22%, var(--panel2)); }
+.ring.moving .arc { transition: stroke-dasharray 400ms var(--ease-out); }
+[data-enter] .ring .arc { animation: ring-in 400ms 120ms var(--ease-out) both; }
+@keyframes ring-in { from { stroke-dasharray: 0 100; } }
+.rtxt { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.15; }
+.rtxt b { font-size: var(--fs-md); } .rtxt small { font-size: var(--fs-xs); color: var(--mute); }
+/* A save lands: the figure it changed counts to its new value with a small lift. */
+.land { transform-origin: left center; animation: land 400ms var(--ease-out); }
+@keyframes land { 35% { transform: scale(1.05); color: var(--accent); } }
+#toast.drawn svg path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw 320ms 60ms var(--ease-out) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Receipt reveal (views/review.js): items one by one, categories sliding into place, the total ticking up, "adds up" pops. */
+.reveal-wait .items-edit li { opacity: 0; }
+.reveal .items-edit li { animation: rise 280ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--step, 60ms)); }
+.reveal .items-edit .icat { animation: slide-in 300ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--step, 60ms) + 120ms); }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-24px); } }
+.rv-tally { margin: 0; padding: var(--sp-3); border-radius: 10px; background: var(--panel); font: 600 var(--fs-lg)/1.3 var(--mono); }
+#rv-status .pop { animation: pop 360ms var(--ease-out) both; }
+#rv-status .pop svg path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw 320ms 140ms var(--ease-out) forwards; }
+@keyframes pop { from { opacity: 0; transform: scale(.92); } 60% { opacity: 1; transform: scale(1.03); } }
+
+/* Weekly recap and the occasional nice find on Home. */
+.recap { position: relative; padding: 0; }
+.recap-go { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; padding: var(--sp-4) 52px var(--sp-4) var(--sp-4); border-radius: var(--radius); cursor: pointer; transition: transform 120ms var(--ease-out); }
+.recap-go:focus-visible, .find-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.recap .rx { position: absolute; top: 4px; right: 4px; }
+.recap .lbl { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.rrow { display: flex; align-items: flex-end; gap: var(--sp-3); }
+.rrow b { font: 700 var(--fs-lg)/1.2 var(--display); letter-spacing: -.01em; }
+.wbars { display: flex; align-items: flex-end; gap: 4px; height: 40px; flex: none; }
+.wbars i { width: 8px; height: var(--h); border-radius: 3px; background: var(--accent); transform-origin: bottom; }
+.wbars i.nil { background: var(--line); }
+[data-enter] .wbars i { animation: bar-up 400ms var(--ease-out) both; }
+[data-enter] .wbars i:nth-child(2) { animation-delay: 30ms; } [data-enter] .wbars i:nth-child(3) { animation-delay: 60ms; } [data-enter] .wbars i:nth-child(4) { animation-delay: 90ms; }
+[data-enter] .wbars i:nth-child(5) { animation-delay: 120ms; } [data-enter] .wbars i:nth-child(6) { animation-delay: 150ms; } [data-enter] .wbars i:nth-child(7) { animation-delay: 180ms; }
+@keyframes bar-up { from { transform: scaleY(0); } }
+.rtop, .rgood { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.rgood { color: var(--good); font-weight: 600; } .rgood svg { width: 18px; height: 18px; }
+.rtop .grow, .rgood .grow { white-space: normal; }
+.find { align-items: center; flex-wrap: nowrap; }
+.find .grow { flex: 1 1 0; }
+.find-go { all: unset; box-sizing: border-box; cursor: pointer; min-width: 0; min-height: 44px; display: flex; flex-direction: column; justify-content: center; border-radius: 8px; }
+.find-go b { white-space: normal; }
+[data-enter] .find > svg { animation: twinkle 400ms 150ms var(--ease-out) both; }
+@keyframes twinkle { from { opacity: 0; transform: scale(.4) rotate(-30deg); } }
+
+/* Streaks and badges on (views/learn.js): a flame that grows with the streak and fills once today is logged; bursts. */
+.streak-go > svg, .sbig > svg { overflow: visible; }
+.streak-go > svg path, .sbig > svg path { transform-box: fill-box; transform-origin: 50% 90%; transform: scale(var(--flame, 1)); transition: fill 240ms var(--ease-std); }
+.lit .streak-go > svg path, .lit .sbig > svg path { fill: color-mix(in srgb, var(--warn) 55%, transparent); }
+.flare .streak-go > svg, .flare .sbig > svg { animation: flare 400ms var(--ease-out); }
+@keyframes flare { 40% { transform: scale(1.2) rotate(-6deg); } }
+.burst { position: fixed; z-index: 40; width: 0; height: 0; pointer-events: none; }
+.burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 2px; background: var(--c); animation: fly 400ms var(--ease-out) forwards; }
+.burst i:nth-child(3n) { border-radius: 50%; } .burst i:nth-child(4n) { width: 4px; height: 10px; }
+@keyframes fly { from { transform: rotate(var(--a)) translateY(0) scale(.5); } 70% { opacity: 1; } to { transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(120deg); opacity: 0; } }
+
+/* Pressed states everywhere a finger lands, and a working state for anything slower than 150 ms (js/app.js). */
+.ring:active, .recap-go:active { transform: scale(.97); }
+.txrow:active { transform: scale(.99); } .sw:active, .streak-go:active { transform: scale(.96); }
+.sw, .streak-go { transition: transform 120ms var(--ease-out); }
+.busy { cursor: progress; pointer-events: none; }
+.btn.busy { opacity: .8; }
+.btn.busy::after { content: ''; flex: none; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  [data-enter] .ring .arc, .land, #toast.drawn svg path, #rv-status .pop, #rv-status .pop svg path, [data-enter] .wbars i, [data-enter] .find > svg, .flare .streak-go > svg, .flare .sbig > svg { animation: none; stroke-dashoffset: 0; }
+  .ring.moving .arc, .streak-go > svg path, .sbig > svg path { transition: none; }
+  .ring:active, .recap-go:active, .txrow:active, .sw:active, .streak-go:active { transform: none; }
+  .btn.busy::after { animation: pulse 1s ease-in-out infinite alternate; }
+}

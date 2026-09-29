@@ -45,7 +45,10 @@ document.addEventListener('click', async e => {
   const fn = own(ACT, b.dataset.act);
   if (!fn) return;
   e.preventDefault();
+  // Anything slower than 150 ms shows it is working on the button pressed (not once a sheet has opened over it).
+  const slow = setTimeout(() => { if (b.isConnected && !b.closest('[inert], .scrim.out')) { b.classList.add('busy'); b.setAttribute('aria-busy', 'true'); } }, 150);
   try { await fn(b, e); learn.noticed(`act:${b.dataset.act}`); } catch (err) { console.error(err); if (b.isConnected) b.disabled = false; toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
+  finally { clearTimeout(slow); b.classList.remove('busy'); b.removeAttribute('aria-busy'); }
 });
 // Typing fields report on 'input'; selects, checkboxes, dates and files on 'change' (each handler runs once).
 const typing = el => el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'date', 'time', 'color'].includes(el.type));
@@ -55,6 +58,7 @@ for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   if (fn && (ev === 'input') === typing(el)) { fn(el, e); learn.noticed(`input:${el.dataset.input}:${el.dataset.k || ''}`); }
 });
 // Screen change: entrance motion plays once (html[data-enter]), and browsers with View Transitions crossfade.
+const entering = () => { const html = document.documentElement; html.dataset.enter = ''; clearTimeout(window.__enterT); window.__enterT = setTimeout(() => delete html.dataset.enter, 800); };
 // Going straight back to the screen just left (back arrow or phone back) returns to the same scroll position.
 let shown = route(), left = null;
 export const cameFrom = () => left?.to === route() ? left.route : null;
@@ -63,8 +67,7 @@ window.addEventListener('hashchange', () => {
   const r = route(), y = left && left.route === r && left.to === shown ? left.y : 0;
   left = { route: shown, y: window.scrollY, to: r };
   shown = r;
-  const html = document.documentElement;
-  html.dataset.enter = ''; clearTimeout(window.__enterT); window.__enterT = setTimeout(() => delete html.dataset.enter, 800);
+  entering();
   const run = () => { render(); window.scrollTo(0, y); };
   if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(run); else run();
 });
@@ -131,7 +134,7 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     await money.postBills().catch(console.error);   // bills that add themselves, up to today
     watch(async () => { if (await money.postBills().catch(() => 0)) refresh(); });
     if (S.accounts.length) persistStorage().then(() => route() === 'settings' && refresh());
-    render();
+    entering(); render();   // opening the app plays the same entrance as a screen change (the month ring fills)
     if (!resumed) onboarding();
     flushFeedback().catch(() => {});
     registerSW(() => sheetOpen() || review.busy());
