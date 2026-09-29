@@ -4,7 +4,7 @@
 import { itemKey } from './engine.js';
 
 /** Entries the user made on this phone: scanned or typed (not imports, bills that add themselves, or a spouse's). */
-export const byUser = (x, me = '') => (x.source === 'receipt' || x.source === 'quick') && (!x.by || x.by === me);
+export const byUser = (x, me = '') => (x.source === 'receipt' || x.source === 'quick') && !x.spouse && (!x.by || x.by === me);
 const imported = x => x.source === 'import' || x.source === 'statement';
 const hasBudget = b => !!(b && (b.total || Object.keys(b.byCat || {}).length));
 

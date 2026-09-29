@@ -107,3 +107,28 @@ test('backup keeps account scope, who added a row and joint budgets; old backups
   assert.equal(merged.kv.budgets.total, 5);   // local budgets win
   assert.equal(merged.kv.budgets.joint.total, 150000);   // and joint ones come along
 });
+
+test('merge round 4: deletions travel, spouse rows are marked, budgets and bills merge, an empty setup joint account gives way', () => {
+  const KVb = { ...KV, budgets: { ...KV.budgets, joint: { total: 150000, byCat: { dining: 10000, c_hobi: 80000 }, updatedAt: 10 } }, jointGone: { tOld: 5 } };
+  const bill = { id: 'b1', name: 'Rent', amount: 180000, category: 'c_rumah', accountId: 'jt', day: 1, auto: true, updatedAt: 10 };
+  const fromA = IO.readBackup(IO.makeJointShare({ accounts: ACCOUNTS, tx: TX, kv: KVb, recurring: [bill, { ...bill, id: 'b2', accountId: 'mine' }] }, 'Aisyah'));
+  // B set up their own empty joint account before importing: it gives way to A's.
+  const B0 = { accounts: [{ id: 'jB', name: 'Joint', kind: 'bank', opening: 50000, scope: 'joint', createdAt: 1 }], tx: [], recurring: [], kv: { settings: { myName: 'Hafiz' }, customCats: [], budgets: { total: 0, byCat: {}, joint: { total: 0, byCat: { groceries: 90000 }, updatedAt: 20 } } } };
+  const m = IO.mergeJoint(B0, fromA);
+  assert.deepEqual(m.empty.map(a => a.id), ['jB']);
+  assert.ok(m.tx.every(x => x.spouse), "rows from the file are the spouse's");
+  assert.deepEqual(m.recurring.map(r => r.id), ['b1']);   // the joint bill only
+  assert.deepEqual(m.customCats.map(c => c.id).sort(), ['c_hobi', 'c_rumah']);   // c_hobi rides with the budget
+  assert.deepEqual(m.budgetsJoint.byCat, { dining: 10000, c_hobi: 80000, groceries: 90000 });   // both phones' categories kept
+  assert.equal(m.gone.tOld, 5);
+  // B deletes the rent (after its last edit): A's copy is dropped on the next file, and doesn't come back to B.
+  const B = { accounts: m.accounts, tx: m.tx.filter(x => x.id !== 't2'), recurring: m.recurring, kv: { settings: { myName: 'Hafiz' }, customCats: m.customCats, budgets: { total: 0, byCat: {}, joint: m.budgetsJoint }, jointGone: { ...m.gone, t2: 40 } } };
+  const back = IO.readBackup(IO.makeJointShare(B, 'Hafiz'));
+  assert.ok(!JSON.stringify(back.tx).includes('spouse'), 'the local mark never travels');
+  const intoA = IO.mergeJoint({ accounts: ACCOUNTS, tx: TX, kv: KVb, recurring: [bill] }, back);
+  assert.deepEqual(intoA.drop, ['t2']);
+  assert.ok(!IO.mergeJoint(B, IO.readBackup(IO.makeJointShare({ accounts: ACCOUNTS, tx: TX, kv: KVb }, 'Aisyah'))).tx.some(x => x.id === 't2'), 'an older copy does not resurrect it');
+  // An edit made after the delete wins over the marker.
+  const edited = TX.map(x => (x.id === 't2' ? { ...x, updatedAt: 50 } : x));
+  assert.deepEqual(IO.mergeJoint({ accounts: ACCOUNTS, tx: edited, kv: KVb }, back).drop, []);
+});

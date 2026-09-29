@@ -18,7 +18,7 @@ export function txRow(x) {
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('receipt'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('receipt'))}` : ''}${x.by ? ` · ${esc(x.by)}` : x.spouse ? ` · ${esc(t('your spouse'))}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(fmtRM(x.amount))}</span></button></li>`;
 }
 

@@ -771,4 +771,8 @@ export default {
   "Step back until it fits": "Undur sehingga muat",
   "Receipts fade in weeks": "Resit pudar dalam beberapa minggu",
   "The receipt reader could not be downloaded. Check the connection and try again.": "Pembaca resit tidak dapat dimuat turun. Semak sambungan dan cuba lagi.",
+  "New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.": "Rekod baharu atau berubah: {0}. Dipadam: {1}. Suntingan terbaru menang; akaun peribadi anda tidak disentuh.",
+  "Joint budgets are updated.": "Bajet bersama dikemas kini.",
+  "Joint bills: {0}.": "Bil bersama: {0}.",
+  "Your empty joint account \"{0}\" is replaced by theirs.": "Akaun bersama anda yang kosong \"{0}\" diganti dengan akaun pasangan.",
 };

@@ -420,11 +420,15 @@ const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).siz
 const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
-const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv }, settings().myName || '') });
+const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
 async function importJoint(data, zip = {}) {
-  const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv }, data), from = data.by || t('your spouse');
-  if (!(await confirmSheet({ title: t('Joint accounts from {0}', from), body: t('{0} accounts and {1} new or changed entries. Newer edits win. Your personal accounts are not touched.', data.accounts.length, m.tx.length), ok: t('Add') }))) return;
-  await putAll({ accounts: m.accounts, tx: m.tx, kv: {
+  const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, data), from = data.by || t('your spouse');
+  const body = [t('New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.', m.tx.length, m.drop.length),
+    m.budgetsJoint ? t('Joint budgets are updated.') : '', m.recurring.length ? t('Joint bills: {0}.', m.recurring.length) : '',
+    ...m.empty.map(a => t('Your empty joint account "{0}" is replaced by theirs.', a.name))].filter(Boolean).join(' ');
+  if (!(await confirmSheet({ title: t('Joint accounts from {0}', from), body, ok: t('Add') }))) return;
+  await putAll({ accounts: m.accounts, tx: m.tx, recurring: m.recurring, del: { tx: m.drop, accounts: m.empty.map(a => a.id) }, kv: {
+    jointGone: m.gone,
     ...(m.customCats.length ? { customCats: [...S.kv.customCats, ...m.customCats] } : {}),
     ...(m.budgetsJoint ? { budgets: { ...S.kv.budgets, joint: m.budgetsJoint } } : {}),
   } });

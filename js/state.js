@@ -62,7 +62,7 @@ export function budgetsFor(sc = scope()) {
 /** Every save is stamped (a spouse's share file merges by newest edit); joint rows also say who added them. */
 const stamp = x => {
   const by = S.kv.settings?.myName, j = jointIds();
-  return { ...x, updatedAt: Date.now(), ...(by && !x.by && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
+  return { ...x, updatedAt: Date.now(), ...(by && !x.by && !x.spouse && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
 };
 /** The account of the latest everyday spending or income in the current scope (a transfer or a bill paid from its own account isn't where you usually pay from). */
 export const usualAccount = () => [...scopedTx()].filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring').sort((a, b) => b.createdAt - a.createdAt)[0]?.accountId || scopedAccounts()[0]?.id || S.accounts[0]?.id;
@@ -108,9 +108,12 @@ export async function deleteTx(id) {
 }
 export async function deleteTxs(ids) {
   const set = new Set(ids);
-  const old = S.tx.filter(t => set.has(t.id));
+  const old = S.tx.filter(t => set.has(t.id)), j = jointIds();
   await db.delMany('tx', ids);
   S.tx = S.tx.filter(t => !set.has(t.id));
+  // A deleted joint row stays deleted on the spouse's phone too (the share file carries these markers).
+  const joint = old.filter(t => j.has(t.accountId) || j.has(t.toAccountId));
+  if (joint.length) await setKv('jointGone', Object.fromEntries([...Object.entries(S.kv.jointGone || {}), ...joint.map(t => [t.id, Date.now()])].slice(-1000)));
   return async () => saveTxs(old);
 }
 /** Remember the user's category for an item (and optionally for the shop). */
@@ -135,6 +138,7 @@ export async function deleteAccount(id) {
   S.accounts = S.accounts.filter(a => a.id !== id);
 }
 export async function saveBill(b) {
+  b = { ...b, updatedAt: Date.now() };   // a spouse's copy of a joint bill merges by newest edit
   await db.put('recurring', b);
   const i = S.recurring.findIndex(x => x.id === b.id);
   if (i >= 0) S.recurring[i] = b; else S.recurring.push(b);
@@ -163,8 +167,8 @@ export async function addAll({ accounts, tx, recurring, kv }) {
   await load();
 }
 /** Write records as given, overwriting (a spouse's newer joint edits), all or nothing. */
-export async function putAll({ accounts = [], tx = [], kv = {} }) {
-  await db.writeAtomic({ put: { accounts, tx, kv: kvRows(kv) } });
+export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {} }) {
+  await db.writeAtomic({ del, put: { accounts, tx, recurring, kv: kvRows(kv) } });
   await load();
 }
 export async function eraseAll() {

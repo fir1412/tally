@@ -771,4 +771,8 @@ export default {
   "Step back until it fits": "退后直到拍全",
   "Receipts fade in weeks": "收据几周就会褪色",
   "The receipt reader could not be downloaded. Check the connection and try again.": "无法下载收据识别器。请检查网络后再试。",
+  "New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.": "新增或修改的记录：{0}。已删除：{1}。以较新的修改为准；你的个人账户不受影响。",
+  "Joint budgets are updated.": "共同预算已更新。",
+  "Joint bills: {0}.": "共同账单：{0}。",
+  "Your empty joint account \"{0}\" is replaced by theirs.": "你空的共同账户“{0}”将换成对方的。",
 };
