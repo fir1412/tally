@@ -243,3 +243,5 @@ test('bill payments stay out of the unusual-week insight', () => {
   txs.at(-1).source = 'quick'; delete txs.at(-1).bill;
   assert.ok(E.insights({ txs, today: '2026-09-28' }).some(i => i.kind === 'unusual'));
 });
+
+test('a year typed as 26 is not a date', () => { assert.equal(E.validIso('0026-09-01'), false); assert.equal(E.validIso('2026-09-01'), true); assert.equal(E.validIso('1995-02-28'), true); });

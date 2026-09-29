@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, incomeCategory, allocate } from './engine.js';
+import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate } from './engine.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
 
@@ -373,7 +373,8 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   const txs = [], skipped = [], legs = [], opening = {};
   let adjustments = 0;
   rows = rows.slice(0, LIMITS.rows);
-  const signed = map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0);
+  // An app that signs its amounts: a file with only money in (a refund, a salary) is still income, not spending.
+  const signed = !!preset?.signed || (map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0));
   const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
   const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
   const bal = balanceSigns(rows, map, amtOf);
@@ -405,6 +406,8 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
     const rawCat = get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
     let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
+    // "Food" in another app at KFC or a mamak is a meal, not groceries (unless the user chose Groceries in the mapping step).
+    if (category === 'groceries' && !(rawCat && Object.hasOwn(catMap, cleanText(rawCat, 60))) && shopCategory(merchant) === 'dining') category = 'dining';
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
     if (!tword && !signed && !bal[n] && !dc && !preset?.type && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);

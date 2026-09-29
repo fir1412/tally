@@ -27,7 +27,7 @@ export const PRESETS = [
   // "Id/No, Date, Category, Amount, Currency, Note, Wallet". Transfers are the categories "Outgoing Transfer" and
   // "Incoming Transfer" (Money Lover's default category list, e.g. github.com/ITBoiz-FPT-K16/money_care categories.js);
   // the other wallet is not named, so the two halves are paired by amount and day.
-  { id: 'moneylover', name: 'Money Lover', need: ['category', 'amount', 'currency', 'note', ['wallet', 'account'], ['id', 'no', 'exclude report', 'event']],
+  { id: 'moneylover', signed: true, name: 'Money Lover', need: ['category', 'amount', 'currency', 'note', ['wallet', 'account'], ['id', 'no', 'exclude report', 'event']],
     cols: { date: ['date'], amount: ['amount'], category: ['category'], merchant: ['note'], account: ['wallet', 'account'] },
     transfer: c => /^(outgoing|incoming) transfer$/.test(low(c.get('category'))),
     cats: { 'friends & lover': 'fun', travel: 'fun', 'gifts & donations': 'other', family: 'household', 'home services': 'household', 'home maintainance': 'household', 'home maintenance': 'household', pets: 'household', houseware: 'household', makeup: 'personal', 'personal items': 'personal', 'vehicle maintenance': 'transport', insurances: 'bills', 'fees & charges': 'bills', rentals: 'bills', 'streaming service': 'fun', award: 'income', gifts: 'income', selling: 'income', 'interest money': 'income', 'collect interest': 'income', 'other income': 'income' } },
@@ -52,7 +52,7 @@ export const PRESETS = [
   // Monefy: "date, account, category, amount, currency, converted amount, currency, description", dd/MM/yyyy, signed
   // amounts, a transfer as two rows with the category "To 'Savings'" / "From 'Cash'" (github.com/btittelbach/
   // pyhledger convert-monefy-records.py; Ivy Wallet CSVMapper.monefy).
-  { id: 'monefy', name: 'Monefy', need: ['date', 'account', 'category', 'amount', 'converted amount', 'description'],
+  { id: 'monefy', signed: true, name: 'Monefy', need: ['date', 'account', 'category', 'amount', 'converted amount', 'description'],
     cols: { date: ['date'], account: ['account'], category: ['category'], amount: ['amount'], merchant: ['description'] },
     transfer: c => { const m = String(c.get('category')).trim().match(/^(To|From) '(.+)'$/i); return m && { dir: /^to$/i.test(m[1]) ? 'out' : 'in', to: m[2] }; },
     cats: { food: 'groceries', 'eating out': 'dining', house: 'household', pets: 'household', taxi: 'transport', car: 'transport', toiletry: 'personal', clothes: 'shopping', communications: 'bills', sports: 'fun', gifts: 'other', deposits: 'income', savings: 'income' } },
@@ -116,7 +116,7 @@ export const PRESETS = [
 
   // Mobills (Brazil): Data, Descrição, Valor, Conta, Categoria, Subcategoria, signed amounts with decimal commas
   // (github.com/mariaffp/projeto-gefin services/importacao.py). ponytail: one source, transfers unknown: they come in as money in and out.
-  { id: 'mobills', name: 'Mobills', need: ['data', 'descrição', 'valor', 'conta', 'categoria'],
+  { id: 'mobills', signed: true, name: 'Mobills', need: ['data', 'descrição', 'valor', 'conta', 'categoria'],
     cols: { date: ['data'], merchant: ['descrição'], amount: ['valor'], account: ['conta'], category: ['categoria'] } },
 ];
 

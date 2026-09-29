@@ -93,7 +93,7 @@ export const settingsView = {
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
       <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
-        <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0"></progress><span id="ocr-pct" class="fine num"></span></div>
+        <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num"></span></div>
         <button class="btn ghost wide" data-act="reader-get">${ICON.download}${esc(t('Download the receipt reader now'))}</button></section>
       <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
@@ -112,7 +112,7 @@ export const settingsView = {
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
-        <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a> · <a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></section>
+        <p class="legal"><a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></p></section>
       <section class="card"><h2>${esc(t('Help and feedback'))}</h2>
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
@@ -189,13 +189,13 @@ export async function importFile(f) {
     const zipAt = head.findIndex((x, i) => x === 0x50 && head[i + 1] === 0x4b && head[i + 2] === 3 && head[i + 3] === 4);
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
     if (!/\.mmbak$/i.test(f.name) && (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64))) { kind = 'Money Manager'; return await importMoneyManager(buf); }
-    if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
+    if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(jsonText(buf));
     // Money Manager by Realbyte (.mmbak): SQLite, bare or zipped
     if (/\.mmbak$/i.test(f.name) || new TextDecoder().decode(head.slice(0, 15)) === 'SQLite format 3') { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }
     if (zipAt === 0) {
       const names = [];
       const z = await unzip(buf, n => (names.push(n), n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n))).catch(() => ({}));
-      if (z[BACKUP_JSON]) return await restoreText(new TextDecoder().decode(z[BACKUP_JSON]), z);
+      if (z[BACKUP_JSON]) return await restoreText(jsonText(z[BACKUP_JSON]), z);
       if (names.length && !names.some(n => n.startsWith('xl/'))) { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }   // a renamed .mmbak
     }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
@@ -291,8 +291,9 @@ async function commitImport(txs, label, { before = async () => [], newAccounts =
   const photoIds = await before(fresh);
   const pairs = pairTransfers([...S.tx, ...fresh], fresh), paired = new Set(pairs.flat().map(x => x.id));
   const replaced = S.tx.filter(x => paired.has(x.id)), save = [...fresh.filter(x => !paired.has(x.id)), ...pairs.map(asTransfer)];
-  if (replaced.length) await deleteTxs(replaced.map(x => x.id));
-  await saveTxs(save);
+  await saveTxs(save);   // save first: a failed write must not leave the replaced rows deleted
+  const kept = new Set(save.map(x => x.id)), gone = replaced.filter(x => !kept.has(x.id)).map(x => x.id);
+  if (gone.length) await deleteTxs(gone);
   for (const id of newAccounts) if (!save.some(x => x.accountId === id || x.toAccountId === id)) await deleteAccount(id).catch(() => {});
   if (!settings().onboarded) { await setSetting('onboarded', true); afterSetup(); }
   closeSheet(); go('home'); render();
@@ -361,6 +362,11 @@ function pdfPassword(buf, wrong) {
 }
 /** Re-encode a photo as JPEG (max 1200 px): smaller, and location data in the original is dropped. Only a JPEG or PNG
  *  within 40 MB and 50 megapixels is decoded, so a crafted image can't exhaust memory; anything else → null. */
+/** A backup's JSON bytes as text, refused before decoding when too big. */
+function jsonText(bytes) {
+  if (bytes.byteLength > LIMITS.backupJson) throw new Error(t('This backup is too big to restore (over 50 MB).'));
+  return new TextDecoder().decode(bytes);
+}
 async function reencode(blob) {
   try {
     const info = blob.size <= LIMITS.photoBytes && imageInfo(new Uint8Array(await blob.slice(0, 1 << 20).arrayBuffer()));
@@ -426,7 +432,7 @@ async function importJoint(data, zip = {}) {
   if (!settings().tourDone) await markSeen();
   closeSheet(); go('home'); render();
   const wanted = new Set(m.tx.map(x => x.receiptId).filter(Boolean));
-  for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' })); }
+  for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) { const jpeg = await reencode(new Blob([bytes])); if (jpeg) await savePhoto(id, jpeg); } }   // same size and pixel limits as a backup
   toast(t('{0} joint entries added or updated from {1}', m.tx.length, from), { k: 'good', icon: 'check' });
 }
 async function backedUp(msg) {
@@ -440,7 +446,10 @@ export const act = {
     b.disabled = true; $('#reader-dl').hidden = false;
     const { loadOcr } = await import('../scan.js');
     await import('./review.js');   // its progress listener fills the bar
-    await loadOcr();
+    try { await loadOcr(); } catch (e) {
+      $('#reader-dl').hidden = true; b.disabled = false;
+      return toast(e?.message ? t(e.message) : t('The receipt reader could not be downloaded. Check the connection and try again.'), { k: 'bad' });
+    }
     $('#reader-dl').hidden = true; $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
     toast(t('The receipt reader is ready on this phone and works offline.'), { k: 'good', icon: 'check' });
   },
@@ -522,6 +531,11 @@ export const act = {
       made.push(IMP.newId);
     }
     for (const [n, a] of acc.values.entries()) if (a.isNew) { await saveAccount({ id: a.id, name: a.v, kind: a.kind, opening: adjusted[a.v.toLowerCase()] || 0, createdAt: now + n + 1 }); made.push(a.id); }
+    // Balance corrections into accounts already here move their opening balance too (undone with the import).
+    const bumped = [];
+    const bump = async (id, d) => { const a = S.accounts.find(x => x.id === id); if (!a || !d) return; bumped.push(a); await saveAccount({ ...a, opening: (a.opening || 0) + d }); };
+    if (IMP.accountId !== 'new') await bump(IMP.accountId, adjusted['']);
+    for (const a of acc.values) if (!a.isNew) await bump(a.id, adjusted[a.v.toLowerCase()]);
     // "New category: Parents" becomes a real category when a row uses it; the choices are remembered for this header.
     const choices = catChoices(), madeCats = [];
     for (const [src, v] of Object.entries(choices)) {
@@ -533,7 +547,10 @@ export const act = {
     }
     const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
     await setSetting('importMaps', Object.fromEntries(maps));
-    return commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, undoMore: () => setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id))) });
+    return commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, undoMore: async () => {
+      for (const a of bumped) await saveAccount(a);
+      await setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id)));
+    } });
   },
   'mm-go': async b => {
     b.disabled = true;

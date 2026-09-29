@@ -46,7 +46,10 @@ async function bioCheck(id) {
 }
 
 // ---- the lock screen -----------------------------------------------------------------------------------------------
-let pending = null, fails = 0, waitUntil = 0;   // ponytail: tries are counted in memory; a reload resets the wait
+// Wrong tries survive a reload, so reloading doesn't buy 5 fresh guesses. (localStorage can throw: then memory only.)
+const tries = { get: () => { try { return JSON.parse(localStorage.getItem('tally-pin-tries')) || [0, 0]; } catch { return [0, 0]; } },
+  set: v => { try { localStorage.setItem('tally-pin-tries', JSON.stringify(v)); } catch {} } };
+let pending = null, [fails, waitUntil] = tries.get();
 /** Cover everything with the lock screen until the PIN or fingerprint is right. Resolves at once without a lock. */
 export function gate() {
   if (!lockOn()) return Promise.resolve();
@@ -58,7 +61,7 @@ export function gate() {
   document.body.append(el);
   pending = new Promise(resolve => {
     const lock = settings().lock;
-    const done = () => { el.remove(); for (const x of kids) { x.classList.remove('veiled'); if (!wasInert.has(x)) x.inert = false; } pending = null; fails = 0; resolve(); };
+    const done = () => { el.remove(); for (const x of kids) { x.classList.remove('veiled'); if (!wasInert.has(x)) x.inert = false; } pending = null; fails = 0; waitUntil = 0; tries.set([0, 0]); resolve(); };
     const err = m => { el.querySelector('#lock-err').textContent = m; };
     const main = () => {
       el.innerHTML = `<div class="lockbox"><div class="tour-ic">${ICON.lock}</div><h1>Tally</h1><p>${esc(t('Enter your PIN'))}</p>
@@ -80,6 +83,7 @@ export function gate() {
       if (Date.now() < waitUntil) return err(t('Too many tries. Wait {0} seconds.', Math.ceil((waitUntil - Date.now()) / 1000)));
       if (await checkPin(pin, lock)) return done();
       fails++; if (fails >= 5) waitUntil = Date.now() + 30_000 * (fails - 4);
+      tries.set([fails, waitUntil]);
       el.querySelector('#lock-pin').value = '';
       err(fails >= 5 ? t('Too many tries. Wait {0} seconds.', 30 * (fails - 4)) : t('That PIN is not right.'));
     };

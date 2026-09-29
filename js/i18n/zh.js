@@ -770,4 +770,5 @@ export default {
   "Long receipt?": "收据很长？",
   "Step back until it fits": "退后直到拍全",
   "Receipts fade in weeks": "收据几周就会褪色",
+  "The receipt reader could not be downloaded. Check the connection and try again.": "无法下载收据识别器。请检查网络后再试。",
 };

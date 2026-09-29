@@ -63,7 +63,7 @@ export function leadDate(line) {
 }
 
 // Money: 1,234.56 with optional RM, leading +/−, trailing "-" (Maybank debit), DR/CR, or (brackets).
-const MONEY = /(\()?([+\-−])?\s?(?:RM\s?)?(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(\))?(?:\s?(DR|CR|Dr|Cr)\b|([+\-])(?!\d))?/g;
+const MONEY = /(\()?([+\-−])?\s?(?:RM\s?)?(\d{1,3}(?:,\d{3})+|\d{1,15})\.(\d{2})(\))?(?:\s?(DR|CR|Dr|Cr)\b|([+\-])(?!\d))?/g;
 /** Money tokens in a piece of text → [{sen, sign (1, −1 or 0 when unmarked), at}]. */
 export function amounts(text) {
   const out = [];

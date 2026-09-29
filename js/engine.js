@@ -102,7 +102,8 @@ export function cycleOf(iso, startDay = 1) {
 export const cycleKey = (iso, sd = 1) => (+iso.slice(8, 10) >= sd ? iso.slice(0, 7) : addMonths(iso.slice(0, 7), -1));
 /** The cycle a key names: cycleSpan('2026-09', 25) → 25 Sep to 24 Oct. */
 export const cycleSpan = (key, sd = 1) => cycleOf(`${key}-${pad2(Math.min(28, Math.max(1, sd)))}`, sd);
-export const validIso = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
+export const validIso = s => /^(19[89]\d|20\d\d)-\d{2}-\d{2}$/.test(String(s)) &&   // 1990–2099: a year typed as "26" (0026) is a slip
+  !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
 
 // ---- categorizing ----------------------------------------------------------------------------
 /** Key for remembering an item: "KS SNRS 2PK " → "KS SNRS 2PK". Pure codes and prices are dropped. */
@@ -118,7 +119,7 @@ const WORDS = [
   ['health', /panadol|claritin|vitamin|ubat|medicine|medical|doctor|doktor|dental|dentist|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
   ['personal', /shampoo|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|haircut|gunting rambut|洗发|洗髮|牙膏|沐浴/i],
   ['dining', /nasi|mee |mee$|mi goreng|roti canai|teh |kopi|coffee|latte|milo ais|ais |burger|pizza|chicken rice|laksa|satay|restoran|restaurant|cafe|kafe|food|makan|drink|minum|set meal|meal|kfc|mcd|mamak|饭|面|粉|咖啡|茶|奶茶|套餐|饮料|點心|点心|包子|炒/i],
-  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬|虾|蝦|苹果|蘋果|葱|蔥|姜|薑|榴莲|榴槤|蒜|辣椒/i],
+  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬|虾|蝦|苹果|蘋果|葱|蔥|姜|薑|榴莲|榴槤|蒜|辣椒|瓜|豆芽|豆|芽|番茄|萝卜|蘿蔔|薯|芋|香蕉|橙|木瓜|西瓜|包菜|芥兰|芥蘭|白菜|菠菜|蘑菇|菇|蛤|蚬|蜆|螃蟹|蟹|鱿鱼|魷魚|江鱼仔|江魚仔|咸鱼|鹹魚|排骨|猪|豬|牛|羊|鸭|鴨|米粉|粿条|粿條|面条|麵條/i],
   ['household', /sabun|soap|detergent|tissue|tisu|bleach|sponge|mop|broom|penyapu|plastic|beg |bag|towel|tuala|bateri|battery|mentol|bulb|span|kitchen|dapur|pinggan|cawan|cup|peg|hanger|clorox|dynamo|downy|breeze|glad|ziploc|纸巾|紙巾|洗衣|清洁|清潔|垃圾袋|电池|電池|毛巾/i],
   ['transport', /petrol|ron ?9[57]|v-?power|diesel|primax|parking|letak kereta|toll|tol |grab|touch ?n ?go|lrt|mrt|bus|teksi|taxi|fuel|汽油|停车|停車|过路费/i],
   ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|\bdigi\b|umobile|internet|astro|insurance|insurans|takaful|loan|pinjaman|电费|電費|水费|水費|保险|保險/i],

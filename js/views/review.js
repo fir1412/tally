@@ -129,7 +129,7 @@ export const reviewView = {
       ${dup ? `<p class="warnbox">${ICON.alert}${esc(t('Looks like you already added this: {0} on {1}.', fmtRM(dup.amount), fmtDate(dup.date)))}</p>` : ''}
       <section class="card">
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
-        <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
+        <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
         <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
       </section>

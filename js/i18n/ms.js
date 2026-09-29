@@ -770,4 +770,5 @@ export default {
   "Long receipt?": "Resit panjang?",
   "Step back until it fits": "Undur sehingga muat",
   "Receipts fade in weeks": "Resit pudar dalam beberapa minggu",
+  "The receipt reader could not be downloaded. Check the connection and try again.": "Pembaca resit tidak dapat dimuat turun. Semak sambungan dan cuba lagi.",
 };

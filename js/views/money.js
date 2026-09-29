@@ -101,7 +101,7 @@ function sheetHtml() {
       ${d.type === 'transfer' ? `<label class="field"><span>${esc(t('To'))}</span><select id="tx-to">${accOpts(d.toAccountId || S.accounts.find(a => a.id !== d.accountId)?.id)}</select></label>` : ''}
     </div>
     <div class="grid2 keep2">
-      <label class="field"><span>${esc(t('Date'))}</span><input id="tx-date" type="date" value="${esc(d.date)}" max="${esc(today())}"></label>
+      <label class="field"><span>${esc(t('Date'))}</span><input id="tx-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}"></label>
       <label class="field"><span>${esc(t('Time'))}</span><input id="tx-time" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="13:40" value="${esc(d.time || '')}"></label>
     </div>
     <label class="field"><span>${esc(d.type === 'income' ? t('From (who paid you)') : t('Shop or note'))}</span><input id="tx-merchant" maxlength="80" value="${esc(d.merchant || '')}" autocomplete="off"></label>
@@ -128,7 +128,7 @@ function reopen() {
   if (!sh) return openSheet(sheetHtml(), { label: t('Transaction') });
   const focus = document.activeElement?.id;   // redraw in place: no second sheet, nothing typed goes astray
   sh.innerHTML = `<div class="grab" aria-hidden="true"></div>${sheetHtml()}`;
-  (focus && document.getElementById(focus))?.focus({ preventScroll: true });
+  if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
 }
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
 export function openTxSheet(preset = {}) {
@@ -184,9 +184,9 @@ function billSheet(b) {
     <label class="field"><span>${esc(t('Name'))}</span><input id="b-name" maxlength="60" value="${esc(b.name || '')}" autofocus></label>
     <div class="grid2"><label class="field"><span>${esc(t('Amount (RM)'))}</span><input id="b-amt" inputmode="decimal" value="${b.amount ? (b.amount / 100).toFixed(2) : ''}"></label>
     <label class="field"><span>${esc(t('How often'))}</span><select id="b-freq">${freqs.map(([k, n]) => `<option value="${k}"${(b.freq || 'monthly') === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label></div>
-    <div class="grid2"><label class="field"><span>${esc(t('Next payment'))}</span><input id="b-date" type="date" value="${esc(next)}"></label>
+    <div class="grid2"><label class="field"><span>${esc(t('Next payment'))}</span><input id="b-date" type="date" min="1990-01-01" value="${esc(next)}"></label>
     <label class="field"><span>${esc(t('Payments left (instalments)'))}</span><input id="b-count" type="number" inputmode="numeric" min="1" max="600" value="${left}" placeholder="${esc(t('No end'))}"></label></div>
-    <label class="field"><span>${esc(t('Or ends on (optional)'))}</span><input id="b-until" type="date" value="${esc(b.until || '')}"></label>
+    <label class="field"><span>${esc(t('Or ends on (optional)'))}</span><input id="b-until" type="date" min="1990-01-01" value="${esc(b.until || '')}"></label>
     <label class="check"><input type="checkbox" id="b-auto"${(b.id ? b.auto : true) ? ' checked' : ''}> ${esc(t('Add it automatically on the day'))}</label>
     <p class="fine">${esc(t('Tally adds the payment the next time you open it on or after the day, and tells you. A bill counts as paid once anything with its name is added that month, whatever the amount.'))}</p>
     <div class="grid2"><label class="field"><span>${esc(t('Category'))}</span><select id="b-cat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(b.category || 'bills') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>

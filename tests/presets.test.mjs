@@ -81,6 +81,10 @@ test('categories: the app\'s defaults land in Tally\'s, and an empty payee falls
   assert.equal(run(csv('moneylover.csv'), 'm').find('Tesco').category, 'household');   // Houseware
   const m = run(csv('monefy.csv'), 'm');
   assert.equal(m.find('Tesco').category, 'groceries');   // Monefy "Food" is groceries, "Eating out" dining
+  const food = run([...csv('monefy.csv').slice(0, 1), ['03/09/2026', 'Cash', 'Food', '-12.50', 'MYR', '-12.50', 'MYR', 'KFC']], 'm').find('KFC');
+  assert.equal(food.category, 'dining');   // "Food" at KFC is a meal
+  const paid = run([...csv('monefy.csv').slice(0, 1), ['01/09/2026', 'Maybank', 'Gifts', '50', 'MYR', '50', 'MYR', 'Angpau']], 'm').txs[0];
+  assert.equal(paid.type, 'income');   // a file with only money in is still money in
   const w = run(csv('wallet.csv'), 'w');
   assert.deepEqual([w.find('Mamak Ali').category, w.find('Mamak Ali').note, w.find('Acme Sdn Bhd').category], ['dining', 'Nasi lemak', 'salary']);
   const y = run(csv('ynab_register.csv'), 'y');
