@@ -54,30 +54,35 @@ export function cached(fn, txs, ...args) {
   return m.get(k);
 }
 
-// ---- scope: Me · Joint · All (a couple's joint accounts next to personal ones) ---------------------------------
+// ---- scope: Me · Joint · Business · All (a couple's joint accounts, a stall's or rider's business accounts) -------
 export const jointIds = () => new Set(S.accounts.filter(a => a.scope === 'joint').map(a => a.id));
 export const hasJoint = () => S.accounts.some(a => a.scope === 'joint');
-/** 'me', 'joint' or 'all'. Without a joint account everything is 'me'. */
-export const scope = () => (hasJoint() ? (['me', 'joint'].includes(S.kv.settings.scope) ? S.kv.settings.scope : 'all') : 'me');
-/** A transaction, bill or {accountId} in scope. A transfer between a personal and a joint account is in both:
- *  money out of one, into the other (balances() only totals the accounts it is given). */
-export function inScope(x, sc = scope(), joint = jointIds()) {
+/** Which money an account holds: 'me' (personal), 'joint' or 'business'. */
+export const groupOf = a => (a?.scope === 'joint' || a?.scope === 'business' ? a.scope : 'me');
+/** The groups there are accounts for, personal first: ['me'] alone means no switch is shown. */
+export const scopes = () => ['me', 'joint', 'business'].filter(g => g === 'me' || S.accounts.some(a => a.scope === g));
+/** 'me', 'joint', 'business' or 'all'. With personal accounts only, everything is 'me'. */
+export const scope = () => { const g = scopes(); return g.length === 1 ? 'me' : g.includes(S.kv.settings.scope) ? S.kv.settings.scope : 'all'; };
+/** A transaction, bill or {accountId} in scope. A transfer between two groups (personal → joint, business → personal:
+ *  paying yourself) is in both: money out of one, into the other (balances() only totals the accounts it is given). */
+export function inScope(x, sc = scope(), groups = groupMap()) {
   if (sc === 'all') return true;
-  const want = sc === 'joint';
-  return joint.has(x.accountId) === want || (x.toAccountId != null && joint.has(x.toAccountId) === want);
+  const g = id => groups.get(id) || 'me';
+  return g(x.accountId) === sc || (x.toAccountId != null && g(x.toAccountId) === sc);
 }
+const groupMap = () => new Map(S.accounts.map(a => [a.id, groupOf(a)]));
 /** Every row in RM: spending and income in an account of another currency at its rate (engine toRM; `fx` keeps its own amount).
  *  Screens read these; saves take rows from S.tx, never from here (stamp refuses a converted row). */
 export const rmTx = () => { const r = S.accounts.filter(isFx).map(a => [a.id, rateOf(a)]).filter(([, v]) => v); if (!r.length) return S.tx; const m = new Map(r); return keep('rm', S.tx, JSON.stringify(r), () => S.tx.map(x => (m.has(x.accountId) && x.type !== 'transfer' ? toRM(x, m.get(x.accountId)) : x))); };
-export const scopedTx = () => { const sc = scope(), j = jointIds(), all = rmTx(); return sc === 'all' || !j.size ? all : keep('scoped', all, `${sc}|${[...j]}`, () => all.filter(x => inScope(x, sc, j))); };
-export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || (a.scope === 'joint') === (sc === 'joint')); };
+export const scopedTx = () => { const sc = scope(), g = groupMap(), all = rmTx(); return sc === 'all' || scopes().length === 1 ? all : keep('scoped', all, `${sc}|${[...g]}`, () => all.filter(x => inScope(x, sc, g))); };
+export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || groupOf(a) === sc); };
 /** Budgets for the scope: personal ones as before, joint ones in budgets.joint, All = both added up (read-only). */
 export function budgetsFor(sc = scope()) {
-  const me = S.kv.budgets, jt = me.joint || { total: 0, byCat: {} };
-  if (sc !== 'all') return sc === 'joint' ? jt : me;
+  const me = S.kv.budgets, none = { total: 0, byCat: {} }, jt = me.joint || none, biz = me.business || none;
+  if (sc !== 'all') return sc === 'joint' ? jt : sc === 'business' ? biz : me;
   const byCat = { ...me.byCat };
-  for (const [c, v] of Object.entries(jt.byCat)) byCat[c] = (byCat[c] || 0) + v;
-  return { total: me.total + jt.total, byCat };
+  for (const b of [jt, biz]) for (const [c, v] of Object.entries(b.byCat)) byCat[c] = (byCat[c] || 0) + v;
+  return { total: me.total + jt.total + biz.total, byCat };
 }
 /** Every save is stamped (a spouse's share file merges by newest edit); joint rows also say who added them. */
 const stamp = x => {

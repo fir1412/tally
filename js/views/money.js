@@ -1,5 +1,5 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached } from '../state.js';
+import { S, saveTx, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
@@ -14,16 +14,16 @@ const accOf = id => S.accounts.find(a => a.id === id);
 const amtLabel = (id, key = 'Amount ({0})') => { const a = accOf(id); return isFx(a) ? t(key, a.currency) : key === 'Amount ({0})' ? t('Amount (RM)') : t(key, 'RM'); };
 export const catLabel = id => t(cat(id).name);
 export const dot = c => `<span class="dot" style="background:${esc(cat(c).color)}" aria-hidden="true"></span>`;
-const scopeName = sc => ({ me: t('Me'), joint: t('Joint'), all: t('All') })[sc];
+const scopeName = sc => ({ me: t('Me'), joint: t('Joint'), business: t('Business'), all: t('All') })[sc];
 /** Me · Joint · All, on Home, Activity, Insights and Budgets once a joint account exists (Budgets: Me · Joint, see budScope). */
-export const scopeSwitch = (sc = scope(), keys = ['me', 'joint', 'all']) => (hasJoint() ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${keys.map(k => `<button class="seg${sc === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${sc === k}">${esc(scopeName(k))}</button>`).join('')}</div>` : '');
+export const scopeSwitch = (sc = scope(), keys = [...scopes(), 'all']) => (scopes().length > 1 ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${keys.map(k => `<button class="seg${sc === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${sc === k}">${esc(scopeName(k))}</button>`).join('')}</div>` : '');
 /** In a screen's header: whose money it shows when that isn't all of it, so a switch made on another screen is no surprise.
  *  A tap shows all again (on Budgets, a label: budgets are set for Me or Joint). */
-export const scopeChip = (sc = scope(), label = false) => (!hasJoint() || sc === 'all' ? ''
+export const scopeChip = (sc = scope(), label = false) => (scopes().length === 1 || sc === 'all' ? ''
   : label ? `<span class="pill scopechip">${esc(t('Viewing: {0}', scopeName(sc)))}</span>`
   : `<button class="chip on scopechip" data-act="scope" data-s="all" aria-label="${esc(t('Viewing: {0}. Show all', scopeName(sc)))}">${esc(t('Viewing: {0}', scopeName(sc)))}${ICON.x}</button>`);
 /** Budgets are set for Me or for Joint: with All chosen elsewhere, Budgets shows Me (where the fields can be changed). */
-const budScope = () => (scope() === 'joint' ? 'joint' : 'me');
+const budScope = () => (['joint', 'business'].includes(scope()) ? scope() : 'me');
 /** One transaction row (used by Home and Activity). */
 export function txRow(x) {
   const cats = x.items?.length ? [...new Set(x.items.map(i => i.category))] : [x.category];
@@ -80,7 +80,7 @@ let qTimer;
 /** Activity after a filter change: drawn again, and the count said (screen readers). */
 const refilter = () => { render(); announce($('#act-sum')?.textContent || ''); };
 let budT, budFirst = false, budRevision = 0;
-const anyBudget = b => !!(b.total || Object.keys(b.byCat || {}).length || b.joint?.total || Object.keys(b.joint?.byCat || {}).length);
+const anyBudget = b => [b, b.joint, b.business].some(x => x && (x.total || Object.keys(x.byCat || {}).length));
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
@@ -107,7 +107,7 @@ export const input = {
     if (err) err.textContent = v == null || v < 0 ? amtErr(el.value) : '';
     if (v == null || v < 0) return;
     if (!anyBudget(S.kv.budgets)) budFirst = true;   // the very first budget gets a warm word once typing stops
-    const all = structuredClone(S.kv.budgets), b = budScope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
+    const all = structuredClone(S.kv.budgets), sc = budScope(), b = sc === 'me' ? all : (all[sc] ||= { total: 0, byCat: {} });
     if (el.dataset.cat === 'total') b.total = v; else if (v) b.byCat[el.dataset.cat] = v; else delete b.byCat[el.dataset.cat];
     if (b !== all) b.updatedAt = Date.now();   // joint budgets merge by newest edit
     // Keep typing in place; show the saved tick only once storage confirms the write.
@@ -266,7 +266,7 @@ export const budgetsView = {
     const pastYm = [1, 2, 3].map(k => addMonths(ym, -k)), spends = cached(monthSpends, txs, pastYm, sd), past = pastYm.map(m => spends[m].total).filter(Boolean);
     const avg = past.length ? Math.max(5000, Math.round(past.reduce((a, b) => a + b, 0) / past.length / 5000) * 5000) : 0;
     return `<header class="top"><h1>${esc(t('Budgets'))}</h1>${scopeChip(sc, true)}<span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
-      ${scopeSwitch(sc, ['me', 'joint'])}
+      ${scopeSwitch(sc, scopes())}
       <section class="card"><label class="field"><span>${esc(sc === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" aria-describedby="be-total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(avg ? (avg / 100).toFixed(0) : t('e.g. 2500'))}"></span></label><p class="err bud-err" id="be-total" role="alert"></p>
         ${avg && !B.total ? `<p class="fine">${esc(t('You spent about {0} a month lately.', fmtRM(avg)))} <button class="link" data-act="bud-use" data-v="${avg}">${esc(t('Use {0}', fmtRM(avg)))}</button></p>` : ''}<div id="bs-total">${bar(now.total, B.total, 'total')}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>

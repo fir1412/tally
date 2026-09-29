@@ -1079,4 +1079,6 @@ export default {
   "Select {0}": "选择 {0}",
   "Set": "设置",
   "{0} selected": "已选 {0} 项",
+  "Business": "生意",
+  "Business (my stall, rides, shop)": "生意（摊位、载客、店铺）",
 };

@@ -162,3 +162,18 @@ test('merge: both import each other\'s first file at once (crossed): both phones
   assert.deepEqual([rows(H1), rows(A1)], [['a1', 'h1'], ['a1', 'h1']]);
   assert.equal(H1.tx.find(t => t.id === 'h1').updatedAt, 5);   // moved, not re-stamped: a newer edit elsewhere still wins
 });
+
+test('business accounts: Me is personal only, Business its own view with its own budget, paying yourself shows in both, All adds up', () => {
+  Object.assign(S, { accounts: [{ id: 'p', name: 'Maybank', kind: 'bank', opening: 0 }, { id: 'b', name: 'Stall cash', kind: 'cash', opening: 0, scope: 'business' }],
+    tx: [{ id: 's', type: 'income', date: '2026-09-01', amount: 50000, accountId: 'b', category: 'income' }, { id: 'e', type: 'expense', date: '2026-09-01', amount: 12000, accountId: 'b', category: 'groceries' },
+      { id: 'm', type: 'expense', date: '2026-09-02', amount: 900, accountId: 'p', category: 'dining' }, { id: 'pay', type: 'transfer', date: '2026-09-03', amount: 20000, accountId: 'b', toAccountId: 'p', category: 'other' }],
+    kv: { settings: { scope: 'business' }, budgets: { total: 100000, byCat: {}, business: { total: 30000, byCat: {} } } } });
+  assert.equal(scope(), 'business');
+  assert.deepEqual(scopedTx().map(x => x.id), ['s', 'e', 'pay']);
+  assert.equal(balances(scopedAccounts(), booked()).total, 50000 - 12000 - 20000);   // the stall's cash after paying yourself
+  assert.equal(budgetsFor().total, 30000);
+  S.kv.settings.scope = 'me';
+  assert.deepEqual(scopedTx().map(x => x.id), ['m', 'pay']);
+  S.kv.settings.scope = 'all';
+  assert.equal(budgetsFor().total, 130000);
+});

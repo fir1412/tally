@@ -94,7 +94,7 @@ function accountSheet(a = {}) {
     <p class="fine" id="ac-cur-note"${isFx(a) ? '' : ' hidden'}>${esc(t('Amounts in this account stay in its own currency. Totals, budgets and insights count them in RM at this rate. A transfer to or from an RM account updates it.'))}</p>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(isFx(a) ? t('Balance when you started ({0})', cur) : t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
-    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option></select></label>
+    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option><option value="business"${a.scope === 'business' ? ' selected' : ''}>${esc(t('Business (my stall, rides, shop)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
 }
@@ -103,7 +103,7 @@ function accountSheet(a = {}) {
 function accSub(a, by) {
   const kind = t(KIND[a.kind] || 'Bank account');
   const n = a.name.trim().toLowerCase(), k = kind.toLowerCase();
-  return [a.scope === 'joint' && t('Joint'), !(k.startsWith(n) || n.startsWith(k)) && kind, fmtAcct(a, by[a.id] || 0)].filter(Boolean).join(' · ');
+  return [a.scope === 'joint' && t('Joint'), a.scope === 'business' && t('Business'), !(k.startsWith(n) || n.startsWith(k)) && kind, fmtAcct(a, by[a.id] || 0)].filter(Boolean).join(' · ');
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
@@ -641,7 +641,7 @@ export const act = {
     if (target != null && target !== was) opening = (S.accounts.find(a => a.id === b.dataset.id)?.opening || 0) + target - was;
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = amtErr($('#ac-open').value));
-    const old = S.accounts.find(a => a.id === b.dataset.id), kind = $('#ac-kind').value, scope = $('#ac-scope').value === 'joint' ? 'joint' : 'personal';
+    const old = S.accounts.find(a => a.id === b.dataset.id), kind = $('#ac-kind').value, scope = ['joint', 'business'].includes($('#ac-scope').value) ? $('#ac-scope').value : 'personal';
     const currency = $('#ac-cur').value, rate = currency === 'MYR' ? null : +String($('#ac-rate').value).replace(',', '.');
     if (rate != null && !(rate > 0 && rate < 100000)) return ($('#ac-err').textContent = t('Enter how many ringgit 1 {0} is, for example 3.30.', currency));
     const fx = currency === 'MYR' ? { currency: undefined, rate: undefined } : { currency, rate };

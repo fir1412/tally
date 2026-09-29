@@ -1079,4 +1079,6 @@ export default {
   "Select {0}": "Pilih {0}",
   "Set": "Tetapkan",
   "{0} selected": "{0} dipilih",
+  "Business": "Perniagaan",
+  "Business (my stall, rides, shop)": "Perniagaan (gerai, e-hailing, kedai saya)",
 };
