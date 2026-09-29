@@ -93,8 +93,9 @@ const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price loo
 function toDraft(r) {
   // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
-  const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: categorize(i.name, merchant, S.kv.rules), flag: !!i.flag }));
-  const category = shopCategory(merchant, S.kv.rules);
+  const meal = c => (r.meal && c === 'groceries' ? 'dining' : c);   // a restaurant bill: its dishes are dining
+  const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: meal(categorize(i.name, merchant, S.kv.rules)), flag: !!i.flag }));
+  const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay }), category, items,
