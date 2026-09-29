@@ -322,12 +322,12 @@ function accPlan() {
 /** The rows as they will be imported, with the sheet's choices applied, what is already here, and a new account's opening balance. */
 function impPlan() {
   const acc = accPlan();
-  const { txs: all, skipped, loose, adjustments, opening: adjusted } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), accounts: acc.lookup, catMap: catChoices(), customCats: S.kv.customCats, preset: IMP.preset, header: IMP.header });
+  const { txs: all, skipped, loose, adjustments, opening: adjusted, openKnown } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), accounts: acc.lookup, catMap: catChoices(), customCats: S.kv.customCats, preset: IMP.preset, header: IMP.header });
   const tdy = today(), later = all.filter(x => x.date > tdy), future = later.length, txs = IMP.skipFuture ? all.filter(x => x.date <= tdy) : all;
   // Day and month may be swapped only if every such date could be read the other way round, and there are several.
   const swapped = future >= 3 && later.every(x => +x.date.slice(8, 10) <= 12);
   const names = Object.fromEntries([...S.accounts.map(a => [a.id, a.name]), [IMP.newId, newAccName()], ...acc.values.map(a => [a.id, a.v])]);
-  return { txs, ...splitDups(S.tx, txs, names), skipped, future, swapped, acc, loose, adjustments, adjusted, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
+  return { txs, ...splitDups(S.tx, txs, names), skipped, future, swapped, acc, loose, adjustments, adjusted, openKnown, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
 }
 function showMapping() {
   const { header, map, rows } = IMP;
@@ -698,7 +698,7 @@ export const act = {
   },
   'imp-go': async b => {
     b.disabled = true;
-    const { txs, fresh, dups, opening, acc, adjusted } = impPlan(), m = IMP.map, made = [], staged = [], now = Date.now();
+    const { txs, fresh, dups, opening, acc, adjusted, openKnown } = impPlan(), m = IMP.map, made = [], staged = [], now = Date.now();
     if (!fresh.length) { b.disabled = false; return impErr(t('All rows are already in Tally. Nothing new to import.')); }
     if (IMP.accountId === 'new' && fresh.some(x => x.accountId === IMP.newId)) {
       staged.push({ id: IMP.newId, name: newAccName(), kind: newKind(), opening: opening ?? adjusted[''] ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
@@ -730,7 +730,7 @@ export const act = {
     const nextSettings = { ...settings(), importMaps: Object.fromEntries(maps), importSources: Object.fromEntries(Object.entries({ ...settings().importSources, [IMP.sourceKey]: importedAccount }).slice(-100)), ...(bumped.length ? { importAdjustments: [...seenAdjustments, adjustmentKey].slice(-100) } : {}), ...(IMP.sheet ? { sheetAccount: importedAccount } : {}) };
     // No Balance column: every account the file touched, new or already here, is asked what it holds today (unless
     // the file's own starting balance or corrections said so).
-    const known = id => (id === IMP.newId ? opening ?? adjusted[''] : id === IMP.accountId ? adjusted[''] : adjusted[acc.values.find(a => a.id === id)?.v.toLowerCase()]) != null;
+    const known = id => (id === IMP.newId && opening != null) || openKnown.includes(id === IMP.newId || id === IMP.accountId ? '' : acc.values.find(a => a.id === id)?.v.toLowerCase());
     const blind = m.balance == null, first = !settings().onboarded;   // the tour waits until the balances are in
     const touched = await commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { accounts: staged, kv: { settings: nextSettings, ...(newCats.length ? { customCats: [...S.kv.customCats, ...newCats] } : {}) }, newAccounts: made, tourLater: blind, undoMore: async () => {
       for (const a of bumped) await saveAccount(a);

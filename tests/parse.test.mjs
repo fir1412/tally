@@ -246,3 +246,10 @@ test('a refund slip is marked as money back', () => {
   assert.equal(parseReceipt(['UNIQLO MALAYSIA SDN BHD', 'REFUND RECEIPT', 'SHIRT 49.90', 'TOTAL 49.90'].join('\n')).refund, true);
   assert.equal(parseReceipt(['UNIQLO MALAYSIA SDN BHD', 'SHIRT 49.90', 'TOTAL 49.90', 'No refund or exchange after 30 days'].join('\n')).refund, false);
 });
+
+test('Singapore and online receipts: S$ and NETS read as SGD paid by debit; points, vouchers and shipping discounts are money off; shipping is a charge', () => {
+  const fp = parseReceipt(['NTUC FAIRPRICE CO-OPERATIVE LTD', 'UEN S83CS0191L', 'BANANA 1KG 6.55', 'MILK 1L 4.95', 'BREAD 2.40', 'EGGS 10S 5.08', 'SUBTOTAL S$18.98', 'LINKPOINTS REDEEMED -2.00', 'TOTAL S$16.98', 'NETS 16.98'].join('\n'));
+  assert.deepEqual([fp.total, fp.currency, fp.pay, fp.check.ok, fp.items.at(-1).cents], [1698, 'SGD', 'debit', true, -200]);
+  const sp = parseReceipt(['Shopee Order Details', 'Serum 30ml RM45.90', 'Phone case RM19.90', 'Charger RM29.90', 'Merchandise Subtotal RM95.70', 'Shipping Subtotal RM4.90', 'Shipping Discount Subtotal -RM4.90', 'Shopee Voucher -RM5.00', 'Order Total RM90.70', 'Payment Method ShopeePay'].join('\n'));
+  assert.deepEqual([sp.total, sp.service, sp.currency, sp.pay, sp.check.ok], [9070, 490, 'MYR', 'ewallet', true]);
+});

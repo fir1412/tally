@@ -38,7 +38,7 @@ export const MAX_SEN = 100_000_000_00; // RM 100 million: anything bigger is a t
 /** "RM 1,234.50" → 123450. Accepts "12", "12.5", "12,50", "RM12.90", "-3.00". null if not a sane amount. */
 export function parseAmount(v) {
   if (typeof v === 'number') return Number.isFinite(v) && Math.abs(v * 100) <= MAX_SEN ? Math.round(v * 100) : null;
-  let s = String(v ?? '').trim().replace(/^RM\s*/i, '').replace(/\s+/g, '');
+  let s = String(v ?? '').normalize('NFKC').trim().replace(/^RM\s*/i, '').replace(/\s+/g, '');   // full-width １２．５０ too
   // Banks write the sign either side ("60.00-", "3,520.40+") or as DR / CR.
   const dr = /DR$/i.test(s), neg = dr || /^-|-$|^\(.*\)$/.test(s);
   s = s.replace(/(DR|CR)$/i, '').replace(/^[-+(]|[-+)]$/g, '').replace(/^RM/i, '');
@@ -57,6 +57,7 @@ export function parseAmount(v) {
  * null if it isn't a sum, divides by zero or is out of range.
  */
 export function calcAmount(v) {
+  if (typeof v === 'string') v = v.normalize('NFKC');   // ＋ × from a Chinese keyboard
   const plain = /\+\s*$/.test(String(v)) ? null : parseAmount(v);   // typing "12+" is a sum not finished yet, not a bank's +12
   if (plain != null || typeof v === 'number') return plain;
   const s = String(v ?? '').replace(/^\s*RM/i, '').replace(/[×xX]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/\s+/g, '');
@@ -239,7 +240,7 @@ export function balances(accounts, txs, upTo = null) {
 /** A row in an account of another currency, in RM at `rate`: amount and items converted, the account's own amount kept in `fx`. */
 export function toRM(x, rate) {
   const r = { ...x, amount: Math.round(x.amount * rate), fx: x.amount };
-  if (x.items?.length) { r.items = x.items.map(i => ({ ...i, cents: Math.round(i.cents * rate) })); r.items[r.items.length - 1].cents += r.amount - r.items.reduce((s, i) => s + i.cents, 0); }   // still adds up to the total
+  if (x.items?.length) { r.items = x.items.map(i => ({ ...i, cents: Math.round(i.cents * rate) })); const more = allocate(r.items.map(i => i.cents), r.amount - r.items.reduce((s, i) => s + i.cents, 0)); r.items.forEach((i, n) => { i.cents += more[n]; }); }   // still adds up to the total, the difference spread by size (never a negative line)
   return r;
 }
 /**

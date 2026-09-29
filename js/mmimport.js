@@ -100,7 +100,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       const net = tx.reduce((s, t) => s + (t.accountId === id ? (t.type === 'income' ? t.amount : -t.amount) : 0) + (t.toAccountId === id ? t.toAmount ?? t.amount : 0), 0);
       const bal = Number.isInteger(Number(a.balance)) && a.balance != null ? Number(a.balance) : net;
       const title = String(a.title || '');
-      return { id, name: cleanText(title, 60) || 'Account', kind: /cash|tunai|现金/i.test(title) ? 'cash' : /card|kad|卡/i.test(title) ? 'card' : /wallet|tng|grab|boost/i.test(title) ? 'ewallet' : 'bank', opening: okSigned(bal - net) ? bal - net : 0, createdAt: Date.parse(a.created) || now, currency: a.currencyCode || 'MYR' };
+      return { id, name: cleanText(title, 60) || 'Account', kind: guessKind(title), opening: okSigned(bal - net) ? bal - net : 0, createdAt: Date.parse(a.created) || now, currency: a.currencyCode || 'MYR' };
     });
     return { accounts: accounts.map(keepCurrency), tx, customCats, photos, skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped };
   } finally { db.close(); }

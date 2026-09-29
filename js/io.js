@@ -328,11 +328,11 @@ export function mapCategory(name, catMap = {}, merchant = '', custom = []) {
 // Category names people use in their own sheets, English, Malay and Chinese. Order matters: "Sekolah Anak" is Kids.
 const CAT_WORDS = [
   ['salary', /salary|gaji|paycheck|payroll|wage|工资|工資|薪/i], ['allowance', /elaun|allowance|biasiswa|scholarship|津贴|津貼/i],
-  ['groceries', /grocer|barang dapur|runcit|pasar|杂货|雜貨|超市|买菜|買菜/i], ['dining', /food|drink|makan|minum|餐|meal|restaurant|饮食|飲食/i],
+  ['groceries', /grocer|barang dapur|runcit|pasar|杂货|雜貨|超市|买菜|買菜/i], ['dining', /food|drink|makan|minum|餐|meal|restaurant|dining|eating|饮食|飲食/i],
   ['transport', /transport|pengangkutan|\bcar\b|kereta|fuel|petrol|minyak|toll|parking|交通|汽油/i], ['bills', /bill|util|\bbil\b|账单|帳單|水电|水電/i],
   ['health', /health|kesihatan|perubatan|medical|医疗|醫療|健康/i], ['personal', /personal|penjagaan diri|kecantikan|beauty|个人护理|個人護理/i],
   ['household', /household|rumah|perabot|家居|日用/i], ['kids', /\bkids?\b|children|anak|kanak|孩子|小孩|儿童|兒童/i],
-  ['electronics', /electronic|elektronik|gadget|gajet|电子|電子/i], ['shopping', /shop|belanja|购物|購物|cloth|pakaian/i],
+  ['electronics', /electronic|elektronik|gadget|gajet|电子|電子/i], ['shopping', /shop|belanja|beli|购物|購物|cloth|pakaian/i],
   ['fun', /entertain|hiburan|leisure|娱乐|娛樂/i], ['education', /educat|pendidikan|school|sekolah|yuran|教育|学费|學費/i],
 ];
 /** Excel stores computed cells as long doubles ("12.720000000000001"): round those to sen, read the rest as typed. */
@@ -389,7 +389,7 @@ export function balanceSigns(rows, map, amtOf) {
  * whose other side isn't in the file, kept as money in or out), adjustments, opening}.
  */
 export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now(), preset = null, header = [] } = {}) {
-  const txs = [], skipped = [], legs = [], opening = {};
+  const txs = [], skipped = [], legs = [], opening = {}, adjAt = {}, firstAt = {};
   let adjustments = 0;
   if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   // An app that signs its amounts: a file with only money in (a refund, a salary) is still income, not spending.
@@ -420,8 +420,9 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (!(dc || signed)) sign = type === 'income' ? 1 : -1;  // which way the money went, whatever the type column calls it
     const accName = cleanText(preset?.account ? preset.account(cx) : get('account'), 40);
     // Another app's balance correction: part of the account's opening balance, never spending (dated or not).
-    if (preset?.adjust?.(cx) && !preset.transfer?.(cx)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; adjustments++; return; }
+    if (preset?.adjust?.(cx) && !preset.transfer?.(cx)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; (adjAt[k] ||= []).push(date || ''); adjustments++; return; }
     if (!date) return skipped.push({ row: n + 2, why: 'date' });
+    { const k = accName.toLowerCase(); if (!firstAt[k] || date < firstAt[k]) firstAt[k] = date; }
     const fromMerchant = map.merchant != null && !!cleanText(get('merchant'));   // an empty Payee falls back to the note
     const merchant = cleanDesc(fromMerchant ? get('merchant') : get('note')).slice(0, 80).trim(), note = fromMerchant ? cleanText(get('note'), 200) : '';
     const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
@@ -440,7 +441,10 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   const { transfers, loose } = joinLegs(legs);
   const tx = t => ({ id: '', date: t.date, ...(t.time ? { time: t.time } : {}), type: t.type, amount: t.amt, accountId: t.acc, ...(t.toAcc ? { toAccountId: t.toAcc } : {}), category: t.type === 'income' ? 'income' : 'other', merchant: t.type === 'transfer' ? t.merchant.replace(/^transfer\s*:.*$/i, '') : t.merchant, note: t.note, source, createdAt: now });
   const all = [...txs, ...transfers.map(t => tx({ ...t, type: 'transfer' })), ...loose.map(t => tx({ ...t, type: t.dir === 'in' ? 'income' : 'expense', note: t.note || 'Transfer' }))];   // the word lets pairTransfers join it to the other side, imported later
-  return { txs: importIds(all, idPrefix), skipped, transfers: transfers.length, loose: loose.length, adjustments, opening };
+  // An opening balance is known only from a correction at the start (Initial balance); one in mid-history (Adjust
+  // Balance, Reconciliation) says nothing about what the account held before the file: still ask.
+  const openKnown = Object.keys(adjAt).filter(k => adjAt[k].some(d => !d || !firstAt[k] || d <= firstAt[k]));
+  return { txs: importIds(all, idPrefix), skipped, transfers: transfers.length, loose: loose.length, adjustments, opening, openKnown };
 }
 /** A row's cells by mapped key (get) and by the app's own column name (raw), for presets.js. */
 function rowCtx(r, map, header = []) {

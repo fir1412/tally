@@ -20,10 +20,10 @@ const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|s
 const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
-const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan/i;
+const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
 const TAX = /\bsst\b|\bgst\b|service\s*tax|sales\s*tax|\btax\b|cukai/i;
 const ROUNDING = /round|pelarasan|bundar/i;
-const DISCOUNT = /disc(ount)?|diskaun|potongan|saving/i;
+const DISCOUNT = /disc(ount)?|diskaun|potongan|saving|voucher|baucar|coupon|kupon|promo|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
 // Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
 const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|restaurant|supermarket|hypermarket|pharmacy|farmasi|\bkedai\b|\bmart\b|\bstore\b|bakery|\bcafe\b/i;
 /** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
@@ -192,7 +192,12 @@ export function parseReceipt(text) {
     const key = label.replace(/^.*\d[.,]\d{2}\s*/, '') || label;
 
     const adj = ROUNDING.test(key) ? 'rounding' : SERVICE.test(key) ? 'service' : TAX.test(key) ? 'tax' : null;
-    if (SUBTOTAL.test(key)) r.subtotal = cents;
+    // Money off first: "Shipping Discount Subtotal -4.90" and "Shopee Voucher -5.00" are discounts, not the subtotal.
+    const off = DISCOUNT.test(key) && !!cents && r.total === null && !/^\W*(sub\s*-?\s*)?t[o0]tal\b/i.test(key);
+    if (off && r.subtotal === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });
+    else if (off) billOff += Math.abs(cents);
+    else if (SUBTOTAL.test(key) && !adj) r.subtotal = cents;
+    else if (SUBTOTAL.test(key)) r[adj] = (r[adj] ?? 0) + cents;   // "Shipping Subtotal 4.90" is a charge, not the items' subtotal
     else if (TOTAL.test(key) && NOT_TOTAL.test(key)) { /* a count or group total: skip */ }
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
     else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
