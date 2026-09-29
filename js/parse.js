@@ -212,11 +212,22 @@ export function parseReceipt(text) {
   if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
   if (Math.abs(r.rounding ?? 0) > 5) r.rounding = null;
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
+  r.items = dropSummaryLines(r.items);
   r.check = checksum(r);
   return r;
 }
 
 const amountsIn = line => [...line.matchAll(ALL_AMOUNTS)].map(m => +m[1] * 100 + +m[2]);
+// The money part of a receipt that OCR misspelt, so it slipped into the items: "SUBTUTAL", "AHOUNT", "TOTAAMN",
+// "GRAND TOTAI.", "TTL"; and payment / tax / rounding lines (card slips print them between the items and the total).
+const SUMMARY_NAME = /^\W*(sub\s*-?\s*t[o0u]t[ao]?[l1i]?|grand\s*t[o0]t|t[o0]t[a4]?[l1iat]?(?![a-z]{3})|t[o0]ta\S*\s*(items?|amount|amt)|ttl\b|a[mh][o0]u?n?t\b|total\s*amount|taxable|item\s*qty)/i;
+const MONEY_NAME = /^\W*(r[o0]u?n?d|f[o0]und|change|balance\b|cash\b|card\b|c?<+\s*card|visa|master|credit|debit|duit\s*now|a*duitnow|tendered|payment|ringgit\s*malaysia|items?\s*sold|service\s*(tax|charge)|serv\.?\s*charge|tax\s*\d|sst\b|gst\b|ixn\s*ref|rm$|qty$)/i;
+/** Items end where the money part starts: a (misspelt) total line and everything after it goes; payment, tax and
+ *  rounding lines go wherever they are. A real item never has a name like these. */
+export function dropSummaryLines(items) {
+  const end = items.findIndex(i => i.name && SUMMARY_NAME.test(i.name));
+  return (end < 0 ? items : items.slice(0, end)).filter(i => !(i.name && MONEY_NAME.test(i.name)));
+}
 /** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no glued quantity ("1x Teh O",
  *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
 export const cleanName = n => n.replace(/^\d{4,}\s*(?=\S)/, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')

@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, parseDate, parseItemLines, cleanName } from '../js/parse.js';
+import { parseReceipt, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -213,4 +213,10 @@ test('item names: no SKU in front, no glued quantity, OCR 0 back to O', () => {
   // names printed above their code-qty-price lines, footer after the last one (Mr DIY / Giant layout)
   const r = parseReceipt('MR DIY\nWOOD LADLE 39CM\n9062133 1X6.50 6.50\nKNIFE 8 INCH\n6941334 1X6.90 6.90\nltem(s):2 Qty（s):2\nTotal RM 13.40');
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['WOOD LADLE 39CM', 650], ['KNIFE 8 INCH', 690]]);
+});
+
+test('misspelt totals and payment lines are never items', () => {
+  const r = parseReceipt('KEDAI\nNASI LEMAK 5.00\nTEH TARIK 2.50\nSUBTUTAL 7.50\nFOUNDING 0.00\n<<<CARD PAYMENT>>> 7.50\nTOTAL 7.50');
+  assert.deepEqual(r.items.map(i => i.name), ['NASI LEMAK', 'TEH TARIK']);
+  assert.deepEqual(dropSummaryLines([{ name: 'Mee Goreng', cents: 700 }, { name: 'AHOUNT', cents: 700 }, { name: 'Kopi', cents: 200 }]).map(i => i.name), ['Mee Goreng']);
 });
