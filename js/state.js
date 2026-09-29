@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
@@ -80,8 +80,11 @@ const stamp = x => {
   const by = S.kv.settings?.myName, j = jointIds();
   return { ...x, updatedAt: Date.now(), ...(by && !x.by && !x.spouse && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
 };
-/** The account of the latest everyday spending or income in the current scope (a transfer or a bill paid from its own account isn't where you usually pay from). */
-export const usualAccount = () => [...scopedTx()].filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring').sort((a, b) => b.createdAt - a.createdAt)[0]?.accountId || scopedAccounts()[0]?.id || S.accounts[0]?.id;
+/** The account a new entry starts on, in the current scope: kind 'quick', 'receipt' ({amount, shop, category}) or 'bill' (engine.pickAccount). */
+export function defaultAccount(kind = 'quick', o = {}) {
+  const accounts = scopedAccounts().length ? scopedAccounts() : S.accounts, txs = scopedTx(), d = today();
+  return pickAccount({ accounts, txs, bal: balances(accounts, txs.filter(x => x.date <= d)).by, kind, ...o });
+}
 /** The day budget months start on (a payday), 1 = calendar months; and the key of the month holding today. */
 export const startDay = () => settings().monthStart || 1;
 export const thisMonth = () => cycleKey(today(), startDay());

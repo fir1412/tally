@@ -6,30 +6,30 @@ import { byUser } from './learn.js';
 const pad = n => String(n).padStart(2, '0');
 /** The local calendar day of a timestamp. */
 export const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const weekBegins = (iso, ws) => new Date(iso + 'T00:00:00Z').getUTCDay() === ws;
 
 /** Days with something logged: an entry the user made (on the day it is dated) or a "nothing spent today" check-in. */
 export const loggedDays = (tx, noSpend = [], me = '') => new Set([...tx.filter(x => byUser(x, me)).map(x => x.date), ...noSpend]);
 
+export const RESTS = 2;   // missed days allowed in any 7 days in a row
 /**
- * Logging streak up to `today`: days in a row with something logged. One missed day a week (from weekStart: 1 Monday, 0 Sunday) is a
- * rest day that keeps the streak without adding to it; a second one breaks it. Today not logged yet never does.
- * → { streak, best, rest (this week's rest day, or null), loggedToday, earned: { 7: date, 30: date } }
+ * Logging streak up to `today`: days with something logged. Up to RESTS missed days in any 7 (rolling) are rest days that
+ * keep the streak without adding to it; a third breaks it. Today not logged yet never does.
+ * → { streak, best, rests (rest days in the last 7 days), loggedToday, earned: { 7: date, 30: date } }
  */
-export function streak(days, today, weekStart = 1) {
-  const out = { streak: 0, best: 0, rest: null, loggedToday: days.has(today), earned: {} };
-  let d = [...days].filter(x => x <= today).sort()[0], rest = null;
+export function streak(days, today) {
+  const out = { streak: 0, best: 0, rests: [], loggedToday: days.has(today), earned: {} };
+  let d = [...days].filter(x => x <= today).sort()[0], rests = [];
   if (!d) return out;
   for (; d <= today; d = addDays(d, 1)) {
-    if (weekBegins(d, weekStart)) rest = null;
+    const week = addDays(d, -6);
     if (days.has(d)) out.streak++;
     else if (d === today) break;
-    else if (out.streak && !rest) rest = d;
-    else out.streak = 0;
+    else if (out.streak && rests.filter(r => r >= week).length < RESTS) rests.push(d);
+    else { out.streak = 0; rests = []; }
     out.best = Math.max(out.best, out.streak);
     for (const n of [7, 30]) if (out.streak >= n && !out.earned[n]) out.earned[n] = d;
   }
-  out.rest = out.streak ? rest : null;
+  out.rests = out.streak ? rests.filter(r => r >= addDays(today, -6)) : [];
   return out;
 }
 
@@ -43,13 +43,13 @@ export const BADGES = [
  * d: { tx, today, startDay, budget (monthly total in sen), noSpend: [days], lastBackup, me, learnedOn }
  * ponytail: "under budget" holds past months to today's budget (Tally keeps no budget history).
  */
-export function earned({ tx, today, startDay = 1, budget = 0, noSpend = [], lastBackup = null, me = '', learnedOn = null, weekStart = 1 }) {
+export function earned({ tx, today, startDay = 1, budget = 0, noSpend = [], lastBackup = null, me = '', learnedOn = null }) {
   // Dates from timestamps (a scan, a backup) are real-clock days: never later than the app's today.
   const got = {}, give = (id, date) => { if (date > today) date = today; if (date && !(got[id] <= date)) got[id] = date; };
   const booked = tx.filter(x => x.date <= today), mine = booked.filter(x => byUser(x, me));
   const scans = mine.filter(x => x.source === 'receipt' && x.receiptId).map(x => (x.createdAt ? dayOf(x.createdAt) : x.date)).sort();
   give('scan1', scans[0]); give('scan10', scans[9]);
-  const days = loggedDays(booked, noSpend, me), st = streak(days, today, weekStart);
+  const days = loggedDays(booked, noSpend, me), st = streak(days, today);
   give('streak7', st.earned[7]); give('streak30', st.earned[30]);
   const spentList = booked.filter(x => x.type === 'expense'), spentOn = new Set(spentList.map(x => x.date));
   for (const n of [...noSpend].sort()) if (n < today && !spentOn.has(n)) { give('nospend', addDays(n, 1)); break; }   // a whole day, once it is over

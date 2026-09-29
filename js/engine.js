@@ -377,6 +377,7 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
   return out.sort((a, b) => rank[a.level] - rank[b.level]);
 }
 
+const EVERYDAY = /\bgrab|food ?panda|shopee|lazada|makan|mamak|kopitiam|restoran|tesco|lotus|aeon|giant|mydin|speedmart|econsave|jaya grocer|family ?mart|7-?eleven|kk ?mart|supermarket|pasar|kedai runcit|petronas|shell|touch ?n ?go|\btng\b/i;
 /** Shop + amount (within 5%) seen in 3+ different months. `known`: shop keys already set up as bills. */
 export function recurringCandidates(txs, known = []) {
   const groups = {};
@@ -388,9 +389,14 @@ export function recurringCandidates(txs, known = []) {
   const out = [], latest = txs.reduce((m, t) => (t.date > m ? t.date : m), '');
   const run3 = months => months.some(m => months.includes(addMonths(m, 1)) && months.includes(addMonths(m, 2)));
   for (const [k, list] of Object.entries(groups)) {
-    if (known.includes(k) || new Set(list.map(t => monthOf(t.date))).size < 3) continue;
+    const months = new Set(list.map(t => monthOf(t.date))).size;
+    if (known.includes(k) || months < 3) continue;
     const amts = list.map(t => t.amount).sort((a, b) => a - b), mid = amts[Math.floor(amts.length / 2)];
-    const close = list.filter(t => Math.abs(t.amount - mid) <= mid * 0.05);
+    // Everyday places (ride-hailing, food delivery, supermarkets, online shops, "makan", or 3+ visits a month) are a bill
+    // only when nearly every payment there is the same amount, about once a month (a subscription, an instalment).
+    const everyday = list.length > months * 3 || EVERYDAY.test(list[0].merchant) || ['dining', 'groceries', 'shopping', 'transport'].includes(shopCategory(list[0].merchant));
+    const close = list.filter(t => Math.abs(t.amount - mid) <= mid * (everyday ? 0.01 : 0.05));
+    if (everyday && close.length < list.length * 0.8) continue;
     if (new Set(close.map(t => monthOf(t.date))).size < 3) continue;
     // A bill comes on about the same day each month, costs RM 20 or more, and isn't a meal or groceries.
     const days = close.map(t => +t.date.slice(8, 10)).sort((a, b) => a - b), mday = days[Math.floor(days.length / 2)];
@@ -406,6 +412,57 @@ export function recurringCandidates(txs, known = []) {
   return out;
 }
 export const billKey = shopWord;
+
+/** The day an account last went below zero ('' if it isn't): its balance at the end of each day, from `txs`. */
+export function belowSince(a, txs) {
+  const move = {};
+  for (const x of txs) {
+    if (x.accountId === a.id) move[x.date] = (move[x.date] || 0) + (x.type === 'income' ? x.amount : -x.amount);
+    if (x.type === 'transfer' && x.toAccountId === a.id) move[x.date] = (move[x.date] || 0) + x.amount;
+  }
+  let bal = a.opening || 0, since = '';
+  for (const d of Object.keys(move).sort()) { bal += move[d]; since = bal < 0 ? since || d : ''; }
+  return since;
+}
+
+// ---- the account a new entry starts on --------------------------------------------------------------------------
+const BIG = 5000, HABIT_CATS = ['transport', 'groceries'];   // RM 50 or more, fuel and the supermarket: usually not cash
+/**
+ * One rule per kind, each easy to say:
+ *  'bill': the main bank account (most salary paid in, else the bank used most). Never cash.
+ *  'receipt': where this shop was paid before; else, for RM 50+ or fuel/groceries, the card, bank or e-wallet used most
+ *    for such spending; else the everyday account.
+ *  'quick': the everyday account, the one of the latest spending or income (not a transfer or a bill).
+ * Then, for a receipt or quick add: never an account that would go below zero (cash, bank, e-wallet; a card owes by
+ * design) while another has the money; the one with the most money instead. → an account id.
+ * bal: {id: sen} now; txs: the entries to learn from.
+ */
+export function pickAccount({ accounts, txs = [], bal = {}, kind = 'quick', amount = 0, shop = '', category = '' }) {
+  const byId = new Map(accounts.map(a => [a.id, a]));
+  const most = (list, ok = () => true) => {
+    const n = new Map();
+    for (const x of list) if (byId.has(x.accountId) && ok(byId.get(x.accountId))) n.set(x.accountId, (n.get(x.accountId) || 0) + 1);
+    return [...n].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const bank = a => a.kind === 'bank', notCash = a => a.kind !== 'cash';
+  const main = () => most(txs.filter(x => x.type === 'income' && x.category === 'salary'), bank) || most(txs, bank)
+    || accounts.find(bank)?.id || accounts.find(notCash)?.id || accounts[0]?.id;
+  if (kind === 'bill') return main();
+  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && byId.has(x.accountId))
+    .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts[0]?.id;
+  const spend = txs.filter(x => x.type === 'expense');
+  let id = null;
+  if (kind === 'receipt') {
+    const k = shop && shopWord(shop);
+    if (k) id = most(spend.filter(x => x.merchant && shopWord(x.merchant) === k));
+    if (!id && (amount >= BIG || HABIT_CATS.includes(category))) id = most(spend.filter(x => x.amount >= BIG || HABIT_CATS.includes(x.category)), notCash) || main();
+  }
+  id ||= everyday();
+  const short = a => a && a.kind !== 'card' && (bal[a.id] || 0) < Math.max(amount, 1);
+  if (!short(byId.get(id))) return id;
+  const rich = accounts.filter(a => a.kind !== 'card' && !short(a)).sort((a, b) => (bal[b.id] || 0) - (bal[a.id] || 0))[0];
+  return rich?.id || id;
+}
 
 // ---- bills that add themselves ---------------------------------------------------------------------------
 /**

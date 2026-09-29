@@ -276,3 +276,56 @@ test('categories people named in the simulation', () => {
   for (const [n, c] of [['Economy rice', 'dining'], ['BRT Sunway', 'transport'], ['Rapid Penang 巴士', 'transport'], ['Fotostat nota', 'education'], ["Lotus's groceries", 'groceries'], ['ROTI TELUR', 'dining']]) assert.equal(E.categorize(n, ''), c, n);
   assert.equal(E.shopCategory('KK Mart'), 'groceries');
 });
+
+test('bill suggestions: 20,000 everyday rows (Grab, food delivery, supermarkets, Shopee, makan) suggest only the real bills', () => {
+  let seed = 7; const rnd = n => { seed = seed * 16807 % 2147483647; return seed % n; };
+  const everyday = ['Grab', 'GrabFood', 'Foodpanda', 'Shopee', 'Lazada', 'Tesco Extra Ampang', 'Makan tengah hari', '99 Speedmart', 'Kedai Ah Kow'];
+  const txs = [], ym = k => E.addMonths('2024-10', k), pad = d => String(d).padStart(2, '0');
+  for (let i = 0; i < 20000; i++) {   // imported rows: no categories, common round prices, any day
+    const m = ym(rnd(24)), merchant = everyday[rnd(everyday.length)];
+    txs.push({ id: `e${i}`, type: 'expense', date: `${m}-${pad(1 + rnd(28))}`, merchant, amount: (10 + rnd(60)) * 100 + [0, 50][rnd(2)], category: 'other' });
+  }
+  for (let k = 0; k < 24; k++) {
+    txs.push({ id: `u${k}`, type: 'expense', date: `${ym(k)}-05`, merchant: 'Unifi', amount: 12900, category: 'other' });
+    txs.push({ id: `n${k}`, type: 'expense', date: `${ym(k)}-12`, merchant: 'Netflix', amount: 5500, category: 'other' });
+    if (k >= 18) txs.push({ id: `p${k}`, type: 'expense', date: `${ym(k)}-20`, merchant: 'Shopee PayLater', amount: 15000, category: 'other' });   // the same amount each month
+  }
+  assert.deepEqual(E.recurringCandidates(txs).map(r => r.merchant).sort(), ['Netflix', 'Shopee PayLater', 'Unifi']);
+});
+
+test('belowSince: the day cash last went below zero, so the warning comes once per time it happens', () => {
+  const a = { id: 'c', opening: 1000 }, x = (date, type, amount, o = {}) => ({ date, type, amount, accountId: 'c', ...o });
+  assert.equal(E.belowSince(a, []), '');
+  const txs = [x('2026-09-01', 'expense', 800), x('2026-09-03', 'expense', 500), x('2026-09-03', 'income', 400), x('2026-09-05', 'expense', 300)];
+  assert.equal(E.belowSince(a, txs), '2026-09-05');   // the 3rd ends at RM 1.00: not below zero that day
+  assert.equal(E.belowSince(a, [...txs, x('2026-09-06', 'expense', 100)]), '2026-09-05');   // still the same time
+  const back = [...txs, { date: '2026-09-07', type: 'transfer', amount: 5000, accountId: 'b', toAccountId: 'c' }];
+  assert.equal(E.belowSince(a, back), '');
+  assert.equal(E.belowSince(a, [...back, x('2026-09-20', 'expense', 9000)]), '2026-09-20');   // a new time: warned again
+});
+
+test('pickAccount: bills from the main bank, receipts by shop, size and habit, quick adds from the everyday account', () => {
+  const accounts = [{ id: 'cash', kind: 'cash' }, { id: 'mbb', kind: 'bank' }, { id: 'cimb', kind: 'bank' }, { id: 'tng', kind: 'ewallet' }, { id: 'visa', kind: 'card' }];
+  let n = 0;
+  const x = (accountId, o = {}) => ({ id: `x${n++}`, type: 'expense', date: '2026-09-01', amount: 1200, category: 'dining', accountId, createdAt: n, ...o });
+  const txs = [
+    x('cimb', { type: 'income', category: 'salary', amount: 500000 }), x('mbb'), x('mbb'), x('mbb'),   // salary lands in CIMB; Maybank used more
+    x('visa', { merchant: 'Lotus\'s Kepong', category: 'groceries', amount: 18000 }), x('visa', { merchant: 'Petronas', category: 'transport', amount: 6000 }),
+    x('tng', { merchant: 'Kopitiam Ah Seng', amount: 900 }), x('cash', { amount: 800 }),   // the latest everyday spending: cash
+  ];
+  const bal = { cash: 5000, mbb: 200000, cimb: 300000, tng: 4000, visa: -30000 };
+  const pick = (kind, o = {}) => E.pickAccount({ accounts, txs, bal, kind, ...o });
+  assert.equal(pick('bill'), 'cimb');                                                    // salary account, never cash or the last used
+  assert.equal(E.pickAccount({ accounts, txs: txs.slice(1), bal, kind: 'bill' }), 'mbb'); // no salary: the bank used most
+  assert.equal(E.pickAccount({ accounts: accounts.slice(0, 1), bal, kind: 'bill' }), 'cash');   // only cash: cash
+  assert.equal(pick('quick'), 'cash');                                                   // the last everyday account
+  assert.equal(pick('receipt', { shop: 'KOPITIAM AH SENG SDN BHD', amount: 1500 }), 'tng');   // this shop: paid by e-wallet before
+  assert.equal(pick('receipt', { shop: 'Jaya Grocer', category: 'groceries', amount: 3000 }), 'visa');   // supermarket: the usual card
+  assert.equal(pick('receipt', { shop: 'Kedai Baru', amount: 12000 }), 'visa');          // RM 50+: card, bank or e-wallet, not cash
+  assert.equal(pick('receipt', { shop: 'Kedai Baru', amount: 1000 }), 'cash');           // small and new: the everyday account
+  // Never an account that would go below zero while another has the money (a card may owe).
+  assert.equal(pick('quick', { amount: 6000 }), 'cimb');
+  assert.equal(E.pickAccount({ accounts, txs, bal: { ...bal, cash: -500 }, kind: 'quick' }), 'cimb');
+  assert.equal(E.pickAccount({ accounts: accounts.slice(0, 1), txs, bal: { cash: -500 }, kind: 'quick' }), 'cash');   // nothing better
+  assert.equal(pick('receipt', { shop: 'Petronas', amount: 9000 }), 'visa');             // a card is never "short"
+});
