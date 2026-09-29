@@ -176,7 +176,7 @@ export const homeView = {
     const upToday = booked(), accts = scopedAccounts();
     // An account whose starting balance was never given (left blank at the start, or skipped after an import) and that is
     // now below zero isn't really negative: its balance is unknown. It stays out of the total; Home says so instead.
-    const all = balances(accts, upToday), unset = accts.filter(a => a.typed === false && (all.by[a.id] ?? 0) < 0);
+    const all = balances(accts, upToday), unset = accts.filter(a => a.typed === false);
     const bal = unset.length ? { ...balances(accts.filter(a => !unset.includes(a)), upToday), by: all.by } : all, sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = budgetsFor().total;
     const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total }) : null;
     const lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, sd).start, tdy), lastStart = cycleSpan(lastYm, sd).start;

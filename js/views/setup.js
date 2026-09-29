@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -78,13 +78,13 @@ export const welcomeView = {
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
       <p class="sublede">${esc(t('No receipt? Just type the amount.'))}</p>
       <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Stays on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
-      <p class="fine maker">${esc(t('Made in Malaysia by one independent developer. Free because there are no servers to pay for, and nothing is collected, so there is nothing to sell.'))}</p>
-      <p class="legal">${legalLinks()}</p>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
-      ${demoCard()}
       <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
+      <p class="fine maker">${esc(t('Made in Malaysia by one independent developer. Free because there are no servers to pay for, and nothing is collected, so there is nothing to sell.'))}</p>
+      <p class="legal">${legalLinks()}</p>
+      ${demoCard()}
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
         <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your data never leaves this phone unless you export it.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></li>
@@ -278,7 +278,15 @@ export async function importFile(f) {
     const zipAt = head.findIndex((x, i) => x === 0x50 && head[i + 1] === 0x4b && head[i + 2] === 3 && head[i + 3] === 4);
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
     if (!/\.mmbak$/i.test(f.name) && (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64))) { kind = 'Money Manager'; return await importMoneyManager(buf); }
-    if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(jsonText(buf));
+    if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) {
+      const text = jsonText(buf);
+      if (isSealed(text)) {   // a password-protected backup: opened here, then read like any backup (zip or JSON)
+        const pw = await askPassword(); if (!pw) return impErr('');
+        const bytes = await openBackup(text, pw);
+        return importFile(new File([bytes], bytes[0] === 0x50 ? 'tally-backup.zip' : 'tally-backup.json'));
+      }
+      return await restoreText(text);
+    }
     // Money Manager by Realbyte (.mmbak): SQLite, bare or zipped
     if (/\.mmbak$/i.test(f.name) || new TextDecoder().decode(head.slice(0, 15)) === 'SQLite format 3') { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }
     if (zipAt === 0) {
@@ -564,6 +572,24 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
   for (const id of new Set(txs.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); else missing++; }
   return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files), missing };
 }
+/** The backup as the sheet asks: with or without photos, and sealed with its password when one is typed. Null: too short. */
+async function sealedBackup() {
+  const pw = $('#bk-pass')?.value || '', r = await backupBlob($('#bk-photos')?.checked);
+  if (!pw) return r;
+  if (pw.length < 6) { $('#bk-err').textContent = t('Use at least 6 characters.'); $('#bk-pass').focus(); return null; }
+  const text = await sealBackup(new Uint8Array(await r.blob.arrayBuffer()), pw);
+  return { ...r, name: r.name.replace(/\.(json|zip)$/, '.locked.json'), blob: new Blob([text], { type: 'application/json' }) };
+}
+/** Ask for a protected backup's password. → the password, or null (cancelled). */
+function askPassword() {
+  return new Promise(done => {
+    const el = openSheet(`<h2 class="sh-title">${ICON.lock} ${esc(t('Protected backup'))}</h2><label class="field"><span>${esc(t('Password'))}</span><input id="rp-pass" type="password" autocomplete="current-password" autofocus></label>
+      <div class="row2 sheetfoot"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="ok">${esc(t('Open'))}</button></div>`, { label: t('Protected backup'), onClose: () => done(null) });
+    const go = ok => { const v = el.querySelector('#rp-pass').value; done(ok && v ? v : null); closeSheet(); };
+    el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) go(x === 'ok'); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(true); } });
+  });
+}
 const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
 const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
@@ -643,7 +669,7 @@ export const act = {
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k !== 'joint' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -678,8 +704,10 @@ export const act = {
       opening = old.opening || 0;
       await saveTxs([{ id: uid('t'), date: today(), time: nowTime(), type: diff > 0 ? 'income' : 'expense', amount: Math.abs(diff), accountId: old.id, category: diff > 0 ? 'income' : 'other', merchant: t('Balance update'), note: '', source: 'quick', createdAt: Date.now() }]);
     }
-    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now(), typed: true }), ...(target != null ? { typed: true } : {}), name, kind, opening, scope, ...fx });
+    const acc = { ...(old || { id: uid('a'), createdAt: Date.now(), typed: true }), ...(target != null ? { typed: true } : {}), name, kind, opening, scope, ...fx };
+    await saveAccount(acc);
     closeSheet(); render(); toast(t('Saved'));
+    if (!old) document.dispatchEvent(new CustomEvent('tally:account-added', { detail: acc.id }));   // a receipt being checked picks it
   },
   'acc-del': async b => {
     if (!(await confirmSheet({ title: t('Delete this account?'), ok: t('Delete'), danger: true }))) return;
@@ -865,19 +893,23 @@ export const act = {
       <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories.', S.tx.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
       ${photoCount() ? `<label class="check"><input type="checkbox" id="bk-photos" checked> ${esc(photoCount() === 1 ? t('Include 1 receipt photo (a bigger .zip file)') : t('Include {0} receipt photos (a bigger .zip file)', photoCount()))}</label>` : ''}
+      <details class="more-cats"><summary>${ICON.lock}${esc(t('Protect with a password'))}</summary><label class="field"><span>${esc(t('Password (optional)'))}</span><input id="bk-pass" type="password" autocomplete="new-password" minlength="6"></label>
+        <p class="fine">${esc(t('Only someone with this password can open the file. If you forget it, the backup cannot be opened: no one can reset it.'))}</p><p class="err" id="bk-err" role="alert"></p></details>
       ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
       <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
       <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
   },
   'bk-share': async () => {
-    const { name, blob, missing } = await backupBlob($('#bk-photos')?.checked);
+    const r = await sealedBackup(); if (!r) return;
+    const { name, blob, missing } = r;
     try { if (!(await shareFile(name, blob, blob.type))) return act['bk-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; } // closed the share sheet: nothing sent
     await backedUp(t('Sent {0}. Check it arrived before you rely on it.', name));
     warnMissingPhotos(missing);
   },
   'bk-save': async b => {
+    const r = await sealedBackup(); if (!r) return;
     if (b) b.disabled = true;   // also called from bk-share when the phone can't share files
-    const { name, blob, missing } = await backupBlob($('#bk-photos')?.checked);
+    const { name, blob, missing } = r;
     download(name, blob, blob.type);
     // Counted as a backup (else "Not backed up" nags forever), worded so the user still checks the file landed.
     await backedUp(t('Download started. Check your Downloads folder for {0}.', name));

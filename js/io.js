@@ -750,6 +750,7 @@ export function readBackup(text) {
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
+      ...(okId(t.refundOf) ? { refundOf: t.refundOf } : {}), ...(validIso(t.warranty) ? { warranty: t.warranty } : {}), ...(validIso(t.returnBy) ? { returnBy: t.returnBy } : {}),
       ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...(t.spouse === true ? { spouse: true } : {}), ...upd(t.updatedAt),
       ...(okId(t.bill) ? { bill: t.bill } : {}),
     }));
@@ -907,6 +908,29 @@ export function zipStore(files) {
   return new Blob([...parts, ...central, e], { type: 'application/zip' });
 }
 export const BACKUP_JSON = 'tally-backup.json';
+
+// ---- password-protected backups ------------------------------------------------------------------------------------
+// The backup file (JSON or zip) sealed with AES-GCM under a key from the password (PBKDF2-SHA256, 310 000 rounds, random
+// salt and IV). Without the password nobody can open it, Tally included: there is no reset.
+const ENC_ITER = 310000;
+const toB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const sealKey = async (password, salt, iter, use) => crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter },
+  await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']), { name: 'AES-GCM', length: 256 }, false, [use]);
+export const isSealed = text => /^\s*\{\s*"tally"\s*:\s*"sealed"/.test(text);
+/** Backup bytes → the sealed file's text. */
+export async function sealBackup(bytes, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await sealKey(password, salt, ENC_ITER, 'encrypt'), bytes));
+  return JSON.stringify({ tally: 'sealed', v: 1, kdf: 'PBKDF2-SHA256', iter: ENC_ITER, salt: toB64(salt), iv: toB64(iv), data: toB64(data) });
+}
+/** The sealed file's text + password → the backup bytes; a wrong password (or a changed file) throws. */
+export async function openBackup(text, password) {
+  const o = JSON.parse(text);
+  if (o.v !== 1 || !(o.iter >= 100000 && o.iter <= 5e6)) throw new Error('This protected backup was made by a newer Tally. Update Tally and try again.');
+  try { return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(o.iv) }, await sealKey(password, fromB64(o.salt), o.iter, 'decrypt'), fromB64(o.data))); }
+  catch { throw new Error('Wrong password, or the file was changed.'); }
+}
 /** A receipt photo's file name that sorts by date and says what it was: "2026-09-29 Good Timing RM4.50.jpg".
  *  `dir` puts it in a folder of the zip; `taken` keeps every path in one zip different. */
 export function receiptName(tx, taken = new Set(), dir = '') {

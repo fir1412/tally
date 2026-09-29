@@ -340,3 +340,13 @@ test('an ATM withdrawal on a bank statement moves money to Cash; it is not spend
   const r = IO.reloadTransfers([{ id: 'x', type: 'expense', accountId: 'b', amount: 10000, merchant: 'ATM Withdrawal MBB Cheras' }, { id: 'y', type: 'expense', accountId: 'b', amount: 500, merchant: 'Kedai ATMosphere' }], acc, '');
   assert.deepEqual(r.map(x => [x.id, x.type, x.accountId, x.toAccountId]), [['x', 'transfer', 'b', 'c']]);
 });
+
+test('password-protected backups: sealed, opened with the password, refused with a wrong one or a changed file', async () => {
+  const bytes = new TextEncoder().encode(JSON.stringify({ app: 'tally', tx: [{ id: 't', amount: 1250 }] }));
+  const sealed = await IO.sealBackup(bytes, 'kopi-o-kosong');
+  assert.ok(IO.isSealed(sealed) && !sealed.includes('1250'));
+  assert.deepEqual(await IO.openBackup(sealed, 'kopi-o-kosong'), bytes);
+  await assert.rejects(IO.openBackup(sealed, 'teh-o'), /Wrong password/);
+  const o = JSON.parse(sealed); o.data = o.data.slice(0, -4) + 'AAAA';
+  await assert.rejects(IO.openBackup(JSON.stringify(o), 'kopi-o-kosong'), /Wrong password/);
+});

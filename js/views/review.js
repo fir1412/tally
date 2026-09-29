@@ -176,7 +176,7 @@ export const reviewView = {
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
     const acct = S.accounts.find(x => x.id === d.accountId), money = v => fmtAcct(acct, v);   // "SGD 16.98" on an SGD account
     const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', money(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
-      : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(d.items.length ? t('No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.') : t('No total found. Type the total from the receipt.'))}<span class="bactions"><button class="btn small ghost" data-act="scan">${ICON.camera}${esc(t('Retake'))}</button><button class="link tipsrow" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></span></span></div>`
+      : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(d.items.length ? t('No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.') : t('No total found. Type the total from the receipt.'))}<span class="bactions"><button class="btn small ghost" data-act="rv-retake">${ICON.camera}${esc(t('Retake'))}</button><button class="link tipsrow" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></span></span></div>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', money(d.total)))}</p>`
       : `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', money(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), money(d.total)))}${gapOf(d) > 0 ? `<button class="btn small ghost" data-act="rv-gapitem">${ICON.plus}${esc(t('Missed an item of {0}?', money(gapOf(d))))}</button>` : ''}</span></div>`;
     const gap = !current.manual && c && !c.ok && d.items.length ? gapOf(d) : 0;
@@ -190,7 +190,7 @@ export const reviewView = {
       <section class="card">
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
-        <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
+        <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="+">${esc(t('+ Add an account…'))}</option></select></label></div>
         ${(() => { const a = S.accounts.find(x => x.id === d.accountId), cur = a?.currency || 'MYR';   // the receipt's money vs the account's: said, never silently mixed
           return d.currency && d.currency !== cur ? `<p class="warnbox">${ICON.alert}<span>${esc(t('This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.', d.currency, a?.name || '', cur === 'MYR' ? 'RM' : cur))}</span></p>` : ''; })()}
         <label class="field big"><span>${esc(isFx(S.accounts.find(x => x.id === d.accountId)) ? t('Total ({0})', S.accounts.find(x => x.id === d.accountId).currency) : t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
@@ -223,6 +223,12 @@ export const input = {
   'rv-f': el => {
     const d = current?.draft; if (!d) return;
     const k = el.dataset.k;
+    if (k === 'accountId' && el.value === '+') {   // paid by a card or wallet Tally doesn't have yet: add it, and it is picked
+      el.value = d.accountId;
+      document.addEventListener('tally:account-added', e => { if (current?.draft === d) { d.accountId = e.detail; persist(); refresh(); } }, { once: true });
+      import('./setup.js').then(m => m.act['acc-edit']({ dataset: {} }));
+      return;
+    }
     persist();
     if (k === 'merchant' && current.manual) for (const i of d.items) if (!i.changed) i.category = categorize(i.name, el.value, S.kv.rules);
     if (k === 'total') { const v = calcAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; el.setAttribute('aria-invalid', String(!!el.value.trim() && d.total == null)); updateStatus(); return; }
@@ -275,6 +281,12 @@ const TIP_ART = [
 // way, fresh to faded. Without motion only the ✓ shows.
 const MARK_T = [[2.8], [3], [3], [3], [3], [3.6, true]];
 const mark = ([s, rev]) => `<g class="tp-mark${rev ? ' rev' : ''}" style="--d:${s}s"><circle cx="106" cy="66" r="9"/><path class="tp-no" d="M102.5 62.5l7 7M109.5 62.5l-7 7"/><path class="tp-ok" d="M102 66.5l3 3 5.5-6.5"/></g>`;
+/** The purchase a refund slip is for: the latest spend at the same shop in the 120 days before, at least as big. */
+function refundTarget(d) {
+  const shop = (d.merchant || '').trim().toLowerCase(), from = addDays(d.date, -120);
+  return shop ? S.tx.filter(x => x.type === 'expense' && (x.merchant || '').trim().toLowerCase() === shop && x.date >= from && x.date <= d.date && x.amount >= d.total)
+    .sort((a, b) => b.date.localeCompare(a.date))[0]?.id : undefined;
+}
 export function photoTips({ thenScan = false } = {}) {
   const tips = [
     [t('Fit it all in'), t('Shop name to TOTAL, flat')],
@@ -310,6 +322,13 @@ function addLines(text) {
 export const act = {
   'rv-readq': () => { pump(); render(); },
   'photo-tips': () => photoTips(),
+  // Retake: this reading is let go (it can't be fixed by typing), and the camera opens for a new photo of the same receipt.
+  'rv-retake': async () => {
+    const d = current?.draft;
+    if (d?.receiptId && !current.existing && !S.tx.some(x => x.receiptId === d.receiptId)) await deletePhotos([d.receiptId]);
+    await finish(); render();
+    startScan(scanned);
+  },
   'rv-skip': async () => {
     const d = current?.draft;
     if (d?.receiptId && !current.existing && !S.tx.some(x => x.receiptId === d.receiptId)) await deletePhotos([d.receiptId]);   // a discarded scan leaves no photo behind
@@ -363,7 +382,7 @@ export const act = {
     const was = current.existing ? S.tx.find(x => x.id === d.id) || {} : {};
     const spentOn = items.length ? mostSpent(items) : d.category;   // a refund lowers spending there instead
     const tx = { ...was, id: d.id, date: d.date, time: d.time, type: d.refund ? 'income' : 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
-      category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn } : { cat: undefined }), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
+      category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn, refundOf: d.refundOf || refundTarget(d) } : { cat: undefined }), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop

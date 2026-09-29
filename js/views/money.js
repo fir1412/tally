@@ -32,9 +32,10 @@ const budScope = () => (['joint', 'business'].includes(scope()) ? scope() : 'me'
 export function txRow(x) {
   const cats = x.items?.length ? [...new Set(x.items.map(i => i.category))] : [x.category];
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
+  const back = x.type === 'expense' && cached(refundedIds, S.tx).has(x.id) ? ` · ${esc(t('Refunded'))}` : '';
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="cbadge tbadge" aria-hidden="true">' + ICON.swap + '</span>' : badge(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="cbadge tbadge" aria-hidden="true">' + ICON.swap + '</span>' : badge(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${back}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(x.type === 'transfer' || x.fx != null ? fmtAcct(accOf(x.accountId), x.fx ?? x.amount) : fmtRM(x.amount))}</span></button></li>`;
 }
 
@@ -92,6 +93,8 @@ const anyBudget = b => [b, b.joint, b.business].some(x => x && (x.total || Objec
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
+  // A refund linked to its purchase goes back to that purchase's category.
+  'tx-refof': el => { const x = S.tx.find(y => y.id === el.value), c = x && (x.items?.[0]?.category || x.category); if (c && $('#tx-refcat')?.querySelector(`option[value="${CSS.escape(c)}"]`)) $('#tx-refcat').value = c; },
   'tx-acc': () => { accPicked = true; reopen(); },   // the amount's currency, and "Received" between two currencies
   // The split button is always there (a number keypad has no letters); it lights up when words are typed.
   'tx-amt': el => { const b = $('#tx-words'); if (b) b.classList.toggle('ghost', !hasWords(el.value)); el.removeAttribute('aria-invalid'); },
@@ -154,6 +157,18 @@ export async function downloadReceipts(rows, zipName, csv) {
 }
 export function showIds(ids, label) { Object.assign(F, { q: '', acc: '', cat: '', month: '', photo: false, ids, idsLabel: label, limit: 200 }); go('activity'); }
 
+/** Purchases a refund can be for: the last 120 days' spending, this shop's first, newest first (and the linked one, however old). */
+function refundPicker(d) {
+  const from = addDays(today(), -120), shop = (d.merchant || '').toLowerCase(), mine = x => (x.merchant || '').toLowerCase() === shop && !!shop;
+  const list = S.tx.filter(x => x.type === 'expense' && (x.date >= from || x.id === d.refundOf)).sort((a, b) => mine(b) - mine(a) || byDate(b.date, a.date)).slice(0, 40);
+  return `<label class="field"><span>${esc(t('Refund of'))}</span><select id="tx-refof" data-input="tx-refof"><option value="">${esc(t('Not linked to a purchase'))}</option>${list.map(x => `<option value="${esc(x.id)}"${d.refundOf === x.id ? ' selected' : ''}>${esc(`${fmtDate(x.date)} · ${x.merchant || catLabel(x.category)} · ${fmtRM(x.amount)}`)}</option>`).join('')}</select></label>`;
+}
+/** On a purchase: the money that came back for it. */
+function refundsOf(d) {
+  const back = d.type === 'expense' ? S.tx.filter(x => x.refundOf === d.id) : [];
+  return back.length ? `<p class="okbox">${ICON.check}<span>${back.map(x => esc(t('Refunded {0} on {1}', fmtRM(x.amount), fmtDate(x.date)))).join(' · ')}</span></p>` : '';
+}
+const refundedIds = txs => new Set(txs.map(x => x.refundOf).filter(Boolean));
 /** The kind of money in used most recently (refunds aside); Salary for a first one. */
 const lastIncomeCat = () => S.tx.reduce((b, x) => (x.type === 'income' && x.category !== 'refund' && (!b || (x.createdAt || 0) > (b.createdAt || 0)) ? x : b), null)?.category || 'salary';
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
@@ -178,7 +193,7 @@ function sheetHtml() {
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
     ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}">${badge(c)}${esc(t(c.name))}</button>`).join('')}</div>`}
-    ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>` : ''}
+    ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>${refundPicker(d)}` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
       ${d.type === 'transfer' ? `<label class="field"><span>${esc(t('To'))}</span><select id="tx-to" data-input="tx-acc">${accOpts(to)}</select></label>` : ''}
@@ -189,6 +204,7 @@ function sheetHtml() {
     <datalist id="tx-names">${pastNames(d.type).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     ${d.items?.length ? `<details class="items"><summary>${esc(d.receiptId ? (d.items.length === 1 ? t('1 item from the receipt') : t('{0} items from the receipt', d.items.length)) : d.items.length === 1 ? t('1 item') : t('{0} items', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
+    ${refundsOf(d)}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
     ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
     <div class="row2 sheetfoot">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
@@ -228,6 +244,7 @@ function readForm() {
   draft.accountId = $('#tx-acc')?.value || draft.accountId;
   if (draft.type === 'transfer') draft.toAccountId = $('#tx-to')?.value; else delete draft.toAccountId;
   if ($('#tx-refcat') && draft.category === 'refund') draft.cat = $('#tx-refcat').value; else if (draft.category !== 'refund') delete draft.cat;
+  if ($('#tx-refof')?.value && draft.category === 'refund') draft.refundOf = $('#tx-refof').value; else delete draft.refundOf;
   if ($('#tx-toamt')) draft.toAmount = calcAmount($('#tx-toamt').value); else delete draft.toAmount;   // only between two currencies
   draft.date = $('#tx-date')?.value || draft.date;
   draft.time = hhmmIn($('#tx-time')?.value);
@@ -367,7 +384,10 @@ export const act = {
   'tx-type': b => {
     readForm(); draft.type = b.dataset.type;
     if (!accPicked && draft.type !== 'transfer') { const id = defaultAccount(draft.type === 'income' ? 'income' : 'quick', { amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel) sel.value = id; }   // money in lands where income usually does
-    if (draft.type === 'income' && !incomeCats().some(c => c.id === draft.category)) draft.category = lastIncomeCat();   // a rider's payout, a stall's sales, a pension: the kind used last, not always Salary if (draft.type === 'expense' && incomeCats().some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
+    // Money in starts on the kind used last (a rider's payout, a stall's sales, a pension), not always Salary.
+    if (draft.type === 'income' && !incomeCats().some(c => c.id === draft.category)) draft.category = lastIncomeCat();
+    if (draft.type === 'expense' && incomeCats().some(c => c.id === draft.category)) draft.category = 'other';
+    reopen(); 
   },
   // A category of their own, made right here: named, picked, and back to the entry with nothing typed lost.
   'tx-newcat': () => {
