@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -501,6 +501,13 @@ async function restoreText(text, zip = {}) {
   if (choice === 'no') return;
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
   if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
+  // Its settings (month start, language, text size…): all of them on a replace, only what this phone hasn't set on a merge.
+  const cur = settings(), want = Object.entries(data.settings || {}).filter(([k]) => choice !== 'merge' || cur[k] == null);
+  if (want.length) {
+    await setKv('settings', { ...settings(), ...Object.fromEntries(want) });
+    if (settings().lang && settings().lang !== getLang()) setLang(settings().lang);
+    document.documentElement.style.fontSize = `${settings().textSize || 100}%`; applyLook(settings());
+  }
   await setSetting('onboarded', true);
   await setKv('lastBackup', `${today()}T${nowTime()}`);   // restored from a backup file: that file is a backup
   if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
@@ -529,7 +536,7 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
 }
 const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
-const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors } }) });
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors, settings: backupSettings(settings()) } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });

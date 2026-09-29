@@ -159,7 +159,10 @@ test('app lock keeps only a salted PBKDF2 hash of the PIN, never the PIN', async
   assert.equal(await L.checkPin('482915', null), false);
   assert.deepEqual(['1234', '123456', '12345', '123', '1234567', '12a4'].map(L.validPin), [true, true, true, false, false, false]);
   assert.match(read('js/lock.js'), /userVerification: 'required'/);
-  assert.ok(!/makeBackup\([^)]*settings/.test(read('js/views/setup.js')));   // settings (and the lock) never go into backups
+  // Settings go into backups only through backupSettings, which never keeps the lock.
+  assert.ok(/settings: backupSettings\(settings\(\)\)/.test(read('js/views/setup.js')) && !/settings: settings\(\)/.test(read('js/views/setup.js')));
+  const IO = await import('../js/io.js');
+  assert.equal(IO.backupSettings({ lock: a, monthStart: 5 }).lock, undefined);
 });
 test('app lock: one try per PIN entered (auto-submit then Unlock is one), a wait after 5 real tries', async () => {
   const { pinGuard } = await import('../js/lock.js');

@@ -195,3 +195,10 @@ test('JB: SGD spending counts in RM at the rate, the SGD balance stays in SGD, a
   const back = IO.readBackup(IO.makeBackup({ accounts: [sgd, myr].map(a => ({ name: a.id, kind: 'bank', createdAt: 1, ...a })), tx: [lunch, { ...home, category: 'other' }], recurring: [], kv: {} }));
   assert.deepEqual([back.accounts[0].rate, back.tx.find(x => x.id === 'b').toAmount], [3.4, 170500]);
 });
+
+test('a backup carries the settings that shape the app (month start, language, text size…), never the PIN', () => {
+  const text = IO.makeBackup({ accounts: [], tx: [], recurring: [], kv: { settings: IO.backupSettings({ monthStart: 25, lang: 'zh', textSize: 130, myName: 'Mei', lock: { pin: 'x' }, weekStart: 0, noSpend: ['2026-09-01'], theme: 'dark', remindAt: '21:30', homeHide: ['insight'], bogus: 1 }) } });
+  const s = IO.readBackup(text).settings;
+  assert.deepEqual(s, { monthStart: 25, lang: 'zh', textSize: 130, myName: 'Mei', weekStart: 0, noSpend: ['2026-09-01'], theme: 'dark', remindAt: '21:30', homeHide: ['insight'] });
+  assert.deepEqual(IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kv: { settings: { monthStart: 99, lang: '<b>', remindAt: '25:00' } } })).settings, {});
+});

@@ -648,9 +648,18 @@ export function readBackup(text) {
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
   }
-  return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30),
+  return { accounts, tx, recurring, kv, settings: backupSettings(d.kv?.settings), dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30),
     gone: Object.fromEntries(list(d.gone, 1000).filter(g => Array.isArray(g) && okId(g[0]) && Number.isSafeInteger(g[1]) && g[1] > 0).map(([id, at]) => [id, Math.min(at, Date.now())])) } : {}) };
 }
+/** Settings a backup carries, each checked: how Tally counts and looks, and your name. Never the app PIN, import memory or first-run flags. */
+const SETTINGS = {
+  monthStart: v => Number.isInteger(v) && v >= 1 && v <= 28, weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh'].includes(v),
+  textSize: v => [100, 115, 130].includes(v), theme: v => ['light', 'dark'].includes(v), accent: v => /^#[0-9a-f]{6}$/i.test(v),
+  compact: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
+  myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+  homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
+};
+export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? s : {}).filter(([k, v]) => Object.hasOwn(SETTINGS, k) && SETTINGS[k](v)).map(([k, v]) => [k, k === 'myName' ? cleanText(v, 30) : v]));
 /** Merge restore: keep everything local, add what the backup has that we don't (by id). Local settings win. */
 export function mergeBackup(local, incoming) {
   const merge = (a, b) => { const ids = new Set(a.map(x => x.id)); return [...a, ...b.filter(x => !ids.has(x.id))]; };
