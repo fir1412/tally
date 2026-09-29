@@ -122,9 +122,25 @@ export function showWhatsNew(from = '') {
 }
 
 /** On start: the tour for someone new, What's new for someone who updated, nothing on the welcome screen. */
+// iPhone Safari clears a web app's storage after 7 days without use unless it is on the Home Screen (WebKit's cap).
+const iosBrowser = () => typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+  && !(navigator.standalone || matchMedia('(display-mode: standalone)').matches);
+/** Three pictures and a few words: Share → Add to Home Screen → open Tally from there. */
+export function homeScreenTip(then) {
+  setKv('settings', { ...S.kv.settings, iosTipAt: Date.now() });
+  const steps = [[ICON.share, t('Tap Share')], [ICON.plusSquare, t('Add to Home Screen')], [ICON.home, t('Open Tally from there')]];
+  const el = openSheet(`<h2 class="sh-title">${esc(t('Keep your data on this iPhone'))}</h2>
+    <p class="sh-body">${esc(t("iPhone clears web apps it hasn't seen for 7 days, unless they are on the Home Screen."))}</p>
+    <ol class="iossteps">${steps.map(([ic, w], i) => `<li><span class="iosnum">${i + 1}</span><span class="tour-ic">${ic}</span><b>${esc(w)}</b></li>`).join('')}</ol>
+    <button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`, { label: t('Keep your data on this iPhone'), onClose: () => then?.() });
+  el.addEventListener('click', e => { if (e.target.closest('[data-x]')) closeSheet(); });
+}
+const iosTipDue = () => iosBrowser() && S.accounts.length && Date.now() - (settings().iosTipAt || 0) > 3 * 864e5;
+
 export function onboarding() {
   if (skipTour()) return;
   const s = settings();
+  if (iosTipDue() && s.seenVersion === APP_VERSION && s.tourDone) return homeScreenTip();   // every 3 days until it's on the Home Screen
   // First run: this version's changes aren't news. Stamping it here tells a new user apart from one updating from 0.1.0.
   if (!S.accounts.length) { if (!s.seenVersion) setKv('settings', { ...S.kv.settings, seenVersion: APP_VERSION }); return; }
   if (s.seenVersion === APP_VERSION) { if (!s.tourDone && !S.tx.length) showTour(0); return; }
@@ -134,8 +150,9 @@ export function onboarding() {
 /** Right after setup (fresh start or import). */
 export function afterSetup() {
   persistStorage();   // data now worth keeping: ask the browser not to clear it when space runs low
-  if (skipTour() || settings().tourDone) return;
-  setTimeout(() => showTour(0), 300);
+  if (skipTour()) return;
+  const tour = () => { if (!settings().tourDone) setTimeout(() => showTour(0), 300); };
+  if (iosBrowser()) setTimeout(() => homeScreenTip(tour), 300); else tour();   // on iPhone, keeping the data comes first
 }
 
 // ---- install ("Add to home screen") ------------------------------------------------------------------------------------

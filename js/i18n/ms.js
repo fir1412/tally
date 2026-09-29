@@ -980,4 +980,9 @@ export default {
   "Open the file to add the reminder to your calendar.": "Buka fail itu untuk menambah peringatan ke kalendar anda.",
   "Tally: add today's spending": "Tally: rekod perbelanjaan hari ini",
   "A minute is enough: snap the receipts or type what you spent.": "Seminit pun cukup: ambil gambar resit atau taip apa yang dibelanjakan.",
+  "Keep your data on this iPhone": "Simpan data anda dalam iPhone ini",
+  "iPhone clears web apps it hasn't seen for 7 days, unless they are on the Home Screen.": "iPhone memadam aplikasi web yang tidak dibuka selama 7 hari, kecuali ia ada di Skrin Utama.",
+  "Tap Share": "Ketik Kongsi",
+  "Add to Home Screen": "Tambah ke Skrin Utama",
+  "Open Tally from there": "Buka Tally dari situ",
 };

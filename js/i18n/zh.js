@@ -980,4 +980,9 @@ export default {
   "Open the file to add the reminder to your calendar.": "打开这个文件，把提醒加到你的日历。",
   "Tally: add today's spending": "Tally：记下今天的开销",
   "A minute is enough: snap the receipts or type what you spent.": "一分钟就够：拍下收据或输入花了什么。",
+  "Keep your data on this iPhone": "把数据留在这部 iPhone 上",
+  "iPhone clears web apps it hasn't seen for 7 days, unless they are on the Home Screen.": "iPhone 会清除 7 天没打开的网页应用，除非它在主屏幕上。",
+  "Tap Share": "点「分享」",
+  "Add to Home Screen": "添加到主屏幕",
+  "Open Tally from there": "从那里打开 Tally",
 };
