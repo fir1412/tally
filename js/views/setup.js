@@ -1,6 +1,6 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
-import { t, setLang, getLang, LANGS } from '../i18n.js';
+import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { fmtRM, parseAmount, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
 import { fileToRows, guessMapping, rowsToTx, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS } from '../io.js';
@@ -87,7 +87,7 @@ export const settingsView = {
 export const input = {
   'text-size': async el => { await setSetting('textSize', +el.value); document.documentElement.style.fontSize = `${el.value}%`; },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
-  'imp-acc': el => { IMP.accountId = el.value; },
+  'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
   'imp-cat': el => { IMP.catMap[el.dataset.src] = el.value; },
 };
 
@@ -105,6 +105,8 @@ function importSheet() {
     <p class="err" id="imp-err" role="alert"></p>`, { label: t('Import') });
   $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); });
 }
+const newAccName = () => cleanText(String(IMP?.name || '').replace(/\.[a-z0-9]{2,5}$/i, ''), 40) || t('Imported');
+const impAccount = () => (IMP.accountId === 'new' ? IMP.newId : IMP.accountId);
 const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else toast(m, { k: 'bad' }); };
 async function ensureAccount() {
   if (!S.accounts.length) await saveAccount({ id: uid('a'), name: t('Cash'), kind: 'cash', opening: 0, createdAt: Date.now() });
@@ -126,21 +128,26 @@ async function startMapping(rows, name) {
   if (rows.length < 2) return impErr(t('That file has no rows to import. Check you picked the right sheet.'));
   const header = rows[0].map(h => cleanText(h, 40));
   await ensureAccount();
-  IMP = { rows: rows.slice(1), header, map: guessMapping(header), accountId: S.accounts[0].id, catMap: {}, name };
+  IMP = { rows: rows.slice(1), header, map: guessMapping(header), accountId: S.accounts[0].id, newId: uid('a'), catMap: {}, name };
   showMapping();
 }
 function showMapping() {
   const { header, map, rows } = IMP;
   const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
-  const { txs, skipped } = rowsToTx(rows, map, { accountId: IMP.accountId, catMap: IMP.catMap });
+  const { txs, skipped } = rowsToTx(rows, map, { accountId: impAccount(), catMap: IMP.catMap });
+  // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
+  const dates = txs.map(x => x.date).sort(), sum = k => txs.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
+  const future = txs.filter(x => x.date > today()).length;
   const srcCats = map.category != null ? [...new Set(rows.map(r => cleanText(r[map.category], 60)).filter(Boolean))].slice(0, 40) : [];
   const cats = [...expenseCats(), ...INCOME_CATEGORIES];
   openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(t('{0} rows', rows.length))}</p>
     <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}</div>
-    <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('New account: {0}', newAccName()))}</option></select></label>
     ${srcCats.length ? `<details open><summary>${esc(t('Their categories → Tally categories'))}</summary><div class="grid2">${srcCats.map(s => `<label class="field"><span>${esc(s)}</span><select data-input="imp-cat" data-src="${esc(s)}">${cats.map(c => `<option value="${esc(c.id)}"${(IMP.catMap[s] || mapCategory(s)) === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>`).join('')}</div></details>` : ''}
     <p class="${txs.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', txs.length))}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>
-    <ul class="list preview">${txs.slice(0, 5).map(x => `<li class="rowb"><span>${esc(x.date)}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
+    ${txs.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
+    ${future ? `<p class="warnbox">${ICON.alert}${esc(t('{0} rows are dated in the future. Check the date column: day and month may be swapped.', future))}</p>` : ''}
+    <ul class="list preview">${txs.slice(0, 5).map(x => `<li class="rowb"><span>${esc(fmtDate(x.date))}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${txs.length ? '' : 'disabled'}>${esc(t('Import {0}', txs.length))}</button></div>`, { label: t('Import') });
 }
 /**
@@ -301,7 +308,12 @@ export const act = {
       await startMapping(parseCSV(text), t('Google Sheets'));
     } catch { impErr(t('Could not open that sheet. In Google Sheets, tap Share and set "Anyone with the link" to Viewer, or copy the cells and paste them instead.')); }
   },
-  'imp-go': b => { b.disabled = true; const { txs } = rowsToTx(IMP.rows, IMP.map, { accountId: IMP.accountId, catMap: IMP.catMap }); return commitImport(txs, IMP.name || t('file')); },
+  'imp-go': async b => {
+    b.disabled = true;
+    if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: 'bank', opening: 0, createdAt: Date.now() });
+    const { txs } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), catMap: IMP.catMap });
+    return commitImport(txs, IMP.name || t('file'));
+  },
   'mm-go': async b => {
     b.disabled = true;
     const { mm, buf } = IMP, withPhotos = $('#mm-photos')?.checked;

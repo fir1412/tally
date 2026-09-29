@@ -425,4 +425,12 @@ export default {
   "Your balance, where the money went, and a nudge when it is time to log.": "查看余额、钱花在哪里，到了该记账的时候还会提醒您。",
   "Your data stays with you": "数据始终属于您",
   "Picked up the receipt you were checking": "已恢复您正在核对的收据",
+  "Imported": "已导入",
+  "{0} received": "收入 {0}",
+  "{0} rows are dated in the future. Check the date column: day and month may be swapped.": "有 {0} 行日期在未来。请检查日期列：日和月可能颠倒了。",
+  "{0} spent": "支出 {0}",
+  "{0} to {1}": "{0} 至 {1}",
+  "Month by month": "按月对比",
+  "Spending by category and month": "按类别和月份的支出",
+  "Total": "合计",
 };

@@ -86,6 +86,20 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .feed { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .warnbox, .okbox { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-3); border-radius: 10px; margin: 0; background: var(--panel); }
 .warnbox { color: var(--warn); } .okbox { color: var(--good); }
+.tablewrap { overflow-x: auto; margin-top: var(--sp-2); }
+.tablewrap:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mtable { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); white-space: nowrap; }
+.mtable th, .mtable td { padding: 10px var(--sp-2); border-bottom: 1px solid var(--line); text-align: right; }
+.mtable td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.mtable thead th { color: var(--mute); font-weight: 600; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
+.mtable th[scope=row], .mtable thead th:first-child { text-align: left; padding-left: 0; }
+.mtable th[scope=row], .mtable thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); min-width: 112px; padding-right: var(--sp-3); }
+.mtable th[scope=row] { font-weight: 500; }
+.mtable th:not(:first-child), .mtable td { width: 13%; min-width: 84px; }
+.mtable th[scope=row] .dot { margin-right: var(--sp-2); }
+.mtable .cur { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.mtable tfoot th, .mtable tfoot td { font-weight: 600; border-bottom: 0; }
+.mtable .nil { color: var(--mute); opacity: .6; }
 .maths { font-family: var(--mono); font-size: var(--fs-sm); color: var(--mute); margin: 0; }
 
 /* Buttons and every tappable thing: press feedback + colour transitions. */
@@ -299,7 +313,7 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
   .sticky, .view-review .sticky { bottom: 0; margin-inline: 0; }
   .view-home .cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--sp-5); align-items: start; }
   .view-insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
-  .view-insights > .top, .view-insights > .feed { grid-column: 1 / -1; }
+  .view-insights > .top, .view-insights > .feed, .view-insights > .span2 { grid-column: 1 / -1; }
   .view-insights .chartsvg { max-height: 220px; }
   .welcome { max-width: 560px; margin: 0 auto; }
 }

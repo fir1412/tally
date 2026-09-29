@@ -82,6 +82,7 @@ export const homeView = {
 let M = null; // month shown
 export const insightsView = {
   title: 'Insights',
+  after() { const w = document.querySelector('.tablewrap'); if (w) w.scrollLeft = w.scrollWidth; },   // newest month in view on phones
   render() {
     const tdy = today(), cur = monthOf(tdy);
     M ||= cur;
@@ -99,6 +100,11 @@ export const insightsView = {
     const feed = insights({ txs: S.tx, budgets: S.kv.budgets, today: tdy, knownBills: S.recurring.map(b => b.key) }).filter(i => !dismissed().includes(i.id));
     const hs = habits(S.tx, tdy);
     const total = now.total || 1;
+    // Six months side by side, like the spreadsheet many people are moving from.
+    const tMonths = Array.from({ length: 6 }, (_, k) => addMonths(M, k - 5)), tSpend = tMonths.map(m => monthSpend(S.tx, m));
+    const catSum = c => tSpend.reduce((s, x) => s + (x.byCat[c] || 0), 0);
+    const tCats = [...new Set(tSpend.flatMap(s => Object.keys(s.byCat)))].sort((a, b) => catSum(b) - catSum(a));
+    const cell = v => (v ? esc(fmtRM(v, { plain: true })) : '<span class="nil">–</span>');
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
       ${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
@@ -108,6 +114,10 @@ export const insightsView = {
         ${now.total ? `<div class="donutrow">${d.html}<ul class="legend">${parts.map(p => `<li><button class="link" data-act="cat-show" data-c="${esc(p.id)}" data-m="${M}">${dot(p.id)}<span class="grow">${esc(p.name)}</span><span class="num">${esc(fmtRM(p.v))}</span><span class="fine">${Math.round(p.v / total * 100)}%</span></button></li>`).join('')}</ul></div>` : `<p class="empty">${esc(t('No spending in {0}.', fmtMonth(M)))}</p>`}
       </section>
       ${change.length ? `<section class="card"><h2>${esc(t('Compared with {0}', fmtMonth(addMonths(M, -1))))}</h2><ul class="list">${change.map(x => `<li class="rowb">${dot(x.c)}<span class="grow">${esc(catLabel(x.c))}</span><span class="num ${x.d > 0 ? 'bad' : 'good'}">${x.d > 0 ? '▲' : '▼'} ${esc(fmtRM(Math.abs(x.d)))}</span></li>`).join('')}</ul></section>` : ''}
+      ${tCats.length ? `<section class="card span2"><h2>${esc(t('Month by month'))} <span class="fine">RM</span></h2><div class="tablewrap" tabindex="0" role="region" aria-label="${esc(t('Spending by category and month'))}"><table class="mtable">
+        <thead><tr><th scope="col">${esc(t('Category'))}</th>${tMonths.map(m => `<th scope="col"${m === M ? ' class="cur"' : ''}>${esc(monShort(+m.slice(5)))}</th>`).join('')}</tr></thead>
+        <tbody>${tCats.map(c => `<tr><th scope="row">${dot(c)}${esc(catLabel(c))}</th>${tSpend.map((s, k) => `<td${tMonths[k] === M ? ' class="cur"' : ''}>${cell(s.byCat[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><th scope="row">${esc(t('Total'))}</th>${tSpend.map((s, k) => `<td${tMonths[k] === M ? ' class="cur"' : ''}>${cell(s.total)}</td>`).join('')}</tr></tfoot></table></div></section>` : ''}
       <section class="card"><h2>${esc(t('Money in and out'))}</h2><p class="legendrow"><span class="key good"></span>${esc(t('Received'))} <span class="key bad"></span>${esc(t('Spent'))}</p>
         ${pairBars(flow, { names: [t('Received'), t('Spent')], label: t('Money in and out, last 6 months') })}
         <table class="sr"><caption>${esc(t('Money in and out'))}</caption>${flowRaw.map(f => `<tr><th>${esc(fmtMonth(f.ym))}</th><td>${esc(fmtRM(f.income))}</td><td>${esc(fmtRM(f.expense))}</td></tr>`).join('')}</table></section>

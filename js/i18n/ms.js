@@ -425,4 +425,12 @@ export default {
   "Your balance, where the money went, and a nudge when it is time to log.": "Baki anda, ke mana wang pergi, dan peringatan bila tiba masa untuk mencatat.",
   "Your data stays with you": "Data anda kekal bersama anda",
   "Picked up the receipt you were checking": "Menyambung resit yang sedang anda semak",
+  "Imported": "Diimport",
+  "{0} received": "{0} diterima",
+  "{0} rows are dated in the future. Check the date column: day and month may be swapped.": "{0} baris bertarikh pada masa hadapan. Semak lajur tarikh: hari dan bulan mungkin tertukar.",
+  "{0} spent": "{0} dibelanjakan",
+  "{0} to {1}": "{0} hingga {1}",
+  "Month by month": "Bulan demi bulan",
+  "Spending by category and month": "Perbelanjaan mengikut kategori dan bulan",
+  "Total": "Jumlah",
 };
