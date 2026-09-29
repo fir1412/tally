@@ -6,6 +6,10 @@ import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.4.0': [
+    'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
+    'Share joint accounts with your spouse as a file; their changes come back the same way, and newer edits win',
+  ],
   '0.3.0': [
     'Type your own breakdown: one item per line ("Phone 1299", "Ikan 25") and each is sorted into its category, including the new Electronics',
     'The receipt photo is shown while you check it, and old receipts say which month they will be filed under',

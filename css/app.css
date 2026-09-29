@@ -112,6 +112,7 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .mtable tr.net td .good { color: var(--good); } .mtable tr.net td .bad { color: var(--bad); }
 .tablewrap.scrolled .mtable th[scope=row], .tablewrap.scrolled thead th:first-child { box-shadow: 10px 0 10px -8px rgba(0,0,0,.35); }   /* older months are under the pinned column */
 .segs.mini { flex: 0 0 auto; } .segs.mini .seg { flex: 0 0 auto; padding-inline: 12px; }
+.segs.scope { width: 100%; max-width: 360px; }   /* Me · Joint · All */
 .maths { font-family: var(--mono); font-size: var(--fs-sm); color: var(--mute); margin: 0; }
 
 /* Buttons and every tappable thing: press feedback + colour transitions. */
@@ -348,7 +349,7 @@ body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area
   .sticky, .view-review .sticky { bottom: 0; margin-inline: 0; }
   .view-home .cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--sp-5); align-items: start; }
   .view-insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
-  .view-insights > .top, .view-insights > .feed, .view-insights > .span2 { grid-column: 1 / -1; }
+  .view-insights > .top, .view-insights > .feed, .view-insights > .span2, .view-insights > .scope { grid-column: 1 / -1; }
   .view-insights .chartsvg { max-height: 220px; }
   .welcome { max-width: 560px; margin: 0 auto; }
 }

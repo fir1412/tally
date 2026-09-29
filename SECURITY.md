@@ -57,5 +57,11 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 - **Backups and joint-account share files are plain JSON (or a zip).** Anyone who gets the file can read it. Send
   them only to yourself or your spouse over a channel you trust. Optional password encryption (WebCrypto AES-GCM)
   is a candidate for a later version.
+- **Joint share files** hold only accounts marked Joint, their rows (a transfer from a personal account appears as
+  money in, without the personal side), joint budgets and the custom categories those rows use (`makeJointShare`,
+  tested). Importing one goes through `readBackup`, then `mergeJoint`: records merge by id and the newer `updatedAt`
+  wins (clamped to now, so a crafted file can't win forever), and a file can never overwrite or re-scope a personal
+  account or a row that uses one. Deletions don't travel: an entry deleted on one phone comes back from the other
+  until it is deleted there too.
 - Anyone with the unlocked phone can open the app. An app lock (PIN/biometric) is a candidate for a later version.
 - Check that the Google Form's response sheet is private to its owner (it may hold contact details).

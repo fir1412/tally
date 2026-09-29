@@ -1,5 +1,5 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, usualAccount } from '../state.js';
+import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
 import { fmtRM, parseAmount, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES } from '../engine.js';
@@ -10,13 +10,15 @@ import { render, go } from '../app.js';
 export const accName = id => S.accounts.find(a => a.id === id)?.name || t('Deleted account');
 export const catLabel = id => t(cat(id).name);
 export const dot = c => `<span class="dot" style="background:${esc(cat(c).color)}" aria-hidden="true"></span>`;
+/** Me · Joint · All, on Home, Activity, Insights and Budgets once a joint account exists. */
+export const scopeSwitch = () => (hasJoint() ? `<div class="segs scope" role="group" aria-label="${esc(t('Whose money'))}">${[['me', t('Me')], ['joint', t('Joint')], ['all', t('All')]].map(([k, n]) => `<button class="seg${scope() === k ? ' on' : ''}" data-act="scope" data-s="${k}" aria-pressed="${scope() === k}">${esc(n)}</button>`).join('')}</div>` : '');
 /** One transaction row (used by Home and Activity). */
 export function txRow(x) {
   const cats = x.items?.length ? [...new Set(x.items.map(i => i.category))] : [x.category];
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
-  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('receipt'))}` : ''}</small></span>
+  return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${dot(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('receipt'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(fmtRM(x.amount))}</span></button></li>`;
 }
 
@@ -34,8 +36,8 @@ function matches(x) {
 export const activityView = {
   title: 'Activity',
   render() {
-    const list = S.tx.filter(matches).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.createdAt - a.createdAt);
-    const months = [...new Set(S.tx.map(x => monthOf(x.date)))].sort().reverse();
+    const list = scopedTx().filter(matches).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.createdAt - a.createdAt);
+    const months = [...new Set(scopedTx().map(x => monthOf(x.date)))].sort().reverse();
     const shown = list.slice(0, F.limit);
     const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + (F.cat && x.items?.length ? x.items.filter(i => i.category === F.cat).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
     let html = '', day = '';
@@ -45,10 +47,10 @@ export const activityView = {
     }
     if (day) html += '</ul>';
     return `<header class="top"><h1>${esc(t('Activity'))}</h1><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
-      <div class="filters">
+      ${scopeSwitch()}<div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
         <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m))}</option>`).join('')}</select>
-        <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${S.accounts.map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
+        <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
       <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button></div>
@@ -66,9 +68,10 @@ export const input = {
     const v = el.value.trim() === '' ? 0 : parseAmount(el.value);
     el.classList.toggle('bad', v == null || v < 0);
     if (v == null || v < 0) return;
-    const b = structuredClone(S.kv.budgets);
+    const all = structuredClone(S.kv.budgets), b = scope() === 'joint' ? (all.joint ||= { total: 0, byCat: {} }) : all;
     if (el.dataset.cat === 'total') b.total = v; else if (v) b.byCat[el.dataset.cat] = v; else delete b.byCat[el.dataset.cat];
-    setKv('budgets', b);
+    if (b !== all) b.updatedAt = Date.now();   // joint budgets merge by newest edit
+    setKv('budgets', all);
     // Show the new state straight away without re-rendering (typing keeps its place): status line + a saved tick.
     clearTimeout(budT);
     budT = setTimeout(() => {
@@ -137,7 +140,7 @@ export function openTxSheet(preset = {}) {
 export const budgetsView = {
   title: 'Budgets',
   render() {
-    const ym = monthOf(today()), now = monthSpend(booked(), ym), B = S.kv.budgets;
+    const ym = monthOf(today()), now = monthSpend(booked(), ym), B = budgetsFor(), ro = scope() === 'all' ? ' disabled' : '';
     const bar = (spent, budget) => {
       if (!budget) return `<span class="fine">${esc(t('{0} spent', fmtRM(spent)))}</span>`;
       const p = pace(budget, spent, today()), pct = Math.min(100, Math.round(spent / budget * 100));
@@ -154,15 +157,17 @@ export const budgetsView = {
     const spentOn = c => now.byCat[c.id] || 0, cats = [...expenseCats()].sort((a, b) => spentOn(b) - spentOn(a));
     const active = cats.filter(c => spentOn(c) || B.byCat[c.id]), idle = cats.filter(c => !spentOn(c) && !B.byCat[c.id]);
     const row = c => `<li><div class="brow"><button class="link" data-act="cat-show" data-c="${esc(c.id)}">${dot(c.id)}${esc(t(c.name))}</button>
-        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"></span></div><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0)}</div></li>`;
+        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"${ro}></span></div><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0)}</div></li>`;
+    const bills = S.recurring.filter(b => inScope(b));
     return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym))}</span></header>
-      <section class="card"><label class="field"><span>${esc(t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(t('e.g. 2500'))}"></span></label><div id="bs-total">${bar(now.total, B.total)}
+      ${scopeSwitch()}${ro ? `<p class="fine">${esc(t('All shows your budgets and the joint ones added up. Pick Me or Joint to change them.'))}</p>` : ''}
+      <section class="card"><label class="field"><span>${esc(scope() === 'joint' ? t('Joint monthly budget (RM)') : t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(t('e.g. 2500'))}"${ro}></span></label><div id="bs-total">${bar(now.total, B.total)}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>
       <h2>${esc(t('By category'))}</h2><p class="fine">${esc(t('Set a limit for the categories you want to watch. Leave the rest empty.'))}</p>
       <ul class="list budgets">${active.map(row).join('')}</ul>
       ${idle.length ? `<details class="more-cats"><summary>${esc(t('{0} more categories', idle.length))}</summary><ul class="list budgets">${idle.map(row).join('')}</ul></details>` : ''}
       <h2 id="bills">${esc(t('Regular bills'))}</h2>
-      <ul class="list">${S.recurring.map(b => `<li class="bill"><span class="grow"><b>${esc(b.name)}</b><small>${esc(t('{0} · every month on day {1}', fmtRM(b.amount), b.day))}</small></span>
+      <ul class="list">${bills.map(b => `<li class="bill"><span class="grow"><b>${esc(b.name)}</b><small>${esc(t('{0} · every month on day {1}', fmtRM(b.amount), b.day))}</small></span>
         <button class="btn small ghost" data-act="bill-paid" data-id="${esc(b.id)}">${esc(t('Paid'))}</button><button class="btn small ghost" data-act="bill-cal" data-id="${esc(b.id)}" aria-label="${esc(t('Add a reminder to my calendar'))}">${ICON.bell}</button><button class="btn small ghost" data-act="bill-edit" data-id="${esc(b.id)}" aria-label="${esc(t('Edit'))}">…</button></li>`).join('') || `<li class="empty">${esc(t('No bills yet.'))}</li>`}</ul>
       ${cand.map(r => `<div class="card suggest">${ICON.bell}<span class="grow">${esc(t('{0} looks like a monthly bill ({1})', r.merchant, fmtRM(r.amount)))}</span><button class="btn small" data-act="bill-add-suggested" data-key="${esc(r.key)}">${esc(t('Add'))}</button><button class="icon-btn" data-act="dismiss" data-id="bill-sugg-${esc(r.key)}" aria-label="${esc(t('Not a bill'))}">${ICON.x}</button></div>`).join('')}
       <button class="btn ghost wide" data-act="bill-edit">${ICON.plus}${esc(t('Add a bill'))}</button>`;
@@ -183,6 +188,7 @@ const billEv = x => billEvent({ id: x.id, day: x.day, title: t('Pay {0} ({1})', 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
   'act-more': () => { F.limit += 200; render(); },
+  'scope': async b => { await setSetting('scope', b.dataset.s); F.acc = ''; render(); },
   'tx-new': () => openTxSheet(),
   'sheet-close': () => closeSheet(),
   'cat-show': b => showCategory(b.dataset.c, b.dataset.m || undefined),

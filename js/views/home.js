@@ -1,12 +1,12 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, setKv, cat, booked } from '../state.js';
+import { S, today, nowLocal, setKv, cat, booked, scopedAccounts, budgetsFor, inScope } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthIncome, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey } from '../engine.js';
 import { habitEvent, ics, googleUrl } from '../calendar.js';
 import { download } from '../io.js';
 import { render } from '../app.js';
-import { txRow, catLabel, dot, openTxSheet } from './money.js';
+import { txRow, catLabel, dot, openTxSheet, scopeSwitch } from './money.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
 export function fill([tpl, ...vals]) {
@@ -46,10 +46,10 @@ function banner() {
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
   const ym = monthOf(tdy), day = +tdy.slice(8, 10);
-  const bill = S.recurring.find(b => b.day >= day && b.day - day <= 3 && !booked().some(x => monthOf(x.date) === ym && x.type === 'expense' && x.amount === b.amount && (x.merchant || '').toLowerCase() === b.name.toLowerCase()) && !dismissed().includes(`bill-${b.id}-${ym}`));
+  const bill = S.recurring.find(b => inScope(b) && b.day >= day && b.day - day <= 3 && !booked().some(x => monthOf(x.date) === ym && x.type === 'expense' && x.amount === b.amount && (x.merchant || '').toLowerCase() === b.name.toLowerCase()) && !dismissed().includes(`bill-${b.id}-${ym}`));
   if (bill) return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(t('{0} due {1}', bill.name, bill.day === day ? t('today') : t('in {0} days', bill.day - day)))}</b><small>${esc(fmtRM(bill.amount))}</small></span>
     <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}">${esc(t('Paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${ym}">${esc(t('Later'))}</button></span></div>`;
-  const ins = insights({ txs: booked(), budgets: S.kv.budgets, today: tdy, knownBills: S.recurring.map(b => b.key) }).find(i => !dismissed().includes(i.id));
+  const ins = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key) }).find(i => !dismissed().includes(i.id));
   if (ins) return `<div class="banner ${ins.level}">${ins.level === 'warn' ? ICON.alert : ICON.chart}<span class="grow"><b>${esc(fill(ins.title))}</b><small>${esc(fill(ins.body))}</small></span>
     <span class="bactions"><button class="btn small ghost" data-act="go" data-to="insights">${esc(t('More'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(ins.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
   return '';
@@ -59,18 +59,18 @@ export const homeView = {
   title: 'Home',
   render() {
     const tdy = today(), ym = monthOf(tdy);
-    const upToday = booked();
-    const bal = balances(S.accounts, upToday), spent = monthSpend(upToday, ym).total, B = S.kv.budgets.total;
+    const upToday = booked(), accts = scopedAccounts();
+    const bal = balances(accts, upToday), spent = monthSpend(upToday, ym).total, B = budgetsFor().total;
     const p = B ? pace(B, spent, tdy) : null;
     const lastYm = addMonths(ym, -1), sameDay = upToday.filter(x => monthOf(x.date) !== lastYm || x.date.slice(8) <= tdy.slice(8));
     const before = monthSpend(sameDay, lastYm).total, diff = spent - before;
     const recent = [...booked()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt).slice(0, 8);
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="fine">${esc(fmtDate(tdy, { year: true }))}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
-      <div class="cols"><div class="col">
+      ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
-        <span class="label">${esc(t('Current balance'))} · ${esc(S.accounts.length === 1 ? t('1 account') : t('{0} accounts', S.accounts.length))}</span>
+        <span class="label">${esc(t('Current balance'))} · ${esc(accts.length === 1 ? t('1 account') : t('{0} accounts', accts.length))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>
-        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${S.accounts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtRM(bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
+        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtRM(bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
       </section>
       <section class="card month">
         <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym)))}</span>${p ? `<span class="pill ${spent > B ? 'bad' : p.over ? 'warn' : 'good'}">${esc(spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'))}</span>` : `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>`}</div>
@@ -108,11 +108,11 @@ export const insightsView = {
     const flowRaw = cashFlow(booked(), M, 6);
     const flow = flowRaw.map(f => ({ label: monShort(+f.ym.slice(5)), a: f.income, b: f.expense }));
     const trendEnd = M === cur ? tdy : `${M}-${String(new Date(Date.UTC(+M.slice(0, 4), +M.slice(5), 0)).getUTCDate()).padStart(2, '0')}`;
-    const trend = balanceTrend(S.accounts, booked(), trendEnd, 6);
+    const trend = balanceTrend(scopedAccounts(), booked(), trendEnd, 6);
     const items = {};
     for (const x of booked()) if (x.type === 'expense' && monthOf(x.date) === M) for (const i of x.items || []) { const k = itemKey(i.name); if (!k || /\d{5,}/.test(i.name) || /[A-Za-z]{16,}/.test(i.name)) continue; (items[k] ||= { name: i.name, n: 0, v: 0 }); items[k].n++; items[k].v += i.cents; }
     const topItems = Object.values(items).sort((a, b) => b.v - a.v).slice(0, 5);
-    const feed = insights({ txs: booked(), budgets: S.kv.budgets, today: tdy, knownBills: S.recurring.map(b => b.key) }).filter(i => !dismissed().includes(i.id));
+    const feed = insights({ txs: booked(), budgets: budgetsFor(), today: tdy, knownBills: S.recurring.map(b => b.key) }).filter(i => !dismissed().includes(i.id));
     const hs = habits(booked(), tdy);
     const total = now.total || 1;
     // Six months side by side, like the spreadsheet many people are moving from.
@@ -127,7 +127,7 @@ export const insightsView = {
     const curCol = k => (tMonths[k] === M ? ' class="cur"' : '');
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
-      ${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
+      ${scopeSwitch()}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 6).map(i => `<li class="banner ${i.level}">${i.level === 'warn' ? ICON.alert : i.kind === 'recurring' ? ICON.bell : ICON.chart}<span class="grow"><b>${esc(fill(i.title))}</b><small>${esc(fill(i.body))}</small></span>
         ${i.rec ? `<button class="btn small" data-act="go" data-to="budgets">${esc(t('Add'))}</button>` : ''}${i.cat && i.cat !== 'total' ? `<button class="btn small ghost" data-act="cat-show" data-c="${esc(i.cat)}">${esc(t('See'))}</button>` : ''}<button class="icon-btn" data-act="dismiss" data-id="${esc(i.id)}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></li>`).join('')}</ul>` : ''}
       <section class="card">
         <h2>${esc(t('Where the money went'))}</h2>
