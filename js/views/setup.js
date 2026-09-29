@@ -20,7 +20,9 @@ import { sampleData } from '../sample.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
-const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${langTag(k)}" aria-pressed="${getLang() === k}">${esc(n)}</button>`).join('')}</div>`;
+// Short native names so five languages fit one row on a 360px phone; the full name is what a screen reader says.
+const SHORT = { ms: 'BM', zh: '简体', 'zh-Hant': '繁體' };
+const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${langTag(k)}" aria-pressed="${getLang() === k}"${SHORT[k] ? ` aria-label="${esc(n)}" title="${esc(n)}"` : ''}>${esc(SHORT[k] || n)}</button>`).join('')}</div>`;
 
 const SIZES = [100, 115, 130];
 /** A / A+ / A++, the same sizes as Settings → Text size, drawn at the size they give. */
