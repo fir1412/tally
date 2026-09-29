@@ -201,8 +201,9 @@ let M = null; // month shown
 let SPAN = 6; // months in the table
 export const insightsView = {
   title: 'Insights',
-  after() {   // opens at its start (whole columns); a shadow on the pinned column while months scroll under it
+  after() {   // opens at the newest months (this month in view, even one column at a time at big text); a shadow on the pinned column while months scroll under it
     const w = document.querySelector('.tablewrap'); if (!w) return;
+    w.scrollLeft = w.scrollWidth;
     const mark = () => w.classList.toggle('scrolled', w.scrollLeft > 2);
     w.addEventListener('scroll', mark, { passive: true });
     mark();

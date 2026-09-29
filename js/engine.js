@@ -139,8 +139,8 @@ export const itemKey = once(name => String(name ?? '').toUpperCase().replace(/\b
 // ponytail: keyword list; user corrections become rules.
 const WORDS = [
   // Named by what they are, before "rice" or "egg" make a meal groceries, or "Penang" looks like a pen.
-  ['dining', /economy rice|mixed rice|chap ?fan|杂饭|雜飯|经济饭|經濟飯|nasi campur|roti (telur|canai|kosong|bom|jala|tissue)|char kue?y teow|fried rice|nasi (goreng|lemak|kandar|ayam|kerabu|dagang|briyani|biryani)|(chicken|lamb|fish|pork) chop|tom ?yam|mee (goreng|kari|curry|rebus|hailam|bandung|sup)|kue?y ?teow|iced? (lemon|tea|coffee|milo|latte)|lemon tea|telur mata|teh (tarik|o|ais|c|halia)\b|kopi (o|c|ais|peng)\b|\bslice\b|set meal|炒饭|炒飯|面线|鸡饭|雞飯/i],
-  ['transport', /minyak (motor|kereta|moto)|isi minyak|\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
+  ['dining', /\b(sarapan|breakfast|brunch|lunch|dinner|supper)\b|makan (pagi|tengah ?hari|malam)|早餐|午餐|晚餐|宵夜|economy rice|mixed rice|chap ?fan|杂饭|雜飯|经济饭|經濟飯|nasi campur|roti (telur|canai|kosong|bom|jala|tissue)|char kue?y teow|fried rice|nasi (goreng|lemak|kandar|ayam|kerabu|dagang|briyani|biryani)|(chicken|lamb|fish|pork) chop|tom ?yam|mee (goreng|kari|curry|rebus|hailam|bandung|sup)|kue?y ?teow|iced? (lemon|tea|coffee|milo|latte)|lemon tea|telur mata|teh (tarik|o|ais|c|halia)\b|kopi (o|c|ais|peng)\b|\bslice\b|set meal|炒饭|炒飯|面线|鸡饭|雞飯/i],
+  ['transport', /油费|汽油|加油|油站|打油|minyak (motor|kereta|moto)|isi minyak|\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
   ['education', /fotostat|photo ?copy|cetak nota|复印|複印/i],
   ['groceries', /\bgrocer(y|ies)\b|barang dapur/i],
   // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.

@@ -387,3 +387,7 @@ test('money received from a payer lands where that payer paid before', () => {
   assert.equal(E.pickAccount({ accounts, txs, kind: 'income', shop: 'Lalamove minggu' }), 'bank');
   assert.equal(E.pickAccount({ accounts, txs, kind: 'income' }), 'boost');
 });
+
+test('guesses people typed: Chinese fuel is transport, meals are dining, cooking oil stays groceries', () => {
+  for (const [n, c] of [['油费', 'transport'], ['汽油', 'transport'], ['Sarapan', 'dining'], ['lunch', 'dining'], ['早餐', 'dining'], ['Minyak masak', 'groceries']]) assert.equal(E.categorize(n, n), c, n);
+});
