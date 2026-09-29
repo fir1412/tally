@@ -321,13 +321,17 @@ export function readBackup(text) {
   const tx = (Array.isArray(d.tx) ? d.tx : []).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId } : {}),
-      category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
+      category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
+      ...(okId(t.bill) ? { bill: t.bill } : {}),
     }));
   const recurring = (Array.isArray(d.recurring) ? d.recurring : []).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
-    .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(28, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60) }));
+    .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(31, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60),
+      // Bills that add themselves (0.4.0): how often, from when, how many or until when, and the last day they ran.
+      ...(['weekly', 'yearly'].includes(r.freq) ? { freq: r.freq } : {}), auto: r.auto === true, ...(Number.isInteger(r.count) && r.count > 0 && r.count <= 600 ? { count: r.count } : {}),
+      ...['start', 'until', 'last'].reduce((o, k) => (validIso(r[k]) ? { ...o, [k]: r[k] } : o), {}) }));
   const kv = {};
   if (isObj(d.kv)) {
     if (isObj(d.kv.budgets)) kv.budgets = { total: okAmt(d.kv.budgets.total) ? d.kv.budgets.total : 0, byCat: Object.fromEntries(Object.entries(isObj(d.kv.budgets.byCat) ? d.kv.budgets.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) };

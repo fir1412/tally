@@ -40,6 +40,8 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Feedback spam | 1 message per minute and 10 per day per device; offline queue capped at 20; 4000 characters. |
 | Supply chain | Everything is vendored and self-hosted (OCR bundle, ONNX Runtime, models, sql.js, pdf.js, fonts); no CDN at runtime. Licences in `THIRD_PARTY_NOTICES.md`. |
 | Secrets | None in the code. The feedback form address is public by design. Real receipts and test data are git-ignored. |
+| App lock | Optional (Settings → Lock Tally), `js/lock.js`. A 4–6 digit PIN stored only as a salted PBKDF2-SHA-256 hash (210,000 iterations, WebCrypto), plus the phone's fingerprint or face through a WebAuthn platform authenticator with `userVerification: 'required'` (only the credential id is stored). Asked on open and after more than a minute in the background; the screen is blank in the app switcher while hidden. 5 wrong PINs → growing waits. Forgot PIN → fingerprint/face, or erase everything. Never in backups. A privacy screen, **not encryption**: anyone who can read the browser's storage (a rooted phone, devtools) can read the data, and a 4–6 digit PIN hash can be brute-forced offline. Pinned by `tests/security.test.mjs`. |
+| Data loss | `navigator.storage.persist()` is requested after setup; Settings shows whether storage is protected, and Settings and the tour say that uninstalling or clearing site data deletes everything. |
 
 ## Not applicable today, with the trigger that makes each relevant
 
@@ -57,5 +59,6 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 - **Backups and joint-account share files are plain JSON (or a zip).** Anyone who gets the file can read it. Send
   them only to yourself or your spouse over a channel you trust. Optional password encryption (WebCrypto AES-GCM)
   is a candidate for a later version.
-- Anyone with the unlocked phone can open the app. An app lock (PIN/biometric) is a candidate for a later version.
+- The app lock doesn't encrypt anything and trusts the phone's "user verified" flag without checking the WebAuthn
+  signature (no server). If data encryption is ever added, derive the key from the PIN and verify signatures.
 - Check that the Google Form's response sheet is private to its owner (it may hold contact details).

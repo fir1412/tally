@@ -52,7 +52,8 @@ test('monthSpend ignores transfers and income; cashFlow; balanceTrend', () => {
     { date: '2026-09-04', type: 'income', amount: 9000, accountId: 'a' },
     { date: '2026-08-30', type: 'expense', amount: 700, category: 'groceries' },
   ];
-  assert.deepEqual(E.monthSpend(txs, '2026-09'), { total: 1000, byCat: { dining: 1000 } });
+  const { total, byCat } = E.monthSpend(txs, '2026-09');
+  assert.deepEqual({ total, byCat }, { total: 1000, byCat: { dining: 1000 } });
   const cf = E.cashFlow(txs, '2026-09', 2);
   assert.deepEqual(cf, [{ ym: '2026-08', income: 0, expense: 700 }, { ym: '2026-09', income: 9000, expense: 1000 }]);
   assert.equal(E.balanceTrend([{ id: 'a', opening: 0 }], txs.map(t => ({ ...t, accountId: 'a' })), '2026-09-29', 2)[0].date, '2026-08-31');
@@ -140,4 +141,81 @@ test('bill suggestions: not fuel, not an instalment that has ended, not one that
     ...['2026-01', '2026-02', '2026-03'].map(m => tx(`${m}-20`, 'Old Gym', 15000, 'fun')),
   ];
   assert.deepEqual(E.recurringCandidates(txs).map(r => r.merchant), ['Unifi']);
+});
+
+test('calcAmount: sums in amount fields, to the sen, never eval', () => {
+  const ok = { '12.50+8*2': 2850, '100/3': 3333, '(10+5)×2': 3000, '90÷4': 2250, '20−5.5': 1450, '0.1+0.2': 30, 'RM 5*3': 1500, '-2+5': 300, '12.50': 1250, '12,50': 1250, '2*(3+(4-1))': 1200 };
+  for (const [s, want] of Object.entries(ok)) assert.equal(E.calcAmount(s), want, s);
+  for (const bad of ['', '5/0', '1+', '(1+2', '2+3)', 'alert(1)', '2**3', '1e5+1', 'constructor', '9'.repeat(12) + '*9', '++']) assert.equal(E.calcAmount(bad), null, bad);
+});
+
+test('cycleOf: payday months, month ends and the new year', () => {
+  assert.deepEqual(E.cycleOf('2026-09-29', 1), { key: '2026-09', start: '2026-09-01', end: '2026-09-30' });
+  assert.deepEqual(E.cycleOf('2026-09-29', 25), { key: '2026-09', start: '2026-09-25', end: '2026-10-24' });
+  assert.deepEqual(E.cycleOf('2026-10-24', 25), { key: '2026-09', start: '2026-09-25', end: '2026-10-24' });
+  assert.deepEqual(E.cycleOf('2026-01-10', 25), { key: '2025-12', start: '2025-12-25', end: '2026-01-24' });
+  assert.deepEqual(E.cycleOf('2026-03-27', 28), { key: '2026-02', start: '2026-02-28', end: '2026-03-27' });
+  assert.equal(E.cycleOf('2026-09-29', 40).start, '2026-09-28');   // clamped to 1–28
+  const txs = [{ date: '2026-09-24', type: 'expense', amount: 100 }, { date: '2026-09-25', type: 'expense', amount: 200 }, { date: '2026-10-24', type: 'expense', amount: 400 }];
+  assert.equal(E.monthSpend(txs, '2026-09', 25).total, 600);
+  assert.equal(E.monthSpend(txs, '2026-08', 25).total, 100);
+  assert.equal(E.balanceTrend([{ id: 'a', opening: 0 }], [], '2026-09-29', 2, 25)[0].date, '2026-09-24');
+});
+
+test('pace: calm in the first 7 days; big single payments and bills count but are not a daily rate', () => {
+  assert.equal(E.pace(100000, 60000, '2026-09-05').over, false);            // day 5: never "heading over"
+  assert.equal(E.pace(100000, 60000, '2026-09-08').over, true);
+  // Rent of RM 500 on day 10 of a RM 1,000 budget, plus RM 100 of everyday spending: not heading over.
+  const p = E.pace(100000, 60000, '2026-09-10', { amounts: [50000, 4000, 6000] });
+  assert.equal(p.projected, 50000 + 30000);
+  assert.equal(p.over, false);
+  assert.equal(E.pace(100000, 60000, '2026-09-10').projected, 180000);      // without the list: straight line
+  assert.equal(E.pace(100000, 60000, '2026-09-10', { amounts: [10000], fixed: 50000 }).projected, 80000);
+  // Payday cycle 25 Sep – 24 Oct (30 days), day 15.
+  const c = E.pace(30000, 15000, '2026-10-09', { startDay: 25 });
+  assert.deepEqual([c.projected, c.daysLeft], [30000, 15]);
+  const s = E.monthSpend([{ date: '2026-09-02', type: 'expense', amount: 12900, source: 'recurring', bill: 'b1', category: 'bills' }, { date: '2026-09-03', type: 'expense', amount: 500, category: 'dining' }], '2026-09');
+  assert.deepEqual([s.fixed.total, s.each.total], [12900, [500]]);
+});
+
+test('bills: due dates at month ends, weekly, yearly, instalments; added once; paid whatever the amount', () => {
+  const m = { id: 'b1', name: 'Astro', amount: 12900, day: 31, start: '2026-01-31', accountId: 'a', category: 'bills', auto: true };
+  assert.deepEqual(E.billDates(m, '2026-04-30'), ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']);
+  assert.deepEqual(E.billDates({ ...m, day: 29, start: '2028-01-29' }, '2028-03-01'), ['2028-01-29', '2028-02-29']);
+  assert.deepEqual(E.billDates({ ...m, freq: 'weekly', start: '2026-09-01' }, '2026-09-20'), ['2026-09-01', '2026-09-08', '2026-09-15']);
+  assert.deepEqual(E.billDates({ ...m, freq: 'yearly', day: 29, start: '2028-02-29' }, '2030-12-31'), ['2028-02-29', '2029-02-28', '2030-02-28']);
+  assert.deepEqual(E.billDates({ ...m, count: 2 }, '2026-12-31'), ['2026-01-31', '2026-02-28']);
+  assert.deepEqual(E.billDates({ ...m, until: '2026-03-15' }, '2026-12-31'), ['2026-01-31', '2026-02-28']);
+  // Before 0.4.0 a bill had only a day; its status doesn't depend on how far ahead we look.
+  const old = { id: 'o', name: 'TNB', amount: 1, day: 20 };
+  assert.deepEqual(E.billDates(old, '2026-09-29').slice(-2), ['2026-08-20', '2026-09-20']);
+  assert.deepEqual(E.billStatus(old, '2026-09-29', []), { date: '2026-09-20', next: '2026-10-20', paid: false, days: -9 });
+
+  const r = { ...m, day: 5, start: '2026-07-05' };
+  const first = E.dueBillTxs([r], '2026-09-29', [], 1);
+  assert.deepEqual(first.map(x => [x.id, x.date, x.source, x.bill, x.merchant]), [['rec-b1-2026-07-05', '2026-07-05', 'recurring', 'b1', 'Astro'], ['rec-b1-2026-08-05', '2026-08-05', 'recurring', 'b1', 'Astro'], ['rec-b1-2026-09-05', '2026-09-05', 'recurring', 'b1', 'Astro']]);
+  assert.deepEqual(E.dueBillTxs([r], '2026-09-29', first), []);                                     // running again adds nothing
+  assert.deepEqual(E.dueBillTxs([{ ...r, last: '2026-09-29' }], '2026-09-29', []), []);             // undone: not added again
+  assert.deepEqual(E.dueBillTxs([{ ...r, last: '2026-08-31' }], '2026-10-05', []).map(x => x.date), ['2026-09-05', '2026-10-05']);
+  const paidByHand = [{ id: 'x', type: 'expense', date: '2026-08-02', amount: 13455, merchant: ' astro ' }];   // a different amount
+  assert.deepEqual(E.dueBillTxs([r], '2026-09-29', paidByHand).map(x => x.date), ['2026-07-05', '2026-09-05']);
+  assert.deepEqual(E.dueBillTxs([{ ...r, auto: false }], '2026-09-29', []), []);
+  assert.deepEqual(E.dueBillTxs([{ ...r, freq: 'weekly', start: '2026-09-14' }], '2026-09-29', []).map(x => x.date), ['2026-09-14', '2026-09-21', '2026-09-28']);
+
+  // Status: overdue stays until paid; paid for the month whatever the amount; the next one takes over 3 days before.
+  assert.deepEqual(E.billStatus(r, '2026-10-20', []), { date: '2026-10-05', next: '2026-11-05', paid: false, days: -15 });
+  assert.equal(E.billStatus(r, '2026-10-20', [{ id: 'y', type: 'expense', date: '2026-10-19', amount: 9900, merchant: 'Astro' }]).paid, true);
+  assert.equal(E.billStatus(r, '2026-11-02', []).date, '2026-11-05');
+  assert.equal(E.billStatus(r, '2026-10-20', [{ id: 'z', type: 'expense', date: '2026-10-05', amount: 1, bill: 'b1', merchant: 'x' }]).paid, true);
+  assert.equal(E.billStatus({ ...r, count: 2 }, '2026-12-01', []).next, undefined);                  // instalments finished
+  assert.equal(E.billStatus({ ...r, start: '2026-12-05' }, '2026-10-01', []).date, undefined);         // not started
+});
+
+test('bill payments stay out of the unusual-week insight', () => {
+  const txs = [];
+  for (let w = 1; w <= 8; w++) txs.push({ id: 'g' + w, date: E.addDays('2026-09-22', -7 * w), type: 'expense', amount: 3000, category: 'household' });
+  txs.push({ id: 'rec-b-2026-09-25', date: '2026-09-25', type: 'expense', amount: 90000, category: 'household', source: 'recurring', bill: 'b' });
+  assert.ok(!E.insights({ txs, today: '2026-09-28' }).some(i => i.kind === 'unusual'));
+  txs.at(-1).source = 'quick'; delete txs.at(-1).bill;
+  assert.ok(E.insights({ txs, today: '2026-09-28' }).some(i => i.kind === 'unusual'));
 });

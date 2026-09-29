@@ -1,11 +1,19 @@
 // First-run tour, What's new after an update, install prompt and update check (pattern from we go gim).
-import { S, settings, setKv } from './state.js';
+import { S, settings, setKv, persistStorage } from './state.js';
 import { t } from './i18n.js';
 import { esc, ICON, openSheet, closeSheet, toast, hideToast } from './ui.js';
 import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.4.0': [
+    'Lock Tally with a PIN, and your fingerprint or face where the phone has one (Settings)',
+    'Bills can add themselves on the day: monthly, weekly or yearly, with a number of payments for instalments. A bill is paid once anything with its name is added that month, and unpaid ones stay on Home',
+    'Type sums in any amount field, like 12.50+8*2',
+    'Paid on the 25th? Start your month on payday (Settings): Home, Budgets and Insights follow it',
+    'Calmer budget warnings: none in the first week, and one big payment or a bill no longer sounds the alarm',
+    'Tally asks the browser to keep its data safe, and Settings says whether it did',
+  ],
   '0.3.0': [
     'Type your own breakdown: one item per line ("Phone 1299", "Ikan 25") and each is sorted into its category, including the new Electronics',
     'The receipt photo is shown while you check it, and old receipts say which month they will be filed under',
@@ -46,6 +54,7 @@ export function showTour(start = 0) {
     const last = i === TOUR.length - 1;
     sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="tour"><div class="tour-ic">${icon}</div>
       <p class="lbl">${esc(i ? t('Tip {0} of {1}', i, TOUR.length - 1) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>
+      ${last ? `<p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))}</span></p>` : ''}
       ${i ? `<div class="dots" aria-hidden="true">${TOUR.slice(1).map((_, j) => `<i class="${j + 1 === i ? 'on' : j + 1 < i ? 'done' : ''}"></i>`).join('')}</div>` : ''}
       ${last && canInstall() ? `<button class="btn ghost wide" data-t="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
       <div class="row2"><button class="btn ghost" data-t="${i ? 'back' : 'skip'}">${esc(i ? t('Back') : t('Skip'))}</button><button class="btn" data-t="next">${esc(last ? t('Start using Tally') : i ? t('Next') : t('Show me'))}</button></div>
@@ -93,6 +102,7 @@ export function onboarding() {
 }
 /** Right after setup (fresh start or import). */
 export function afterSetup() {
+  persistStorage();   // data now worth keeping: ask the browser not to clear it when space runs low
   if (skipTour() || settings().tourDone) return;
   setTimeout(() => showTour(0), 300);
 }

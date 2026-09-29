@@ -1,8 +1,8 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, usualAccount } from '../state.js';
-import { t, fmtDate, fmtMonth } from '../i18n.js';
+import { S, saveTx, saveTxs, deleteTx, deleteTxs, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, usualAccount, startDay, thisMonth } from '../state.js';
+import { t, fmtDate, fmtMonth, monShort } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
-import { fmtRM, parseAmount, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES } from '../engine.js';
+import { fmtRM, calcAmount, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs } from '../engine.js';
 import { billEvent, ics, googleUrl } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -23,7 +23,7 @@ export function txRow(x) {
 // ---- Activity ------------------------------------------------------------------------------------------------------
 const F = { q: '', month: '', acc: '', cat: '', photo: false, limit: 200 };
 function matches(x) {
-  if (F.month && monthOf(x.date) !== F.month) return false;
+  if (F.month && cycleKey(x.date, startDay()) !== F.month) return false;
   if (F.acc && x.accountId !== F.acc && x.toAccountId !== F.acc) return false;
   if (F.cat && x.category !== F.cat && !(x.items || []).some(i => i.category === F.cat)) return false;
   if (F.photo && !x.receiptId) return false;
@@ -35,7 +35,7 @@ export const activityView = {
   title: 'Activity',
   render() {
     const list = S.tx.filter(matches).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.createdAt - a.createdAt);
-    const months = [...new Set(S.tx.map(x => monthOf(x.date)))].sort().reverse();
+    const sd = startDay(), months = [...new Set(S.tx.map(x => cycleKey(x.date, sd)))].sort().reverse();
     const shown = list.slice(0, F.limit);
     const tdy = today(), spent = list.filter(x => x.type === 'expense' && x.date <= tdy).reduce((s, x) => s + (F.cat && x.items?.length ? x.items.filter(i => i.category === F.cat).reduce((a, i) => a + i.cents, 0) : x.amount), 0);
     let html = '', day = '';
@@ -47,7 +47,7 @@ export const activityView = {
     return `<header class="top"><h1>${esc(t('Activity'))}</h1><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Add'))}</button></header>
       <div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
-        <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m))}</option>`).join('')}</select>
+        <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m, sd))}</option>`).join('')}</select>
         <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${S.accounts.map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
@@ -63,7 +63,7 @@ export const input = {
   'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; render(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   'act-f': el => { F[el.dataset.k] = el.value; F.limit = 200; render(); },
   'bud': el => {
-    const v = el.value.trim() === '' ? 0 : parseAmount(el.value);
+    const v = el.value.trim() === '' ? 0 : calcAmount(el.value);
     el.classList.toggle('bad', v == null || v < 0);
     if (v == null || v < 0) return;
     const b = structuredClone(S.kv.budgets);
@@ -79,7 +79,7 @@ export const input = {
   },
 };
 /** Show one category's spending: Home, Insights and Budgets link here. */
-export function showCategory(c, month = monthOf(today())) { Object.assign(F, { q: '', acc: '', cat: c, month, limit: 200 }); go('activity'); }
+export function showCategory(c, month = thisMonth()) { Object.assign(F, { q: '', acc: '', cat: c, month, limit: 200 }); go('activity'); }
 
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
 let draft = null; // the transaction being edited; its id is fixed when the sheet opens, so saving twice can't duplicate
@@ -112,7 +112,7 @@ function sheetHtml() {
 /** "1340", "13.40", "9:05" → "13:40" / "09:05"; anything else → no time. */
 export const hhmmIn = v => { const m = String(v ?? '').trim().match(/^([01]?\d|2[0-3])[:.\s]?([0-5]\d)$/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined; };
 function readForm() {
-  draft.amount = draft.items?.length ? draft.amount : parseAmount($('#tx-amt')?.value);
+  draft.amount = draft.items?.length ? draft.amount : calcAmount($('#tx-amt')?.value);
   draft.accountId = $('#tx-acc')?.value || draft.accountId;
   if (draft.type === 'transfer') draft.toAccountId = $('#tx-to')?.value; else delete draft.toAccountId;
   draft.date = $('#tx-date')?.value || draft.date;
@@ -137,48 +137,77 @@ export function openTxSheet(preset = {}) {
 export const budgetsView = {
   title: 'Budgets',
   render() {
-    const ym = monthOf(today()), now = monthSpend(booked(), ym), B = S.kv.budgets;
-    const bar = (spent, budget) => {
+    const sd = startDay(), ym = thisMonth(), tdy = today(), now = monthSpend(booked(), ym, sd), B = S.kv.budgets;
+    const bar = (spent, budget, c) => {
       if (!budget) return `<span class="fine">${esc(t('{0} spent', fmtRM(spent)))}</span>`;
-      const p = pace(budget, spent, today()), pct = Math.min(100, Math.round(spent / budget * 100));
+      const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] }), pct = Math.min(100, Math.round(spent / budget * 100));
       const state = spent > budget ? 'bad' : p.over ? 'warn' : 'good';
       const word = spent > budget ? t('Over by {0}', fmtRM(spent - budget)) : p.over ? t('Heading over: about {0} by month end', fmtRM(p.projected)) : t('{0} left', fmtRM(budget - spent));
       return `<div class="meter ${state}" role="img" aria-label="${esc(`${pct}%`)}"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;
     };
     // Cumulative spend this month vs the budget line.
-    const days = +today().slice(8, 10);
     let run = 0; const series = [];
-    for (let d = 1; d <= days; d++) { const iso = `${ym}-${String(d).padStart(2, '0')}`; run += booked().filter(x => x.type === 'expense' && x.date === iso).reduce((s, x) => s + x.amount, 0); series.push({ date: iso, v: run }); }
+    for (let iso = cycleSpan(ym, sd).start; iso <= tdy; iso = addDays(iso, 1)) { run += booked().filter(x => x.type === 'expense' && x.date === iso).reduce((s, x) => s + x.amount, 0); series.push({ date: iso, v: run }); }
     const cand = recurringCandidates(booked(), S.recurring.map(b => b.key).filter(Boolean)).filter(r => !S.kv.dismissed.includes(`bill-sugg-${r.key}`));
     // Categories with spending or a limit first (most spent on top); the rest fold away.
     const spentOn = c => now.byCat[c.id] || 0, cats = [...expenseCats()].sort((a, b) => spentOn(b) - spentOn(a));
     const active = cats.filter(c => spentOn(c) || B.byCat[c.id]), idle = cats.filter(c => !spentOn(c) && !B.byCat[c.id]);
     const row = c => `<li><div class="brow"><button class="link" data-act="cat-show" data-c="${esc(c.id)}">${dot(c.id)}${esc(t(c.name))}</button>
-        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"></span></div><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0)}</div></li>`;
-    return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym))}</span></header>
-      <section class="card"><label class="field"><span>${esc(t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(t('e.g. 2500'))}"></span></label><div id="bs-total">${bar(now.total, B.total)}
+        <span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="${esc(c.id)}" aria-label="${esc(t('Budget for {0} (RM)', t(c.name)))}" value="${B.byCat[c.id] ? (B.byCat[c.id] / 100).toFixed(2) : ''}"></span></div><div id="bs-${esc(c.id)}">${bar(spentOn(c), B.byCat[c.id] || 0, c.id)}</div></li>`;
+    return `<header class="top"><h1>${esc(t('Budgets'))}</h1><span class="fine">${esc(fmtMonth(ym, sd))}</span></header>
+      <section class="card"><label class="field"><span>${esc(t('Monthly budget (RM)'))}</span><span class="rmin"><input inputmode="decimal" data-input="bud" data-cat="total" value="${B.total ? (B.total / 100).toFixed(2) : ''}" placeholder="${esc(t('e.g. 2500'))}"></span></label><div id="bs-total">${bar(now.total, B.total, 'total')}
         ${B.total ? lineChart(series, { goal: B.total, label: t('Spending this month against the budget') }) : ''}</div></section>
       <h2>${esc(t('By category'))}</h2><p class="fine">${esc(t('Set a limit for the categories you want to watch. Leave the rest empty.'))}</p>
       <ul class="list budgets">${active.map(row).join('')}</ul>
       ${idle.length ? `<details class="more-cats"><summary>${esc(t('{0} more categories', idle.length))}</summary><ul class="list budgets">${idle.map(row).join('')}</ul></details>` : ''}
       <h2 id="bills">${esc(t('Regular bills'))}</h2>
-      <ul class="list">${S.recurring.map(b => `<li class="bill"><span class="grow"><b>${esc(b.name)}</b><small>${esc(t('{0} · every month on day {1}', fmtRM(b.amount), b.day))}</small></span>
-        <button class="btn small ghost" data-act="bill-paid" data-id="${esc(b.id)}">${esc(t('Paid'))}</button><button class="btn small ghost" data-act="bill-cal" data-id="${esc(b.id)}" aria-label="${esc(t('Add a reminder to my calendar'))}">${ICON.bell}</button><button class="btn small ghost" data-act="bill-edit" data-id="${esc(b.id)}" aria-label="${esc(t('Edit'))}">…</button></li>`).join('') || `<li class="empty">${esc(t('No bills yet.'))}</li>`}</ul>
+      <ul class="list">${S.recurring.map(b => { const s = billStatus(b, tdy, S.tx); return `<li class="bill"><span class="grow"><b>${esc(b.name)}</b><small>${esc(billLine(b, s))}</small>
+        ${s.paid ? `<span class="bstat"><span class="pill good">${esc(b.freq === 'weekly' ? t('Paid this week') : t('Paid for {0}', b.freq === 'yearly' ? s.date.slice(0, 4) : monShort(+s.date.slice(5, 7))))}</span></span>`
+          : s.date ? `<span class="bstat"><button class="btn small${s.days < 0 ? '' : ' ghost'}" data-act="bill-paid" data-id="${esc(b.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button></span>` : ''}</span><button class="btn small ghost" data-act="bill-cal" data-id="${esc(b.id)}" aria-label="${esc(t('Add a reminder to my calendar'))}">${ICON.bell}</button><button class="btn small ghost" data-act="bill-edit" data-id="${esc(b.id)}" aria-label="${esc(t('Edit'))}">…</button></li>`; }).join('') || `<li class="empty">${esc(t('No bills yet.'))}</li>`}</ul>
       ${cand.map(r => `<div class="card suggest">${ICON.bell}<span class="grow">${esc(t('{0} looks like a monthly bill ({1})', r.merchant, fmtRM(r.amount)))}</span><button class="btn small" data-act="bill-add-suggested" data-key="${esc(r.key)}">${esc(t('Add'))}</button><button class="icon-btn" data-act="dismiss" data-id="bill-sugg-${esc(r.key)}" aria-label="${esc(t('Not a bill'))}">${ICON.x}</button></div>`).join('')}
       <button class="btn ghost wide" data-act="bill-edit">${ICON.plus}${esc(t('Add a bill'))}</button>`;
   },
 };
+const billLine = (b, s) => [fmtRM(b.amount), b.freq === 'weekly' ? t('every week') : b.freq === 'yearly' ? t('every year') : t('every month on day {0}', b.day || 1),
+  s.next ? t('next {0}', fmtDate(s.next)) : s.date ? t('finished') : '', b.auto ? t('adds itself') : ''].filter(Boolean).join(' · ');
 function billSheet(b) {
+  // The next payment to come (an overdue one stays), and how many are left of an instalment.
+  const tdy = today(), s = billStatus(b, tdy, S.tx), next = (s.date && !s.paid ? s.date : s.next) || b.start || tdy;
+  const left = b.count ? billDates(b, '9999-12-31').filter(d => d >= next).length : '';
+  const freqs = [['monthly', t('Every month')], ['weekly', t('Every week')], ['yearly', t('Every year')]];
   openSheet(`<h2 class="sh-title">${esc(b.id ? t('Edit bill') : t('Add a bill'))}</h2>
     <label class="field"><span>${esc(t('Name'))}</span><input id="b-name" maxlength="60" value="${esc(b.name || '')}" autofocus></label>
     <div class="grid2"><label class="field"><span>${esc(t('Amount (RM)'))}</span><input id="b-amt" inputmode="decimal" value="${b.amount ? (b.amount / 100).toFixed(2) : ''}"></label>
-    <label class="field"><span>${esc(t('Day of the month'))}</span><input id="b-day" type="number" min="1" max="28" value="${b.day || 1}"></label></div>
+    <label class="field"><span>${esc(t('How often'))}</span><select id="b-freq">${freqs.map(([k, n]) => `<option value="${k}"${(b.freq || 'monthly') === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label></div>
+    <div class="grid2"><label class="field"><span>${esc(t('Next payment'))}</span><input id="b-date" type="date" value="${esc(next)}"></label>
+    <label class="field"><span>${esc(t('Payments left (instalments)'))}</span><input id="b-count" type="number" inputmode="numeric" min="1" max="600" value="${left}" placeholder="${esc(t('No end'))}"></label></div>
+    <label class="field"><span>${esc(t('Or ends on (optional)'))}</span><input id="b-until" type="date" value="${esc(b.until || '')}"></label>
+    <label class="check"><input type="checkbox" id="b-auto"${(b.id ? b.auto : true) ? ' checked' : ''}> ${esc(t('Add it automatically on the day'))}</label>
+    <p class="fine">${esc(t('Tally adds the payment the next time you open it on or after the day, and tells you. A bill counts as paid once anything with its name is added that month, whatever the amount.'))}</p>
     <div class="grid2"><label class="field"><span>${esc(t('Category'))}</span><select id="b-cat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(b.category || 'bills') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Account'))}</span><select id="b-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${b.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
     <p class="err" id="b-err" role="alert"></p>
     <div class="row2">${b.id ? `<button class="btn ghost danger" data-act="bill-del" data-id="${esc(b.id)}">${esc(t('Delete'))}</button>` : `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>`}<button class="btn" data-act="bill-save" data-id="${esc(b.id || '')}" data-key="${esc(b.key || '')}">${esc(t('Save'))}</button></div>`, { label: t('Bill') });
 }
-const billEv = x => billEvent({ id: x.id, day: x.day, title: t('Pay {0} ({1})', x.name, fmtRM(x.amount)), details: t('Tally reminder') });
+/** Calendar reminder: monthly from calendar.js; a weekly or yearly bill repeats from its next date; instalments stop. */
+const billEv = x => {
+  const e = billEvent({ id: x.id, day: x.day, title: t('Pay {0} ({1})', x.name, fmtRM(x.amount)), details: t('Tally reminder') });
+  const next = billStatus(x, today(), []).next, ymd = d => d.replaceAll('-', '');
+  if (next && (x.freq === 'weekly' || x.freq === 'yearly')) Object.assign(e, { start: `${ymd(next)}T090000`, end: `${ymd(next)}T093000`, rrule: `FREQ=${x.freq.toUpperCase()}` });
+  if (x.until) e.rrule += `;UNTIL=${ymd(x.until)}T235959`;
+  else if (x.count && next) e.rrule += `;COUNT=${billDates(x, '9999-12-31').filter(d => d >= next).length}`;
+  return e;
+};
+/** On open and on coming back: add the payments of bills set to add themselves. Undo removes them; they aren't added again. */
+export async function postBills() {
+  const tdy = today();
+  if (!S.accounts.length) return 0;
+  const txs = dueBillTxs(S.recurring, tdy, S.tx).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: usualAccount() }));
+  if (txs.length) await saveTxs(txs);
+  for (const r of S.recurring) if (r.auto && !(r.last >= tdy)) await saveBill({ ...r, last: tdy });
+  if (txs.length) toast(txs.length === 1 ? t('Added 1 regular payment') : t('Added {0} regular payments', txs.length), { icon: 'check', undo: async () => { await deleteTxs(txs.map(x => x.id)); render(); } });
+  return txs.length;
+}
 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
@@ -225,19 +254,28 @@ export const act = {
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: S.accounts[0]?.id }),
   'act-photo': () => { F.photo = !F.photo; F.limit = 200; render(); },
-  'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: Math.min(28, r.day), category: r.category, accountId: S.accounts[0]?.id, key: r.key }); },
+  'bill-add-suggested': b => { const r = recurringCandidates(S.tx).find(x => x.key === b.dataset.key); if (r) billSheet({ name: r.merchant, amount: r.amount, day: r.day, category: r.category, accountId: S.accounts[0]?.id, key: r.key }); },
   'bill-save': async b => {
-    const amount = parseAmount($('#b-amt').value), name = $('#b-name').value.trim(), day = Math.min(28, Math.max(1, parseInt($('#b-day').value, 10) || 1));
-    if (!name) return ($('#b-err').textContent = t('Give the bill a name.'));
-    if (!amount || amount <= 0) return ($('#b-err').textContent = t('Enter an amount, for example 12.50.'));
-    await saveBill({ id: b.dataset.id || uid('b'), name, amount, day, category: $('#b-cat').value, accountId: $('#b-acc').value, key: b.dataset.key || billKey(name) });
+    const amount = calcAmount($('#b-amt').value), name = $('#b-name').value.trim(), start = $('#b-date').value, until = $('#b-until').value || undefined;
+    const count = Math.min(600, parseInt($('#b-count').value, 10) || 0) || undefined, err = m => ($('#b-err').textContent = m);
+    if (!name) return err(t('Give the bill a name.'));
+    if (!amount || amount <= 0) return err(t('Enter an amount, for example 12.50.'));
+    if (!validIso(start)) return err(t('Pick a date.'));
+    if (until && !(validIso(until) && until >= start)) return err(t('The end date must be after the next payment.'));
+    const old = S.recurring.find(x => x.id === b.dataset.id) || {};
+    // Saving re-bases the bill on its next payment: dates and "payments left" count from there.
+    await saveBill({ ...old, id: old.id || uid('b'), name, amount, day: +start.slice(8), start, freq: $('#b-freq').value, count, until, auto: $('#b-auto').checked, category: $('#b-cat').value, accountId: $('#b-acc').value, key: b.dataset.key || billKey(name) });
     closeSheet(); render(); toast(t('Saved'));
   },
   'bill-del': async b => { await deleteBill(b.dataset.id); closeSheet(); render(); toast(t('Deleted')); },
-  'bill-paid': b => { const x = S.recurring.find(y => y.id === b.dataset.id); if (x) openTxSheet({ amount: x.amount, category: x.category, accountId: x.accountId, merchant: x.name, bill: x.id }); },
+  // Paid by hand: dated on the day it was due, from the bill's own account, tagged so it isn't mistaken for everyday spending.
+  'bill-paid': b => {
+    const x = S.recurring.find(y => y.id === b.dataset.id); if (!x) return;
+    openTxSheet({ amount: x.amount, category: x.category || 'bills', accountId: S.accounts.some(a => a.id === x.accountId) ? x.accountId : usualAccount(), merchant: x.name, bill: x.id, date: b.dataset.d || billStatus(x, today(), S.tx).date || today(), time: '' });
+  },
   'bill-cal': b => {
     const x = S.recurring.find(y => y.id === b.dataset.id);
-    openSheet(`<h2 class="sh-title">${esc(t('Remind me every month'))}</h2><p class="sh-body">${esc(t('Your phone calendar reminds you a day before {0} is due, even when Tally is closed.', x.name))}</p>
+    openSheet(`<h2 class="sh-title">${esc(x.freq === 'weekly' || x.freq === 'yearly' ? t('Remind me before it is due') : t('Remind me every month'))}</h2><p class="sh-body">${esc(t('Your phone calendar reminds you a day before {0} is due, even when Tally is closed.', x.name))}</p>
       <a class="btn wide" href="${esc(googleUrl(billEv(x)))}" target="_blank" rel="noopener">${esc(t('Add to Google Calendar'))}</a>
       <button class="btn ghost wide" data-act="bill-ics" data-id="${esc(x.id)}">${esc(t('Download calendar file (iPhone, Outlook)'))}</button>`, { label: t('Reminder') });
   },
