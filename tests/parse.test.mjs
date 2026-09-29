@@ -188,3 +188,11 @@ test('shop names: the brand people use, not the registered company', () => {
   assert.equal(name('BOK MARKETING SDN.BHD\n(1182500-V)'), 'Bok Marketing');
   assert.equal(name('Eyeslab Optometrist\nLg145, Lower Ground Floor'), 'Eyeslab');
 });
+
+test('dates as Malaysian receipts print them', () => {
+  for (const [line, want] of [['ORD #73-REG #19-04/05/2024 16:47:52', '2024-05-04'], ['DATE 2024-04-0402:43:48', '2024-04-04'], ['DATE/TIME 11SEP202217:17:41', '2022-09-11'],
+    ['Purchased 04Sept2022,11:55am', '2022-09-04'], ['ReceiptID:RCJ2-1September2022', '2022-09-01'], ['Transaction Date:5 Mar 2024', '2024-03-05'], ['AUG 19, 2024 6:17 PM', '2024-08-19'],
+    ['12 Dec 24', '2024-12-12'], ['C4.03.00 Level 4', null]]) assert.equal(parseDate(line), want, line);
+  // a labelled date beats a promo's "valid till" printed earlier
+  assert.equal(parseReceipt('SHOP\nValid till 30/04/2024\nNASI 5.00\nTOTAL 5.00\nDate: 05/04/2024 12:00').date, '2024-04-05');
+});

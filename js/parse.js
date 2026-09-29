@@ -28,7 +28,13 @@ const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|resta
 /** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
 const bareName = s => s.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/\b(pcs?|set|units?|ea|nos?|btl|pkt|x)\b/gi, ' ').replace(/\s+/g, ' ').trim();
 // Year may be glued to the time by OCR: "25/12/20188:13PM", "01/03/1819:14"
-const DATE = /(?<!\d)(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2}|\d{2})(?=\d{1,2}:\d{2}|\D|$)|\b(\d{4})-(\d{2})-(\d{2})\b/g;
+// Day first (Malaysia) with one separator used twice ("#19-04/05/2024" is 04/05, not 19-04/05); year first; and the
+// year may run straight into the time ("2024-04-0402:43:48").
+const DATE = /(?<!\d)(\d{1,2})([\/.-])(\d{1,2})\2(20\d{2}|\d{2})(?=\d{1,2}:\d{2}|\D|$)|(?<!\d)(20\d{2})([\/.-])(\d{1,2})\6(\d{1,2})(?=\d{1,2}:\d{2}|\D|$)/g;
+const MON = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+// "18 Aug 2022", "11SEP202217:17:41", "04Sept2022", "1September2022", "12 Dec 24"; and "Aug 18, 2022".
+const DATE_WORDS = new RegExp(String.raw`(?<!\d)(\d{1,2})\s*[-/ ]?\s*(${MON})[a-z]*\.?\s*[-/, ]?\s*(20\d{2}|\d{2}(?!\d))|\b(${MON})[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})`, 'gi');
+const monthOf = s => MON.split('|').indexOf(s.slice(0, 3).toLowerCase()) + 1;
 
 // OCR boxes [{text, box: [[x,y] x4]}] -> text with one receipt row per line.
 // Boxes whose vertical centres are within half a line height join left-to-right ("Nasi Lemak" + "12.90").
@@ -64,15 +70,33 @@ export function parseTime(line) {
 const DATE_HINT = /\d{1,4}[\/.-]\d{1,2}[\/.-]\d{2,4}/;
 
 export function parseDate(line) {
-  DATE.lastIndex = 0;
-  for (let m; (m = DATE.exec(line)); ) { // first valid one: "REG #19-21/03/2018" tries 19-21/03 first
-    let [d, mo, y] = m[4] ? [+m[6], +m[5], +m[4]] : [+m[1], +m[2], +m[3]]; // Malaysia: day first
+  const ok = (y, mo, d) => {
     if (y < 100) y += 2000;
     const dt = new Date(Date.UTC(y, mo - 1, d));
-    if (dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && y >= 2000 && y <= 2100) return dt.toISOString().slice(0, 10);
-    DATE.lastIndex = m.index + 1; // retry one char later so an invalid match can't swallow the real date
+    // ponytail: receipts from 2010 on; "C4.03.00" (a mall unit) would otherwise be 4 March 2000
+    return dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && y >= 2010 && y <= 2099 ? dt.toISOString().slice(0, 10) : null;
+  };
+  for (const re of [DATE, DATE_WORDS]) {
+    re.lastIndex = 0;
+    for (let m; (m = re.exec(line)); ) { // first valid one
+      const iso = re === DATE ? (m[5] ? ok(+m[5], +m[7], +m[8]) : ok(+m[4], +m[3], +m[1])) : m[4] ? ok(+m[6], monthOf(m[4]), +m[5]) : ok(+m[3], monthOf(m[2]), +m[1]);
+      if (iso) return iso;
+      re.lastIndex = m.index + 1; // retry one char later so an invalid match can't swallow the real date
+    }
   }
   return null; // rejects 31/02, 13/13
+}
+const DATE_LABEL = /date|tarikh|tkh\b|日期|transaction|purchased|order\s*time|\bdt\b/i;
+const NOT_DATE = /exp|valid|till|until|before|mail\s*out|ship\s*out|member\s*since|promo|warranty/i;
+/** The receipt's date: a line labelled Date or carrying a time beats the first date-like text (a promo's "valid till"). */
+function receiptDate(lines) {
+  let best = null;
+  for (const l of lines) {
+    const d = parseDate(l); if (!d) continue;
+    const s = (DATE_LABEL.test(l) ? 2 : 0) + (/\d{1,2}:\d{2}/.test(l) ? 1 : 0) - (NOT_DATE.test(l) ? 3 : 0);
+    if (!best || s > best.s) best = { d, s };
+  }
+  return best?.d ?? null;
 }
 
 /**
@@ -104,18 +128,34 @@ export function parseItemLines(text) {
 }
 
 // Lines at the top that never name the shop: a phone's status bar, headings, order numbers, a card terminal's bank.
-const NOT_SHOP = /^\d{1,2}:\d{2}\b|\d+\s*%|order\s*(summary|details|number|no|id)|your\s*(order|receipt)|official\s*receipt|tax\s*invoice|^\W*(invoice|receipt|resit|welcome|selamat)\b|^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg))|^[\d\W]+$/i;
+const NOT_SHOP = new RegExp([
+  /^\d{1,2}:\d{2}\b|\d+\s*%|\d+\.\d{2}\b|\b\d{1,2}\s*[:.]\d{2}\s*(am|pm)\b|\b\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*\d{2,4}/.source,   // times, percentages, amounts, dates
+  /order\s*(summary|details|number|no|id|on)|your\s*(order|receipt|payment)|official\s*receipt|tax\s*invoice|deal\s*details|contact\s*support|my\s*purchases|seller\s*will/.source,
+  /ro[lu]n?ding|sub\s*-?t[o0]tal|\bt[o0]tal\b|\bqty\b|kuantiti|delivery|note\s*to|to\s*pay|visit\s*shop|premium|payment\s*successful|tbl\s*no/.source,   // money-part and app-screen words
+  /^\W*(invoice|receipt|resit|welcome|selamat|thank|terima\s*kasih|date|time|ticket|table|cashier|pos\s*no|bill\s*no|payment|quantity|description)\b/.source,
+  /^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg)|registration)|^\(|^\d{3,}|^[\d\W]+$/.source,   // numbers, a "(Perub…)" or "(123456-X)" line
+].join('|'), 'i');
 const BANK_SLIP = /^(public\s*bank|hong\s*leong|maybank|cimb|rhb|ambank|bank\s*islam|bsn|affin|uob|ocbc|hsbc|alliance\s*bank)/i;
 const ADDRESS = /\b(jalan|jln|lot|no\.?\s*\d+|taman|lorong|level|floor|lg-?\d+|kuala lumpur|selangor|\d{5})\b/i;
+const CO_TAIL = /[\s.,]*\(?\b(m|malaysia)?\)?\s*(sd[nh]\.?\s*bh?d|sdnbhd|berhad|bhd)\b.*$/i;   // "(M) SDN. BHD. (123-X)", OCR's "Sdh"
 const titleCase = s => (s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(&/-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : s);
+/** OCR splits a shop's name over lines: "RESTORAN" / "MAJU JAYA", "ALL IT" / "HYPERMARKET SDN BHD". Put them back together. */
+function joinNameLines(lines) {
+  const out = [];
+  for (const l of lines) {
+    const bare = l.replace(CO_TAIL, '').replace(/\b(trading|enterprise|hypermarket|supermarket)\b/gi, '').replace(/[^\p{L}]/gu, '');
+    if (out.length && bare.length < 3 && COMPANY.test(l) && !/\d+\.\d{2}/.test(out.at(-1))) out[out.length - 1] += ' ' + l;   // a company word left alone
+    else out.push(l.replace(/^i?(restoran)(?=\p{L})/iu, '$1 '));   // "Restoranthoulath", OCR's "Irestoran"
+  }
+  return out.flatMap((l, i, a) => (/^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(l.trim()) && a[i + 1] ? [] : [i && /^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(a[i - 1].trim()) ? `${a[i - 1].trim()} ${l}` : l]));
+}
 /** "HEXTAR LUCKIN M SDN BHD" → Luckin Coffee (a known brand); "RESTORAN MAJU JAYA SDN.BHD (123-X)" → Restoran Maju Jaya. */
 export function shopName(lines) {
   const brand = brandOf(lines); if (brand) return brand;
-  const top = lines.slice(0, 8).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l));
+  const top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, ''))).slice(0, 8);   // a lone "Bhd" is no name
   const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
   if (!co) return null;
-  const name = co.replace(/\(?\b(m|malaysia)\)?\s*(sdn\.?\s*bhd|sdnbhd|berhad|bhd)\b.*$/i, '').replace(/[\s.,]*(sdn\.?\s*bhd|sdnbhd|berhad|\bbhd)\b.*$/i, '')
-    .replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim();
+  const name = co.replace(CO_TAIL, '').replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim();
   return titleCase(name || co).slice(0, 80);
 }
 
@@ -127,8 +167,8 @@ export function parseReceipt(text) {
   const below = namesBelow(lines);
 
   r.merchant = shopName(lines);
+  r.date = receiptDate(lines);
   for (const line of lines) {
-    if (!r.date) r.date = parseDate(line);
     if (!r.time) r.time = parseTime(line);
     if (r.total !== null && PAYMENT.test(line)) paid = true;
     if (paid) continue; // payment, change, tax summary follow. Only the date is still wanted.
