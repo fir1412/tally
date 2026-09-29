@@ -77,6 +77,11 @@ window.addEventListener('unhandledrejection', e => console.error(e.reason));
 
 export const refresh = () => { if (!sheetOpen()) render(); };
 (async () => {
+  // Never run inside another site's frame (clickjacking): GitHub Pages can't send frame-ancestors.
+  if (window.top !== window.self) {
+    $('#app').innerHTML = `<main class="recover"><h1>Tally can only run on its own page.</h1><p><a class="btn" href="${esc(location.href)}" target="_top" rel="noopener">Open Tally</a></p></main>`;
+    return;
+  }
   try {
     await load();
     await setLang(settings().lang || pickLang(navigator.languages || [navigator.language]));
