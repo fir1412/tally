@@ -3,7 +3,7 @@
 import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, $, $$ } from '../ui.js';
-import { fmtRM, parseAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
+import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { readReceipt, loadOcr, ocrReady } from '../scan.js';
 import { render, go } from '../app.js';
@@ -147,14 +147,14 @@ export const input = {
     const k = el.dataset.k;
     persist();
     if (k === 'merchant' && current.manual) for (const i of d.items) if (!i.changed) i.category = categorize(i.name, el.value, S.kv.rules);
-    if (k === 'total') { const v = parseAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; updateStatus(); return; }
+    if (k === 'total') { const v = calcAmount(el.value); d.total = v != null && v > 0 ? v : null; d.totalGuessed = false; updateStatus(); return; }
     d[k] = el.value;
     if (k === 'date') d.dateFound = true;
   },
   'rv-item': el => {
     const i = current?.draft?.items[+el.dataset.n]; if (!i) return;
     persist();
-    if (el.dataset.k === 'cents') { const v = parseAmount(el.value); el.classList.toggle('bad', v == null); if (v != null) i.cents = v; updateStatus(); }
+    if (el.dataset.k === 'cents') { const v = calcAmount(el.value); el.classList.toggle('bad', v == null); if (v != null) i.cents = v; updateStatus(); }
     else if (el.dataset.k === 'category') { i.category = el.value; i.changed = true; i.flag = false; el.closest('li').classList.remove('flag'); }
     else {
       i.name = el.value.slice(0, 80); i.flag = false;

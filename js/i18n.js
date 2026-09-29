@@ -1,6 +1,7 @@
 // English text lives in the code as t('...'); Malay and Chinese are data files (js/i18n/ms.js, zh.js), so a typo
 // in a translation can never break a script. tests/i18n.test.mjs fails if any t('...') string lacks a translation.
-export const LANGS = [['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文']];
+import { cycleSpan } from './engine.js';
+export const LANGS =[['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文']];
 let dict = null, lang = 'en';
 
 /** Phone language list → 'ms', 'zh' or 'en'. */
@@ -36,8 +37,12 @@ export function fmtDate(iso, { year = false } = {}) {
   if (lang === 'zh') return `${year ? y + '年' : ''}${m}月${d}日`;
   return `${d} ${(MON[lang] || MON.en)[m - 1]}${year ? ' ' + y : ''}`;
 }
-export function fmtMonth(ym) {
+/** "Sep 2026"; with a month start day other than 1, the cycle the key names: "25 Sep – 24 Oct". */
+export function fmtMonth(ym, sd = 1) {
+  if (sd > 1) { const c = cycleSpan(ym, sd); return `${fmtDate(c.start)} – ${fmtDate(c.end)}`; }
   const [y, m] = ym.split('-').map(Number);
   return lang === 'zh' ? `${y}年${m}月` : `${(MON[lang] || MON.en)[m - 1]} ${y}`;
 }
 export const monShort = m => (lang === 'zh' ? `${m}月` : (MON[lang] || MON.en)[m - 1]);
+/** Column label for a month or cycle: "Sep", or "25 Sep" when months start on the 25th. */
+export const cycleShort = (ym, sd = 1) => (sd > 1 ? fmtDate(cycleSpan(ym, sd).start) : monShort(+ym.slice(5)));

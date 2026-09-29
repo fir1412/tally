@@ -366,3 +366,19 @@ body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area
   .view-review > .receipt-thumb img { max-height: calc(100dvh - 64px); object-fit: contain; object-position: top; }
 }
 @media (max-width: 380px) { .grid2.keep2 { grid-template-columns: 1fr 1fr; } }   /* date + time, amount + name: short fields stay side by side */
+
+/* App lock: covers everything (sheets and toasts too); a blank screen in the app switcher while locked apps are hidden. */
+.veiled, body.veil > :not(.lock) { visibility: hidden; }
+.lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: grid; place-items: center; padding: var(--gutter); overflow-y: auto; }
+.lockbox { width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); text-align: center; }
+.lockbox h1 { margin: 0; font-family: var(--display); font-size: var(--fs-xl); } .lockbox h2 { margin: 0; }
+.lockbox p { margin: 0; color: var(--mute); }
+.lockbox input { width: 100%; text-align: center; font-size: var(--fs-xl); letter-spacing: .5em; font-family: var(--mono); }
+.lockbox .err { min-height: 1.5em; }
+.bill .bstat { display: flex; margin-top: 6px; }   /* paid / mark as paid under the bill's line */
+/* Operators for amount fields, just above the keyboard. */
+.calcbar { position: fixed; left: 0; right: 0; z-index: 25; display: flex; gap: 6px; align-items: center; padding: 6px var(--gutter); background: var(--panel2); border-top: 1px solid var(--line); }
+.calcbar[hidden] { display: none; }
+body.calc-on .sheet, body.calc-on main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }   /* Save stays reachable above the bar */
+.calcbar button { min-width: 44px; min-height: 40px; border: 0; border-radius: 10px; background: var(--panel); color: var(--ink); font: 600 var(--fs-lg)/1 var(--mono); cursor: pointer; }
+.calcbar output { margin-left: auto; font-family: var(--mono); font-weight: 600; color: var(--accent); white-space: nowrap; }

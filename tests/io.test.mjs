@@ -305,3 +305,13 @@ test('pairTransfers: bank out + wallet in, same amount within a day, worded like
   assert.deepEqual(IO.pairTransfers([...bank, ...wallet], []), []);                                    // only pairs touching the import
   assert.equal(IO.pairTransfers([...bank, { ...wallet[0], category: 'salary' }], bank).length, 0);
 });
+
+test('backup keeps bills that add themselves and their payments, with bounded fields', () => {
+  const back = IO.readBackup(IO.makeBackup({ accounts: [{ id: 'a', name: 'Bank', kind: 'bank', opening: 0 }],
+    tx: [{ id: 'rec-b1-2026-09-05', date: '2026-09-05', type: 'expense', amount: 12900, accountId: 'a', category: 'bills', source: 'recurring', bill: 'b1' }],
+    recurring: [{ id: 'b1', name: 'Astro', amount: 12900, day: 31, accountId: 'a', category: 'bills', freq: 'yearly', auto: true, count: 12, start: '2026-01-31', until: 'soon', last: '2026-09-29' }, { id: 'b2', name: 'X', amount: 1, day: 5, freq: 'hourly', auto: 'yes', count: 1e9 }], kv: {} }));
+  assert.deepEqual([back.tx[0].source, back.tx[0].bill], ['recurring', 'b1']);
+  const [r1, r2] = back.recurring;
+  assert.deepEqual([r1.day, r1.freq, r1.auto, r1.count, r1.start, r1.until, r1.last], [31, 'yearly', true, 12, '2026-01-31', undefined, '2026-09-29']);
+  assert.deepEqual([r2.freq, r2.auto, r2.count], [undefined, false, undefined]);
+});

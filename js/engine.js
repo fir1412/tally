@@ -44,6 +44,32 @@ export function parseAmount(v) {
   if (sen > MAX_SEN) return null;
   return neg ? -sen : sen;
 }
+/**
+ * A sum typed into an amount field: "12.50+8*2" → 2850, "100/3" → 3333 (to the sen). Numbers, + - * / × ÷ − and
+ * brackets only, read by a tiny recursive-descent parser (never eval). A plain amount goes through parseAmount.
+ * null if it isn't a sum, divides by zero or is out of range.
+ */
+export function calcAmount(v) {
+  const plain = parseAmount(v);
+  if (plain != null || typeof v === 'number') return plain;
+  const s = String(v ?? '').replace(/^\s*RM/i, '').replace(/[×xX]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/\s+/g, '');
+  if (!/^[\d.+\-*/()]{1,100}$/.test(s) || !/\d[^\d.]|[^\d.]\d/.test(s)) return null;
+  let i = 0;
+  const num = () => { const m = s.slice(i).match(/^\d+(\.\d*)?|^\.\d+/); if (!m) throw 0; i += m[0].length; return +m[0]; };
+  const atom = () => {
+    if (s[i] === '-') { i++; return -atom(); }
+    if (s[i] === '+') { i++; return atom(); }
+    if (s[i] === '(') { i++; const v = sum(); if (s[i++] !== ')') throw 0; return v; }
+    return num();
+  };
+  const prod = () => { let v = atom(); while (s[i] === '*' || s[i] === '/') { const op = s[i++], b = atom(); if (op === '/' && !b) throw 0; v = op === '*' ? v * b : v / b; } return v; };
+  const sum = () => { let v = prod(); while (s[i] === '+' || s[i] === '-') { const op = s[i++], b = prod(); v = op === '+' ? v + b : v - b; } return v; };
+  try {
+    const v = sum();
+    if (i !== s.length || !Number.isFinite(v) || Math.abs(v * 100) > MAX_SEN) return null;
+    return Math.round(Math.round(v * 1e6) / 1e4);   // 0.1+0.2 → 30 sen, not 30.000000000000004
+  } catch { return null; }
+}
 /** 123450 → "RM 1,234.50" ("−RM 3.00" for negatives). */
 export function fmtRM(sen, { plain = false } = {}) {
   if (sen == null || !Number.isFinite(sen)) return '–';
@@ -64,6 +90,18 @@ export function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 export const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+const pad2 = n => String(n).padStart(2, '0');
+/**
+ * The budget month holding `iso` when months start on `startDay` (1–28, a payday): {start, end, key}. key is the
+ * 'YYYY-MM' the cycle starts in, so addMonths still steps through cycles. startDay 1 is the calendar month.
+ */
+export function cycleOf(iso, startDay = 1) {
+  const sd = Math.min(28, Math.max(1, Math.trunc(startDay) || 1)), key = cycleKey(iso, sd);
+  return { key, start: `${key}-${pad2(sd)}`, end: addDays(`${addMonths(key, 1)}-${pad2(sd)}`, -1) };
+}
+export const cycleKey = (iso, sd = 1) => (+iso.slice(8, 10) >= sd ? iso.slice(0, 7) : addMonths(iso.slice(0, 7), -1));
+/** The cycle a key names: cycleSpan('2026-09', 25) → 25 Sep to 24 Oct. */
+export const cycleSpan = (key, sd = 1) => cycleOf(`${key}-${pad2(Math.min(28, Math.max(1, sd)))}`, sd);
 export const validIso = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
 
 // ---- categorizing ----------------------------------------------------------------------------
@@ -158,36 +196,52 @@ export function balances(accounts, txs, upTo = null) {
   const total = Object.entries(by).filter(([id]) => known.has(id)).reduce((s, [, v]) => s + v, 0);
   return { by, total };
 }
-/** Spending in a month: total and per category (receipts split by item). Transfers never count. */
-export function monthSpend(txs, ym) {
-  const byCat = {};
+/**
+ * Spending in a month (a cycle when months start on day `sd`): total and per category (receipts split by item).
+ * Transfers never count. For pace: `each` lists the single everyday payments behind the total and each category,
+ * `fixed` sums the bill payments (they come once a month, not every day).
+ */
+export function monthSpend(txs, ym, sd = 1) {
+  const byCat = {}, each = { total: [] }, fixed = { total: 0 };
   let total = 0;
   for (const t of txs) {
-    if (t.type !== 'expense' || monthOf(t.date) !== ym) continue;
-    total += t.amount;
-    for (const { category, cents } of breakdown(t)) byCat[category] = (byCat[category] || 0) + cents;
+    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
+    const bill = isBill(t);
+    total += t.amount; if (bill) fixed.total += t.amount; else each.total.push(t.amount);
+    for (const { category, cents } of breakdown(t)) {
+      byCat[category] = (byCat[category] || 0) + cents;
+      if (bill) fixed[category] = (fixed[category] || 0) + cents; else (each[category] ||= []).push(cents);
+    }
   }
-  return { total, byCat };
+  return { total, byCat, each, fixed };
 }
-export const monthIncome = (txs, ym) => txs.filter(t => t.type === 'income' && monthOf(t.date) === ym).reduce((s, t) => s + t.amount, 0);
-export function cashFlow(txs, endYm, n = 6) {
-  return Array.from({ length: n }, (_, i) => addMonths(endYm, i - n + 1)).map(ym => ({ ym, income: monthIncome(txs, ym), expense: monthSpend(txs, ym).total }));
+/** A payment for a bill (added by the bill itself or with "Mark as paid"). */
+export const isBill = t => t.source === 'recurring' || !!t.bill;
+export const monthIncome = (txs, ym, sd = 1) => txs.filter(t => t.type === 'income' && cycleKey(t.date, sd) === ym).reduce((s, t) => s + t.amount, 0);
+export function cashFlow(txs, endYm, n = 6, sd = 1) {
+  return Array.from({ length: n }, (_, i) => addMonths(endYm, i - n + 1)).map(ym => ({ ym, income: monthIncome(txs, ym, sd), expense: monthSpend(txs, ym, sd).total }));
 }
-/** Balance at the end of each of the last n months (today for the current one). */
-export function balanceTrend(accounts, txs, today, n = 6) {
-  const ym = monthOf(today);
+/** Balance at the end of each of the last n months or cycles (today for the current one). */
+export function balanceTrend(accounts, txs, today, n = 6, sd = 1) {
+  const ym = cycleKey(today, sd);
   return Array.from({ length: n }, (_, i) => addMonths(ym, i - n + 1)).map(m => {
-    const end = m === ym ? today : `${m}-${String(daysInMonth(m)).padStart(2, '0')}`;
+    const end = m === ym ? today : cycleSpan(m, sd).end;
     return { date: end, v: balances(accounts, txs, end).total };
   });
 }
 
 // ---- budgets -----------------------------------------------------------------------------------
-/** Pace of a budget this month: share used, projected month-end spend, and whether it's heading over. */
-export function pace(budget, spent, today) {
-  const ym = monthOf(today), day = +today.slice(8, 10), dim = daysInMonth(ym);
-  const projected = Math.round(spent / day * dim);
-  return { pct: budget ? spent / budget : 0, projected, over: budget > 0 && projected > budget, left: budget - spent, daysLeft: dim - day };
+/**
+ * Pace of a budget this month (or cycle from `startDay`): share used, projected month-end spend, and whether it's
+ * heading over. Calm by design: never "heading over" in the first 7 days, and bills (`fixed`) and any single payment
+ * over 25% of the budget (rent, a phone) count in the total but not in the daily rate, so one big day can't project
+ * a month of them. `amounts`: the single everyday payments behind `spent` (monthSpend().each / .fixed).
+ */
+export function pace(budget, spent, today, { startDay = 1, amounts = [], fixed = 0 } = {}) {
+  const c = cycleOf(today, startDay), day = daysBetween(c.start, today) + 1, len = daysBetween(c.start, c.end) + 1;
+  const big = fixed + (budget > 0 ? amounts.filter(a => a > budget * 0.25).reduce((s, a) => s + a, 0) : 0);
+  const projected = big + Math.round((spent - big) / day * len);
+  return { pct: budget ? spent / budget : 0, projected, over: budget > 0 && day > 7 && projected > budget, left: budget - spent, daysLeft: len - day };
 }
 
 // ---- duplicates --------------------------------------------------------------------------------
@@ -204,15 +258,15 @@ export function findDuplicate(tx, txs) {
  * title and body are [English template, ...values]; a value may be {cat: id}, {raw: user text}, {date: iso} or
  * {list: [[{cat}, amount]]}, so the view can translate the words around them. Ordered by importance.
  */
-export function insights({ txs, budgets = {}, today, knownBills = [] }) {
-  const out = [];
-  const ym = monthOf(today), prev = addMonths(ym, -1);
-  const now = monthSpend(txs, ym), last = monthSpend(txs, prev);
+export function insights({ txs, budgets = {}, today, knownBills = [], startDay = 1 }) {
+  const out = [], sd = startDay;
+  const ym = cycleKey(today, sd), prev = addMonths(ym, -1);
+  const now = monthSpend(txs, ym, sd), last = monthSpend(txs, prev, sd);
   // Pace: a budget heading over before the month ends.
   const checks = [['total', budgets.total, now.total], ...Object.entries(budgets.byCat || {}).map(([c, b]) => [c, b, now.byCat[c] || 0])];
   for (const [c, b, spent] of checks) {
     if (!b) continue;
-    const p = pace(b, spent, today);
+    const p = pace(b, spent, today, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] });
     const label = { cat: c };
     if (spent > b) out.push({ id: `over-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} is over budget', label], body: ['Spent {0} of {1}.', fmtRM(spent), fmtRM(b)] });
     else if (p.over && p.pct >= 0.5) out.push({ id: `pace-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} at {1}% with {2} days left', label, Math.round(p.pct * 100), p.daysLeft], body: ["At this pace you'll spend {0}, {1} over.", fmtRM(p.projected), fmtRM(p.projected - b)] });
@@ -220,7 +274,7 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
   // Unusual week: a category this week at 2x or more its usual week. "Usual" = the average over the weeks of the
   // last 12 that have any spending at all (4+ needed), so an old or stray receipt can't stretch the history.
   const weekStart = addDays(today, -6);
-  const inRange = (a, b) => txs.filter(t => t.type === 'expense' && t.date >= a && t.date <= b);
+  const inRange = (a, b) => txs.filter(t => t.type === 'expense' && !isBill(t) && t.date >= a && t.date <= b);
   const active = Array.from({ length: 12 }, (_, k) => addDays(weekStart, -7 * (k + 1))).filter(s => inRange(s, addDays(s, 6)).length).length;
   if (active >= 4) {
     const sum = list => { const by = {}; for (const t of list) for (const x of breakdown(t)) by[x.category] = (by[x.category] || 0) + x.cents; return by; };
@@ -235,13 +289,13 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
   // Item patterns: an item bought 3+ times this month, compared with last month.
   const count = m => {
     const by = {};
-    for (const t of txs) if (t.type === 'expense' && monthOf(t.date) === m) for (const it of t.items || []) {
+    for (const t of txs) if (t.type === 'expense' && cycleKey(t.date, sd) === m) for (const it of t.items || []) {
       const k = itemKey(it.name); if (!k) continue;
       (by[k] ||= { n: 0, cents: 0, name: it.name }); by[k].n++; by[k].cents += it.cents;
     }
     return by;
   };
-  const itemsNow = count(ym), itemsPrev = count(prev), hadPrev = txs.some(t => t.type === 'expense' && monthOf(t.date) === prev);
+  const itemsNow = count(ym), itemsPrev = count(prev), hadPrev = txs.some(t => t.type === 'expense' && cycleKey(t.date, sd) === prev);
   for (const [k, v] of Object.entries(itemsNow)) {
     if (v.n < 3 || !hadPrev) continue;
     const p = itemsPrev[k];
@@ -264,7 +318,7 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
   // Recurring: same shop and about the same amount in 3+ different months, not yet set up as a bill.
   for (const r of recurringCandidates(txs, knownBills)) out.push({ id: `rec-${r.key}`, kind: 'recurring', level: 'info', title: ['{0} looks like a monthly bill ({1})', { raw: r.merchant }, fmtRM(r.amount)], body: ['Add it to your bills to get a reminder before it is due.'], rec: r });
   // Month recap: the first 5 days of a month look back at the last one.
-  if (+today.slice(8, 10) <= 5 && last.total > 0) {
+  if (daysBetween(cycleOf(today, sd).start, today) < 5 && last.total > 0) {
     const top = Object.entries(last.byCat).sort((a, b) => b[1] - a[1]).slice(0, 3);
     out.push({ id: `recap-${prev}`, kind: 'recap', level: 'good', title: ['Last month you spent {0}', fmtRM(last.total)], body: ['Top: {0}.', { list: top.map(([c, v]) => [{ cat: c }, fmtRM(v)]) }] });
   }
@@ -301,6 +355,60 @@ export function recurringCandidates(txs, known = []) {
   return out;
 }
 export const billKey = shopWord;
+
+// ---- bills that add themselves ---------------------------------------------------------------------------
+/**
+ * Dates a bill falls on from its start up to `upTo`: monthly on its day (the 31st → the month's last day), weekly or
+ * yearly; it stops after `count` payments or on `until` (instalments, a car loan). A bill from before 0.4.0 has only
+ * a day: monthly since 2020.
+ */
+export function billDates(r, upTo) {
+  const from = r.start || '2020-01-01', out = [], max = r.count > 0 ? r.count : Infinity;
+  if (r.until && r.until < upTo) upTo = r.until;
+  for (let k = 0; out.length < max && k < 5000; k++) {
+    let d;
+    if (r.freq === 'weekly') d = addDays(from, 7 * k);
+    else {
+      const ym = addMonths(monthOf(from), r.freq === 'yearly' ? 12 * k : k);
+      d = `${ym}-${pad2(Math.min(r.day || +from.slice(8, 10), daysInMonth(ym)))}`;
+      if (d < from) continue;
+    }
+    if (d > upTo) break;
+    out.push(d);
+  }
+  return out;
+}
+/** The days a payment counts for a bill due on `date`: its calendar month; 3 days either side (weekly); half a year (yearly). */
+const billPeriod = (r, date) => (r.freq === 'weekly' ? [addDays(date, -3), addDays(date, 3)] : r.freq === 'yearly' ? [addDays(date, -182), addDays(date, 182)] : [`${monthOf(date)}-01`, `${monthOf(date)}-31`]);
+/** Paid for the period of the payment due on `date`: an expense with the bill's name, whatever the amount (utility bills vary), or one tagged with the bill. */
+export function billPaid(r, date, txs) {
+  const name = String(r.name || '').trim().toLowerCase(), [a, b] = billPeriod(r, date);
+  return txs.some(t => t.type === 'expense' && t.date >= a && t.date <= b && (t.bill === r.id || String(t.id).startsWith(`rec-${r.id}-`) || (!!name && String(t.merchant || '').trim().toLowerCase() === name)));
+}
+/**
+ * Where a bill stands today. date: the payment due in the next 3 days, else the latest one due (so an unpaid one
+ * stays overdue until paid or until the next is 3 days away); days until it (negative: overdue); next: the next date
+ * after today (none: an instalment that has finished).
+ */
+export function billStatus(r, today, txs) {
+  const all = billDates(r, addDays(today, 400)), soon = addDays(today, 3), date = all.filter(d => d <= soon).at(-1);
+  return { date, next: all.find(d => d > today), paid: !!date && billPaid(r, date, txs), days: date ? daysBetween(today, date) : null };
+}
+/**
+ * Payments to add for bills set to add themselves: each date after the bill's last run up to today, dated on the due
+ * date, skipping a period already paid. The id is the bill's id and the date, so adding twice never duplicates.
+ */
+export function dueBillTxs(rules, today, txs, now = Date.now()) {
+  const out = [];
+  for (const r of rules) {
+    if (!r.auto) continue;
+    for (const d of billDates(r, today)) {
+      if ((r.last && d <= r.last) || billPaid(r, d, txs) || billPaid(r, d, out)) continue;
+      out.push({ id: `rec-${r.id}-${d}`, date: d, type: 'expense', amount: r.amount, accountId: r.accountId, category: r.category || 'bills', merchant: r.name, note: '', source: 'recurring', bill: r.id, createdAt: now });
+    }
+  }
+  return out;
+}
 
 // ---- habits: when does this person usually spend? -------------------------------------------------------
 // Only transactions with a time of day count (tx.time 'HH:MM', from the receipt or when it was added).

@@ -1,6 +1,6 @@
 // Shared UI helpers: escaping, charts, sheets, toasts, icons. Sheets, toasts and charts adapted from we go gim.
 import { t, fmtDate } from './i18n.js';
-import { fmtRM } from './engine.js';
+import { fmtRM, parseAmount, calcAmount } from './engine.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -142,6 +142,43 @@ export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
 export function hideToast() { const el = $('#toast'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!el.classList.contains('on')) el.textContent = ''; }, 250); } }
 export function announce(msg) { const el = $('#sr-status'); if (!el) return; el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 60); }
 
+// ---- calculator in amount fields -------------------------------------------------------------------------------------
+// Any amount field takes a sum ("12.50+8*2"): phone number pads have no + or ×, so on touch screens a bar of
+// operators sits above the keyboard while one is focused and shows the result; leaving the field puts the result in it.
+if (typeof document !== 'undefined') {
+  const touch = matchMedia('(pointer: coarse)');
+  const AMT = 'input[inputmode=decimal]:not([readonly])';
+  const bar = Object.assign(document.createElement('div'), { className: 'calcbar', hidden: true });
+  bar.innerHTML = `${['+', '−', '×', '÷', '(', ')'].map(o => `<button type="button" tabindex="-1" data-op="${o}">${o}</button>`).join('')}<output aria-live="polite"></output>`;
+  document.body.append(bar);
+  let field = null;
+  const isSum = v => parseAmount(v) == null && calcAmount(v) != null;
+  const place = () => { const v = window.visualViewport; bar.style.top = `${(v ? v.offsetTop + v.height : innerHeight) - bar.offsetHeight}px`; };
+  const show = () => { bar.querySelector('output').textContent = field && isSum(field.value) ? `= ${fmtRM(calcAmount(field.value), { plain: true })}` : ''; };
+  // The room left for the bar goes a moment later, so the tap that left the field (on Save) lands where it aimed.
+  const hide = () => { field = null; bar.hidden = true; setTimeout(() => field || document.body.classList.remove('calc-on'), 400); };
+  document.addEventListener('focusin', e => {
+    if (!e.target.matches?.(AMT)) return hide();
+    field = e.target;
+    if (touch.matches) { bar.hidden = false; document.body.classList.add('calc-on'); place(); show(); }
+  });
+  document.addEventListener('focusout', e => {
+    if (e.target !== field) return;
+    if (isSum(field.value)) { field.value = (calcAmount(field.value) / 100).toFixed(2); field.dispatchEvent(new Event('input', { bubbles: true })); }
+    hide();
+  });
+  document.addEventListener('input', e => { if (e.target === field) show(); });
+  document.addEventListener('pointerdown', () => { if (field && !field.isConnected) hide(); }, true);
+  bar.addEventListener('pointerdown', e => e.preventDefault());   // keep the field focused and the keyboard up
+  bar.addEventListener('click', e => {
+    const op = e.target.closest('[data-op]')?.dataset.op; if (!op || !field) return;
+    field.setRangeText(op, field.selectionStart ?? field.value.length, field.selectionEnd ?? field.value.length, 'end');
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  window.visualViewport?.addEventListener('resize', () => field && place());
+  window.visualViewport?.addEventListener('scroll', () => field && place());
+}
+
 // ---- icons (24px line icons; decorative, controls carry their own labels) ------------------------------
 const I = d => `<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const ICON = {
@@ -166,4 +203,5 @@ export const ICON = {
   chat: I('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
   swap: I('<path d="M7 7h13l-3-3M17 17H4l3 3"/>'),
   receipt: I('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  lock: I('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
 };

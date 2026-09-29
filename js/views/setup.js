@@ -1,8 +1,9 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll } from '../state.js';
-import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage } from '../state.js';
+import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
+import { lockOn, lockSheet, lockOff } from '../lock.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount } from '../engine.js';
 import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -77,6 +78,9 @@ export const settingsView = {
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <section class="card"><h2>${esc(t('Language'))}</h2>${langButtons()}
         <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
+      <section class="card"><h2>${esc(t('Budget month'))}</h2>
+        <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${startDay() === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>
+        <p class="fine">${esc(t('Paid on the 25th? Start your month on payday. Home, Budgets and Insights follow it.'))} ${esc(t('This month: {0}', fmtMonth(thisMonth(), startDay())))}</p></section>
       <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
@@ -86,7 +90,9 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
       <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
-        <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div></section>
+        <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div>
+        <p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))}</span></p>
+        ${storage.persisted == null ? '' : `<p class="fine">${esc(storage.persisted ? t('Storage: protected. The browser will not clear Tally to free up space.') : t('Storage: not protected. The browser may clear Tally if the phone runs out of space, so keep a backup.'))}</p>`}</section>
       <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager (.mmbackup), Excel, CSV, a bank statement, or Google Sheets.'))}</p>
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
         <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
@@ -95,6 +101,9 @@ export const settingsView = {
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. The only things Tally downloads are its own files; a Google Sheets link is fetched only when you paste one.'))}</p>
+        <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(lockOn() ? (settings().lock.cred ? t('On: PIN, fingerprint or face') : t('On: PIN')) : t('Off'))}</small></span>
+          <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
+        <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
         <a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a> · <a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></section>
       <section class="card"><h2>${esc(t('Help and feedback'))}</h2>
@@ -108,6 +117,7 @@ export const settingsView = {
 };
 export const input = {
   'text-size': async el => { await setSetting('textSize', +el.value); document.documentElement.style.fontSize = `${el.value}%`; },
+  'month-start': async el => { await setSetting('monthStart', Math.min(28, Math.max(1, +el.value || 1))); render(); },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
   'imp-accname': el => { IMP.accName = el.value; },
@@ -342,6 +352,7 @@ async function restoreText(text, zip = {}) {
   await setSetting('onboarded', true);
   await setKv('lastBackup', `${today()}T${nowTime()}`);   // restored from a backup file: that file is a backup
   if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
+  persistStorage();
   closeSheet(); go('home'); render();
   // Photos from a photo backup: only ones a restored transaction points at.
   const wanted = new Set(data.tx.map(x => x.receiptId).filter(Boolean));
@@ -389,6 +400,8 @@ async function backedUp(msg) {
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
   feedback: () => openFeedback(APP_VERSION),
+  'lock-set': () => lockSheet(render),
+  'lock-off': async () => { if (await confirmSheet({ title: t('Turn off the lock?'), body: t('Anyone with your phone will be able to open Tally.'), ok: t('Turn off') })) { await lockOff(); render(); } },
   tour: () => showTour(1),
   'whats-new': () => showWhatsNew(),
   install: async () => { if (await promptInstall()) render(); },
@@ -410,19 +423,19 @@ export const act = {
   },
   'sf-go': async b => {
     const vals = ['cash', 'bank', 'ewallet', 'joint'].map(k => [k, $(`#sf-${k}`).value.trim()]);
-    if (vals.some(([, v]) => v && parseAmount(v) == null)) return ($('#sf-err').textContent = t('Enter amounts like 150 or 150.50.'));
+    if (vals.some(([, v]) => v && calcAmount(v) == null)) return ($('#sf-err').textContent = t('Enter amounts like 150 or 150.50.'));
     b.disabled = true;
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
   },
   'acc-edit': b => accountSheet(S.accounts.find(a => a.id === b.dataset.id) || {}),
   'acc-save': async b => {
-    const name = $('#ac-name').value.trim(), opening = $('#ac-open').value.trim() ? parseAmount($('#ac-open').value) : 0;
+    const name = $('#ac-name').value.trim(), opening = $('#ac-open').value.trim() ? calcAmount($('#ac-open').value) : 0;
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
     const old = S.accounts.find(a => a.id === b.dataset.id);

@@ -1,5 +1,6 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, settings, onRemoteChange, onSaveFailed, storageMode } from './state.js';
+import { S, load, settings, onRemoteChange, onSaveFailed, storageMode, persistStorage } from './state.js';
+import { gate, watch } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own } from './ui.js';
 import * as home from './views/home.js';
@@ -107,12 +108,16 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     await load();
     await setLang(settings().lang || pickLang(navigator.languages || [navigator.language]));
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
+    await gate();   // app lock: nothing is shown before the PIN
     onRemoteChange(async () => { await load(); refresh(); });
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     await takeShared();
     const resumed = await review.restoreDraft();
     if (resumed) { history.replaceState(null, '', '#/review'); toast(t('Picked up the receipt you were checking')); }
+    await money.postBills().catch(console.error);   // bills that add themselves, up to today
+    watch(async () => { if (await money.postBills().catch(() => 0)) refresh(); });
+    if (S.accounts.length) persistStorage().then(() => route() === 'settings' && refresh());
     render();
     if (!resumed) onboarding();
     flushFeedback().catch(() => {});

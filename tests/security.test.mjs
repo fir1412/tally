@@ -144,3 +144,17 @@ test('images: pixel size read from the JPEG or PNG header before any decoding', 
   assert.deepEqual(imageInfo(jpg), { type: 'image/jpeg', w: 4000, h: 3000 });
   for (const bad of [new Uint8Array(0), new TextEncoder().encode('<svg onload=alert(1)>'), jpg.slice(0, 8), new Uint8Array([0xff, 0xd8, 0xff, 0xda, 0, 2, 0, 0, 0, 0, 0])]) assert.equal(imageInfo(bad), null);
 });
+
+test('app lock keeps only a salted PBKDF2 hash of the PIN, never the PIN', async () => {
+  const L = await import('../js/lock.js');
+  const a = await L.makeLock('482915'), b = await L.makeLock('482915');
+  assert.ok(!JSON.stringify(a).includes('482915'));
+  assert.notEqual(a.hash, b.hash);                        // own salt each time
+  assert.ok(a.iter >= 100_000);
+  assert.equal(await L.checkPin('482915', a), true);
+  assert.equal(await L.checkPin('482916', a), false);
+  assert.equal(await L.checkPin('482915', null), false);
+  assert.deepEqual(['1234', '123456', '12345', '123', '1234567', '12a4'].map(L.validPin), [true, true, true, false, false, false]);
+  assert.match(read('js/lock.js'), /userVerification: 'required'/);
+  assert.ok(!/makeBackup\([^)]*settings/.test(read('js/views/setup.js')));   // settings (and the lock) never go into backups
+});
