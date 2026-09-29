@@ -43,6 +43,7 @@ export const WHATS_NEW = {
     'Money Manager backups import with the same balances, and balance corrections no longer count as spending',
   ],
 };
+// Each tip: the screen, its icon, words, and the control it is about (pulsed while the tip shows).
 const TOUR = [
   ['home', ICON.receipt, () => t('Welcome to Tally'), () => t('Five quick tips, about 30 seconds. Or skip them and start.')],
   ['home', ICON.camera, () => t('Snap a receipt'), () => t('Tap the camera button. Tally reads the receipt on this phone and splits it into items and categories. Check it, then save.')],
@@ -51,6 +52,7 @@ const TOUR = [
   ['budgets', ICON.wallet, () => t('Budgets and bills'), () => t('Set a monthly limit and Tally warns you before you pass it. Regular bills can go into your calendar as reminders.')],
   ['settings', ICON.gear, () => t('Your data stays with you'), () => t('Back up to Google Drive or email, bring data from other apps and bank statements, and change the language and text size here.')],
 ];
+const TARGET = [null, '.fab', '.tabs a[href="#/activity"]', '.tabs a[href="#/insights"]', '.tabs a[href="#/budgets"]', '#backup [data-act="backup"]'];
 const seen = () => setKv('settings', { ...S.kv.settings, tourDone: true, seenVersion: APP_VERSION });
 export const markSeen = seen;
 const skipTour = () => new URLSearchParams(location.search).has('notour');   // automated tests
@@ -59,11 +61,16 @@ const skipTour = () => new URLSearchParams(location.search).has('notour');   // 
 export function showTour(start = 0) {
   let i = start;
   hideToast();   // an import's toast shouldn't sit over the tour
-  const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { document.body.classList.remove('tour-fab'); if (!settings().tourDone) seen(); } });
+  const unpulse = () => document.querySelectorAll('.tour-pulse').forEach(x => x.classList.remove('tour-pulse'));
+  const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { document.body.classList.remove('touring'); unpulse(); if (!settings().tourDone) seen(); } });
+  sheet.closest('.scrim').classList.add('tourscrim');   // no dark cover: the screen the tip is about stays in view
+  document.body.classList.add('touring');
   const paint = () => {
     const [tab, icon, title, body] = TOUR[i];
     if (route() !== tab) { history.replaceState(history.state, '', `#/${tab}`); render(); }
-    document.body.classList.toggle('tour-fab', icon === ICON.camera);   // "tap the camera button": the sheet makes room and it shows
+    unpulse();
+    const target = TARGET[i] && document.querySelector(TARGET[i]);
+    if (target) { target.classList.add('tour-pulse'); target.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }   // above the tour card
     const last = i === TOUR.length - 1;
     sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="tour"><div class="tour-ic">${icon}</div>
       <p class="lbl">${esc(i ? t('Tip {0} of {1}', i, TOUR.length - 1) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>

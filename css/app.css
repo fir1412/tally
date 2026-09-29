@@ -289,9 +289,15 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
 .dots { display: flex; gap: 6px; } .dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--line); transition: width .24s var(--ease-out), background-color .24s var(--ease-std); }
 .dots i.done { background: color-mix(in srgb, var(--accent) 50%, var(--line)); } .dots i.on { width: 22px; background: var(--accent); }
 .tourskip { align-self: center; min-height: 44px; }
-body.tour-fab .tabs { z-index: 21; }
-body.tour-fab .fab { outline: 3px solid var(--warn); outline-offset: 4px; }
-@media (max-width: 767px) { body.tour-fab .scrim { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } body.tour-fab .sheet { border-radius: 18px; } }
+/* Tour: no dark cover; the card sits above the tabs and the control each tip is about pulses. */
+.scrim.tourscrim { background: transparent; }
+.scrim.tourscrim .sheet { box-shadow: 0 -4px 24px rgba(0,0,0,.28), 0 0 0 1px var(--line); }
+body.touring .tabs { z-index: 21; }
+@media (max-width: 767px) { body.touring .scrim { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } body.touring .sheet { border-radius: 18px; } }
+.tour-pulse { position: relative; z-index: 22; border-radius: 14px; outline: 3px solid var(--warn); outline-offset: 3px; scroll-margin-top: 96px; animation: tour-pulse 1.5s var(--ease-out) infinite; }
+.fab.tour-pulse { border-radius: 50%; }
+@keyframes tour-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 75%, transparent); } 70%, 100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--warn) 0%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .tour-pulse { animation: none; outline: 3px solid var(--warn); outline-offset: 4px; } }
 @keyframes tour-pop { from { transform: scale(.8); opacity: 0; } }
 .mini-receipt { background: var(--panel); border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); display: grid; gap: 6px; font-size: var(--fs-sm); }
 .mini-receipt .rowb span:last-child { font-variant-numeric: tabular-nums; }
