@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'jointGone', 'shopNames'];   // every key setKv writes must be here, or it is lost on restart
@@ -65,7 +65,10 @@ export function inScope(x, sc = scope(), joint = jointIds()) {
   const want = sc === 'joint';
   return joint.has(x.accountId) === want || (x.toAccountId != null && joint.has(x.toAccountId) === want);
 }
-export const scopedTx = () => { const sc = scope(), j = jointIds(); return sc === 'all' || !j.size ? S.tx : keep('scoped', S.tx, `${sc}|${[...j]}`, () => S.tx.filter(x => inScope(x, sc, j))); };
+/** Every row in RM: spending and income in an account of another currency at its rate (engine toRM; `fx` keeps its own amount).
+ *  Screens read these; saves take rows from S.tx, never from here (stamp refuses a converted row). */
+export const rmTx = () => { const r = S.accounts.filter(isFx).map(a => [a.id, rateOf(a)]).filter(([, v]) => v); if (!r.length) return S.tx; const m = new Map(r); return keep('rm', S.tx, JSON.stringify(r), () => S.tx.map(x => (m.has(x.accountId) && x.type !== 'transfer' ? toRM(x, m.get(x.accountId)) : x))); };
+export const scopedTx = () => { const sc = scope(), j = jointIds(), all = rmTx(); return sc === 'all' || !j.size ? all : keep('scoped', all, `${sc}|${[...j]}`, () => all.filter(x => inScope(x, sc, j))); };
 export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || (a.scope === 'joint') === (sc === 'joint')); };
 /** Budgets for the scope: personal ones as before, joint ones in budgets.joint, All = both added up (read-only). */
 export function budgetsFor(sc = scope()) {
@@ -77,6 +80,7 @@ export function budgetsFor(sc = scope()) {
 }
 /** Every save is stamped (a spouse's share file merges by newest edit); joint rows also say who added them. */
 const stamp = x => {
+  if (x.fx != null) throw new Error('A converted row (RM) was about to be saved over its own currency');
   const by = S.kv.settings?.myName, j = jointIds();
   return { ...x, updatedAt: Date.now(), ...(by && !x.by && !x.spouse && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
 };

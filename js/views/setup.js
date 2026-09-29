@@ -3,7 +3,7 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge } from '../engine.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START } from '../engine.js';
 import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
@@ -85,12 +85,15 @@ export const welcomeView = {
 };
 
 function accountSheet(a = {}) {
-  const isNew = !a.id, now = isNew ? null : balances([a], S.tx, today()).by[a.id];
+  const isNew = !a.id, now = isNew ? null : balances([a], S.tx, today()).by[a.id], cur = a.currency || 'MYR';
   openSheet(`<h2 class="sh-title">${esc(isNew ? t('Add an account') : t('Edit account'))}</h2>
     <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}"${isNew ? ' autofocus' : ''}></label>
-    ${isNew ? '' : `<label class="field"><span>${esc(t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
+    ${isNew ? '' : `<label class="field"><span>${esc(isFx(a) ? t('Balance today ({0})', cur) : t('Balance today (RM)'))}</span><input id="ac-now" inputmode="decimal" data-now="${now}" value="${(now / 100).toFixed(2)}" autofocus><small>${esc(t('Type what your bank or wallet app shows. Tally moves the starting balance to match, so nothing counts as spending.'))}</small></label>`}
+    <div class="grid2"><label class="field"><span>${esc(t('Currency'))}</span><select id="ac-cur" data-input="ac-cur">${['MYR', ...Object.keys(FX_START)].map(c => `<option${cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>
+      <label class="field" id="ac-rate-f"${isFx(a) ? '' : ' hidden'}><span>${esc(t('RM for 1 {0}', isFx(a) ? a.currency : 'SGD'))}</span><input id="ac-rate" inputmode="decimal" value="${isFx(a) ? rateOf(a) : ''}"></label></div>
+    <p class="fine" id="ac-cur-note"${isFx(a) ? '' : ' hidden'}>${esc(t('Amounts in this account stay in its own currency. Totals, budgets and insights count them in RM at this rate. A transfer to or from an RM account updates it.'))}</p>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
-    ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
+    ${isNew ? '' : `<details class="more"><summary>${esc(t('More'))}</summary>`}<label class="field"><span>${esc(isFx(a) ? t('Balance when you started ({0})', cur) : t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>${isNew ? '' : '</details>'}
     <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my partner)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
@@ -167,6 +170,13 @@ export const settingsView = {
 };
 export const input = {
   'text-size': el => setSize(+el.value),
+  'ac-cur': el => {   // another currency: its rate, starting from a rough one to change
+    const fx = el.value !== 'MYR', f = $('#ac-rate-f');
+    f.hidden = $('#ac-cur-note').hidden = !fx;
+    if (fx) { f.querySelector('span').textContent = t('RM for 1 {0}', el.value); $('#ac-rate').value = FX_START[el.value]; }
+    const say = (id, rm, cur) => { const s = $(id)?.closest('label').querySelector('span'); if (s) s.textContent = fx ? t(cur, el.value) : t(rm); };
+    say('#ac-open', 'Balance when you started (RM)', 'Balance when you started ({0})'); say('#ac-now', 'Balance today (RM)', 'Balance today ({0})');
+  },
   'month-start': async el => { await setSetting('monthStart', Math.min(28, Math.max(1, +el.value || 1))); render(); },
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
@@ -410,7 +420,7 @@ async function importMoneyManager(buf, app) {
     ${mm.adjustments ? `<li>${esc(t('{0} balance corrections folded into opening balances (not counted as spending)', mm.adjustments))}</li>` : ''}
     ${mm.transfers ? `<li>${esc(t('{0} transfers between your accounts', mm.transfers))}</li>` : ''}
     ${mm.transfersSkipped ? `<li class="warn">${esc(t('{0} transfers between accounts were not imported', mm.transfersSkipped))}</li>` : ''}
-    ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM: {0}. Kept in their own currency and left out of your RM total.', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
+    ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
     ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(mm.photos.length === 1 ? t('Also import 1 receipt photo (up to {0} MB on this phone)', Math.round(buf.byteLength / 1048576)) : t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
     <p class="fine">${esc(t('Balances will match what Money Manager shows today.'))}</p>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="mm-go">${esc(t('Import'))}</button></div>`, { label: t('Import') });
@@ -615,6 +625,9 @@ export const act = {
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = amtErr($('#ac-open').value));
     const old = S.accounts.find(a => a.id === b.dataset.id), kind = $('#ac-kind').value, scope = $('#ac-scope').value === 'joint' ? 'joint' : 'personal';
+    const currency = $('#ac-cur').value, rate = currency === 'MYR' ? null : +String($('#ac-rate').value).replace(',', '.');
+    if (rate != null && !(rate > 0 && rate < 100000)) return ($('#ac-err').textContent = t('Enter how many ringgit 1 {0} is, for example 3.30.', currency));
+    const fx = currency === 'MYR' ? { currency: undefined, rate: undefined } : { currency, rate };
     // A big gap is usually a salary or spending not added yet: moving the starting balance would hide it from Insights.
     const diff = target != null ? target - was : 0;
     if (Math.abs(diff) >= 50000 && await confirmSheet({
@@ -624,7 +637,7 @@ export const act = {
       opening = old.opening || 0;
       await saveTxs([{ id: uid('t'), date: today(), time: nowTime(), type: diff > 0 ? 'income' : 'expense', amount: Math.abs(diff), accountId: old.id, category: diff > 0 ? 'income' : 'other', merchant: t('Balance update'), note: '', source: 'quick', createdAt: Date.now() }]);
     }
-    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now(), typed: true }), ...(target != null ? { typed: true } : {}), name, kind, opening, scope });
+    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now(), typed: true }), ...(target != null ? { typed: true } : {}), name, kind, opening, scope, ...fx });
     closeSheet(); render(); toast(t('Saved'));
   },
   'acc-del': async b => {

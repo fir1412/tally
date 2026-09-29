@@ -83,8 +83,15 @@ export function fmtRM(sen, { plain = false } = {}) {
 }
 /** A typed number over RM 100 million (MAX_SEN): the field says "too large", not "enter an amount". */
 export const tooLarge = v => calcAmount(v) == null && (String(v ?? '').match(/\d[\d,]*(\.\d+)?/g) || []).some(n => parseFloat(n.replace(/,/g, '')) * 100 > MAX_SEN);
-/** Accounts left out of the RM total: kept in another currency (Money Manager's SGD wallet), or a bank not in Tally. */
-export const offTotal = a => !!a?.outside || (!!a?.currency && a.currency !== 'MYR');
+/** An account kept in another currency (an SGD bank for someone who works in Singapore). Its amounts are in that currency. */
+export const isFx = a => !!a?.currency && a.currency !== 'MYR';
+/** Where a new currency account's rate starts; the user's own rate, or the one a transfer between the two got, replaces it.
+ *  ponytail: fixed starting points, not live rates (no server); add a rate feed only if people ask. */
+export const FX_START = { SGD: 3.3, USD: 4.2, EUR: 4.9, GBP: 5.6, AUD: 2.8, BND: 3.3, HKD: 0.54, CNY: 0.59, THB: 0.13, IDR: 0.00026, JPY: 0.029 };
+/** RM for 1 unit of the account's currency (1 for RM accounts; 0 when unknown). */
+export const rateOf = a => (isFx(a) ? +a.rate || FX_START[a.currency] || 0 : 1);
+/** Accounts left out of the RM total: a bank not in Tally, or a currency with no rate. */
+export const offTotal = a => !!a?.outside || !rateOf(a);
 /** An account's balance in its own currency: "SGD 1,234.50" for one kept in another currency. */
 export const fmtAcct = (a, sen) => (a?.currency && a.currency !== 'MYR' ? `${a.currency} ${fmtRM(sen, { plain: true })}` : fmtRM(sen));
 
@@ -207,18 +214,25 @@ export function itemAmounts(tx) {
 }
 
 // ---- balances & months -----------------------------------------------------------------------
-/** Balance per account and in total (RM accounts only: offTotal), optionally up to and including a date. */
+/** Balance per account, each in its own currency, and the total in RM (other currencies at their rate; offTotal left
+ *  out), optionally up to and including a date. Rows converted to RM for totals (state.js inRM) keep the account's own amount in `fx`;
+ *  a transfer between currencies says what arrived in `toAmount`. */
 export function balances(accounts, txs, upTo = null) {
   const by = Object.fromEntries(accounts.map(a => [a.id, a.opening || 0]));
   for (const t of txs) {
     if (upTo && t.date > upTo) continue;
-    if (t.type === 'expense') by[t.accountId] = (by[t.accountId] ?? 0) - t.amount;
-    else if (t.type === 'income') by[t.accountId] = (by[t.accountId] ?? 0) + t.amount;
-    else if (t.type === 'transfer') { by[t.accountId] = (by[t.accountId] ?? 0) - t.amount; by[t.toAccountId] = (by[t.toAccountId] ?? 0) + t.amount; }
+    if (t.type === 'expense') by[t.accountId] = (by[t.accountId] ?? 0) - (t.fx ?? t.amount);
+    else if (t.type === 'income') by[t.accountId] = (by[t.accountId] ?? 0) + (t.fx ?? t.amount);
+    else if (t.type === 'transfer') { by[t.accountId] = (by[t.accountId] ?? 0) - t.amount; by[t.toAccountId] = (by[t.toAccountId] ?? 0) + (t.toAmount ?? t.amount); }
   }
-  const known = new Set(accounts.filter(a => !offTotal(a)).map(a => a.id));
-  const total = Object.entries(by).filter(([id]) => known.has(id)).reduce((s, [, v]) => s + v, 0);
+  const total = accounts.filter(a => !offTotal(a)).reduce((s, a) => s + Math.round(by[a.id] * rateOf(a)), 0);
   return { by, total };
+}
+/** A row in an account of another currency, in RM at `rate`: amount and items converted, the account's own amount kept in `fx`. */
+export function toRM(x, rate) {
+  const r = { ...x, amount: Math.round(x.amount * rate), fx: x.amount };
+  if (x.items?.length) { r.items = x.items.map(i => ({ ...i, cents: Math.round(i.cents * rate) })); r.items[r.items.length - 1].cents += r.amount - r.items.reduce((s, i) => s + i.cents, 0); }   // still adds up to the total
+  return r;
 }
 /**
  * Spending in a month (a cycle when months start on day `sd`): total and per category (receipts split by item).

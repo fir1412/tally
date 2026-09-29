@@ -762,3 +762,4 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, #view [tabindex="-1"]:focus:no
 .segs.lang .seg { overflow-wrap: normal; }   /* "English" never breaks mid-word at 130% */
 @media (min-width: 1440px) { main.view-insights { max-width: 1320px; } }   /* 12 months side by side without scrolling any under the pinned Category column */
 @media (min-width: 600px) { .banner .grow { min-width: 18ch; } }   /* three actions beside the words wrap under them instead of squeezing them to a letter a line */
+.accts .num small { display: block; text-align: right; color: var(--mute); font-size: var(--fs-sm); }

@@ -80,14 +80,15 @@ test('the same ledger from two formats is caught (ids differ); a different purch
   assert.equal(IO.splitDups([mmbak[0]], [excel[0], { ...excel[0], id: 'i_x5' }], names).fresh.length, 1);
 });
 
-test('other currencies: kept on the account, out of the RM total, shown with their code; a backup keeps them', () => {
-  const accounts = [{ id: 'm', name: 'Maybank', opening: 100000 }, { id: 's', name: 'DBS', opening: 50000, currency: 'SGD' }, { id: 'o', name: 'Other bank', opening: 0, outside: true }];
+test('other currencies: kept on the account in its own currency, in the RM total at its rate, shown with their code; a backup keeps them', () => {
+  const accounts = [{ id: 'm', name: 'Maybank', opening: 100000 }, { id: 's', name: 'DBS', opening: 50000, currency: 'SGD' }, { id: 'o', name: 'Other bank', opening: 0, outside: true }, { id: 'x', name: 'Odd', opening: 900, currency: 'XAF' }];
   const b = E.balances(accounts, [{ type: 'transfer', accountId: 'o', toAccountId: 'm', amount: 2000, date: '2026-09-01' }]);
-  assert.deepEqual([b.total, b.by.s, b.by.o], [102000, 50000, -2000]);
+  assert.deepEqual([b.total, b.by.s, b.by.o], [102000 + 50000 * E.FX_START.SGD, 50000, -2000]);   // XAF: no rate, left out
+  assert.equal(E.balances([{ ...accounts[1], rate: 3.5 }], []).total, 175000);
   assert.equal(E.fmtAcct(accounts[1], 50000), 'SGD 500.00');
   assert.equal(E.fmtAcct(accounts[0], 50000), E.fmtRM(50000));
   const back = IO.readBackup(IO.makeBackup({ accounts: accounts.map(a => ({ ...a, kind: 'bank', createdAt: 1 })), tx: [], recurring: [], kv: {} }));
-  assert.deepEqual(back.accounts.map(a => [a.currency, a.outside]), [[undefined, undefined], ['SGD', undefined], [undefined, true]]);
+  assert.deepEqual(back.accounts.slice(0, 3).map(a => [a.currency, a.outside]), [[undefined, undefined], ['SGD', undefined], [undefined, true]]);
   assert.equal(IO.readBackup(JSON.stringify({ app: 'tally', v: 1, accounts: [{ id: 'x', name: 'X', currency: '<b>' }] })).accounts[0].currency, undefined);
 });
 
@@ -161,4 +162,19 @@ test('balances typed at setup stay: older imported rows shift the opening, newer
   const again = IO.typedShift([{ ...accounts[1], typed: true }], existing, rows);
   assert.deepEqual(again, { hist: 900 });
   assert.equal(IO.readBackup(IO.makeBackup({ accounts: [{ id: 'x', name: 'X', kind: 'bank', typed: true, createdAt: 1 }], tx: [], recurring: [], kv: {} })).accounts[0].typed, true);
+});
+
+test('JB: SGD spending counts in RM at the rate, the SGD balance stays in SGD, a transfer between the two carries both amounts', () => {
+  const sgd = { id: 's', opening: 100000, currency: 'SGD', rate: 3.4 }, myr = { id: 'm', opening: 0 };
+  const lunch = { id: 'a', type: 'expense', date: '2026-09-02', amount: 1250, accountId: 's', category: 'dining', items: [{ name: 'A', cents: 1000, category: 'dining' }, { name: 'B', cents: 250, category: 'dining' }] };
+  const rm = E.toRM(lunch, 3.4);
+  assert.deepEqual([rm.amount, rm.fx, rm.items.reduce((s, i) => s + i.cents, 0)], [4250, 1250, 4250]);   // items still add up
+  const home = { id: 'b', type: 'transfer', date: '2026-09-03', amount: 50000, toAmount: 170500, accountId: 's', toAccountId: 'm' };   // S$500 → RM 1,705
+  for (const txs of [[lunch, home], [rm, home]]) {   // the stored rows, or the RM view of them: same balances
+    const b = E.balances([sgd, myr], txs);
+    assert.deepEqual([b.by.s, b.by.m, b.total], [100000 - 1250 - 50000, 170500, Math.round(48750 * 3.4) + 170500]);
+  }
+  assert.equal(E.monthSpend([rm, home], '2026-09').total, 4250);   // spending in RM; the transfer is not spending
+  const back = IO.readBackup(IO.makeBackup({ accounts: [sgd, myr].map(a => ({ name: a.id, kind: 'bank', createdAt: 1, ...a })), tx: [lunch, { ...home, category: 'other' }], recurring: [], kv: {} }));
+  assert.deepEqual([back.accounts[0].rate, back.tx.find(x => x.id === 'b').toAmount], [3.4, 170500]);
 });

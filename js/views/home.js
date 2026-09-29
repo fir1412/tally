@@ -2,7 +2,7 @@
 import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $ } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, belowSince, CATEGORIES } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render, go } from '../app.js';
@@ -175,7 +175,7 @@ export const homeView = {
       <section class="hero">
         <span class="label">${esc(t('Current balance'))} · ${esc(accts.length === 1 ? t('1 account') : t('{0} accounts', accts.length))}</span>
         <div class="big num">${esc(fmtRM(bal.total))}</div>
-        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtAcct(a, bal.by[a.id] ?? 0))}</span></li>`).join('')}</ul></details>
+        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul></details>
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
       ${S.tx.some(x => x.receiptId) || dismissed().includes('first-scan') ? '' : firstScan()}
