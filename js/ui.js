@@ -137,7 +137,7 @@ const hold = on => {
   $('#toast')?.classList.toggle('held', on);
 };
 /** Short message in a live region; optional Undo. */
-export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false } = {}) {
+export function toast(msg, { undo = null, undoLabel = null, k = 'ink', icon = null, cheer = false } = {}) {   // undoLabel: another one-tap action in the same slot
   let el = $('#toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true'); document.body.prepend(el); }
   if (!el.dataset.hold) {
@@ -152,7 +152,7 @@ export function toast(msg, { undo = null, k = 'ink', icon = null, cheer = false 
   el.style.setProperty('--k', `var(--${k})`);
   if (undo) {
     const b = document.createElement('button');
-    b.className = 'tundo'; b.type = 'button'; b.textContent = t('Undo');
+    b.className = 'tundo'; b.type = 'button'; b.textContent = undoLabel || t('Undo');
     b.addEventListener('click', () => { hideToast(); Promise.resolve().then(undo).catch(e => { console.error(e); toast(t('Undo did not work: {0}', e?.message || e), { k: 'bad' }); }); });
     el.append(' ', b);
   }

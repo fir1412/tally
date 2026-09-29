@@ -1062,4 +1062,7 @@ export default {
   "Forget everything Tally learned?": "清除 Tally 学到的所有记忆？",
   "Items and shops you filed yourself will be guessed afresh. Your entries keep their categories.": "你自己归类过的商品和商店会重新猜测。已有记录保留原类别。",
   "Forgotten.": "已清除。",
+  "Your receipt is read.": "收据已读好。",
+  "Check it": "查看",
+  "Use Tally while it downloads": "下载时先用 Tally",
 };

@@ -48,6 +48,7 @@ async function pump() {
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft, reveal: true };
+    if (!document.querySelector('.view-review')) toast(t('Your receipt is read.'), { k: 'good', icon: 'check', undo: () => go('review'), undoLabel: t('Check it') });   // left while the reader downloaded
     const n = draft.items.length;
     announce([n === 1 ? t('1 item') : t('{0} items', n), draft.total != null && t('Total {0}', fmtRM(draft.total))].filter(Boolean).join(', '));
     await setKv('reviewDraft', { draft, existing: false });
@@ -159,7 +160,7 @@ export const reviewView = {
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
       <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
       <section class="card center" aria-busy="true"><p>${esc(ocrReady() ? t('Reading the receipt on this phone. This takes a few seconds.') : saved ? t('Starting the reader…') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>
-      ${ocrReady() || saved ? '' : `<div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
+      ${ocrReady() || saved ? '' : `<button class="btn ghost wide" data-act="go" data-to="home">${esc(t('Use Tally while it downloads'))}</button><div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
       ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}<button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card"><p class="err">${esc(current.error)}</p><button class="btn wide" data-act="rv-retry">${esc(t('Try again'))}</button><div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(waiting ? t('Next receipt') : t('Close'))}</button><button class="btn" data-act="scan">${esc(t('Try another photo'))}</button></div></section>`;

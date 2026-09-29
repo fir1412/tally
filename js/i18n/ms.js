@@ -1062,4 +1062,7 @@ export default {
   "Forget everything Tally learned?": "Lupakan semua yang Tally pelajari?",
   "Items and shops you filed yourself will be guessed afresh. Your entries keep their categories.": "Barang dan kedai yang anda susun sendiri akan diteka semula. Rekod anda kekal dengan kategorinya.",
   "Forgotten.": "Sudah dilupakan.",
+  "Your receipt is read.": "Resit anda sudah dibaca.",
+  "Check it": "Semak",
+  "Use Tally while it downloads": "Guna Tally sementara ia dimuat turun",
 };
