@@ -523,4 +523,7 @@ export default {
   "your spouse": "pasangan anda",
   "{0} accounts and {1} new or changed entries. Newer edits win. Your personal accounts are not touched.": "{0} akaun dan {1} rekod baharu atau berubah. Suntingan yang lebih baharu diguna pakai. Akaun peribadi anda tidak disentuh.",
   "{0} joint entries added or updated from {1}": "{0} rekod bersama ditambah atau dikemas kini daripada {1}",
+  "Tally has moved to tallymy.github.io": "Tally telah berpindah ke tallymy.github.io",
+  "Back up here, then open the new address and restore the file there. This address will stop getting updates.": "Sandarkan di sini, kemudian buka alamat baharu dan pulihkan fail itu di sana. Alamat ini tidak akan dikemas kini lagi.",
+  "Open the new address": "Buka alamat baharu",
 };

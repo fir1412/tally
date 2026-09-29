@@ -523,4 +523,7 @@ export default {
   "your spouse": "你的配偶",
   "{0} accounts and {1} new or changed entries. Newer edits win. Your personal accounts are not touched.": "{0} 个账户，{1} 条新增或修改的记录。以较新的修改为准。你的个人账户不受影响。",
   "{0} joint entries added or updated from {1}": "已从{1}添加或更新 {0} 条共同记录",
+  "Tally has moved to tallymy.github.io": "Tally 已搬到 tallymy.github.io",
+  "Back up here, then open the new address and restore the file there. This address will stop getting updates.": "先在这里备份，再打开新网址并恢复备份文件。这个网址以后不再更新。",
+  "Open the new address": "打开新网址",
 };

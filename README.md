@@ -1,6 +1,6 @@
 # Tally
 
-**▶ Open the app: https://fir1412.github.io/tally/** (on Android, open it in Chrome, then ⋮ → Install app)
+**▶ Open the app: https://tallymy.github.io/** (on Android, open it in Chrome, then ⋮ → Install app)
 
 Snap any receipt and see what you actually spent on, item by item. A free money manager for Malaysia that keeps
 everything on your phone: no account, no ads, no tracking. English, Bahasa Melayu and 简体中文.

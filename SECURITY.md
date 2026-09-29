@@ -6,7 +6,7 @@ Please report security issues privately through **GitHub → Security → Report
 (private vulnerability reporting), not in a public issue. Include the steps to reproduce and the build you tested
 (Settings shows the version). You'll get a reply within 7 days. There is no bug bounty.
 
-Supported: the live build at https://fir1412.github.io/tally/ (the Play Store app wraps the same site, so it is
+Supported: the live build at https://tallymy.github.io/ (the Play Store app wraps the same site, so it is
 always the latest version).
 
 ## What Tally is, security-wise

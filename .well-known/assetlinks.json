@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.tallymy",
+      "sha256_cert_fingerprints": [
+        "D2:AC:CA:F8:01:3D:3F:22:DB:F6:07:2B:D9:FC:57:2D:27:24:08:CD:AF:BA:CD:B8:47:C0:02:E0:CA:81:BF:AF"
+      ]
+    }
+  }
+]
