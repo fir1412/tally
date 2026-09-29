@@ -1,0 +1,8 @@
+vendor/
+models/
+node_modules/
+spike/node_modules/
+receipts/
+notes/
+graphify-out/
+*.min.js

@@ -78,7 +78,7 @@ export const input = {
 let IMP = null; // {rows, header, map, accountId, catMap, name} or {mm, buf}
 function importSheet() {
   openSheet(`<h2 class="sh-title">${esc(t('Bring data in'))}</h2>
-    <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.mmbackup,.json" hidden></label>
+    <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" hidden></label>
     <p class="fine">${esc(t('Money Manager backup (.mmbackup), Excel (.xlsx), CSV from your bank or another app, or a Tally backup.'))}</p>
     <h3>${esc(t('From Google Sheets'))}</h3>
     <label class="field"><span>${esc(t('Paste the cells (select all in the sheet, copy, paste here)'))}</span><textarea id="imp-paste" rows="4" placeholder="Date	Amount	Category	Note"></textarea></label>
@@ -96,7 +96,10 @@ async function importFile(f) {
   try {
     if (f.size > LIMITS.backupBytes) return impErr(t('That file is too big (over 200 MB).'));
     const buf = await f.arrayBuffer();
-    if (/\.mmbackup$/i.test(f.name)) return await importMoneyManager(buf);
+    const head = new Uint8Array(buf.slice(0, 64));
+    const zipAt = head.findIndex((x, i) => x === 0x50 && head[i + 1] === 0x4b && head[i + 2] === 3 && head[i + 3] === 4);
+    // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
+    if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) return await importMoneyManager(buf);
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
     startMapping(await fileToRows(f.name, buf), f.name);
   } catch (e) { impErr(t(e.message)); }
@@ -232,8 +235,9 @@ export const act = {
     await commitImport(mm.tx, 'Money Manager');
   },
   'restore-pick': () => {
-    const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
-    inp.addEventListener('change', async () => { const f = inp.files[0]; if (!f) return; if (f.size > LIMITS.backupBytes) return toast(t('That file is too big (over 200 MB).'), { k: 'bad' }); restoreText(await f.text()); });
+    // No accept filter (Android hides .mmbackup and some .json files); importFile routes by content and size.
+    const inp = Object.assign(document.createElement('input'), { type: 'file' });
+    inp.addEventListener('change', () => { const f = inp.files[0]; if (f) importFile(f); });
     inp.click();
   },
   'backup': async () => {

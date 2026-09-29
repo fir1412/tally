@@ -4,3 +4,4 @@ eng.traineddata
 notes/
 graphify-out/
 *.log
+.personas/
