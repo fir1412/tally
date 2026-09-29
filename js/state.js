@@ -73,7 +73,7 @@ export function inScope(x, sc = scope(), groups = groupMap()) {
 const groupMap = () => new Map(S.accounts.map(a => [a.id, groupOf(a)]));
 /** Every row in RM: spending and income in an account of another currency at its rate (engine toRM; `fx` keeps its own amount).
  *  Screens read these; saves take rows from S.tx, never from here (stamp refuses a converted row). */
-export const rmTx = () => { const r = S.accounts.filter(isFx).map(a => [a.id, rateOf(a)]).filter(([, v]) => v); if (!r.length) return S.tx; const m = new Map(r); return keep('rm', S.tx, JSON.stringify(r), () => S.tx.map(x => (m.has(x.accountId) && x.type !== 'transfer' ? toRM(x, m.get(x.accountId)) : x))); };
+export const rmTx = () => { const r = S.accounts.filter(isFx).map(a => [a.id, rateOf(a)]).filter(([, v]) => v); if (!r.length) return S.tx; const m = new Map(r); return keep('rm', S.tx, JSON.stringify(r), () => S.tx.map(x => (m.has(x.accountId) && x.type !== 'transfer' ? toRM(x, x.rate || m.get(x.accountId)) : x))); };
 export const scopedTx = () => { const sc = scope(), g = groupMap(), all = rmTx(); return sc === 'all' || scopes().length === 1 ? all : keep('scoped', all, `${sc}|${[...g]}`, () => all.filter(x => inScope(x, sc, g))); };
 export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || groupOf(a) === sc); };
 /** Budgets for the scope: personal ones as before, joint ones in budgets.joint, All = both added up (read-only). */
@@ -87,8 +87,10 @@ export function budgetsFor(sc = scope()) {
 /** Every save is stamped (a spouse's share file merges by newest edit); joint rows also say who added them. */
 const stamp = x => {
   if (x.fx != null) throw new Error('A converted row (RM) was about to be saved over its own currency');
-  const by = S.kv.settings?.myName, j = jointIds();
-  return { ...x, updatedAt: Date.now(), ...(by && !x.by && !x.spouse && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
+  const by = S.kv.settings?.myName, j = jointIds(), a = S.accounts.find(y => y.id === x.accountId);
+  // Spending in another currency keeps the rate of its day: a later rate doesn't re-value last month (RM totals stay put).
+  const rate = x.type !== 'transfer' && isFx(a) && !x.rate && rateOf(a) ? { rate: rateOf(a) } : {};
+  return { ...x, ...rate, updatedAt: Date.now(), ...(by && !x.by && !x.spouse && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
 };
 /** The account a new entry starts on, in the current scope: kind 'quick', 'receipt' ({amount, shop, category}) or 'bill' (engine.pickAccount). */
 export function defaultAccount(kind = 'quick', o = {}) {

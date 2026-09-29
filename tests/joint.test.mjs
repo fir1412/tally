@@ -177,3 +177,13 @@ test('business accounts: Me is personal only, Business its own view with its own
   S.kv.settings.scope = 'all';
   assert.equal(budgetsFor().total, 130000);
 });
+
+test('spending in SGD keeps the rate of its day: a new rate does not re-value last month', async () => {
+  const st = await import('../js/state.js'), { monthSpend } = await import('../js/engine.js');
+  Object.assign(S, { accounts: [{ id: 'd', name: 'DBS', kind: 'bank', opening: 0, currency: 'SGD', rate: 3.3 }], tx: [], kv: { settings: {}, budgets: { total: 0, byCat: {} }, customCats: [], rules: {} } });
+  S.tx = [{ id: 'a', type: 'expense', date: '2026-08-10', amount: 1000, accountId: 'd', category: 'dining', rate: 3.3 }];   // saved in August at 3.3
+  S.accounts[0].rate = 3.5;   // September: a transfer home set a new rate
+  S.tx = [...S.tx, { id: 'b', type: 'expense', date: '2026-09-02', amount: 1000, accountId: 'd', category: 'dining' }];
+  const rm = st.rmTx();
+  assert.deepEqual([monthSpend(rm, '2026-08').total, monthSpend(rm, '2026-09').total], [3300, 3500]);
+});
