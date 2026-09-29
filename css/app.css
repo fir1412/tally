@@ -86,6 +86,8 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 .feed { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .warnbox, .okbox { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-3); border-radius: 10px; margin: 0; background: var(--panel); }
 .warnbox { color: var(--warn); } .okbox { color: var(--good); }
+.filechip { display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: var(--sp-3); border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); }
+.filechip svg { color: var(--accent); } .filechip b { display: block; font-family: var(--mono); font-weight: 500; font-size: var(--fs-sm); word-break: break-all; } .filechip small { color: var(--mute); }
 .tablewrap { overflow-x: auto; margin-top: var(--sp-2); }
 .tablewrap:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .mtable { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); white-space: nowrap; }
@@ -254,6 +256,7 @@ details.items ul { list-style: none; padding: 0; margin: 6px 0; } details.items 
   transition: transform 180ms var(--ease-in), opacity 180ms var(--ease-in); }
 #toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; transition: transform 280ms var(--ease-out), opacity 200ms var(--ease-out); }
 #toast svg { width: 18px; height: 18px; color: var(--good); }
+body:has(.scrim:not(.out)) #toast { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); transform: translate(-50%, -20px); } body:has(.scrim:not(.out)) #toast.on { transform: translate(-50%, 0); }   /* a sheet owns the bottom of the screen */
 #toast.has-undo::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 2px; background: currentColor; opacity: .3; transform-origin: left; animation: drain 6s linear forwards; }
 .tundo { background: none; border: 0; color: var(--toast-accent); font-weight: 700; min-height: 36px; cursor: pointer; }
 @keyframes fade-in { from { opacity: 0; } } @keyframes fade-out { to { opacity: 0; } }

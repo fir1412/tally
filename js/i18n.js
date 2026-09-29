@@ -12,9 +12,13 @@ export function pickLang(list) {
   }
   return 'en';
 }
+// Copy is written for phones; on a tablet or computer "this phone" reads as "this device".
+const DEVICE = { en: [/\bphone\b/g, 'device'], ms: [/\btelefon\b/g, 'peranti'], zh: [/(这部|此)?手机/g, '此设备'] };
+const bigScreen = () => typeof matchMedia === 'function' && matchMedia('(min-width: 768px), (pointer: fine)').matches;
 /** t('Spent {0} of {1}.', a, b): the current language's text with values filled in. Unknown text stays English. */
 export function t(s, ...vals) {
-  const tpl = (dict && Object.prototype.hasOwnProperty.call(dict, s) ? dict[s] : s);
+  let tpl = (dict && Object.prototype.hasOwnProperty.call(dict, s) ? dict[s] : s);
+  if (bigScreen()) tpl = tpl.replace(...DEVICE[lang]);
   return vals.length ? tpl.replace(/\{(\d+)\}/g, (m, i) => (vals[+i] ?? m)) : tpl;
 }
 export async function setLang(want) {

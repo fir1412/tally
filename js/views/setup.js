@@ -246,6 +246,12 @@ async function restoreText(text) {
   toast(t('Restored {0} transactions', data.tx.length) + (data.dropped ? ` · ${t('{0} damaged entries skipped', data.dropped)}` : ''));
 }
 
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } }) });
+async function backedUp(msg) {
+  await setKv('lastBackup', `${today()}T${nowTime()}`);
+  closeSheet(); render(); toast(msg, { k: 'good', icon: 'check' });
+}
+
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
   feedback: () => openFeedback(APP_VERSION),
@@ -354,13 +360,25 @@ export const act = {
     inp.addEventListener('change', () => { const f = inp.files[0]; if (f) importFile(f); });
     inp.click();
   },
-  'backup': async () => {
-    const name = `tally-backup-${today()}.json`, text = makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } });
-    let shared = false;
-    try { shared = await shareFile(name, text); } catch (e) { if (e?.name === 'AbortError') return; } // closed the share sheet: no backup made
-    if (!shared) download(name, text, 'application/json');
-    await setKv('lastBackup', `${today()}T${nowTime()}`);
-    render(); toast(t('Backup saved. Keep the file somewhere safe, like Google Drive.'));
+  // Say what the file is and where it goes before anything opens (Round 1: people lost track of the file).
+  'backup': () => {
+    const { name, text } = backupFile(), canShare = !!navigator.canShare?.({ files: [new File([''], name, { type: 'application/json' })] });
+    openSheet(`<h2 class="sh-title">${esc(t('Back up'))}</h2>
+      <p class="sh-body">${esc(t('One file with all {0} transactions, your accounts, budgets and categories. Photos stay on this phone.', S.tx.length))}</p>
+      <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
+      ${canShare ? `<button class="btn wide" data-act="bk-share">${esc(t('Send to myself (Google Drive, email, WhatsApp)'))}</button>` : ''}
+      <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="bk-save">${esc(t('Save to this phone (Downloads)'))}</button>
+      <p class="fine">${esc(t('To restore on a new phone: open Tally there, tap Restore a Tally backup, and pick this file.'))}</p>`, { label: t('Back up') });
+  },
+  'bk-share': async () => {
+    const { name, text } = backupFile();
+    try { if (!(await shareFile(name, text))) return act['bk-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; } // closed the share sheet: nothing sent
+    await backedUp(t('Sent {0}. Check it arrived before you rely on it.', name));
+  },
+  'bk-save': async () => {
+    const { name, text } = backupFile();
+    download(name, text, 'application/json');
+    await backedUp(t('Saved {0} to your Downloads folder.', name));
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),
   'erase': async () => {
