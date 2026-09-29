@@ -1090,4 +1090,5 @@ export default {
   "Go to": "Pergi ke",
   "Backup & restore": "Sandaran & pulih",
   "Language & text size": "Bahasa & saiz teks",
+  "Instalments or an end date": "Ansuran atau tarikh tamat",
 };

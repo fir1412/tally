@@ -1090,4 +1090,5 @@ export default {
   "Go to": "前往",
   "Backup & restore": "备份与恢复",
   "Language & text size": "语言与字号",
+  "Instalments or an end date": "分期或结束日期",
 };
