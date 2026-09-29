@@ -1180,4 +1180,12 @@ export default {
   "Refunded {0} on {1}": "{1} 已退款 {0}",
   "+ Add an account…": "+ 添加账户…",
   "Use the result {0}": "使用结果 {0}",
+  "Home reminds you 2 days before the return window ends and a month before the warranty does.": "主页会在退换期限结束前 2 天、保修结束前一个月提醒你。",
+  "Remind me before the return window ends ({0})": "退换期限结束前提醒我（{0}）",
+  "Remind me before the warranty ends ({0})": "保修结束前提醒我（{0}）",
+  "Return by": "退换截止",
+  "Return or warranty reminder": "退换或保修提醒",
+  "Warranty until": "保修至",
+  "{0}: return or exchange by {1}": "{0}：请在 {1} 前退换",
+  "{0}: warranty ends {1}": "{0}：保修于 {1} 结束",
 };

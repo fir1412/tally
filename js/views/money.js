@@ -205,6 +205,7 @@ function sheetHtml() {
     ${d.items?.length ? `<details class="items"><summary>${esc(d.receiptId ? (d.items.length === 1 ? t('1 item from the receipt') : t('{0} items from the receipt', d.items.length)) : d.items.length === 1 ? t('1 item') : t('{0} items', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
     ${refundsOf(d)}
+    ${d.type === 'expense' ? `<details class="more"${d.returnBy || d.warranty ? ' open' : ''}><summary>${esc(t('Return or warranty reminder'))}</summary><div class="row2"><label class="field"><span>${esc(t('Return by'))}</span><input id="tx-return" type="date" value="${esc(d.returnBy || '')}"></label><label class="field"><span>${esc(t('Warranty until'))}</span><input id="tx-warranty" type="date" value="${esc(d.warranty || '')}"></label></div><small class="fine">${esc(t('Home reminds you 2 days before the return window ends and a month before the warranty does.'))}</small></details>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
     ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
     <div class="row2 sheetfoot">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
@@ -247,6 +248,7 @@ function readForm() {
   if ($('#tx-refof')?.value && draft.category === 'refund') draft.refundOf = $('#tx-refof').value; else delete draft.refundOf;
   if ($('#tx-toamt')) draft.toAmount = calcAmount($('#tx-toamt').value); else delete draft.toAmount;   // only between two currencies
   draft.date = $('#tx-date')?.value || draft.date;
+  for (const [id, k] of [['#tx-return', 'returnBy'], ['#tx-warranty', 'warranty']]) if ($(id)) { const v = $(id).value; if (validIso(v)) draft[k] = v; else delete draft[k]; }
   draft.time = hhmmIn($('#tx-time')?.value);
   draft.merchant = ($('#tx-merchant')?.value || '').trim().slice(0, 80);
 }

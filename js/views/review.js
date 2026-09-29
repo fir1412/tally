@@ -103,7 +103,7 @@ function toDraft(r) {
   items.forEach((i, n) => { if (i.cents < 0 && n > 0) i.category = items[n - 1].category; });   // money off belongs to the item it sits under
   const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
-    id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
+    id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, returnDays: r.returnDays, warrantyMonths: r.warrantyMonths, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay, currency: r.currency }), currency: r.currency, category, items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
     ...(r.refund ? { refund: true } : {}),
@@ -211,6 +211,7 @@ export const reviewView = {
         <label class="field"><span>${esc(t('One item per line with its price. Tally sorts each into a category; change any it gets wrong.'))}</span><textarea id="rv-lines" rows="4" placeholder="${esc(EXAMPLE[getLang()] || EXAMPLE.en)}">${esc(current.unread || '')}</textarea></label>
         <button class="btn ghost wide" data-act="rv-lines">${esc(t('Add these items'))}</button></details>
       ${d.items.length ? '' : `<label class="field"><span>${esc(t('Category'))}</span><select id="rv-cat" data-input="rv-f" data-k="category">${catOpts(d.category)}</select></label>`}
+      ${remindHtml(d)}
       ${current.manual ? '' : `<label class="check"><input type="checkbox" id="rv-refund" data-input="rv-refund"${d.refund ? ' checked' : ''}> ${esc(t('Refund: money back to this account'))}</label>`}
       <label class="check"><input type="checkbox" id="rv-learn" checked> ${esc(t('Remember my category changes for next time'))}</label>
       <div class="row2 sticky"><button class="btn ghost" data-act="rv-skip">${esc(current.existing ? t('Cancel') : t('Discard'))}</button><button class="btn" data-act="rv-save">${esc(flagged ? t('Save · {0} to check', flagged) : t('Save'))}</button></div>`;
@@ -218,6 +219,7 @@ export const reviewView = {
 };
 
 export const input = {
+  'rv-remind': el => { const d = current?.draft; if (d) { d[el.dataset.k] = el.checked; persist(); } },
   'rv-pick': el => { const s = current.picked ||= new Set(), n = +el.dataset.n; if (el.checked) s.add(n); else s.delete(n); const c = $('.bulkbar .fine'); if (c) c.textContent = t('{0} selected', s.size); },
   'rv-refund': el => { const d = current?.draft; if (d) { d.refund = el.checked; if (el.checked) d.accountId = $('#rv-acc')?.value || d.accountId; persist(); } },
   'rv-f': el => {
@@ -281,6 +283,13 @@ const TIP_ART = [
 // way, fresh to faded. Without motion only the ✓ shows.
 const MARK_T = [[2.8], [3], [3], [3], [3], [3.6, true]];
 const mark = ([s, rev]) => `<g class="tp-mark${rev ? ' rev' : ''}" style="--d:${s}s"><circle cx="106" cy="66" r="9"/><path class="tp-no" d="M102.5 62.5l7 7M109.5 62.5l-7 7"/><path class="tp-ok" d="M102 66.5l3 3 5.5-6.5"/></g>`;
+/** The last day to return it, and the day the warranty ends, from the receipt's date and what it prints. */
+const returnDate = d => addDays(d.date, d.returnDays);
+const warrantyDate = d => { const x = new Date(`${d.date}T00:00:00Z`); x.setUTCMonth(x.getUTCMonth() + d.warrantyMonths); return x.toISOString().slice(0, 10); };
+/** "Refund within 3 days", "1 year warranty" on the slip: a reminder, only if asked for (a grocery slip's window is noise). */
+const remindHtml = d => [d.returnDays && ['ret', 'remindReturn', t('Remind me before the return window ends ({0})', fmtDate(returnDate(d)))],
+  d.warrantyMonths && ['war', 'remindWarranty', t('Remind me before the warranty ends ({0})', fmtDate(warrantyDate(d), { year: true }))]]
+  .filter(Boolean).map(([k, f, label]) => `<label class="check"><input type="checkbox" data-input="rv-remind" data-k="${f}"${d[f] ? ' checked' : ''}> ${esc(label)}</label>`).join('');
 /** The purchase a refund slip is for: the latest spend at the same shop in the 120 days before, at least as big. */
 function refundTarget(d) {
   const shop = (d.merchant || '').trim().toLowerCase(), from = addDays(d.date, -120);
@@ -382,7 +391,7 @@ export const act = {
     const was = current.existing ? S.tx.find(x => x.id === d.id) || {} : {};
     const spentOn = items.length ? mostSpent(items) : d.category;   // a refund lowers spending there instead
     const tx = { ...was, id: d.id, date: d.date, time: d.time, type: d.refund ? 'income' : 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
-      category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn, refundOf: d.refundOf || refundTarget(d) } : { cat: undefined }), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
+      category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn, refundOf: d.refundOf || refundTarget(d) } : { cat: undefined }), ...(d.remindReturn && d.returnDays ? { returnBy: returnDate(d) } : {}), ...(d.remindWarranty && d.warrantyMonths ? { warranty: warrantyDate(d) } : {}), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop

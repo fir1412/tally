@@ -255,6 +255,14 @@ export function parseReceipt(text) {
   // A whole-bill discount is a line of its own when the receipt adds up with it and not without ("You saved 5.00" is often already in the subtotal).
   if (billOff && !r.check.ok) { const d = { name: 'Discount', cents: -billOff }; r.items.push(d); r.check = checksum(r); if (!r.check.ok) { r.items.pop(); r.check = checksum(r); } }
   r.pay = payKind(lines);
+  // A return window or warranty printed on the slip ("exchange & refund within 3 days", "1 year warranty"): offered as a reminder.
+  const all = lines.join(' ');
+  const ret = all.match(/(?:return|exchange|refund|pemulangan|tukar(?:an)?|退换|退貨|退货)[^.]{0,60}?(?:within|dalam(?:\s+tempoh)?|in)\s*(\d{1,3})\s*(?:days?|hari)|(\d{1,3})\s*(?:days?|hari)\s*(?:return|exchange|refund|pemulangan)|(\d{1,3})\s*天[内內]?(?:退|换)/i);
+  if (ret) r.returnDays = +(ret[1] || ret[2] || ret[3]);
+  const war = all.match(/(\d{1,2})\s*(years?|yrs?|tahun|months?|mths?|bulan|年|个月|個月)\s*(?:limited\s*)?(?:warranty|waranti|jaminan|保修|保固)|(?:warranty|waranti|jaminan|保修|保固)\s*[:：]?\s*(\d{1,2})\s*(years?|yrs?|tahun|months?|mths?|bulan|年|个月|個月)/i);
+  if (war) { const n = +(war[1] || war[3]), u = war[2] || war[4]; r.warrantyMonths = /^(y|t|年)/i.test(u) ? n * 12 : n; }
+  if (r.returnDays > 365) delete r.returnDays;
+  if (!(r.warrantyMonths > 0 && r.warrantyMonths <= 120)) delete r.warrantyMonths;
   // Printed in Singapore dollars (a JB commuter's FairPrice receipt): it goes to an SGD account when there is one.
   r.currency = lines.some(l => /\bS\$|\bSGD\b|\bsingapore\b|\bpaynow\b|\bUEN\b|\bnets\b/i.test(l)) ? 'SGD' : 'MYR';
   // A meal out: a service charge, or a table, pax, dine-in or take-away line. Its eggs and rice are dishes, not groceries.

@@ -283,3 +283,13 @@ test('Village Grocer slips: "Barcode: 955…" lines are never names, unit words 
   assert.equal(r.merchant, 'Village Grocer');
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['NUTRIPLUS EGGS OMEGA', 800], ['DURIAN SWEET POTATO', 880]]);
 });
+
+test('a return window or a warranty printed on the slip is found (for an optional reminder); "no refund" is not one', () => {
+  const r = s => { const x = parseReceipt(`SHOP\nItem 10.00\nTotal 10.00\n${s}`); return [x.returnDays, x.warrantyMonths]; };
+  assert.deepEqual(r('Please retain this receipt for exchange & refund within 3 days'), [3, undefined]);
+  assert.deepEqual(r('Barang boleh ditukar dalam tempoh 7 hari'), [7, undefined]);
+  assert.deepEqual(r('7天内退换'), [7, undefined]);
+  assert.deepEqual(r('1 Year Warranty'), [undefined, 12]);
+  assert.deepEqual(r('WARRANTY: 6 MONTHS'), [undefined, 6]);
+  assert.deepEqual(r('No refund. No exchange.'), [undefined, undefined]);
+});

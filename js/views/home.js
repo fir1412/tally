@@ -74,6 +74,14 @@ function banner(skip = null, fresh = false) {
     return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
     <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
   }
+  // A return window closing (2 days ahead) or a warranty ending (a month ahead), when the person asked to be reminded.
+  const ends = S.tx.filter(x => x.type === 'expense' && (x.returnBy || x.warranty)).flatMap(x => [x.returnBy && ['ret', x, x.returnBy, 2], x.warranty && ['war', x, x.warranty, 30]].filter(Boolean))
+    .filter(([k, x, d, lead]) => d >= tdy && daysBetween(tdy, d) <= lead && !dismissed().includes(`${k}-${x.id}`)).sort((a, b) => a[2].localeCompare(b[2]))[0];
+  if (ends) {
+    const [k, x, d] = ends, shop = x.merchant || catLabel(x.category), when = d === tdy ? t('today') : fmtDate(d);
+    return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(k === 'ret' ? t('{0}: return or exchange by {1}', shop, when) : t('{0}: warranty ends {1}', shop, when))}</b><small>${esc(fmtRM(x.amount))} · ${esc(fmtDate(x.date))}</small></span>
+    <span class="bactions"><button class="btn small" data-act="tx-open" data-id="${esc(x.id)}">${esc(t('Open'))}</button><button class="btn small ghost" data-act="dismiss" data-id="${k}-${esc(x.id)}">${esc(t('Got it'))}</button></span></div>`;
+  }
   const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && a.typed !== false && bal[a.id] < 0 && !dismissed().includes(`cash-off-${a.id}`));   // a balance never given: Home says "not set", no alarm
   // Cash can't really be below zero: something wasn't added. Said once per time it goes below zero (on the day it is first
   // seen, or until Later), never for an account the user said not to. The fixes, most likely first.

@@ -1180,4 +1180,12 @@ export default {
   "Refunded {0} on {1}": "Dibayar balik {0} pada {1}",
   "+ Add an account…": "+ Tambah akaun…",
   "Use the result {0}": "Guna hasil {0}",
+  "Home reminds you 2 days before the return window ends and a month before the warranty does.": "Laman Utama mengingatkan anda 2 hari sebelum tempoh pemulangan tamat dan sebulan sebelum waranti tamat.",
+  "Remind me before the return window ends ({0})": "Ingatkan saya sebelum tempoh pemulangan tamat ({0})",
+  "Remind me before the warranty ends ({0})": "Ingatkan saya sebelum waranti tamat ({0})",
+  "Return by": "Pulangkan sebelum",
+  "Return or warranty reminder": "Peringatan pemulangan atau waranti",
+  "Warranty until": "Waranti hingga",
+  "{0}: return or exchange by {1}": "{0}: pulangkan atau tukar sebelum {1}",
+  "{0}: warranty ends {1}": "{0}: waranti tamat {1}",
 };
