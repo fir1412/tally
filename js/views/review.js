@@ -98,6 +98,7 @@ function toDraft(r) {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay }), category, items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
+    ...(r.refund ? { refund: true } : {}),
   };
 }
 /** Open an already-saved receipt transaction for item editing (from the transaction sheet). */
@@ -180,6 +181,7 @@ export const reviewView = {
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
+        <label class="check"><input type="checkbox" id="rv-refund" data-input="rv-refund"${d.refund ? ' checked' : ''}> ${esc(t('Refund: money back to this account'))}</label>
         <label class="field big"><span>${esc(t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>
       </section>
       ${current.thumb ? `<figure class="receipt-thumb"><button class="thumb-btn" data-act="rv-zoom" aria-expanded="false" aria-label="${esc(t('Show the whole receipt'))}"><img src="${current.thumb}" alt="${esc(t('Receipt photo'))}"></button></figure>` : ''}
@@ -203,6 +205,7 @@ export const reviewView = {
 };
 
 export const input = {
+  'rv-refund': el => { const d = current?.draft; if (d) { d.refund = el.checked; if (el.checked) d.accountId = $('#rv-acc')?.value || d.accountId; persist(); } },
   'rv-f': el => {
     const d = current?.draft; if (!d) return;
     const k = el.dataset.k;
@@ -323,8 +326,9 @@ export const act = {
     if (gap > 0) items.push({ name: t('Not itemised'), raw: '', cents: gap, category: gapCat(d) });
     // Editing an entry keeps what the review doesn't show: who added it (a spouse's stays theirs), its bill, its source.
     const was = current.existing ? S.tx.find(x => x.id === d.id) || {} : {};
-    const tx = { ...was, id: d.id, date: d.date, time: d.time, type: 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
-      category: items.length ? mostSpent(items) : d.category, items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
+    const spentOn = items.length ? mostSpent(items) : d.category;   // a refund lowers spending there instead
+    const tx = { ...was, id: d.id, date: d.date, time: d.time, type: d.refund ? 'income' : 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
+      category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn } : { cat: undefined }), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
     await saveTx(tx);
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop

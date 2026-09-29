@@ -233,6 +233,9 @@ export function parseReceipt(text) {
   // A whole-bill discount is a line of its own when the receipt adds up with it and not without ("You saved 5.00" is often already in the subtotal).
   if (billOff && !r.check.ok) { const d = { name: 'Discount', cents: -billOff }; r.items.push(d); r.check = checksum(r); if (!r.check.ok) { r.items.pop(); r.check = checksum(r); } }
   r.pay = payKind(lines);
+  // A refund or return slip is money back, not spending (words only: a "-38.80" alone is often OCR noise).
+  // A title line ("REFUND RECEIPT", "CREDIT NOTE", "退货单") or a refund total; never "No refund after 30 days".
+  r.refund = lines.some(l => /^\W*(refund|return(ed)?|credit note|nota kredit|pemulangan|bayaran balik|退款|退货|退貨)(\s*(receipt|slip|note|invoice|resit|单|單))?\W*$/i.test(l) || /\b(total\s*refund(ed)?|refund\s*(amount|total))\b/i.test(l));
   return r;
 }
 /** How it was paid, from the payment line: 'card', 'ewallet' or 'cash' (null when the receipt doesn't say).

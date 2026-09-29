@@ -1,5 +1,5 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, saveAccount, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached } from '../state.js';
+import { S, saveTx, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
@@ -136,7 +136,7 @@ let draft = null; // the transaction being edited; its id is fixed when the shee
 function sheetHtml() {
   const d = draft, isNew = !S.tx.some(x => x.id === d.id);
   const to = d.toAccountId || S.accounts.find(a => a.id !== d.accountId)?.id, twoCur = d.type === 'transfer' && (accOf(d.accountId)?.currency || 'MYR') !== (accOf(to)?.currency || 'MYR');
-  const cats = d.type === 'income' ? INCOME_CATEGORIES : expenseCats();
+  const cats = d.type === 'income' ? incomeCats() : expenseCats();
   const seg = ['expense', 'income', 'transfer'].map(k => `<button type="button" class="seg${d.type === k ? ' on' : ''}" data-act="tx-type" data-type="${k}" aria-pressed="${d.type === k}">${esc(t({ expense: 'Spent', income: 'Received', transfer: 'Transfer' }[k]))}</button>`).join('');
   const accOpts = sel => S.accounts.map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
   // A day other than today (a missed day, a bill's due date) is named in the title, so it can't be missed,
@@ -152,7 +152,8 @@ function sheetHtml() {
     ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
-    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
+    ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}">${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}<button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button></div>`}
+    ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
       ${d.type === 'transfer' ? `<label class="field"><span>${esc(t('To'))}</span><select id="tx-to" data-input="tx-acc">${accOpts(to)}</select></label>` : ''}
@@ -202,6 +203,7 @@ function readForm() {
   draft.amount = draft.items?.length ? draft.amount : calcAmount($('#tx-amt')?.value);
   draft.accountId = $('#tx-acc')?.value || draft.accountId;
   if (draft.type === 'transfer') draft.toAccountId = $('#tx-to')?.value; else delete draft.toAccountId;
+  if ($('#tx-refcat') && draft.category === 'refund') draft.cat = $('#tx-refcat').value; else if (draft.category !== 'refund') delete draft.cat;
   if ($('#tx-toamt')) draft.toAmount = calcAmount($('#tx-toamt').value); else delete draft.toAmount;   // only between two currencies
   draft.date = $('#tx-date')?.value || draft.date;
   draft.time = hhmmIn($('#tx-time')?.value);
@@ -330,7 +332,22 @@ export const act = {
   'tx-type': b => {
     readForm(); draft.type = b.dataset.type;
     if (!accPicked && draft.type !== 'transfer') { const id = defaultAccount(draft.type === 'income' ? 'income' : 'quick', { amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel) sel.value = id; }   // money in lands where income usually does
-    if (draft.type === 'income' && !INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
+    if (draft.type === 'income' && !incomeCats().some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && incomeCats().some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
+  },
+  // A category of their own, made right here: named, picked, and back to the entry with nothing typed lost.
+  'tx-newcat': () => {
+    readForm();
+    const income = draft.type === 'income', el = openSheet(`<h2 class="sh-title">${esc(income ? t('New kind of money in') : t('New category'))}</h2>
+      <label class="field"><span>${esc(t('Name'))}</span><input id="nc-name" maxlength="40" autocomplete="off" placeholder="${esc(income ? t('e.g. Side business, Rental') : t('e.g. Kids, Pets, Remittance'))}" autofocus></label>
+      <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="ok">${esc(t('Add'))}</button></div>`, { label: t('Category'), stack: true });
+    const done = async ok => {
+      const name = el.querySelector('#nc-name').value.trim();
+      if (ok && !name) return el.querySelector('#nc-name').focus();
+      if (ok) { const c = await addCategory(name, undefined, income ? 'income' : 'expense'); draft.category = c.id; catPicked = true; if (draft.items?.length) draft.items.forEach(i => { i.category = c.id; }); }
+      closeSheet(); reopen();
+    };
+    el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) done(x === 'ok'); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
   },
   'tx-cat': b => { readForm(); catPicked = true; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.

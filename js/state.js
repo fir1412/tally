@@ -98,8 +98,9 @@ export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(
 // ---- categories ---------------------------------------------------------------------------------------------------
 /** A category with the colour chosen for it in Settings (kv catColors: {id: '#RRGGBB'}), if any. */
 const tint = c => (S.kv.catColors?.[c.id] ? { ...c, color: S.kv.catColors[c.id] } : c);
-export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats, CATEGORIES.at(-1)].map(tint);
-export const allCats = () => [...expenseCats(), ...INCOME_CATEGORIES.map(tint)];
+export const expenseCats = () => [...CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
+export const incomeCats = () => [...INCOME_CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind === 'income'), INCOME_CATEGORIES.at(-1)].map(tint);
+export const allCats = () => [...expenseCats(), ...incomeCats()];
 export function setCatColor(id, hex) {
   const m = { ...S.kv.catColors };
   if (hex) m[id] = hex; else delete m[id];
@@ -110,8 +111,9 @@ export const cat = id => {
   if (catIdx?.cc !== S.kv.customCats || catIdx.cl !== S.kv.catColors) { const m = new Map(); for (const c of allCats()) if (!m.has(c.id)) m.set(c.id, c); catIdx = { cc: S.kv.customCats, cl: S.kv.catColors, m }; }
   return catIdx.m.get(id) || CATEGORIES.at(-1);
 };
-export async function addCategory(name, color = nextColor(S.kv.customCats.map(x => x.color))) {
-  const c = { id: uid('c_'), name: String(name).slice(0, 40), color };
+/** A category of the user's own: spending, or with kind 'income' a kind of money in (a side business, rental). */
+export async function addCategory(name, color = nextColor(S.kv.customCats.map(x => x.color)), kind = 'expense') {
+  const c = { id: uid('c_'), name: String(name).slice(0, 40), color, ...(kind === 'income' ? { kind } : {}) };
   await setKv('customCats', [...S.kv.customCats, c]);
   return c;
 }

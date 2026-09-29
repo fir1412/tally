@@ -1044,4 +1044,13 @@ export default {
   "Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.": "Bukan dalam RM: {0}. Disimpan dalam mata wang sendiri dan dikira dalam RM pada kadar yang boleh diubah dalam Tetapan.",
   "Your joint account \"{0}\" is the same account as theirs: your {1} entries move into it.": "Akaun bersama anda \"{0}\" ialah akaun yang sama dengan akaun mereka: {1} rekod anda dipindahkan ke dalamnya.",
   "Deleting an entry deletes it on the other phone too, once they import your next file.": "Memadam rekod akan memadamnya di telefon satu lagi juga, sebaik sahaja mereka mengimport fail anda yang seterusnya.",
+  "Money back for": "Wang dikembalikan untuk",
+  "New": "Baharu",
+  "New category": "Kategori baharu",
+  "New kind of money in": "Jenis wang masuk baharu",
+  "Refund": "Bayaran balik",
+  "Refund: money back to this account": "Bayaran balik: wang dikembalikan ke akaun ini",
+  "Your spending there goes down by this amount.": "Perbelanjaan anda di situ berkurang sebanyak jumlah ini.",
+  "e.g. Kids, Pets, Remittance": "cth. Anak, Haiwan peliharaan, Kiriman wang",
+  "e.g. Side business, Rental": "cth. Bisnes sampingan, Sewa",
 };

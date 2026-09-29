@@ -1044,4 +1044,13 @@ export default {
   "Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.": "非令吉：{0}。保留原币种，并按你可在设置中修改的汇率折算成令吉。",
   "Your joint account \"{0}\" is the same account as theirs: your {1} entries move into it.": "你的共同账户「{0}」和对方的是同一个账户：你的 {1} 笔记录会移到里面。",
   "Deleting an entry deletes it on the other phone too, once they import your next file.": "删除一笔记录后，对方导入你的下一个文件时，那笔记录在对方手机上也会删除。",
+  "Money back for": "退款属于",
+  "New": "新增",
+  "New category": "新类别",
+  "New kind of money in": "新的收入类别",
+  "Refund": "退款",
+  "Refund: money back to this account": "退款：钱退回这个账户",
+  "Your spending there goes down by this amount.": "你在那个类别的支出会减去这个金额。",
+  "e.g. Kids, Pets, Remittance": "例如：孩子、宠物、汇款",
+  "e.g. Side business, Rental": "例如：副业、租金",
 };

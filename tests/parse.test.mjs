@@ -241,3 +241,8 @@ test('"2 x 10.90" next to its line total is one item, whichever side the total i
   assert.deepEqual(below.items.map(i => [i.name, i.cents]), [['DETTOL HAND WASH', 990], ['COLGATE TOTAL 150G', 2180]]);
   assert.equal(below.pay, 'cash');
 });
+
+test('a refund slip is marked as money back', () => {
+  assert.equal(parseReceipt(['UNIQLO MALAYSIA SDN BHD', 'REFUND RECEIPT', 'SHIRT 49.90', 'TOTAL 49.90'].join('\n')).refund, true);
+  assert.equal(parseReceipt(['UNIQLO MALAYSIA SDN BHD', 'SHIRT 49.90', 'TOTAL 49.90', 'No refund or exchange after 30 days'].join('\n')).refund, false);
+});

@@ -22,8 +22,11 @@ export const INCOME_CATEGORIES = [
   { id: 'salary', name: 'Salary', color: '#059669' },
   { id: 'allowance', name: 'Allowance', color: '#10B981' },
   { id: 'family', name: 'From family', color: '#6EE7B7' },
-  { id: 'income', name: 'Other income', color: '#34D399' },
+  { id: 'refund', name: 'Refund', color: '#A7F3D0' },
+  { id: 'income', name: 'Other income', color: '#34D399' },   // stays last: custom income categories go before it
 ];
+/** Money back for something bought: money in, but it lowers spending in the category it returns to (`cat`), not income. */
+export const isRefund = t => t.type === 'income' && t.category === 'refund';
 /** Which income category text reads as: pay, an allowance or scholarship, money from family, else other income. */
 export const incomeCategory = s => (/salary|gaji|payroll|paycheck|wage|工资|工資|薪/i.test(s) ? 'salary'
   : /elaun|allowance|ptptn|biasiswa|scholarship|bursary|zakat pendidikan|津贴|津貼|奖学金|獎學金/i.test(s) ? 'allowance'
@@ -244,9 +247,11 @@ export const monthSpend = (txs, ym, sd = 1) => monthSpends(txs, [ym], sd)[ym];
 export function monthSpends(txs, yms, sd = 1) {
   const by = new Map(yms.map(ym => [ym, { total: 0, byCat: {}, each: { total: [] }, fixed: { total: 0 } }]));
   for (const t of txs) {
-    const m = t.type === 'expense' && by.get(cycleKey(t.date, sd));
+    const back = isRefund(t), m = (t.type === 'expense' || back) && by.get(cycleKey(t.date, sd));
     if (!m) continue;
-    const bill = isBill(t), { byCat, each, fixed } = m;
+    const { byCat, each, fixed } = m;
+    if (back) { m.total -= t.amount; for (const { category, cents } of breakdown({ ...t, category: t.cat || 'other' })) byCat[category] = (byCat[category] || 0) - cents; continue; }
+    const bill = isBill(t);
     m.total += t.amount; if (bill) fixed.total += t.amount; else each.total.push(t.amount);
     for (const { category, cents } of breakdown(t)) {
       byCat[category] = (byCat[category] || 0) + cents;
@@ -274,7 +279,7 @@ export const monthIncome = (txs, ym, sd = 1) => monthIncomes(txs, [ym], sd)[ym];
 /** Money in for several months in one pass: {ym: sen}. */
 export function monthIncomes(txs, yms, sd = 1) {
   const by = new Map(yms.map(ym => [ym, 0]));
-  for (const t of txs) if (t.type === 'income') { const k = cycleKey(t.date, sd); if (by.has(k)) by.set(k, by.get(k) + t.amount); }
+  for (const t of txs) if (t.type === 'income' && !isRefund(t)) { const k = cycleKey(t.date, sd); if (by.has(k)) by.set(k, by.get(k) + t.amount); }
   return Object.fromEntries(by);
 }
 export function cashFlow(txs, endYm, n = 6, sd = 1) {

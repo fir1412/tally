@@ -343,3 +343,13 @@ test('the receipt says how it was paid: card, e-wallet or cash; a card or wallet
   assert.equal(E.pickAccount({ accounts, txs, bal, kind: 'receipt', amount: 1200, pay: 'ewallet' }), 'tng');   // even when TNG looks short: that's what paid
   assert.equal(E.pickAccount({ accounts, txs, bal, kind: 'income' }), 'mbb');
 });
+
+test('a refund is money back: the balance goes up, spending in its category goes down, and it is not income', () => {
+  const txs = [{ id: 'a', type: 'expense', date: '2026-09-02', amount: 12000, accountId: 'b', category: 'shopping' },
+    { id: 'r', type: 'income', date: '2026-09-05', amount: 4000, accountId: 'b', category: 'refund', cat: 'shopping' },
+    { id: 's', type: 'income', date: '2026-09-01', amount: 300000, accountId: 'b', category: 'salary' }];
+  const m = E.monthSpend(txs, '2026-09');
+  assert.deepEqual([m.total, m.byCat.shopping], [8000, 8000]);
+  assert.equal(E.monthIncome(txs, '2026-09'), 300000);
+  assert.equal(E.balances([{ id: 'b', opening: 0 }], txs).total, 300000 - 12000 + 4000);
+});

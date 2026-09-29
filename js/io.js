@@ -616,7 +616,7 @@ export function readBackup(text) {
   }
   if (Array.isArray(d.kv?.customCats) && d.kv.customCats.length > 50) throw new Error('This backup has more than 50 custom categories. Nothing was restored.');
   // Custom categories first: only the ones that pass are category ids anywhere else in the backup.
-  const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' }));
+  const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B', ...(c.kind === 'income' ? { kind: 'income' } : {}) }));
   const customIds = new Set(customCats.map(c => c.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
   const accounts = list(d.accounts, 200).filter(a => isObj(a) && okId(a.id))
@@ -626,7 +626,7 @@ export function readBackup(text) {
   const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId, ...(okAmt(t.toAmount) && t.toAmount > 0 ? { toAmount: t.toAmount } : {}) } : {}),
-      category: cat(t.category), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
+      category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
