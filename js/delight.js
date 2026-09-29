@@ -62,7 +62,8 @@ export function niceFinds({ txs, today, startDay = 1, noSpend = [], bills = [], 
   for (const i of ins) if (i.kind === 'price' && i.level === 'good') out.push({ id: i.id, kind: 'price', ins: i });
   // Categories at 80% or less of the same point last month (a week in, and RM 20 or more last month).
   const ym = cycleKey(today, startDay), lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, startDay).start, today);
-  if (into >= 7) {
+  // Not while nothing is being logged: "down 100%" then only means days not logged (it praised people who had stopped).
+  if (into >= 7 && txs.some(t => t.date <= today && daysBetween(t.date, today) <= 3)) {
     const lastStart = cycleSpan(lastYm, startDay).start, upTo = addDays(lastStart, into);
     const now = monthSpend(txs.filter(t => t.date <= today), ym, startDay).byCat, then = monthSpend(txs.filter(t => t.date <= upTo), lastYm, startDay).byCat;
     for (const [c, v] of Object.entries(then)) {

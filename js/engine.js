@@ -14,6 +14,7 @@ export const CATEGORIES = [
   { id: 'shopping', name: 'Shopping', color: '#D55E00' },
   { id: 'fun', name: 'Entertainment', color: '#882255' },
   { id: 'education', name: 'Education', color: '#332288' },
+  { id: 'giving', name: 'Zakat & giving', color: '#999933' },
   { id: 'other', name: 'Other', color: '#64748B' },
 ];
 /** Colours for categories the user adds, none close to a built-in one; the first not yet used is taken. */
@@ -140,9 +141,10 @@ export const itemKey = once(name => String(name ?? '').toUpperCase().replace(/\b
 const WORDS = [
   // Named by what they are, before "rice" or "egg" make a meal groceries, or "Penang" looks like a pen.
   ['dining', /\b(sarapan|breakfast|brunch|lunch|dinner|supper)\b|makan (pagi|tengah ?hari|malam)|早餐|午餐|晚餐|宵夜|economy rice|mixed rice|chap ?fan|杂饭|雜飯|经济饭|經濟飯|nasi campur|roti (telur|canai|kosong|bom|jala|tissue)|char kue?y teow|fried rice|nasi (goreng|lemak|kandar|ayam|kerabu|dagang|briyani|biryani)|(chicken|lamb|fish|pork) chop|tom ?yam|mee (goreng|kari|curry|rebus|hailam|bandung|sup)|kue?y ?teow|iced? (lemon|tea|coffee|milo|latte)|lemon tea|telur mata|teh (tarik|o|ais|c|halia)\b|kopi (o|c|ais|peng)\b|\bslice\b|set meal|炒饭|炒飯|面线|鸡饭|雞飯/i],
-  ['transport', /油费|汽油|加油|油站|打油|minyak (motor|kereta|moto)|isi minyak|\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
+  ['giving', /zakat|fitrah|sedekah|derma\b|donation|sumbangan|infaq|infak|wakaf|charity|tabung masjid|捐款|捐赠|捐獻|香油钱/i],   // zakat is an LHDN rebate: kept apart from Other
+  ['transport', /^ minyak $|柴油|油钱|油錢|油费|汽油|加油|油站|打油|minyak (motor|kereta|moto)|isi minyak|\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
   ['education', /fotostat|photo ?copy|cetak nota|复印|複印/i],
-  ['groceries', /\bgrocer(y|ies)\b|barang dapur/i],
+  ['groceries', /\bgrocer(y|ies)\b|barang dapur|面粉|麵粉|面包|麵包|吐司/i],   // flour and bread before the dining noodles (面) and rice noodles (粉)
   // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.
   ['transport', /minyak enjin|engine oil|filter minyak|oil filter|\btayar\b|\btyres?\b|\btires?\b|puncture|wiper|bateri kereta|car battery|servis kereta|car service|bengkel|workshop|spark ?plug|\bbrek\b|\bbrakes?\b|absorber|alignment|road ?tax|cukai jalan|insurans kereta|car insurance/i],
   ['bills', /air selangor|air kelantan|syabas|indah water|ranhill|\bsaj\b|\bpba\b water|ptptn|\brent(al)?\b|\bsewa\b|prepaid|hotlink|xpax|\btopup\b|reload (kredit|credit|phone|telefon)/i],
@@ -488,7 +490,8 @@ export function pickAccount({ accounts: all, txs = [], bal = {}, kind = 'quick',
     if (pay === 'card' || pay === 'debit') return main();
   }
   // The latest everyday account, from what was typed (a card used for one big receipt isn't where the kopi goes).
-  const everyday = () => txs.filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId) && byId.get(x.accountId).kind !== 'card' && (byId.get(x.accountId).scope !== 'business' || accounts.every(a => a.scope === 'business')))   // one card purchase isn't where the kopi goes, nor a stall's cash where the owner's cough syrup goes
+  // Spending decides where spending goes: a pension landing in the bank doesn't make the next cash kopi a bank payment.
+  const everyday = () => txs.filter(x => (txs.some(y => y.type === 'expense' && (y.source === 'quick' || !y.source)) ? x.type === 'expense' : x.type !== 'transfer') &&!x.bill && x.source !== 'recurring' && x.source !== 'receipt' && byId.has(x.accountId) && byId.get(x.accountId).kind !== 'card' && (byId.get(x.accountId).scope !== 'business' || accounts.every(a => a.scope === 'business')))   // one card purchase isn't where the kopi goes, nor a stall's cash where the owner's cough syrup goes
     .reduce((m, x) => (!m || (x.createdAt || 0) > (m.createdAt || 0) ? x : m), null)?.accountId || accounts.find(a => a.kind === 'cash')?.id || accounts[0]?.id;
   const spend = txs.filter(x => x.type === 'expense');
   let id = null;
@@ -619,6 +622,8 @@ export function dueNudge(habitList, txs, now, dismissed = []) {
  * "klinik" is not in the list.
  */
 export const RELIEFS = [
+  { id: 'zakat', name: 'Zakat and fitrah (tax rebate)', shop: true, re: /zakat|fitrah/i },
+  { id: 'donation', name: 'Gifts to approved bodies', shop: true, re: /derma\b|donation|sumbangan|wakaf|yayasan|foundation|charity|捐款|捐赠|捐獻/i },
   { id: 'breastfeeding', name: 'Breastfeeding equipment', re: /breast ?pump|pam susu|breastfeed|penyusuan|nursing (bra|pad)|milk storage|吸奶器|母乳/i },
   { id: 'childcare', name: 'Childcare and kindergarten fees', shop: true, re: /tadika|taska|kindergarten|pre-?school|prasekolah|child ?care|day ?care|nursery fee|幼儿园|幼兒園|托儿|托兒/i },
   { id: 'ev', name: 'EV charging', shop: true, re: /(?=.*(?:\bev charg(?:e|er|ing)|electric vehicle charg(?:e|er|ing)|charging (?:station|equipment)|wallbox|充电桩|充電樁))(?=.*(?:install(?:ation)?|rent(?:al)?|purchas(?:e|ing)|subscription|equipment|pemasangan|sewaan|pembelian|langganan|peralatan|安装|安裝|购买|購買|租赁|租賃|订阅|訂閱))/i },

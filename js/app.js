@@ -192,7 +192,8 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     await takeShared();
     if (!S.accounts.length) await need('setup');   // Welcome shows at once
     const resumed = S.kv.reviewDraft?.draft || S.kv.scanQueue?.length ? await (await need('review')).restoreDraft() : false;   // nothing to resume: its code can wait
-    if (resumed) { history.replaceState(null, '', '#/review'); toast(resumed === 'items' ? t('Picked up the items you were adding') : t('Picked up the receipt you were checking')); }
+    if (resumed === 'waiting') toast(t('A receipt is waiting for the reader. Open Scan when you are on Wi-Fi.'));
+    else if (resumed) { history.replaceState(null, '', '#/review'); toast(resumed === 'items' ? t('Picked up the items you were adding') : t('Picked up the receipt you were checking')); }
     await money.postBills().catch(console.error);   // bills that add themselves, up to today
     watch(async () => { if (await money.postBills().catch(() => 0)) refresh(); });
     if (S.accounts.length) persistStorage().then(() => route() === 'settings' && refresh());

@@ -267,3 +267,13 @@ test('a FeedMe slip: time glued to the year, the company glued to the name, a mi
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['CHAMCICE (L)', 450]]);
   assert.equal(r.check.ok, true);
 });
+
+test('typed items on one line with spaces only are split after each price, never after a unit or a leading RM', () => {
+  const r = s => parseItemLines(s).items.map(i => [i.name, i.cents]);
+  assert.deepEqual(r('ikan 12 sayur 5 cili 2'), [['ikan', 1200], ['sayur', 500], ['cili', 200]]);
+  assert.deepEqual(r('鱼 25 菜 8'), [['鱼', 2500], ['菜', 800]]);
+  assert.deepEqual(r('Milo 2x6.20 roti 4'), [['Milo', 1240], ['roti', 400]]);
+  assert.deepEqual(r('telur 30 biji 12'), [['telur 30 biji', 1200]]);
+  assert.deepEqual(r('100 Plus 2.50'), [['100 Plus', 250]]);
+  assert.deepEqual(r('rm 8 sayur'), [['sayur', 800]]);
+});

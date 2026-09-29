@@ -139,7 +139,7 @@ function reliefCard(M) {
     <small>${esc(l.entries.length === 1 ? t('1 entry') : t('{0} entries', l.entries.length))} · ${esc(t('{0} with receipt photo', l.proof))}</small></button></li>`).join('');
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
   return card('relief', t('Possible tax-relief expenses in {0}', year), got.length ? t('{0} in spending to review', fmtRM(total)) : t('Nothing found yet for {0}', year),
-    `${rows ? `<ul class="relief">${rows}</ul>` : ''}${got.some(l => l.proof) ? `<button class="btn ghost" data-act="relief-dl" data-y="${year}">${ICON.download}${esc(t('Download the receipts for {0}', year))}</button>` : ''}${none.length ? `<p class="fine">${esc(t('Not found yet: {0}.', none.join(', ')))}</p>` : ''}
+    `${rows ? `<ul class="relief">${rows}</ul>` : ''}${got.some(l => l.proof) ? `<button class="btn ghost" data-act="relief-dl" data-y="${year}">${ICON.download}${esc(t('Download the receipts for {0}', year))}</button>` : ''}${none.length ? `<details class="fine more-cats"><summary>${esc(t('Also looked for'))}</summary>${esc(none.join(', '))}</details>` : ''}
     <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
 }
 
@@ -155,7 +155,8 @@ function jointCard(M) {
 /** The analytics cards for month M, most useful first; one short placeholder for a new user instead of empty charts. */
 export function analyticsCards(M) {
   const n = booked().filter(x => x.type === 'expense').length, need = 5;
-  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>`;
+  // Tax relief doesn't wait for 5 entries: people come to Tally for it at tax time (a zakat payment, a child's books).
+  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${cached(taxRelief, booked(), reliefYear(M)).some(l => l.entries.length) ? reliefCard(M) : ''}`;
   return [scope() === 'joint' && jointCard(M), fixedCard(M), foodCard(M), whenCard(M), payCard(M), pricesCard(), reliefCard(M)].filter(Boolean).join('');
 }
 

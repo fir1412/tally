@@ -84,7 +84,11 @@ export async function restoreDraft() {
   if (saved?.draft) {
     const blob = saved.draft.receiptId ? await getPhoto(saved.draft.receiptId) : null;
     current = { id: uid('r'), status: 'ready', existing: saved.existing, manual: saved.manual, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
-  } else if (queue.length) pump();
+  } else if (queue.length) {
+    // Photos left waiting while the reader was still downloading: read them now only if the reader is here. Otherwise don't
+    // start a 40 MB download on every open (prepaid data); Scan offers to read them when the person chooses.
+    if (ocrReady() || await ocrSaved()) pump(); else return 'waiting';
+  }
   return current?.draft && !current.draft.receiptId ? 'items' : !!current || queue.length > 0 ? 'receipt' : false;
 }
 
@@ -156,7 +160,8 @@ export const reviewView = {
     const waiting = queue.length;
     if (!current) return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card center">${ICON.camera}<p>${esc(t('Take a photo of a receipt, or pick one or more from your gallery. They are read on this phone and never uploaded.'))}</p>
-      <button class="btn wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button>
+      ${queue.length ? `<button class="btn wide" data-act="rv-readq">${esc(t('Read the {0} waiting (downloads the reader, about 40 MB)', queue.length))}</button>` : ''}
+      <button class="btn${queue.length ? ' ghost' : ''} wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button>
       <button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
       <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
@@ -282,10 +287,15 @@ export function photoTips({ thenScan = false } = {}) {
   // Title with a close button and the action stay pinned while the scenes scroll between them (small phones).
   const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Tips for a clear photo'))}</h2><button class="icon-btn" data-x="ok" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
     <ol class="tips">${tips.map(([h, b], i) => `<li><svg viewBox="0 0 120 80" aria-hidden="true"><rect class="tp-bg" width="120" height="80"/>${TIP_ART[i]}${mark(MARK_T[i])}</svg><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('')}</ol>
-    <div class="sheetfoot">${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}</div>`, { label: t('Tips for a clear photo') });
+    <div class="sheetfoot">${thenScan ? `<p class="fine">${ICON.lock}${esc(t('The camera opens only on this screen. Photos are read on this phone and never uploaded.'))}</p>
+      <button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>
+      <div class="row2"><button class="btn ghost" data-x="pick">${ICON.image}${esc(t('From gallery'))}</button><button class="btn ghost" data-x="type">${ICON.plus}${esc(t('No receipt? Type it'))}</button></div>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}</div>`, { label: t('Tips for a clear photo') });
   el.addEventListener('click', e => {
     const b = e.target.closest('[data-x]'); if (!b) return;
-    if (b.dataset.x === 'scan') startScan(scanned); else closeSheet();
+    if (b.dataset.x === 'scan') startScan(scanned);
+    else if (b.dataset.x === 'pick') { closeSheet(); document.getElementById('scan-input')?.click(); }   // no camera needed
+    else if (b.dataset.x === 'type') { closeSheet(); import('./money.js').then(m => m.openTxSheet()); }   // cash, pasar, no receipt
+    else closeSheet();
   });
 }
 /** Typed lines ("Fish 25, vegetables 8") → items on the receipt being checked. Returns how many. */
@@ -298,6 +308,7 @@ function addLines(text) {
   return { n: lines.length, skipped };
 }
 export const act = {
+  'rv-readq': () => { pump(); render(); },
   'photo-tips': () => photoTips(),
   'rv-skip': async () => {
     const d = current?.draft;

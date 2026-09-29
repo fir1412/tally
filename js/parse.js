@@ -124,7 +124,10 @@ export function parseItemLines(text) {
     return q < 0 || +p[q] < 2 ? { cents: total } : { cents: total, qty: +p[q], unit: cents(p[2 - q]) };
   };
   const items = [], skipped = [];
-  for (const l of String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).map(l => l.trim()).filter(Boolean)) {
+  // Several on one line with spaces only ("ikan 12 sayur 5 cili 2", "鱼 25 菜 8"): a new item starts after a price when a word
+  // follows, unless that word is a unit ("telur 30 biji 12"). A line that starts with a number ("100 Plus 2.50") never splits there.
+  const NEXT = /(?<=\p{L}.*\d(?:[.,]\d{1,2})?)(?<!^\s*(?:RM|MYR)\s*[\d.,]+)\s+(?=\p{L})(?!(?:x|kg|g|gm|ml|l|ltr|pcs?|biji|ekor|pek|paket|bungkus|keping|botol|tin|unit|ea|each|packs?|个|斤|包|粒|瓶|块)(?![\p{L}]))/iu;
+  for (const l of String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).flatMap(l => l.split(NEXT)).map(l => l.trim()).filter(Boolean)) {
     const s = l.replace(/(\d)[.,]-$/, '$1');   // "8.-" is RM 8
     const tail = s.match(tailRe);   // name then price
     const head = s.match(headRe);   // price then name

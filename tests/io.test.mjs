@@ -334,3 +334,9 @@ test('receipt photo names sort by date, say the shop and amount, and never clash
   assert.equal(receiptName({ ...tx, merchant: '' }, taken, 'Medical/../x'), 'Medical .. x/2026-09-29 Receipt RM4.50.jpg');
   assert.equal(csvLine(['=HYPERLINK()', 'a,b']), `'=HYPERLINK(),"a,b"`);
 });
+
+test('an ATM withdrawal on a bank statement moves money to Cash; it is not spending', () => {
+  const acc = [{ id: 'b', kind: 'bank', name: 'Maybank' }, { id: 'c', kind: 'cash', name: 'Cash' }];
+  const r = IO.reloadTransfers([{ id: 'x', type: 'expense', accountId: 'b', amount: 10000, merchant: 'ATM Withdrawal MBB Cheras' }, { id: 'y', type: 'expense', accountId: 'b', amount: 500, merchant: 'Kedai ATMosphere' }], acc, '');
+  assert.deepEqual(r.map(x => [x.id, x.type, x.accountId, x.toAccountId]), [['x', 'transfer', 'b', 'c']]);
+});

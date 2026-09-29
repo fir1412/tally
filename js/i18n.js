@@ -9,6 +9,7 @@ export function pickLang(list) {
   for (const raw of (Array.isArray(list) ? list : [list]).filter(Boolean)) {
     const two = String(raw).toLowerCase().slice(0, 2);
     if (two === 'ms' || two === 'zh') return two;
+    if (two === 'id') return 'ms';   // Indonesian readers (domestic helpers, students) read Malay far better than English
     if (two === 'en') return 'en';
   }
   return 'en';

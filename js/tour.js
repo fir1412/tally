@@ -139,10 +139,11 @@ export const iosBrowser = () => typeof navigator !== 'undefined' && (/iPhone|iPa
 export function homeScreenTip(then) {
   setKv('settings', { ...S.kv.settings, iosTipAt: Date.now() });
   const steps = [[ICON.share, t('Tap Share')], [ICON.plusSquare, t('Add to Home Screen')], [ICON.home, t('Open Tally from there')]];
-  const el = openSheet(`<h2 class="sh-title">${esc(t('Keep your data on this iPhone'))}</h2>
-    <p class="sh-body">${esc(t("iPhone clears web apps it hasn't seen for 7 days, unless they are on the Home Screen."))}</p>
+  const el = openSheet(`<h2 class="sh-title">${esc(t('Make Tally an app on your iPhone'))}</h2>
+    <p class="sh-body">${esc(t('On the Home Screen it opens like any app, works offline and keeps your entries.'))}</p>
     <ol class="iossteps">${steps.map(([ic, w], i) => `<li><span class="iosnum">${i + 1}</span><span class="tour-ic">${ic}</span><b>${esc(w)}</b></li>`).join('')}</ol>
-    <button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`, { label: t('Keep your data on this iPhone'), onClose: () => then?.() });
+    <p class="fine">${esc(t("Why: Safari clears websites you haven't opened for 7 days; Home Screen apps are kept."))}</p>
+    <button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`, { label: t('Make Tally an app on your iPhone'), onClose: () => then?.() });
   el.addEventListener('click', e => { if (e.target.closest('[data-x]')) closeSheet(); });
 }
 const iosTipDue = () => iosBrowser() && S.accounts.length && Date.now() - (settings().iosTipAt || 0) > 3 * 864e5;

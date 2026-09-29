@@ -9,7 +9,8 @@ import { render, go } from '../app.js';
 import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip } from './money.js';
 import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
-import { dayOf } from '../gamify.js';
+import { dayOf, loggedDays } from '../gamify.js';
+import { STICKERS, BOOK, stickerSvg, stickerState } from '../stickers.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
 
@@ -32,6 +33,16 @@ const habitText = h => t(h.days === 'weekend' ? '{0} on weekends around {1}' : '
 const dismissed = () => S.kv.dismissed || [];
 /** Home cards can be turned off in Settings (settings.homeHide: 'gap', 'nudge', 'bills', 'insight'). */
 const shown = id => !(settings().homeHide || []).includes(id);
+/** Days logged up to today (entries you made, and "nothing spent" check-ins): one sticker each. */
+const stickerDays = tdy => [...loggedDays(S.tx, settings().noSpend || [], settings().myName || '')].filter(d => d <= tdy).length;
+/** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
+function stickerCard(tdy) {
+  if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !loggedDays(S.tx, settings().noSpend || [], settings().myName || '').has(tdy)) return '';
+  const st = stickerState(stickerDays(tdy));
+  return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stickerSvg(st.latest, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", t(st.latest[1])))}</b>
+    <small>${esc(t('{0} of {1} in your book. One for each day you log; a missed day never takes one away.', st.got, BOOK))}</small></span></button>
+    <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></section>`;
+}
 const greeting = () => {
   const n = settings().myName, h = +nowTime().slice(0, 2);
   return !n ? '' : h < 12 ? t('Good morning, {0}', n) : h < 18 ? t('Good afternoon, {0}', n) : t('Good evening, {0}', n);
@@ -43,7 +54,9 @@ const NEW = 5;
 function backupBanner() {
   const tdy = today(), last = S.kv.lastBackup, began = Math.min(...S.accounts.map(a => a.createdAt).filter(Boolean));
   if (S.tx.length && (S.tx.length >= NEW || (began < Infinity && daysBetween(dayOf(began), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
-    return `<div class="banner warn">${ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. Uninstalling Tally or clearing browser data deletes it; a backup file keeps it safe.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></small></span>
+    // The first month it's a quiet reminder (orange on day 3 scared people off); after that, or once a backup is 2 weeks old, a warning.
+    const calm = !last && began < Infinity && daysBetween(dayOf(began), tdy) < 30;
+    return `<div class="banner ${calm ? 'info' : 'warn'}">${calm ? ICON.lock : ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. Uninstalling Tally or clearing browser data deletes it; a backup file keeps it safe.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></small></span>
       <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><button class="btn small ghost" data-act="dismiss" data-id="backup-${tdy}">${esc(t('Later'))}</button></span></div>`;
   }
   return '';
@@ -61,7 +74,7 @@ function banner(skip = null, fresh = false) {
     return `<div class="banner ${s.days < 0 ? 'warn' : 'info'}">${ICON.bell}<span class="grow"><b>${esc(s.days < 0 ? t('{0} was due {1}', bill.name, fmtDate(s.date)) : t('{0} due {1}', bill.name, s.days === 0 ? t('today') : s.days === 1 ? t('tomorrow') : t('in {0} days', s.days)))}</b><small>${esc(fmtRM(bill.amount))}${bill.auto ? ` · ${esc(t('Adds itself on the day'))}` : ''}</small></span>
     <span class="bactions"><button class="btn small" data-act="bill-paid" data-id="${esc(bill.id)}" data-d="${esc(s.date)}">${esc(t('Mark as paid'))}</button><button class="btn small ghost" data-act="dismiss" data-id="bill-${esc(bill.id)}-${esc(s.date)}">${esc(t('Later'))}</button></span></div>`;
   }
-  const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && bal[a.id] < 0 && !dismissed().includes(`cash-off-${a.id}`));
+  const bal = balances(S.accounts, booked(), tdy).by, cash = S.accounts.find(a => a.kind === 'cash' && a.typed !== false && bal[a.id] < 0 && !dismissed().includes(`cash-off-${a.id}`));   // a balance never given: Home says "not set", no alarm
   // Cash can't really be below zero: something wasn't added. Said once per time it goes below zero (on the day it is first
   // seen, or until Later), never for an account the user said not to. The fixes, most likely first.
   const ep = cash && `cash-${cash.id}-${belowSince(cash, booked())}`;
@@ -72,10 +85,13 @@ function banner(skip = null, fresh = false) {
   const days = new Set(S.tx.filter(x => byUser(x, settings().myName || '')).map(x => x.date)).size;
   if (days >= 3 && days <= 4 && !dismissed().includes('remind-card')) return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(t('Want a daily nudge at 21:00?'))}</b></span>
     <span class="bactions"><button class="btn small" data-act="remind-open">${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="remind-card" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
-  if (fresh) return '';
-  const lastDay = booked().reduce((m, x) => (x.date > m ? x.date : m), ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
-  if (shown('gap') && S.tx.length >= 3 && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
+  // Days away count from what was logged in Tally, never from an imported file's last row (the day someone quit their
+  // old app), and never from before they started. New users get this one too: the first lapse is when a habit dies.
+  const began = Math.min(...S.accounts.map(a => a.createdAt).filter(Boolean)), own = booked().filter(x => byUser(x, settings().myName || ''));
+  const lastDay = own.reduce((m, x) => (x.date > m ? x.date : m), began < Infinity ? dayOf(began) : ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
+  if (shown('gap') && (own.length || S.tx.length >= 3) && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="remind-open">${ICON.bell}${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
+  if (fresh) return '';
   const nudge = shown('nudge') && dueNudge(cached(habits, booked(), tdy), booked(), nowLocal(), dismissed());
   if (nudge) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Spent on {0}?', catLabel(nudge.category)))}</b><small>${esc(t('You usually do: {0}. Add it now so you don\'t forget.', habitText(nudge)))}</small></span>
     <span class="bactions"><button class="btn small" data-act="nudge-add" data-c="${esc(nudge.category)}" data-a="${nudge.amount}" data-at="${esc(nudge.at || '')}">${esc(t('Add {0}', fmtRM(nudge.amount)))}</button><button class="btn small ghost" data-act="dismiss" data-id="${esc(nudge.id)}">${esc(t('Not today'))}</button></span></div>`;
@@ -158,7 +174,10 @@ export const homeView = {
   render() {
     const tdy = today(), sd = startDay(), ym = thisMonth();
     const upToday = booked(), accts = scopedAccounts();
-    const bal = balances(accts, upToday), sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = budgetsFor().total;
+    // An account whose starting balance was never given (left blank at the start, or skipped after an import) and that is
+    // now below zero isn't really negative: its balance is unknown. It stays out of the total; Home says so instead.
+    const all = balances(accts, upToday), unset = accts.filter(a => a.typed === false && (all.by[a.id] ?? 0) < 0);
+    const bal = unset.length ? { ...balances(accts.filter(a => !unset.includes(a)), upToday), by: all.by } : all, sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = budgetsFor().total;
     const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total }) : null;
     const lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, sd).start, tdy), lastStart = cycleSpan(lastYm, sd).start;
     const before = cached(sameDayBefore, upToday, lastYm, sd, into, lastStart), diff = spent - before;
@@ -173,12 +192,16 @@ export const homeView = {
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${scopeSwitch()}<div class="cols"><div class="col">
       <section class="hero">
-        <span class="label">${esc(t('Current balance'))} · ${esc(accts.filter(a => !offTotal(a)).length === 1 ? t('1 account') : t('{0} accounts', accts.filter(a => !offTotal(a)).length))}</span>
-        <div class="big num">${esc(fmtRM(bal.total))}</div>
-        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
+        ${(n => (n ? `<span class="label">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}</span>
+        <div class="big num">${esc(fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
+        <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
+        ${unset.length ? `<p class="fine">${esc(t('Balance not set: {0}', unset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(unset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
+        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
-      ${S.tx.some(x => x.receiptId) || dismissed().includes('first-scan') ? '' : firstScan()}
+      <div class="addrow"><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Type an amount'))}</button><button class="btn ghost" data-act="scan">${ICON.camera}${esc(t('Scan a receipt'))}</button></div>
+      ${stickerCard(tdy)}
+      ${S.tx.some(x => x.receiptId) || S.tx.length >= 3 || dismissed().includes('first-scan') ? '' : firstScan()}
       <section class="card month">
         <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym, sd)))}</span>${p ? `<span class="pill ${rg.tone}">${esc(word)}</span>` : `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>`}</div>
         <div class="mrow">${rg ? ringHtml(rg, { spent, B, before, lastYm, sd, word }) : ''}<div class="grow">
@@ -187,8 +210,8 @@ export const homeView = {
         </div></div>
       </section>
       ${recap}${find ? findCard(find, tdy) : ''}
-      ${(cards => (fresh ? cards.find(Boolean) || '' : cards.join('')))([streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null, fresh)])}
-      ${learnHome()}
+      ${fresh ? [streakHome(), banner(null, true), backupBanner()].find(Boolean) || '' : [streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null)].join('')}
+      ${S.tx.length >= 3 ? learnHome() : ''}
       </div><div class="col">
       <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
       ${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul><button class="btn ghost wide" data-act="go" data-to="activity">${esc(t('See all'))}</button>` : `<p class="empty">${esc(t('Nothing yet. Scan your first receipt: Tally splits it into items and categories for you.'))}</p>`}
@@ -266,8 +289,19 @@ export const insightsView = {
 };
 
 const habitEv = h => habitEvent({ ...h, title: t('Tally: did you spend on {0}?', catLabel(h.category)), details: t('Add it in Tally so your spending stays complete.') });
+/** Spent since the start of this week (the week-start setting): Home's headline while no account balance is known. */
+const weekSpent = (txs, tdy) => {
+  const ws = settings().weekStart === 0 ? 0 : 1, from = addDaysIso(tdy, -((new Date(`${tdy}T00:00:00Z`).getUTCDay() - ws + 7) % 7));
+  return txs.reduce((s, x) => s + (x.type === 'expense' && x.date >= from && x.date <= tdy ? x.amount : 0), 0);
+};
 const addDaysIso = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const act = {
+  'stickers-open': () => {
+    const st = stickerState(stickerDays(today()));
+    openSheet(`<h2 class="sh-title">${esc(st.book > 1 ? t('Sticker book {0}', st.book) : t('Sticker book'))}</h2><p class="sh-body">${esc(t('One for each day you log. Missed days never take one away.'))}</p>
+      <ul class="stkgrid">${STICKERS.map((k, i) => `<li>${stickerSvg(k, i < st.got)}<span>${esc(i < st.got ? t(k[1]) : '?')}</span></li>`).join('')}</ul>
+      <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Close'))}</button></div>`, { label: t('Sticker book') });
+  },
   ...analyticsAct,
   'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),   // where people looked for it: under Accounts
   atm: b => { const bank = S.accounts.find(a => a.kind === 'bank') || S.accounts.find(a => a.id !== b.dataset.to); openTxSheet({ type: 'transfer', category: 'other', accountId: bank?.id, toAccountId: b.dataset.to, merchant: t('Cash withdrawal') }); },

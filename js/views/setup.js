@@ -10,7 +10,7 @@ import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKin
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { dailyEvent, ics, googleUrl } from '../calendar.js';
-import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, newSince, iosBrowser } from '../tour.js';
+import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, iosBrowser } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName } from '../colorpicker.js';
@@ -25,7 +25,7 @@ const setSize = async n => { await setSetting('textSize', n); document.documentE
 
 // ---- Appearance & personal: few words, the controls show what they do ------------------------------------------------
 const seg = (act, v, on, label, icon = '') => `<button class="seg${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"${icon ? ` aria-label="${esc(label)}" title="${esc(label)}"` : ''}>${icon || esc(label)}</button>`;
-const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles]];
+const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles], ['stickers', t('Sticker book'), ICON.award]];
 function lookCard() {
   const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || ACCENTS[0], hide = s.homeHide || [];
   const themes = [['system', t('Same as phone'), ICON.phone], ['light', t('Light theme'), ICON.sun], ['dark', t('Dark theme'), ICON.moon]];
@@ -62,22 +62,29 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 
 
 // ---- Welcome ----------------------------------------------------------------------------------------------------------
+/** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
+const legalLinks = () => `<a class="link" href="privacy${getLang() === 'en' ? '' : '.' + getLang()}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a>`;
 export const welcomeView = {
   title: 'Welcome',
   render() {
     return `<section class="welcome">
+      <div class="langrow top">${langButtons()}</div>
       <h1>Tally</h1>
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
+      <p class="sublede">${esc(t('No receipt? Just type the amount.'))}</p>
       <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Stays on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
+      <p class="fine maker">${esc(t('Made in Malaysia by one independent developer. Free because there are no servers to pay for, and nothing is collected, so there is nothing to sell.'))}</p>
+      <p class="legal">${legalLinks()}</p>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
-      <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data (Money Manager, Money Lover, Spendee, Wallet, YNAB, Excel…)'))}</button>
+      <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
       ${demoCard()}
-      <div class="langrow">${langButtons()}<div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
+      <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
         <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your data never leaves this phone unless you export it.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></span></li>
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
+        <li>${ICON.download}<span>${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</span></li>
       </ul>
       ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : `<p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>`}
       <h2 class="welcome-h">${esc(t('How it works'))}</h2>
@@ -86,7 +93,6 @@ export const welcomeView = {
         <li><b>${esc(t('Check'))}</b><span>${esc(t('Tally lists every item with a category. Fix anything it got wrong; it learns for next time.'))}</span></li>
         <li><b>${esc(t('See'))}</b><span>${esc(t('Your balance, where the money went, and a nudge when it is time to log.'))}</span></li>
       </ol>
-      <details class="whatsnew"><summary>${esc(t("What's new in {0}", APP_VERSION))}</summary><ul class="newlist">${newSince('0.1.0').map(x => `<li>${esc(t(x))}</li>`).join('')}</ul></details>
     </section>`;
   },
 };
@@ -168,13 +174,13 @@ export const settingsView = {
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
-        <p class="legal"><a class="link" href="privacy${getLang() === 'en' ? '' : '.' + getLang()}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></p></section>
+        <p class="legal">${legalLinks()}</p></section>
       ${learnCard()}
       <section class="card" id="s-help"><h2>${esc(t('Help and feedback'))}</h2>
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
         <button class="btn ghost wide" data-act="update-check">${esc(t('Check for updates'))}</button>
-        <p class="fine">${esc(t('Tell the developer about a bug or an idea. Only your message is sent.'))}</p>
+        <p class="fine">${esc(t('Tell the developer about a bug or an idea. Your message and the app version are sent; nothing about your money.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button></section>
       <p class="fine center">Tally ${APP_VERSION}</p>`;
   },
@@ -419,10 +425,14 @@ function balanceTodaySheet(ids, onClose) {
   const accs = ids.map(id => S.accounts.find(a => a.id === id)).filter(a => a && !a.outside);
   if (!accs.length) return onClose?.();
   const now = balances(accs, S.tx, today()).by;
+  const done = async () => {   // skipped (or left empty) and below zero: the balance is unknown, and Home says "not set" instead of a false minus
+    for (const a of accs) { const cur = S.accounts.find(x => x.id === a.id); if (cur && !cur.typed && balances([cur], S.tx, today()).by[cur.id] < 0) await saveAccount({ ...cur, typed: false }); }
+    onClose?.();
+  };
   openSheet(`<h2 class="sh-title">${esc(t('What is in these accounts today?'))}</h2><p class="sh-body">${esc(t('The file has no balances. Type what your bank or wallet app shows today; Tally moves the starting balance to match, so nothing counts as spending.'))}</p>
-    ${accs.map(a => `<label class="field"><span>${esc(a.name)} · ${esc(t('Balance today (RM)'))}</span><input inputmode="decimal" data-bt="${esc(a.id)}" data-now="${now[a.id] ?? 0}" value="${((now[a.id] ?? 0) / 100).toFixed(2)}"></label>`).join('')}
+    ${accs.map(a => `<label class="field"><span>${esc(a.name)} · ${esc(t('Balance today (RM)'))}</span><input inputmode="decimal" data-bt="${esc(a.id)}" data-now="${now[a.id] ?? 0}" value="${(now[a.id] ?? 0) < 0 ? '' : ((now[a.id] ?? 0) / 100).toFixed(2)}"></label>`).join('')}
     <p class="err" id="bt-err" role="alert"></p>
-    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Skip'))}</button><button class="btn" data-act="bt-save">${esc(t('Save'))}</button></div>`, { label: t('Balance today (RM)'), onClose });
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Skip'))}</button><button class="btn" data-act="bt-save">${esc(t('Save'))}</button></div>`, { label: t('Balance today (RM)'), onClose: done });
 }
 /** Money Manager backups: Innim (.mmbackup) or, with app 'realbyte', Realbyte (.mmbak). An Innim-looking zip without
  *  MyFinance.db gets a second try as Realbyte. */
@@ -628,7 +638,7 @@ export const act = {
     const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: true, createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();

@@ -87,7 +87,8 @@ const anyBudget = b => [b, b.joint, b.business].some(x => x && (x.total || Objec
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
   'tx-acc': () => { accPicked = true; reopen(); },   // the amount's currency, and "Received" between two currencies
-  'tx-amt': el => { const b = $('#tx-words'); if (b) b.hidden = !hasWords(el.value); el.removeAttribute('aria-invalid'); },
+  // The split button is always there (a number keypad has no letters); it lights up when words are typed.
+  'tx-amt': el => { const b = $('#tx-words'); if (b) b.classList.toggle('ghost', !hasWords(el.value)); el.removeAttribute('aria-invalid'); },
   'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; refilter(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   // Typing a name picks the category it had before (until one is tapped): "Grab to office" → Transport.
   'tx-name': el => {
@@ -147,6 +148,8 @@ export async function downloadReceipts(rows, zipName, csv) {
 }
 export function showIds(ids, label) { Object.assign(F, { q: '', acc: '', cat: '', month: '', photo: false, ids, idsLabel: label, limit: 200 }); go('activity'); }
 
+/** The kind of money in used most recently (refunds aside); Salary for a first one. */
+const lastIncomeCat = () => S.tx.reduce((b, x) => (x.type === 'income' && x.category !== 'refund' && (!b || (x.createdAt || 0) > (b.createdAt || 0)) ? x : b), null)?.category || 'salary';
 // ---- add / edit sheet ------------------------------------------------------------------------------------------------
 let draft = null; // the transaction being edited; its id is fixed when the sheet opens, so saving twice can't duplicate
 function sheetHtml() {
@@ -165,7 +168,7 @@ function sheetHtml() {
   return `<h2 class="sh-title">${esc(!isNew ? t('Edit') : day ? t('Add for {0}', day) : t('Add'))}</h2>
     <div class="segs" role="group" aria-label="${esc(t('Type'))}">${seg}</div>
     <label class="field amount"><span>${esc(amtLabel(d.accountId))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" aria-describedby="tx-err" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
-    ${d.type === 'expense' && !d.items?.length ? `<button class="btn small wide" id="tx-words" data-act="tx-split" hidden>${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
+    ${d.type === 'expense' && !d.items?.length ? `<button class="btn small ghost wide" id="tx-words" data-act="tx-split">${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
     ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</button>`).join('')}</div>`}
@@ -180,10 +183,9 @@ function sheetHtml() {
     <datalist id="tx-names">${pastNames(d.type).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     ${d.items?.length ? `<details class="items"><summary>${esc(d.receiptId ? (d.items.length === 1 ? t('1 item from the receipt') : t('{0} items from the receipt', d.items.length)) : d.items.length === 1 ? t('1 item') : t('{0} items', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
-    ${d.type === 'expense' && !d.items?.length ? `<button class="btn ghost small" data-act="tx-split">${ICON.list}${esc(t('Split into items'))}</button>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
     ${!isNew && d.type !== 'transfer' ? `<button class="btn ghost small" data-act="tx-again">${ICON.plus}${esc(t('Add again today'))}</button>` : ''}
-    <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
+    <div class="row2 sheetfoot">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="tx-del">${ICON.trash}${esc(t('Delete'))}</button>`}<button class="btn" data-act="tx-save">${esc(t('Save'))}</button></div>`;
 }
 /** Shop and note names typed before (imports too), most used first, for the name field's suggestions. */
 const pastNames = type => { const n = new Map(); for (const x of S.tx) if (x.type === type && x.merchant) n.set(x.merchant, (n.get(x.merchant) || 0) + 1); return [...n].sort((a, b) => b[1] - a[1]).slice(0, 300).map(([k]) => k); };
@@ -199,8 +201,8 @@ export function guessCategory(name, type = 'expense') {
     const n = {}; for (const x of S.tx) if (x.type === type && x.category && x.merchant && key(x.merchant) === want) n[x.category] = (n[x.category] || 0) + 1;
     const best = Object.entries(n).sort((a, b) => b[1] - a[1])[0]; if (best) return best[0];
   }
-  const c = type === 'expense' ? categorize(name, '', S.kv.rules) : null;
-  return c && c !== 'other' ? c : null;
+  // The typed name is often the shop ("Mydin", "Petronas", "Pasar raya"): its words and its shop both count.
+  return type === 'expense' ? categorize(name, name, S.kv.rules) : null;
 }
 /** What's wrong with a typed amount: over RM 100 million, or not an amount. */
 const amtErr = v => (tooLarge(v) ? t('That amount is too large (RM 100 million at most).') : t('Enter an amount, for example 12.50.'));
@@ -359,7 +361,7 @@ export const act = {
   'tx-type': b => {
     readForm(); draft.type = b.dataset.type;
     if (!accPicked && draft.type !== 'transfer') { const id = defaultAccount(draft.type === 'income' ? 'income' : 'quick', { amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel) sel.value = id; }   // money in lands where income usually does
-    if (draft.type === 'income' && !incomeCats().some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && incomeCats().some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
+    if (draft.type === 'income' && !incomeCats().some(c => c.id === draft.category)) draft.category = lastIncomeCat();   // a rider's payout, a stall's sales, a pension: the kind used last, not always Salary if (draft.type === 'expense' && incomeCats().some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
   },
   // A category of their own, made right here: named, picked, and back to the entry with nothing typed lost.
   'tx-newcat': () => {
