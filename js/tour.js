@@ -6,6 +6,11 @@ import { render, route, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '0.5.0': [
+    'Learn Tally: short missions that show what Tally can do, each ticked off when you do it (Settings, and on Home while you are new)',
+    'Streaks and badges, off unless you turn them on in Settings: a logging streak with one rest day a week, and badges for good money habits',
+    'With streaks on, a day with nothing spent keeps your streak going: tap Nothing spent today',
+  ],
   '0.4.0': [
     'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',
     'Share joint accounts with your spouse as a file; their changes come back the same way, and newer edits win',
@@ -59,6 +64,7 @@ export function showTour(start = 0) {
       ${last ? `<p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))}</span></p>` : ''}
       ${i ? `<div class="dots" aria-hidden="true">${TOUR.slice(1).map((_, j) => `<i class="${j + 1 === i ? 'on' : j + 1 < i ? 'done' : ''}"></i>`).join('')}</div>` : ''}
       ${last && canInstall() ? `<button class="btn ghost wide" data-t="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
+      ${last ? `<button class="btn ghost wide" data-t="learn">${ICON.sparkles}${esc(t('Then try it: Learn Tally'))}</button>` : ''}
       <div class="row2"><button class="btn ghost" data-t="${i ? 'back' : 'skip'}">${esc(i ? t('Back') : t('Skip'))}</button><button class="btn" data-t="next">${esc(last ? t('Start using Tally') : i ? t('Next') : t('Show me'))}</button></div>
       ${i && !last ? `<button class="link tourskip" data-t="skip">${esc(t('Skip the tour'))}</button>` : ''}</div>`;
     setTimeout(() => sheet.querySelector('[data-t="next"]')?.focus({ preventScroll: true }), 40);
@@ -70,7 +76,8 @@ export function showTour(start = 0) {
     if (k === 'next' && i < TOUR.length - 1) { i++; return paint(); }
     if (k === 'back') { i--; return paint(); }
     closeSheet();
-    if (route() !== 'home') location.hash = '#/home';
+    if (k === 'learn') location.hash = '#/learn';
+    else if (route() !== 'home') location.hash = '#/home';
   });
   paint();
 }

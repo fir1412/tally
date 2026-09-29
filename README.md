@@ -22,6 +22,8 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
 - **Joint account for couples:** mark an account as Joint and switch between Me, Joint and All; joint budgets are
   separate. Share the joint accounts (only those) with your spouse as a file; changes come back the same way and the
   newer edit wins.
+- **Learn by doing:** Learn Tally is a list of short missions (scan a receipt, set a budget, back up…) that tick
+  themselves off as you use the app. Streaks and badges for good money habits are there too, off unless you turn them on.
 - **Your data stays yours:** export to CSV for Excel or Sheets; back up to a file (optionally with receipt photos)
   and restore on a new phone.
 
@@ -61,7 +63,8 @@ outside the repo.
 | `js/io.js`, `js/statement.js`, `js/mmimport.js` | CSV/Excel/Sheets import, bank statements, Money Manager, backups (zip with photos), CSV export |
 | `js/i18n.js`, `js/i18n/` | English, Malay and Chinese |
 | `js/tour.js`, `js/feedback.js` | First-run tour, What's new, updates; in-app feedback |
-| `js/views/*.js` | Home & Insights, Activity & Budgets, Review receipt, Welcome & Settings |
+| `js/learn.js`, `js/gamify.js` | Learn Tally mission rules; logging streak and badge rules (pure, tested) |
+| `js/views/*.js` | Home & Insights, Activity & Budgets, Review receipt, Welcome & Settings, Learn Tally & Badges |
 | `sw.js` | Offline cache |
 | `models/`, `vendor/`, `fonts/` | OCR models, bundled libraries and fonts (see `THIRD_PARTY_NOTICES.md`) |
 

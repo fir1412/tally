@@ -7,6 +7,7 @@ import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download } from '../io.js';
 import { render } from '../app.js';
 import { txRow, catLabel, dot, openTxSheet, scopeSwitch } from './money.js';
+import { learnHome, streakHome } from './learn.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
 export function fill([tpl, ...vals]) {
@@ -84,8 +85,10 @@ export const homeView = {
         ${before && diff ? `<p class="delta ${diff > 0 ? 'bad' : 'good'}">${esc(diff > 0 ? t('{0} more than this point in {1}', fmtRM(diff), fmtMonth(lastYm, sd)) : t('{0} less than this point in {1}', fmtRM(-diff), fmtMonth(lastYm, sd)))}</p>` : ''}
         ${B ? `<div class="meter ${spent > B ? 'bad' : p.over ? 'warn' : 'good'}"><i style="width:${Math.min(100, Math.round(spent / B * 100))}%"></i></div>` : ''}
       </section>
+      ${streakHome()}
       ${backupBanner()}
       ${banner()}
+      ${learnHome()}
       </div><div class="col">
       <div class="rowb"><h2>${esc(t('Recent'))}</h2><button class="btn ghost small" data-act="tx-new">${ICON.plus}${esc(t('Add by hand'))}</button></div>
       ${recent.length ? `<ul class="list">${recent.map(txRow).join('')}</ul><button class="btn ghost wide" data-act="go" data-to="activity">${esc(t('See all'))}</button>` : `<p class="empty">${esc(t('Nothing yet. Scan your first receipt: Tally splits it into items and categories for you.'))}</p>`}

@@ -7,13 +7,14 @@ import * as home from './views/home.js';
 import * as money from './views/money.js';
 import * as review from './views/review.js';
 import * as setup from './views/setup.js';
+import * as learn from './views/learn.js';
 import { flushFeedback } from './feedback.js';
 import { onboarding, registerSW } from './tour.js';
 
-export const APP_VERSION = '0.4.0';
-const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView };
-const ACT = { ...home.act, ...money.act, ...review.act, ...setup.act };
-const INPUT = { ...money.input, ...setup.input, ...review.input };
+export const APP_VERSION = '0.5.0';
+const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView, learn: learn.learnView, badges: learn.badgesView };
+const ACT = { ...home.act, ...money.act, ...review.act, ...setup.act, ...learn.act };
+const INPUT = { ...money.input, ...setup.input, ...review.input, ...learn.input };
 
 export const route = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
 export function go(r) { if (route() === r) render(); else location.hash = `#/${r}`; }
@@ -28,6 +29,7 @@ export function render() {
     : `<button class="fab" data-act="scan" aria-label="${esc(t('Scan a receipt'))}">${ICON.camera}</button>`).join('')}<a href="#/settings" class="tab desk${r === 'settings' ? ' on' : ''}">${ICON.gear}<span>${esc(t('Settings'))}</span></a></nav>`;
   $('#app').innerHTML = `<main id="view" class="view-${r}">${view.render()}</main>${nav}`;
   view.after?.();
+  learn.afterRender();   // Learn Tally missions and badges, checked a moment later
   document.title = `Tally · ${t(view.title || 'Home')}`;
 }
 
@@ -38,14 +40,14 @@ document.addEventListener('click', async e => {
   const fn = own(ACT, b.dataset.act);
   if (!fn) return;
   e.preventDefault();
-  try { await fn(b, e); } catch (err) { console.error(err); if (b.isConnected) b.disabled = false; toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
+  try { await fn(b, e); learn.noticed(`act:${b.dataset.act}`); } catch (err) { console.error(err); if (b.isConnected) b.disabled = false; toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }); }
 });
 // Typing fields report on 'input'; selects, checkboxes, dates and files on 'change' (each handler runs once).
 const typing = el => el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'date', 'time', 'color'].includes(el.type));
 for (const ev of ['input', 'change']) document.addEventListener(ev, e => {
   const el = e.target.closest('[data-input]');
   const fn = el && own(INPUT, el.dataset.input);
-  if (fn && (ev === 'input') === typing(el)) fn(el, e);
+  if (fn && (ev === 'input') === typing(el)) { fn(el, e); learn.noticed(`input:${el.dataset.input}:${el.dataset.k || ''}`); }
 });
 // Screen change: entrance motion plays once (html[data-enter]), and browsers with View Transitions crossfade.
 // Going straight back to the screen just left (back arrow or phone back) returns to the same scroll position.
