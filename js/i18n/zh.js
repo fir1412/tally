@@ -1288,4 +1288,9 @@ export default {
   "Rent & housing": "房租与住房",
   "Business money: a stall, rides or a shop (RM), optional": "生意的钱：摊位、载客或店铺（RM），可选",
   "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "无需账户，无广告，无追踪。收据在这部手机上读取。Tally 只在以下情况联网：加载自己的文件、你粘贴的 Google Sheets 链接、你查询的汇率、你发送的反馈，以及你添加的 Google 日历提醒。",
+  "Licences": "许可证",
+  "Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features": "选择 Tally 做多少：简单、标准或全部，或在 设置 → 功能 里逐项开关",
+  "A sticker book for the days you log, colour themes for the whole app, and splitting a bill with friends": "记账日的贴纸册、整个应用的配色主题，以及和朋友分账",
+  "New categories for rent, loans and insurance, and a business account from the start": "新增房租、贷款和保险类别，开始时就能加生意账户",
+  "Tally in 日本語 and 繁體中文": "Tally 支持 日本語 和 繁體中文",
 };

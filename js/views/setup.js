@@ -80,7 +80,7 @@ const catAddSheet = (name = '', color = nextColor(S.kv.customCats.map(c => c.col
 /** Exchange rates, asked for only when the person taps "Get today's rate" (ECB rates; see privacy.html). */
 const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
-const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a>`;
+const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms${getLang() === 'ms' ? '.ms' : ''}.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a><a class="link" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">${esc(t('Licences'))}</a>`;
 export const welcomeView = {
   title: 'Welcome',
   render() {

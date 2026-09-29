@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tally · 隱私</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<main>
+<h1>隱私</h1>
+<p class="fine"><a href="privacy.html" hreflang="en" lang="en">English</a> · <a href="privacy.ms.html" hreflang="ms" lang="ms">Bahasa Melayu</a> · <a href="privacy.zh.html" hreflang="zh-Hans" lang="zh-Hans">简体中文</a> · <a href="privacy.zh-Hant.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a> · <a href="privacy.ja.html" hreflang="ja" lang="ja">日本語</a></p>
+<p><b>簡單來說：Tally 不會把你的財務資料發送到任何地方。只有在你匯出、備份或分享，或把帳單提醒加到 Google 日曆時，資料才會離開你的手機。開發者唯一會收到的，是你自己選擇發送的意見回饋。</b></p>
+<ul>
+  <li><b>無需帳戶、沒有伺服器、沒有分析、沒有廣告、沒有追蹤。</b>Tally 是一組靜態檔案；安裝後可離線使用。</li>
+  <li><b>資料存在哪裡：</b>交易、收據照片、帳戶和設定都儲存在你設備上的瀏覽器儲存空間（IndexedDB）裡。開發者看不到。</li>
+  <li><b>收據</b>由手機上的文字識別器（PaddleOCR）在本機讀取。照片從不上傳。儲存的照片會重新編碼，位置資訊因此被去除。</li>
+  <li><b>網路請求：</b>Tally 從 GitHub Pages 下載它自己的檔案（GitHub 可能會記錄一般的網頁伺服器資料，例如你的 IP 地址）。如果你貼上 Google 表格連結，Tally 會從 Google 讀取那份表格；不會發送關於你的其他資訊。</li>
+  <li><b>匯率（可選）：</b>只有當你在外幣帳戶上點<i>獲取今日匯率</i>時，Tally 才會向 api.frankfurter.dev 查詢這一個匯率（歐洲央行匯率）。不會發送任何關於你或你財務的資訊。</li>
+  <li><b>意見回饋：</b>只有在你點「發送意見回饋」時，你的留言、你自願填寫的聯繫方式，以及應用資訊（Tally 版本、手機類型、瀏覽器、螢幕寬度、當前頁面和語言）才會透過 Google 表單發送給開發者。不包含任何關於你的錢、收據或帳戶的內容。離線時寫的留言會先留在手機上，恢復聯網後再發送。</li>
+  <li><b>日曆提醒</b>（帳單、習慣、每日提醒）是你自己選擇加入日曆的連結或檔案；由你的日曆應用儲存，而不是 Tally。</li>
+  <li><b>應用鎖</b>（可選）：你的 PIN 從不儲存，手機上只儲存它加鹽後的雜湊值。指紋或面容由手機驗證；Tally 只儲存一個識別碼，從不接觸你的指紋或面容。應用鎖用來防止別人打開應用，並不會加密你的資料。</li>
+  <li><b>備份和匯出</b>是你自己建立、自己決定存放位置的檔案。一旦分享出去，就適用該服務的條款。</li>
+  <li><b>共同帳戶：</b>「分享共同帳戶」生成的檔案只包含你標記為共同的帳戶、它們的記錄（以及你勾選的照片）、共同預算、用到的類別和你為共同記錄設定的名字。不包含個人帳戶的任何內容。檔案沒有加密：只透過你信任的應用發給你的伴侶。Tally 從不自行發送。</li>
+  <li><b>刪除資料：</b>設定 → 清除本機所有資料，或在瀏覽器裡清除網站資料，或卸載應用。其他地方沒有副本，所以卸載或清除網站資料會刪除一切：想保留的話請先備份。</li>
+</ul>
+<h2>你的意見回饋和你的權利</h2>
+<p>意見回饋只用於修復 Tally 和回覆你。Google（Google Forms）替開發者儲存意見回饋，可能存放在馬來西亞境外，並在 12 個月後刪除。聯繫方式可不填；不填的話開發者無法回覆。請不要填寫身分證號碼或帳戶號碼。如要查看、更正或刪除你發送過的意見回饋，或撤回同意，請透過「發送意見回饋」留下聯繫方式提出請求；你會在 21 天內得到答覆。如果意見回饋資料外洩，開發者會依法通知個人資料保護專員和受影響的人。未滿 18 歲？請先徵得父母或監護人同意再填寫聯繫方式。</p>
+<p>Google 日曆提醒：如果你使用 Google 日曆連結，提醒的文字（例如「支付 Unifi」）會發送給 Google。</p>
+<h2>誰在做 Tally</h2>
+<p>Tally 由馬來西亞的一位獨立開發者製作（GitHub：fir1412）。它之所以免費，是因為不需要支付伺服器費用：應用只是一組檔案，你的資料留在你的手機上，所以不收集任何東西，也沒有東西可賣。原始碼公開：<a href="https://github.com/tallymy/tallymy.github.io">github.com/tallymy/tallymy.github.io</a>。有問題：設定 → 發送意見回饋。</p>
+<p class="fine">最後更新：2026 年 9 月 29 日</p>
+<p><a href="./">返回 Tally</a></p>
+</main>
+</body>
+</html>

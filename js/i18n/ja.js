@@ -1287,4 +1287,9 @@ export default {
   "Rent & housing": "家賃・住居",
   "Business money: a stall, rides or a shop (RM), optional": "事業のお金：屋台、配車、お店（RM）、任意",
   "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "アカウントなし、広告なし、追跡なし。レシートはこのスマホで読み取ります。Tally がネットに接続するのは、自身のファイル、あなたが貼った Google Sheets のリンク、あなたが求めた為替レート、あなたが送るフィードバック、あなたが追加する Google カレンダーのリマインダーのときだけです。",
+  "Licences": "ライセンス",
+  "Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features": "Tally の機能量を選べます：シンプル、標準、すべて。設定 → 機能 で一つずつオン・オフも",
+  "A sticker book for the days you log, colour themes for the whole app, and splitting a bill with friends": "記録した日のステッカー帳、アプリ全体のカラーテーマ、友だちとの割り勘",
+  "New categories for rent, loans and insurance, and a business account from the start": "家賃・ローン・保険の新カテゴリと、最初から使える事業用口座",
+  "Tally in 日本語 and 繁體中文": "Tally が 日本語 と 繁體中文 に対応",
 };

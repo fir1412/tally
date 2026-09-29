@@ -1288,4 +1288,9 @@ export default {
   "Rent & housing": "Sewa & rumah",
   "Business money: a stall, rides or a shop (RM), optional": "Wang perniagaan: gerai, e-hailing atau kedai (RM), pilihan",
   "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "Tiada akaun, tiada iklan, tiada penjejakan. Resit dibaca di telefon ini. Tally hanya ke internet untuk failnya sendiri, pautan Google Sheets yang anda tampal, kadar tukaran yang anda minta, maklum balas yang anda hantar, dan peringatan Google Calendar yang anda tambah.",
+  "Licences": "Lesen",
+  "Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features": "Pilih sebanyak mana Tally buat: Ringkas, Standard atau Semua, atau hidup dan matikan setiap ciri di Tetapan → Ciri",
+  "A sticker book for the days you log, colour themes for the whole app, and splitting a bill with friends": "Buku pelekat untuk hari anda merekod, tema warna untuk seluruh aplikasi, dan bahagi bil dengan kawan",
+  "New categories for rent, loans and insurance, and a business account from the start": "Kategori baharu untuk sewa, pinjaman dan insurans, serta akaun perniagaan dari awal",
+  "Tally in 日本語 and 繁體中文": "Tally dalam 日本語 dan 繁體中文",
 };

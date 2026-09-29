@@ -6,6 +6,12 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.0.0': [
+    'Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features',
+    'A sticker book for the days you log, colour themes for the whole app, and splitting a bill with friends',
+    'New categories for rent, loans and insurance, and a business account from the start',
+    'Tally in 日本語 and 繁體中文',
+  ],
   '0.7.0': [
     "Download your receipt photos: one at a time, all the ones a search finds, or a year's tax-relief receipts in a folder per relief",
     "Your data is never locked in: export to Excel, Google Sheets, CSV or QIF, and bring QIF files in from other money apps",

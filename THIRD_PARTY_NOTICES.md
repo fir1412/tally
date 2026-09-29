@@ -15,3 +15,7 @@ Tally ships these files unchanged (except bundling) so it can run offline on the
 
 `vendor/ocr.js` was built with esbuild from `@gutenye/ocr-browser@1.4.9` aliased to `onnxruntime-web/wasm`.
 Parts of `js/db.js`, `js/ui.js`, `js/io.js`, `js/calendar.js` and `sw.js` are adapted from the author's own "we go gim" (MIT).
+
+Full licence texts: [MIT](LICENSE) (Tally, and the MIT parts above: the permission notice is the same), [Apache-2.0](LICENSES/Apache-2.0.txt),
+[BSL-1.0](LICENSES/BSL-1.0.txt), [OFL-1.1 for IBM Plex](LICENSES/OFL-1.1-IBM-Plex.txt) and
+[OFL-1.1 for Bricolage Grotesque](LICENSES/OFL-1.1-Bricolage-Grotesque.txt).
