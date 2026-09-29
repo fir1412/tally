@@ -611,7 +611,7 @@ async function sealedBackup(r = null, pass = '#bk-pass', err = '#bk-err') {
   const pw = $(pass)?.value || '';
   r ||= await backupBlob($('#bk-photos')?.checked);
   if (!pw) return r;
-  if (pw.length < 8) { $(err).textContent = t('Use at least 8 characters.'); $(pass).focus(); return null; }
+  if (pw.length < 10) { $(err).textContent = t('Use at least 10 characters.'); $(pass).focus(); return null; }
   const text = await sealBackup(new Uint8Array(await r.blob.arrayBuffer()), pw);
   return { ...r, name: r.name.replace(/\.(json|zip)$/, '.locked.json'), blob: new Blob([text], { type: 'application/json' }) };
 }
@@ -1033,7 +1033,8 @@ export const act = {
   'export-sheets': async () => {
     try { await navigator.clipboard.writeText(toTSV(S.tx, S.accounts, catName)); } catch { return toast(t('Could not copy. Use Excel (.xlsx) and open it in Google Drive.'), { k: 'warn' }); }
     window.open('https://sheets.new', '_blank', 'noopener');
-    toast(t('Copied. In the new sheet, tap cell A1 and paste.'), { k: 'good', icon: 'check' });
+    toast(t('Copied. In the new sheet, tap cell A1 and paste. Tally clears the clipboard in 2 minutes where the phone allows it.'), { k: 'good', icon: 'check' });
+    setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 120_000);   // other apps and keyboards read the clipboard: best effort
   },
   // Sample data: a made-up month to look around in; "Start for real" removes it (and anything added to its accounts).
   'sample-go': async () => {

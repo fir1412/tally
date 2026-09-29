@@ -212,3 +212,10 @@ test('a crafted partner file cannot delete a personal row, overwrite a personal 
   const m = IO.mergeJoint({ ...mine, accounts: [ACCOUNTS[0], { ...mine.accounts[1], rate: undefined }] }, myr);
   assert.equal(m.empty.length, 1); assert.equal(m.accounts.find(a => a.id === 'aa').rate, undefined);
 });
+
+test('a flood of made-up delete markers cannot push out the ones for rows on this phone', () => {
+  const flood = Object.fromEntries(Array.from({ length: 1500 }, (_, i) => [`fake${i}`, Date.now()]));
+  const m = IO.mergeJoint({ accounts: ACCOUNTS, tx: TX, kv: { ...KV, jointGone: { mine1: 7 } } }, { accounts: [ACCOUNTS[1]], tx: [], recurring: [], gone: { ...flood, t2: 1 }, kv: {} });
+  assert.equal(Object.keys(m.gone).length, 1000);
+  assert.equal(m.gone.mine1, 7); assert.equal(m.gone.t2, 1);
+});

@@ -33,7 +33,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
   try {
     const rows = sql => { const r = db.exec(sql)[0]; return r ? r.values.map(v => Object.fromEntries(r.columns.map((c, i) => [c, v[i]]))) : []; };
     // Only real tables are read: a crafted file can't swap one for a view, or add computed (generated) columns.
-    const has = t => rows(`select name from sqlite_master where type='table' and name='${t}'`).length > 0 && rows(`select count(*) as n from pragma_table_xinfo('${t}') where hidden > 1`)[0].n === 0;
+    const has = t => rows(`select name from sqlite_master where type='table' and name='${t}' and upper(coalesce(sql, '')) not like 'CREATE VIRTUAL%'`).length > 0 && rows(`select count(*) as n from pragma_table_xinfo('${t}') where hidden > 1`)[0].n === 0;
     if (!['transaction', 'account', 'account_balance', 'category', 'sync_link'].every(has)) throw new Error('This Money Manager backup is from a version Tally does not know yet.');
 
     // Categories: theirs → ours, or a new custom one.
@@ -129,7 +129,7 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
   try {
     const rows = sql => { const r = db.exec(sql)[0]; return r ? r.values.map(v => Object.fromEntries(r.columns.map((c, i) => [c, v[i]]))) : []; };
     const cols = t => new Set(rows(`select name from pragma_table_xinfo('${t}') where hidden <= 1`).map(c => c.name));
-    const has = t => rows(`select name from sqlite_master where type='table' and name='${t}'`).length > 0 && rows(`select count(*) as n from pragma_table_xinfo('${t}') where hidden > 1`)[0].n === 0;
+    const has = t => rows(`select name from sqlite_master where type='table' and name='${t}' and upper(coalesce(sql, '')) not like 'CREATE VIRTUAL%'`).length > 0 && rows(`select count(*) as n from pragma_table_xinfo('${t}') where hidden > 1`)[0].n === 0;
     if (!['INOUTCOME', 'ASSETS'].every(has)) {
       if (has('ZINOUTCOME')) throw new Error('This is an iPhone Money Manager backup. Export to Excel in the app instead, and import that file.');
       throw new Error('This Money Manager backup is from a version Tally does not know yet.');

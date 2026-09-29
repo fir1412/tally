@@ -1355,4 +1355,6 @@ export default {
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "Lakukan ini hanya selepas sandaran anda dipulihkan di tallymy.github.io. Ini memadam data, tetapan dan fail luar talian Tally dari alamat ini; tiada apa-apa milik aplikasi lain.",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "Alamat lama ini berkongsi laman dengan aplikasi lain, jadi data anda lebih selamat di alamat baharu. Pindahkan dalam tiga langkah:",
   "Every change, with its code": "Setiap perubahan, dengan kodnya",
+  "Copied. In the new sheet, tap cell A1 and paste. Tally clears the clipboard in 2 minutes where the phone allows it.": "Disalin. Dalam helaian baharu, ketik sel A1 dan tampal. Tally mengosongkan papan keratan dalam 2 minit jika telefon membenarkannya.",
+  "Use at least 10 characters.": "Gunakan sekurang-kurangnya 10 aksara.",
 };

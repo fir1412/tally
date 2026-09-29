@@ -124,7 +124,7 @@ async function bioCheck(id) {
  * full length, then Unlock is tapped), is not a try. From the 5th wrong PIN: a wait of 30 s, 30 s longer each time.
  * st: {fails, until} (kept by the caller). → 'ok' | 'wrong' | 'wait' | 'ignored'.
  */
-export function pinGuard(check, st, now = () => Date.now()) {
+export function pinGuard(check, st, now = () => performance.now()) {   // monotonic: setting the phone's clock ahead doesn't end a wait
   let busy = false;
   return async pin => {
     if (!pin || busy) return 'ignored';
@@ -138,10 +138,11 @@ export function pinGuard(check, st, now = () => Date.now()) {
   };
 }
 // Wrong tries survive a reload, so reloading doesn't buy 5 fresh guesses. (localStorage can throw: then memory only.)
+// Stored as [fails, ms still to wait]; the wait restarts in full after a reload rather than trusting the clock.
 const tries = { get: () => { try { return JSON.parse(localStorage.getItem('tally-pin-tries')) || [0, 0]; } catch { return [0, 0]; } },
-  set: v => { try { localStorage.setItem('tally-pin-tries', JSON.stringify(v)); } catch {} } };
+  set: ([fails, until]) => { try { localStorage.setItem('tally-pin-tries', JSON.stringify([fails, Math.max(0, until - performance.now())])); } catch {} } };
 let pending = null;
-const st = (([fails, until]) => ({ fails, until }))(tries.get());
+const st = (([fails, left]) => ({ fails, until: left > 0 ? performance.now() + Math.min(left, 300_000) : 0 }))(tries.get());
 /** Cover everything with the lock screen until the PIN or fingerprint is right. Resolves at once without a lock. */
 export function gate() {
   if (!lockOn()) return Promise.resolve();
@@ -177,7 +178,7 @@ export function gate() {
         if (!lock.enc) return done();
         db.setKey(opened); opened = null; return done();
       }
-      if (r === 'wait') { const s = Math.ceil((st.until - Date.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
+      if (r === 'wait') { const s = Math.ceil((st.until - performance.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
       if (r !== 'wrong') return;
       tries.set([st.fails, st.until]);
       el.querySelector('#lock-pin').value = '';

@@ -1354,4 +1354,6 @@ export default {
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "請在 tallymy.github.io 恢復備份之後再做。這會刪除這個網址上 Tally 的資料、設定和離線檔案；不會動另一個應用的任何東西。",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "這個舊網址和另一個應用共用同一個站點，所以你的資料放在新網址更安全。分三步搬過去：",
   "Every change, with its code": "每一次改動及其代碼",
+  "Copied. In the new sheet, tap cell A1 and paste. Tally clears the clipboard in 2 minutes where the phone allows it.": "已複製。在新表格裡點單元格 A1 再貼上。在手機允許的情況下，Tally 會在 2 分鐘後清空剪貼板。",
+  "Use at least 10 characters.": "請至少使用 10 個字符。",
 };

@@ -56,7 +56,7 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Other network paths | None: a test checks that `js/` and `sw.js` use no `sendBeacon`, `WebSocket`, `XMLHttpRequest` or `EventSource`, and that `fetch` goes only to the feedback form, a pasted Sheets link and the exchange-rate address. |
 | Supply chain | Everything is vendored and self-hosted (OCR bundle, ONNX Runtime, models, sql.js, pdf.js, fonts). No page loads a script from a CDN at runtime (the OCR spike page was removed in 73ac174, and a test checks every tracked page). Licences in `THIRD_PARTY_NOTICES.md`. |
 | Secrets | None in the code. The feedback form address is public by design. Real receipts and test data are git-ignored. |
-| App lock | Optional (Settings → Lock Tally), `js/lock.js`. A 4–6 digit PIN or an 8–64 character password, stored only as a salted PBKDF2-SHA-256 hash (600,000 iterations for new locks; older ones keep 210,000), plus the phone's fingerprint or face through a WebAuthn platform authenticator with `userVerification: 'required'` (only the credential id is stored). Asked on open and after more than a minute in the background; the screen is blank in the app switcher while hidden. 5 wrong PINs → growing waits. Forgot PIN → fingerprint/face, or erase everything. Changing or turning off the lock asks for the current PIN. Never in backups. Without encryption it is a privacy screen: anyone who can read the browser's storage (a rooted phone, devtools) can read the data. Pinned by `tests/security.test.mjs`. |
+| App lock | Optional (Settings → Lock Tally), `js/lock.js`. A 4–6 digit PIN or an 8–64 character password, stored only as a salted PBKDF2-SHA-256 hash (600,000 iterations for new locks; older ones keep 210,000), plus the phone's fingerprint or face through a WebAuthn platform authenticator with `userVerification: 'required'` (only the credential id is stored). Asked on open and after more than a minute in the background; the screen is blank in the app switcher while hidden. 5 wrong PINs → growing waits, timed on the monotonic clock (changing the phone's clock doesn't end one; a reload restarts it). Forgot PIN → fingerprint/face, or erase everything. Changing or turning off the lock asks for the current PIN. Never in backups. Without encryption it is a privacy screen: anyone who can read the browser's storage (a rooted phone, devtools) can read the data. Pinned by `tests/security.test.mjs`. |
 | Encryption at rest | Optional, Settings → Privacy → Encrypt data on this phone (needs the lock; IndexedDB only). `js/db.js` seals every record except `settings` (language, text size, the lock) as `{id, iv, ct}`: AES-GCM-256 under a random data key, fresh 12-byte IV per write; receipt photos include their bytes. The data key is wrapped (AES-GCM `wrapKey`) with a key from the PIN or password (PBKDF2-SHA-256, 600,000 iterations, random salt) and lives only in memory after unlock. While encrypted the lock keeps no fast PIN hash: the slow unwrap is the only check, and fingerprint/face can't unlock (it can't give the key). Changing the PIN re-wraps the key; turning it off decrypts everything and needs the PIN. Limits: a 4–6 digit PIN can still be brute-forced offline from a copy of the storage (the UI says so and offers a password); script running on this origin after unlock can read the data; settings are not encrypted. Pinned by `tests/crypto.test.mjs` and `.personas/encrypt-check.mjs`. |
 | Data loss | `navigator.storage.persist()` is requested after setup; Settings shows whether storage is protected, and Settings and the tour say that uninstalling or clearing site data deletes everything. |
 
@@ -71,10 +71,16 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Prompt injection, AI cost caps | No AI service | an AI assistant is added: treat receipts and imports as untrusted input |
 | Server logs | No server | a backend exists (log without financial data) |
 
+## Release checklist
+
+- Bump `VERSION` in `sw.js` for every release, and `ASSETS` whenever anything in `vendor/`, `models/` or `fonts/`
+  changes (a pdf.js, sql.js or OCR security update reaches installed copies only then: those files are cache-first).
+- Push only `main` (never `--all` or `--mirror`); keep the `tallymy` account single-purpose, with 2FA.
+
 ## Known limits and follow-ups
 
 - **Backups and joint-account share files are plain JSON (or a zip) unless a password is set.** With a password they
-  are sealed with AES-GCM under a PBKDF2-SHA-256 key (310,000 iterations, random salt and IV; `sealBackup`, tested).
+  are sealed with AES-GCM under a PBKDF2-SHA-256 key (600,000 iterations for new files, older ones at 310,000 still open; a file claiming over 2,000,000 is refused; random salt and IV; `sealBackup`, tested). Backup passwords need 10 or more characters.
   Without one, anyone who gets the file can read it: send it only to yourself or your partner over a channel you trust.
   A forgotten password can't be recovered.
 - **Joint share files** hold only accounts marked Joint, their rows (a transfer from a personal account appears as

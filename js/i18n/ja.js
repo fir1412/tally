@@ -1354,4 +1354,6 @@ export default {
   "Only do this after your backup is restored at tallymy.github.io. This deletes Tally's data, settings and offline files from this address; nothing of the other app.": "tallymy.github.io でバックアップを復元してから行ってください。このアドレスから Tally のデータ、設定、オフライン用ファイルを削除します。もう一方のアプリには触れません。",
   "This old address shares its site with another app, so your data is safer at the new one. Move it in three steps:": "この古いアドレスは別のアプリとサイトを共有しているため、データは新しいアドレスの方が安全です。3 ステップで移しましょう：",
   "Every change, with its code": "すべての変更とそのコード",
+  "Copied. In the new sheet, tap cell A1 and paste. Tally clears the clipboard in 2 minutes where the phone allows it.": "コピーしました。新しいシートでセル A1 をタップして貼り付けてください。スマホが許す場合、Tally は 2 分後にクリップボードを空にします。",
+  "Use at least 10 characters.": "10 文字以上にしてください。",
 };

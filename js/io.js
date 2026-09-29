@@ -171,7 +171,7 @@ function dateStyles(xml) {
 }
 /** Every worksheet of an .xlsx, in the workbook's tab order → [{name, rows}]. Dates stay Excel serials (fileDate reads those). */
 export async function xlsxSheets(buf) {
-  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/styles.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/styles.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n), { budget: 50 * 1024 * 1024 });   // a sheet's text is held as a string: 50 MB inflated at most
   const dec = x => (x ? new TextDecoder().decode(x).replace(/<(\/?)[A-Za-z][\w.-]*:(?=[A-Za-z])/g, '<$1') : '');   // <x:row> as <row> (OpenXML SDK files)
   const opts = { dates: dateStyles(dec(files['xl/styles.xml'])), base1904: /date1904="(1|true)"/.test(dec(files['xl/workbook.xml'])) };
   const shared = [];
@@ -973,7 +973,9 @@ export function mergeJoint(local, incoming) {
   const jointHere = new Set(local.accounts.filter(a => a.scope === 'joint').map(a => a.id));
   // A delete from the partner removes joint-only rows; one that also uses a personal account here (a transfer in) stays.
   const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && !personal.has(t.accountId) && !personal.has(t.toAccountId) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id), dropped = new Set(drop);
-  const gone = Object.fromEntries(Object.keys({ ...theirGone, ...myGone }).map(id => [id, Math.max(theirGone[id] || 0, myGone[id] || 0)]).sort((a, b) => a[1] - b[1]).slice(-1000));
+  const mattersHere = id => id in myGone || txs.has(id);   // my deletes and rows on this phone outrank made-up ids when trimming
+  const gone = Object.fromEntries(Object.keys({ ...theirGone, ...myGone }).map(id => [id, Math.max(theirGone[id] || 0, myGone[id] || 0)])
+    .sort((a, b) => (mattersHere(b[0]) - mattersHere(a[0])) || (b[1] - a[1])).slice(0, 1000));
   const empty = mineOnly.filter(a => into.has(a.id)).map(a => ({ ...a, moved: local.tx.filter(t => t.accountId === a.id || t.toAccountId === a.id).length }));
   const to = id => into.get(id) || id;   // moved rows keep their edit time: a newer edit on the other phone still wins; a deleted one stays deleted
   const moved = local.tx.filter(t => (into.has(t.accountId) || into.has(t.toAccountId)) && !dropped.has(t.id)).map(t => ({ ...t, accountId: to(t.accountId), ...(t.toAccountId ? { toAccountId: to(t.toAccountId) } : {}) }));
@@ -1034,9 +1036,9 @@ export function zipStore(files) {
 export const BACKUP_JSON = 'tally-backup.json';
 
 // ---- password-protected backups ------------------------------------------------------------------------------------
-// The backup file (JSON or zip) sealed with AES-GCM under a key from the password (PBKDF2-SHA256, 310 000 rounds, random
+// The backup file (JSON or zip) sealed with AES-GCM under a key from the password (PBKDF2-SHA256, 600 000 rounds, random
 // salt and IV). Without the password nobody can open it, Tally included: there is no reset.
-const ENC_ITER = 310000;
+const ENC_ITER = 600000;   // PBKDF2-SHA-256 (OWASP 2023); files made with 310,000 still open
 const toB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const sealKey = async (password, salt, iter, use) => crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter },
@@ -1051,7 +1053,7 @@ export async function sealBackup(bytes, password) {
 /** The sealed file's text + password → the backup bytes; a wrong password (or a changed file) throws. */
 export async function openBackup(text, password) {
   const o = JSON.parse(text);
-  if (o.v !== 1 || !(o.iter >= 100000 && o.iter <= 5e6)) throw new Error('This protected backup was made by a newer Tally. Update Tally and try again.');
+  if (o.v !== 1 || !(o.iter >= 100000 && o.iter <= 2e6)) throw new Error('This protected backup was made by a newer Tally. Update Tally and try again.');
   try { return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(o.iv) }, await sealKey(password, fromB64(o.salt), o.iter, 'decrypt'), fromB64(o.data))); }
   catch { throw new Error('Wrong password, or the file was changed.'); }
 }
