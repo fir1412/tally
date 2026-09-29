@@ -22,7 +22,8 @@ const queue = [];     // files waiting to be read
 let current = null;   // {id, file?, status: 'reading'|'ready'|'error', draft, photo, ms, error}
 let reading = false;
 
-const saveQueue = () => setKv('scanQueue', queue.map(q => q.id));
+// The photo being read stays listed until its draft is saved: closing the app mid-read must not lose it.
+const saveQueue = () => setKv('scanQueue', [...(current?.status === 'reading' ? [current.id] : []), ...queue.map(q => q.id)]);
 export async function enqueue(files) {
   for (const f of files) { const id = uid('r'); queue.push({ id, file: f, status: 'waiting' }); await savePhoto(`q_${id}`, f); }
   await saveQueue();
@@ -32,8 +33,8 @@ async function pump() {
   if (reading || current?.status === 'ready' || current?.status === 'reading') return;
   const next = queue.shift();
   if (!next) { current = null; return; }
-  saveQueue();
   current = { ...next, status: 'reading', thumb: URL.createObjectURL(next.file) };
+  saveQueue();
   reading = true; refresh();
   try {
     if (!ocrReady()) await loadOcr();
@@ -42,10 +43,12 @@ async function pump() {
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft };
     await setKv('reviewDraft', { draft, existing: false });
+    await saveQueue();
   } catch (e) {
     console.error(e);
     current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : t('Could not read this photo: {0}', e.message) };
   }
+  if (current?.status === 'error') await saveQueue();
   deletePhotos([`q_${next.id}`]);   // read (or unreadable): the draft holds its own copy now
   reading = false; refresh();
 }

@@ -75,6 +75,12 @@ function accSub(a, by) {
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
 export const settingsView = {
   title: 'Settings',
+  async after() {   // the reader card says so when the reader is already on this phone
+    const { ocrReady, ocrSaved } = await import('../scan.js');
+    if (!(ocrReady() || await ocrSaved()) || !$('#reader-state')) return;
+    $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
+    $('#reader [data-act="reader-get"]')?.remove(); $('#reader-dl')?.remove();
+  },
   render() {
     const rules = Object.entries(S.kv.rules), bal = balances(S.accounts, S.tx, today()).by;
     const last = S.kv.lastBackup;
@@ -454,7 +460,7 @@ export const act = {
       $('#reader-dl').hidden = true; b.disabled = false;
       return toast(e?.message ? t(e.message) : t('The receipt reader could not be downloaded. Check the connection and try again.'), { k: 'bad' });
     }
-    $('#reader-dl').hidden = true; $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
+    $('#reader-dl').hidden = true; b.remove(); $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
     toast(t('The receipt reader is ready on this phone and works offline.'), { k: 'good', icon: 'check' });
   },
   feedback: () => openFeedback(APP_VERSION),
@@ -501,8 +507,17 @@ export const act = {
     if (target != null && target !== was) opening = (S.accounts.find(a => a.id === b.dataset.id)?.opening || 0) + target - was;
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
-    const old = S.accounts.find(a => a.id === b.dataset.id);
-    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now() }), name, kind: $('#ac-kind').value, opening, scope: $('#ac-scope').value === 'joint' ? 'joint' : 'personal' });
+    const old = S.accounts.find(a => a.id === b.dataset.id), kind = $('#ac-kind').value, scope = $('#ac-scope').value === 'joint' ? 'joint' : 'personal';
+    // A big gap is usually a salary or spending not added yet: moving the starting balance would hide it from Insights.
+    const diff = target != null ? target - was : 0;
+    if (Math.abs(diff) >= 50000 && await confirmSheet({
+      title: diff > 0 ? t('{0} more than Tally has', fmtRM(diff)) : t('{0} less than Tally has', fmtRM(-diff)),
+      body: diff > 0 ? t('Money in not added yet, like a salary? Add it as money in today, or only change the starting balance.') : t('Spending not added yet? Add it as money out today, or only change the starting balance.'),
+      ok: diff > 0 ? t('Add as money in') : t('Add as money out'), no: t('Only change the balance') })) {
+      opening = old.opening || 0;
+      await saveTxs([{ id: uid('t'), date: today(), time: nowTime(), type: diff > 0 ? 'income' : 'expense', amount: Math.abs(diff), accountId: old.id, category: diff > 0 ? 'income' : 'other', merchant: t('Balance update'), note: '', source: 'quick', createdAt: Date.now() }]);
+    }
+    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now() }), name, kind, opening, scope });
     closeSheet(); render(); toast(t('Saved'));
   },
   'acc-del': async b => {

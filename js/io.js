@@ -205,7 +205,7 @@ export async function fileToRows(name, buf) {
 // [exact name, part of a name]. Exact names are tried first for every column ("Category" before "Category Group/Category").
 const HEAD = {
   date: [/^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间|tarikh transaksi)$/i, /date|tarikh|日期/i],
-  balance: [/^((running|closing|available|wallet|e-?wallet|account|current) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$/i, /balance|^baki\b|余额|餘額/i],
+  balance: [/^((running|closing|available|wallet|e-?wallet|account|current|statement|ledger|book) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$/i, /balance|^baki\b|余额|餘額/i],
   debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
   type: [/^(type|jenis|类型|類型|income\/expense|expense\/income|in\/out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr\/cr|cr\/dr|debit\/credit|credit\/debit|d\/c|c\/d)$/i, null],
@@ -528,13 +528,13 @@ const q = v => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}
 export const safeText = v => (/^[=+\-@\t\r]/.test(String(v ?? '')) ? `'${v}` : String(v ?? ''));
 export function toCSV(txs, accounts, catName = id => ALL_CATS.find(c => c.id === id)?.name || id || '') {
   const acc = Object.fromEntries(accounts.map(a => [a.id, a.name]));
-  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note'].join(',')];
+  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time'].join(',')];   // read back by the 'tally' preset
   for (const t of [...txs].sort((a, b) => a.date.localeCompare(b.date))) {
     const head = [t.date, t.type], acct = [safeText(acc[t.accountId] || ''), safeText(acc[t.toAccountId] || '')];
     // Tax, service charge and rounding spread over the items, so the rows add up to what was paid (as in Insights).
     const extra = t.items?.length ? allocate(t.items.map(i => i.cents), t.amount - t.items.reduce((a, i) => a + i.cents, 0)) : [];
-    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, ((it.cents + extra[n]) / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || '')].map(q).join(','));
-    else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, safeText(catName(t.category)), safeText(t.merchant || ''), '', safeText(t.note || '')].map(q).join(','));
+    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, ((it.cents + extra[n]) / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || ''), t.time || ''].map(q).join(','));
+    else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, safeText(catName(t.category)), safeText(t.merchant || ''), '', safeText(t.note || ''), t.time || ''].map(q).join(','));
   }
   return '﻿' + rows.join('\n'); // BOM: Excel opens Malay and Chinese text as UTF-8
 }

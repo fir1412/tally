@@ -245,3 +245,5 @@ test('bill payments stay out of the unusual-week insight', () => {
 });
 
 test('a year typed as 26 is not a date', () => { assert.equal(E.validIso('0026-09-01'), false); assert.equal(E.validIso('2026-09-01'), true); assert.equal(E.validIso('1995-02-28'), true); });
+
+test('bank signs on either side, and DR / CR', () => { for (const [v, want] of [['3,520.40+', 352040], ['+3,520.40', 352040], ['60.00-', -6000], ['3520.40 CR', 352040], ['12.50DR', -1250], ['(7.00)', -700]]) assert.equal(E.parseAmount(v), want, v); });

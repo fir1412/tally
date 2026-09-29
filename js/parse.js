@@ -109,7 +109,7 @@ export function parseReceipt(text) {
     const m = line.match(AMOUNT);
     const label = m ? line.slice(0, m.index).trim() : line;
     if (!m) {
-      const hasText = /[a-z]{2}/i.test(line);
+      const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line);   // "Item (s):1 Qty(s):1" is a footer, never an item's name
       const last = r.items.at(-1);
       if (hasText && last && last.name === null) { last.name = line; pendingName = null; } // name printed under the price
       else pendingName = hasText ? line : null;

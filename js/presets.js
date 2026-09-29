@@ -7,6 +7,13 @@
 const low = s => String(s ?? '').replace(/[\u0000-\u001f\ufeff"]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 export const PRESETS = [
+  // Tally's own "Export to Excel (CSV)" (io.js toCSV): Date, Type, Amount, Account, To account, Category, Merchant,
+  // Item, Note, Time. Transfers name both accounts; an itemised entry is one row per item (each its own entry here).
+  { id: 'tally', name: 'Tally', need: ['date', 'type', 'amount', 'account', 'to account', 'category', 'merchant', 'item'],
+    cols: { date: ['date'], time: ['time'], type: ['type'], amount: ['amount'], account: ['account'], category: ['category'], merchant: ['merchant'], note: ['note'] },
+    type: c => ({ income: 'income', expense: 'expense' })[low(c.get('type'))] || null,
+    transfer: c => low(c.get('type')) === 'transfer' && { dir: 'out', to: c.raw('to account') } },
+
   // Money Manager by Realbyte (com.realbyteapps.moneymanagerfree), "Export to Excel". Columns per the Ivy Wallet
   // importer (github.com/Ivy-Apps/ivy-wallet, CSVMapper.moneyManager: date 0, account 1, category 2, note 4, type 6,
   // description 7, amount 8, currency 9) and vaultix-by-xanny's parser (github.com/ramadiaz/vaultix-by-xanny,
@@ -30,7 +37,9 @@ export const PRESETS = [
   { id: 'moneylover', signed: true, name: 'Money Lover', need: ['category', 'amount', 'currency', 'note', ['wallet', 'account'], ['id', 'no', 'exclude report', 'event']],
     cols: { date: ['date'], amount: ['amount'], category: ['category'], merchant: ['note'], account: ['wallet', 'account'] },
     transfer: c => /^(outgoing|incoming) transfer$/.test(low(c.get('category'))),
-    cats: { 'friends & lover': 'fun', travel: 'fun', 'gifts & donations': 'other', family: 'household', 'home services': 'household', 'home maintainance': 'household', 'home maintenance': 'household', pets: 'household', houseware: 'household', makeup: 'personal', 'personal items': 'personal', 'vehicle maintenance': 'transport', insurances: 'bills', 'fees & charges': 'bills', rentals: 'bills', 'streaming service': 'fun', award: 'income', gifts: 'income', selling: 'income', 'interest money': 'income', 'collect interest': 'income', 'other income': 'income' } },
+    // "Adjust Balance" rows (and anything marked Exclude Report) are corrections, not spending; so is "Initial balance".
+    adjust: c => /^(adjust balance|initial balance)$/.test(low(c.get('category'))) || /^(true|yes|1)$/.test(low(c.raw('exclude report'))),
+    cats: { loan: 'other', repayment: 'other', debt: 'income', 'debt collection': 'income', 'friends & lover': 'fun', travel: 'fun', 'gifts & donations': 'other', family: 'household', 'home services': 'household', 'home maintainance': 'household', 'home maintenance': 'household', pets: 'household', houseware: 'household', makeup: 'personal', 'personal items': 'personal', 'vehicle maintenance': 'transport', insurances: 'bills', 'fees & charges': 'bills', rentals: 'bills', 'streaming service': 'fun', award: 'income', gifts: 'income', selling: 'income', 'interest money': 'income', 'collect interest': 'income', 'other income': 'income' } },
 
   // Spendee: "Date, Wallet, Type, Category name, Amount, Currency, Note, Labels, Author" (github.com/jjpedreno/
   // janus-csv-converter README; github.com/wendyliga/firefly-iii-spendee-import compose.py). ISO dates with a time

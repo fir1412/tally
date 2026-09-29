@@ -775,4 +775,12 @@ export default {
   "Joint budgets are updated.": "Bajet bersama dikemas kini.",
   "Joint bills: {0}.": "Bil bersama: {0}.",
   "Your empty joint account \"{0}\" is replaced by theirs.": "Akaun bersama anda yang kosong \"{0}\" diganti dengan akaun pasangan.",
+  "{0} more than Tally has": "{0} lebih daripada dalam Tally",
+  "{0} less than Tally has": "{0} kurang daripada dalam Tally",
+  "Money in not added yet, like a salary? Add it as money in today, or only change the starting balance.": "Wang masuk yang belum direkod, seperti gaji? Rekod sebagai wang masuk hari ini, atau ubah baki permulaan sahaja.",
+  "Spending not added yet? Add it as money out today, or only change the starting balance.": "Perbelanjaan yang belum direkod? Rekod sebagai wang keluar hari ini,atau ubah baki permulaan sahaja.",
+  "Add as money in": "Rekod sebagai wang masuk",
+  "Add as money out": "Rekod sebagai wang keluar",
+  "Only change the balance": "Ubah baki sahaja",
+  "Balance update": "Kemas kini baki",
 };

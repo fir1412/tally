@@ -111,11 +111,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', () => { staleHref = null; });
 }
 /** In-app confirmation (never window.confirm). Resolves true / false. */
-export function confirmSheet({ title, body = '', ok = t('Confirm'), danger = false }) {
+export function confirmSheet({ title, body = '', ok = t('Confirm'), no = t('Cancel'), danger = false }) {
   return new Promise(resolve => {
     let done = false;
     const el = openSheet(`<h2 class="sh-title">${esc(title)}</h2>${body ? `<p class="sh-body">${esc(body)}</p>` : ''}
-      <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn ${danger ? 'danger' : ''}" data-x="yes">${esc(ok)}</button></div>`,
+      <div class="row2"><button class="btn ghost" data-x="no">${esc(no)}</button><button class="btn ${danger ? 'danger' : ''}" data-x="yes">${esc(ok)}</button></div>`,
     { label: title, onClose: () => { if (!done) resolve(false); } });
     el.addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (!b) return; done = true; resolve(b.dataset.x === 'yes'); closeSheet(); });
   });

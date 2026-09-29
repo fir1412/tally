@@ -159,3 +159,9 @@ test('typed items: a market list on one line, Chinese commas, thousands separato
   assert.deepEqual(parseItemLines('鱼 25，菜 8、豆腐 3.50'), [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '豆腐', cents: 350 }]);
   assert.deepEqual(parseItemLines('Phone 1,299\nLaptop RM 3,499.90\nIkan 25,50'), [{ name: 'Phone', cents: 129900 }, { name: 'Laptop', cents: 349990 }, { name: 'Ikan', cents: 2550 }]);
 });
+
+test('an item-count footer is never an item name', () => {
+  const r = parseReceipt(['MR DIY', 'GLUE STICK 21G', '5.90', 'Item (s):1 Qty(s):1', '5.90', 'TOTAL 5.90', 'CASH 10.00', 'CHANGE 4.10'].join('\n'));
+  assert.ok(!r.items.some(i => /qty|item \(s\)/i.test(i.name || '')), JSON.stringify(r.items));
+  assert.equal(r.total, 590);
+});

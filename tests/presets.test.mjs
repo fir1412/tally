@@ -152,3 +152,21 @@ test('Money Manager (Realbyte) .mmbak: bare or zipped; transfers once, correctio
   }
   await assert.rejects(readRealbyte(new Uint8Array(await IO.zipStore([{ name: 'x.txt', data: new Uint8Array(200) }]).arrayBuffer()), SQL), /no database inside/);
 });
+
+test("Tally reads its own CSV export back: transfers, times, categories", () => {
+  const acc = [{ id: 'a', name: 'Cash' }, { id: 'b', name: 'Maybank' }];
+  const tx = [{ date: '2026-09-01', time: '12:30', type: 'expense', amount: 1250, accountId: 'a', category: 'dining', merchant: 'Mamak' },
+    { date: '2026-09-02', type: 'transfer', amount: 10000, accountId: 'b', toAccountId: 'a', category: 'other' },
+    { date: '2026-09-03', type: 'income', amount: 350000, accountId: 'b', category: 'salary', merchant: 'Acme' }];
+  const r = run(IO.parseCSV(IO.toCSV(tx, acc).replace(/^﻿/, '')), 'tally-export.csv');
+  assert.equal(r.preset.id, 'tally');
+  assert.deepEqual(r.txs.map(t => [t.type, t.amount, t.category, t.time || '']).sort(), [['expense', 1250, 'dining', '12:30'], ['income', 350000, 'salary', ''], ['transfer', 10000, 'other', '']]);
+  assert.deepEqual(r.bal, { cash: -1250 + 10000, maybank: 350000 - 10000 });
+});
+
+test('Money Lover: loans are not bills, Exclude Report rows are corrections', () => {
+  const h = ['ID', 'Note', 'Amount', 'Category', 'Account', 'Currency', 'Date', 'Event', 'Exclude Report'];
+  const r = run([h, ['1', 'Lent Wei Ming', '-300', 'Loan', 'Cash', 'MYR', '03/05/2026', '', 'FALSE'], ['2', 'Fix', '-23.45', 'Others', 'Cash', 'MYR', '31/08/2026', '', 'TRUE'], ['3', 'Wei Ming paid back', '300', 'Debt Collection', 'Cash', 'MYR', '02/06/2026', '', 'FALSE']], 'MoneyLover.csv');
+  assert.deepEqual(r.txs.map(t => [t.type, t.category]), [['expense', 'other'], ['income', 'income']]);
+  assert.equal(r.opening.cash, -2345);   // the excluded row moves the opening balance instead
+});

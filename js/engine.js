@@ -33,8 +33,9 @@ export const MAX_SEN = 100_000_000_00; // RM 100 million: anything bigger is a t
 export function parseAmount(v) {
   if (typeof v === 'number') return Number.isFinite(v) && Math.abs(v * 100) <= MAX_SEN ? Math.round(v * 100) : null;
   let s = String(v ?? '').trim().replace(/^RM\s*/i, '').replace(/\s+/g, '');
-  const neg = /^-|-$|^\(.*\)$/.test(s);
-  s = s.replace(/^[-(]|[-)]$/g, '').replace(/^RM/i, '');
+  // Banks write the sign either side ("60.00-", "3,520.40+") or as DR / CR.
+  const dr = /DR$/i.test(s), neg = dr || /^-|-$|^\(.*\)$/.test(s);
+  s = s.replace(/(DR|CR)$/i, '').replace(/^[-+(]|[-+)]$/g, '').replace(/^RM/i, '');
   if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   else if (/^\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, '');
   else s = s.replace(',', '.');
@@ -50,7 +51,7 @@ export function parseAmount(v) {
  * null if it isn't a sum, divides by zero or is out of range.
  */
 export function calcAmount(v) {
-  const plain = parseAmount(v);
+  const plain = /\+\s*$/.test(String(v)) ? null : parseAmount(v);   // typing "12+" is a sum not finished yet, not a bank's +12
   if (plain != null || typeof v === 'number') return plain;
   const s = String(v ?? '').replace(/^\s*RM/i, '').replace(/[×xX]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/\s+/g, '');
   if (!/^[\d.+\-*/()]{1,100}$/.test(s) || !/\d[^\d.]|[^\d.]\d/.test(s)) return null;

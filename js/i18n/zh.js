@@ -775,4 +775,12 @@ export default {
   "Joint budgets are updated.": "共同预算已更新。",
   "Joint bills: {0}.": "共同账单：{0}。",
   "Your empty joint account \"{0}\" is replaced by theirs.": "你空的共同账户“{0}”将换成对方的。",
+  "{0} more than Tally has": "比 Tally 记录的多 {0}",
+  "{0} less than Tally has": "比 Tally 记录的少 {0}",
+  "Money in not added yet, like a salary? Add it as money in today, or only change the starting balance.": "有还没记录的收入，比如工资？可以记为今天的收入，或只改起始余额。",
+  "Spending not added yet? Add it as money out today, or only change the starting balance.": "有还没记录的开销？可以记为今天的支出，或只改起始余额。",
+  "Add as money in": "记为收入",
+  "Add as money out": "记为支出",
+  "Only change the balance": "只改余额",
+  "Balance update": "余额更新",
 };
