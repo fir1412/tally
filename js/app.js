@@ -10,6 +10,7 @@ import * as setup from './views/setup.js';
 import * as learn from './views/learn.js';
 import { flushFeedback } from './feedback.js';
 import { onboarding, registerSW } from './tour.js';
+import { startScan } from './camera.js';
 
 export const APP_VERSION = '0.5.0';
 const VIEWS = { home: home.homeView, insights: home.insightsView, activity: money.activityView, budgets: money.budgetsView, review: review.reviewView, settings: setup.settingsView, welcome: setup.welcomeView, learn: learn.learnView, badges: learn.badgesView };
@@ -67,18 +68,19 @@ window.addEventListener('hashchange', () => {
 // Global actions used by every view.
 Object.assign(ACT, {
   scan: async () => {
-    if (settings().photoTipsSeen) return $('#scan-input').click();
+    if (settings().photoTipsSeen) return startScan(scanned);
     await setSetting('photoTipsSeen', true);
     review.photoTips({ thenScan: true });
   },
   go: b => go(b.dataset.to),
   back: b => (cameFrom() ? history.back() : go(b.dataset.to || 'home')),
 });
+export const scanned = files => { review.enqueue(files); go('review'); };
 document.addEventListener('change', e => {
   if (e.target.id !== 'scan-input') return;
   const files = [...e.target.files];
   e.target.value = '';
-  if (files.length) { review.enqueue(files); go('review'); }
+  if (files.length) scanned(files);
 });
 
 // ---- boot ---------------------------------------------------------------------------------------------------------

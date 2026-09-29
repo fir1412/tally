@@ -184,6 +184,7 @@ const I = d => `<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fi
 export const ICON = {
   home: I('<path d="M3 11l9-7 9 7v9H3z"/>'),
   list: I('<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'),
+  bolt: I('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
   camera: I('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   chart: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   wallet: I('<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/>'),

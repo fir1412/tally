@@ -751,4 +751,12 @@ export default {
   "The receipt reader shows how far its first download has got, and Settings can download it ahead of time": "收据识别器会显示首次下载的进度，也可以在设置里提前下载",
   "Tips for a clear receipt photo before your first scan, and from the scan screens": "第一次扫描前会显示拍清楚收据的小贴士，扫描画面里也能打开",
   "Set an account to what your bank shows today: Edit account, Balance today": "把账户设成银行今天显示的余额：编辑账户 → 今天的余额",
+  "Fit the whole receipt inside the frame": "把整张收据放进框里",
+  "Close camera": "关闭相机",
+  "Light": "补光",
+  "Gallery": "相册",
+  "Camera": "相机",
+  "Tally can't use the camera. Allow it in the browser's site settings, or pick photos from the gallery.": "Tally 无法使用相机。请在浏览器的网站设置里允许，或从相册选择照片。",
+  "{0} taken. Snap the next receipt, or tap Done.": "已拍 {0} 张。继续拍下一张收据，或点完成。",
+  "Snap receipts right inside Tally: the camera opens in the app, takes several in a row, and has a light for dim places": "直接在 Tally 里拍收据：相机在应用内打开，可连续拍多张，暗处可开补光",
 };

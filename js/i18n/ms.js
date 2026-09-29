@@ -751,4 +751,12 @@ export default {
   "The receipt reader shows how far its first download has got, and Settings can download it ahead of time": "Pembaca resit menunjukkan kemajuan muat turun pertamanya, dan Tetapan boleh memuat turunnya lebih awal",
   "Tips for a clear receipt photo before your first scan, and from the scan screens": "Tip untuk gambar resit yang jelas sebelum imbasan pertama, dan di skrin imbasan",
   "Set an account to what your bank shows today: Edit account, Balance today": "Tetapkan akaun mengikut baki bank anda hari ini: Edit akaun, Baki hari ini",
+  "Fit the whole receipt inside the frame": "Muatkan seluruh resit dalam bingkai",
+  "Close camera": "Tutup kamera",
+  "Light": "Lampu",
+  "Gallery": "Galeri",
+  "Camera": "Kamera",
+  "Tally can't use the camera. Allow it in the browser's site settings, or pick photos from the gallery.": "Tally tidak dapat menggunakan kamera. Benarkan dalam tetapan laman pelayar, atau pilih gambar dari galeri.",
+  "{0} taken. Snap the next receipt, or tap Done.": "{0} diambil. Ambil resit seterusnya, atau ketik Siap.",
+  "Snap receipts right inside Tally: the camera opens in the app, takes several in a row, and has a light for dim places": "Ambil gambar resit terus dalam Tally: kamera dibuka dalam aplikasi, boleh ambil beberapa berturut-turut, dan ada lampu untuk tempat malap",
 };

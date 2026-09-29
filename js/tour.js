@@ -11,6 +11,7 @@ export const WHATS_NEW = {
     'Learn Tally: short missions that show what Tally can do, each ticked off when you do it (Settings, and on Home while you are new)',
     'Streaks and badges, off unless you turn them on in Settings: a logging streak with one rest day a week, and badges for good money habits',
     'With streaks on, a day with nothing spent keeps your streak going: tap Nothing spent today',
+    'Snap receipts right inside Tally: the camera opens in the app, takes several in a row, and has a light for dim places',
     'The receipt reader shows how far its first download has got, and Settings can download it ahead of time',
     'Tips for a clear receipt photo before your first scan, and from the scan screens',
     'Set an account to what your bank shows today: Edit account, Balance today',

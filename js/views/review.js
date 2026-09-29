@@ -6,8 +6,9 @@ import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$ } from '..
 import { fmtRM, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, OCR_BYTES } from '../scan.js';
-import { render, go } from '../app.js';
+import { render, go, scanned } from '../app.js';
 import { accName } from './money.js';
+import { startScan } from '../camera.js';
 
 // The first download's progress, drawn in place so the bar moves without redrawing the screen.
 let dlPct = 0, dlText = '';
@@ -195,8 +196,7 @@ export function photoTips({ thenScan = false } = {}) {
     ${thenScan ? `<button class="btn wide" data-x="scan">${ICON.camera}${esc(t('Take a photo'))}</button>` : `<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`}`, { label: t('Tips for a clear photo') });
   el.addEventListener('click', e => {
     const b = e.target.closest('[data-x]'); if (!b) return;
-    closeSheet();
-    if (b.dataset.x === 'scan') $('#scan-input').click();   // still inside the tap, so the camera may open
+    if (b.dataset.x === 'scan') startScan(scanned); else closeSheet();
   });
 }
 export const act = {
