@@ -1,7 +1,7 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid } from '../state.js';
-import { t, fmtDate, fmtMonth } from '../i18n.js';
+import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, usualAccount } from '../state.js';
+import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, $, $$ } from '../ui.js';
 import { fmtRM, parseAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
@@ -48,7 +48,11 @@ const refresh = () => { if (location.hash.startsWith('#/review')) render(); };
 let persistT;
 function persist() {
   clearTimeout(persistT);
-  persistT = setTimeout(() => { if (current?.status === 'ready') setKv('reviewDraft', { draft: current.draft, existing: !!current.existing }); }, 300);
+  persistT = setTimeout(() => {
+    if (current?.status !== 'ready') return;
+    if (current.manual && !current.draft.items.length) return setKv('reviewDraft', null);   // nothing typed yet: nothing to resume
+    setKv('reviewDraft', { draft: current.draft, existing: !!current.existing, manual: !!current.manual });
+  }, 300);
 }
 function finish() { clearTimeout(persistT); if (current?.thumb) URL.revokeObjectURL(current.thumb); current = null; return setKv('reviewDraft', null); }
 /** On start: reopen an unfinished review. Returns true if there was one. */
@@ -58,30 +62,31 @@ export async function restoreDraft() {
   const saved = S.kv.reviewDraft;
   if (saved?.draft) {
     const blob = saved.draft.receiptId ? await getPhoto(saved.draft.receiptId) : null;
-    current = { id: uid('r'), status: 'ready', existing: saved.existing, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
+    current = { id: uid('r'), status: 'ready', existing: saved.existing, manual: saved.manual, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
   } else if (queue.length) pump();
   return !!current || queue.length > 0;
 }
 
+const EXAMPLE = { en: 'Phone 1299\nFish 25, vegetables 8', ms: 'Telefon 1299\nIkan 25, sayur 8', zh: '手机 1299\n鱼 25，菜 8，猪肉 30' };
 /** Parsed receipt → editable transaction draft, with categories guessed from the user's rules and shop words. */
 const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price looks wrong') : t('Hard to read: check the name and price'));
 function toDraft(r) {
   const merchant = (r.merchant || '').slice(0, 80);
-  const last = [...S.tx].sort((a, b) => b.createdAt - a.createdAt)[0];
   const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: categorize(i.name, merchant, S.kv.rules), flag: !!i.flag }));
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
-    accountId: last?.accountId || S.accounts[0]?.id, category: shopCategory(merchant, S.kv.rules), items,
+    accountId: usualAccount(), category: shopCategory(merchant, S.kv.rules), items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
   };
 }
 /** Open an already-saved receipt transaction for item editing (from the transaction sheet). */
 export function editExisting(tx, { manual = false } = {}) {
-  current = { id: uid('r'), status: 'ready', existing: true, manual, draft: { ...structuredClone(tx), total: tx.amount, items: (tx.items || []).map(i => ({ ...i })) } };
+  current = { id: uid('r'), status: 'ready', existing: true, manual, draft: { ...structuredClone(tx), dateFound: true, total: tx.amount, items: (tx.items || []).map(i => ({ ...i })) } };
   persist();
   go('review');
 }
 
+const guessFor = (name, d) => { const c = categorize(name, d.merchant, S.kv.rules); return c === 'other' && d.category && d.category !== 'other' ? d.category : c; };
 const itemsSum = d => d.items.reduce((s, i) => s + (i.cents || 0), 0);
 const check = d => checksum({ items: d.items.map(i => ({ cents: i.cents || 0 })), total: d.total, tax: d.tax || null, service: d.service || null, rounding: d.rounding || null });
 
@@ -102,11 +107,12 @@ export const reviewView = {
     const old = !current.existing && d.date < addDays(today(), -60);
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
-    const status = d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))}</p>`
+    const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', fmtRM(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
+      : d.total == null ? `<p class="warnbox">${ICON.alert}${esc(t('No total found. Type the total from the receipt.'))}</p>`
       : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
       : `<p class="warnbox">${ICON.alert}${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}</p>`;
     const maths = [[t('Items'), itemsSum(d)], [t('Service'), d.service], [t('Tax'), d.taxIncluded ? 0 : d.tax], [t('Rounding'), d.rounding]].filter(([, v]) => v).map(([k, v]) => `${k} ${fmtRM(v, { plain: true })}`).join(' + ');
-    return `<header class="top"><h1>${esc(t('Review receipt'))}</h1>${waiting ? `<span class="fine">${esc(t('{0} more waiting', waiting))}</span>` : ''}</header>
+    return `<header class="top"><h1>${esc(current.manual ? t('Your items') : t('Review receipt'))}</h1>${waiting ? `<span class="fine">${esc(t('{0} more waiting', waiting))}</span>` : ''}</header>
       ${old ? `<div class="warnbox">${ICON.clock}<span class="grow">${esc(t('This receipt is dated {0}. It will be filed under {1}, not this month.', fmtDate(d.date, { year: true }), fmtMonth(d.date.slice(0, 7))))}
         <button class="btn small ghost" data-act="rv-today">${esc(t("Use today's date"))}</button></span></div>` : ''}
       ${dup ? `<p class="warnbox">${ICON.alert}${esc(t('Looks like you already added this: {0} on {1}.', fmtRM(dup.amount), fmtDate(dup.date)))}</p>` : ''}
@@ -125,9 +131,9 @@ export const reviewView = {
         <select class="icat" aria-label="${esc(t('Category'))}" data-input="rv-item" data-n="${n}" data-k="category">${catOpts(i.category)}</select>
         <button class="icon-btn" data-act="rv-del" data-n="${n}" aria-label="${esc(t('Remove {0}', i.name || t('item')))}">${ICON.x}</button>
         ${i.raw && i.raw !== i.name ? `<small class="raw">${esc(i.raw)}</small>` : ''}</li>`).join('')}</ul>
-      <button class="btn ghost wide" data-act="rv-add">${ICON.plus}${esc(t(current.manual ? 'Add an item' : 'Add a missing item'))}</button>
+      <button class="btn ghost wide" data-act="rv-add">${ICON.plus}${esc(current.manual ? t('Add an item') : t('Add a missing item'))}</button>
       <details class="typebox"${current.manual && !d.items.length ? ' open' : ''}><summary>${esc(t('Type or paste several items'))}</summary>
-        <label class="field"><span>${esc(t('One item per line with its price. Tally sorts each into a category; change any it gets wrong.'))}</span><textarea id="rv-lines" rows="4" placeholder="${esc('Phone 1299\nIkan kembung 25.50\nSayur 8')}"></textarea></label>
+        <label class="field"><span>${esc(t('One item per line with its price. Tally sorts each into a category; change any it gets wrong.'))}</span><textarea id="rv-lines" rows="4" placeholder="${esc(EXAMPLE[getLang()] || EXAMPLE.en)}"></textarea></label>
         <button class="btn ghost wide" data-act="rv-lines">${esc(t('Add these items'))}</button></details>
       ${d.items.length ? '' : `<label class="field"><span>${esc(t('Category'))}</span><select id="rv-cat" data-input="rv-f" data-k="category">${catOpts(d.category)}</select></label>`}
       <label class="check"><input type="checkbox" id="rv-learn" checked> ${esc(t('Remember my category changes for next time'))}</label>
@@ -153,7 +159,7 @@ export const input = {
     else {
       i.name = el.value.slice(0, 80); i.flag = false;
       // Sorted as it is typed ("Phone" → Electronics, "Ikan" → Groceries) until the user picks a category themselves.
-      if (!i.changed) { i.category = categorize(i.name, current.draft.merchant, S.kv.rules); const sel = el.closest('li')?.querySelector('.icat'); if (sel) sel.value = i.category; }
+      if (!i.changed) { i.category = guessFor(i.name, current.draft); const sel = el.closest('li')?.querySelector('.icat'); if (sel) sel.value = i.category; }
     }
   },
 };
@@ -176,7 +182,7 @@ export const act = {
   'rv-lines': () => {
     const d = current.draft, lines = parseItemLines($('#rv-lines').value);
     if (!lines.length) return toast(t('Write each item with its price, like "Phone 1299".'), { k: 'warn' });
-    for (const { name, cents } of lines) d.items.push({ name, raw: '', cents, category: categorize(name, d.merchant, S.kv.rules), flag: false });
+    for (const { name, cents } of lines) d.items.push({ name, raw: '', cents, category: guessFor(name, d), flag: false });
     if (current.manual) { d.total = itemsSum(d); d.totalGuessed = false; }
     persist(); render(); toast(t('Added {0} items', lines.length), { k: 'good', icon: 'check' });
   },

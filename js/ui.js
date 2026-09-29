@@ -135,7 +135,7 @@ export function toast(msg, { undo = null, k = 'ink', icon = null } = {}) {
   }
   el.classList.add('on');
   clearTimeout(toastT);
-  toastT = setTimeout(hideToast, undo ? 6000 : Math.min(7000, Math.max(2600, String(msg).length * 55)));
+  toastT = setTimeout(hideToast, undo ? 12000 : Math.min(7000, Math.max(2600, String(msg).length * 55)));
 }
 export function hideToast() { const el = $('#toast'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!el.classList.contains('on')) el.textContent = ''; }, 250); } }
 export function announce(msg) { const el = $('#sr-status'); if (!el) return; el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 60); }

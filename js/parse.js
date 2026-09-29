@@ -78,10 +78,13 @@ export function parseDate(line) {
  * → [{name, cents}]; lines without a price are skipped.
  */
 export function parseItemLines(text) {
-  const cents = s => { const [a, b = ''] = s.split(/[.,]/); return +a * 100 + +(b + '00').slice(0, 2); };
-  return String(text ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
-    const tail = l.match(/^(.*?\S)[\s:=\-–]*(?:RM|MYR)?\s*(\d{1,6}(?:[.,]\d{1,2})?)$/i);   // name then price
-    const head = l.match(/^(?:RM|MYR)?\s*(\d{1,6}(?:[.,]\d{1,2})?)[\s:=\-–]+(\D.*)$/i);      // price then name
+  // "1,299" and "1,299.50" are thousands; "25,50" is 25.50 (comma decimals); a list comma ("鱼 25, 菜 8") splits items.
+  const cents = s => { const [a, b = ''] = s.replace(/,(?=\d{3}(?!\d))/g, '').split(/[.,]/); return +a * 100 + +(b + '00').slice(0, 2); };
+  const PRICE = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?)`;
+  const tailRe = new RegExp(String.raw`^(.*?\S)[\s:=\-–]*(?:RM|MYR)?\s*${PRICE}$`, 'i'), headRe = new RegExp(String.raw`^(?:RM|MYR)?\s*${PRICE}[\s:=\-–]+(\D.*)$`, 'i');
+  return String(text ?? '').split(/\r?\n|[，、;；]|,(?!\d{3}(?!\d))(?!\d{1,2}(?!\d))/).map(l => l.trim()).filter(Boolean).map(l => {
+    const tail = l.match(tailRe);   // name then price
+    const head = l.match(headRe);   // price then name
     const [name, price] = tail ? [tail[1], tail[2]] : head ? [head[2], head[1]] : [];
     return name && /\p{L}/u.test(name) ? { name: name.replace(/[\s:=\-–]+$/, '').slice(0, 80), cents: cents(price) } : null;
   }).filter(x => x && x.cents > 0);

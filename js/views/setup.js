@@ -276,6 +276,7 @@ async function restoreText(text, zip = {}) {
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
   if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
   await setSetting('onboarded', true);
+  await setKv('lastBackup', `${today()}T${nowTime()}`);   // restored from a backup file: that file is a backup
   if (!settings().tourDone) await markSeen();   // a restored backup means someone who knows the app
   closeSheet(); go('home'); render();
   // Photos from a photo backup: only ones a restored transaction points at.

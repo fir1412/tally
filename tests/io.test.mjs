@@ -139,3 +139,9 @@ test('photo backup zip: written stored, read back byte for byte', async () => {
   assert.equal(new TextDecoder().decode(out[IO.BACKUP_JSON]), '{"app":"tally"}');
   assert.deepEqual([...out['photos/p_1.jpg']], [...photo]);
 });
+
+test('CSV export: an itemised receipt with SST adds up to what was paid', () => {
+  const tx = [{ id: 't', date: '2026-09-01', type: 'expense', amount: 1060, accountId: 'a', category: 'groceries', merchant: 'Mydin', items: [{ name: 'Milo', cents: 700, category: 'groceries' }, { name: 'Sabun', cents: 300, category: 'household' }] }];
+  const rows = IO.toCSV(tx, [{ id: 'a', name: 'Cash' }]).replace(/^\uFEFF/, '').trim().split(/\r?\n/).slice(1);
+  assert.equal(rows.reduce((s, r) => s + Math.round(parseFloat(r.split(',')[2]) * 100), 0), 1060);
+});

@@ -29,6 +29,8 @@ export const today = () => (/^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || ''
 export const nowTime = () => (/^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now') : `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`);
 /** Transactions up to today. Rows dated later (a statement's future lines) count from their own day, everywhere. */
 export const booked = () => { const d = today(); return S.tx.filter(x => x.date <= d); };
+/** The account of the latest everyday spending or income (a transfer or a bill paid from its own account isn't where you usually pay from). */
+export const usualAccount = () => [...S.tx].filter(x => x.type !== 'transfer' && !x.bill && x.source !== 'recurring').sort((a, b) => b.createdAt - a.createdAt)[0]?.accountId || S.accounts[0]?.id;
 export const nowLocal = () => `${today()}T${nowTime()}`;
 export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 

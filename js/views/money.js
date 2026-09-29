@@ -1,5 +1,5 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked } from '../state.js';
+import { S, saveTx, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, usualAccount } from '../state.js';
 import { t, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $ } from '../ui.js';
 import { fmtRM, parseAmount, monthOf, monthSpend, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES } from '../engine.js';
@@ -119,11 +119,17 @@ function readForm() {
   draft.time = hhmmIn($('#tx-time')?.value);
   draft.merchant = ($('#tx-merchant')?.value || '').trim().slice(0, 80);
 }
-function reopen() { readForm(); openSheet(sheetHtml(), { label: t('Transaction') }); }
+function reopen() {
+  readForm();
+  const sh = document.querySelector('.scrim:not(.out) .sheet');
+  if (!sh) return openSheet(sheetHtml(), { label: t('Transaction') });
+  const focus = document.activeElement?.id;   // redraw in place: no second sheet, nothing typed goes astray
+  sh.innerHTML = `<div class="grab" aria-hidden="true"></div>${sheetHtml()}`;
+  (focus && document.getElementById(focus))?.focus({ preventScroll: true });
+}
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
 export function openTxSheet(preset = {}) {
-  const last = [...S.tx].sort((a, b) => b.createdAt - a.createdAt)[0];
-  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: last?.accountId || S.accounts[0]?.id, category: 'dining', date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
+  draft = { id: uid('t'), type: 'expense', amount: 0, accountId: usualAccount(), category: 'dining', date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
   openSheet(sheetHtml(), { label: t('Add') });
 }
 
@@ -228,7 +234,7 @@ export const act = {
     closeSheet(); render(); toast(t('Saved'));
   },
   'bill-del': async b => { await deleteBill(b.dataset.id); closeSheet(); render(); toast(t('Deleted')); },
-  'bill-paid': b => { const x = S.recurring.find(y => y.id === b.dataset.id); if (x) openTxSheet({ amount: x.amount, category: x.category, accountId: x.accountId, merchant: x.name }); },
+  'bill-paid': b => { const x = S.recurring.find(y => y.id === b.dataset.id); if (x) openTxSheet({ amount: x.amount, category: x.category, accountId: x.accountId, merchant: x.name, bill: x.id }); },
   'bill-cal': b => {
     const x = S.recurring.find(y => y.id === b.dataset.id);
     openSheet(`<h2 class="sh-title">${esc(t('Remind me every month'))}</h2><p class="sh-body">${esc(t('Your phone calendar reminds you a day before {0} is due, even when Tally is closed.', x.name))}</p>

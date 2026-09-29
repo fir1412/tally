@@ -153,3 +153,9 @@ test('items typed by hand: name then price, price then name, colons, lines witho
   assert.deepEqual(parseItemLines('Samsung phone 1299\nIkan kembung 25.50\nRM 8 sayur\nTeh ais: 2.5\nno price here\n\n12.00'),
     [{ name: 'Samsung phone', cents: 129900 }, { name: 'Ikan kembung', cents: 2550 }, { name: 'sayur', cents: 800 }, { name: 'Teh ais', cents: 250 }]);
 });
+
+test('typed items: a market list on one line, Chinese commas, thousands separators', () => {
+  assert.deepEqual(parseItemLines('鱼 25, 菜 8, 猪肉 30'), [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '猪肉', cents: 3000 }]);
+  assert.deepEqual(parseItemLines('鱼 25，菜 8、豆腐 3.50'), [{ name: '鱼', cents: 2500 }, { name: '菜', cents: 800 }, { name: '豆腐', cents: 350 }]);
+  assert.deepEqual(parseItemLines('Phone 1,299\nLaptop RM 3,499.90\nIkan 25,50'), [{ name: 'Phone', cents: 129900 }, { name: 'Laptop', cents: 349990 }, { name: 'Ikan', cents: 2550 }]);
+});

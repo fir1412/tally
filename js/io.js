@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, CATEGORIES, INCOME_CATEGORIES, categorize } from './engine.js';
+import { parseAmount, validIso, CATEGORIES, INCOME_CATEGORIES, categorize, allocate } from './engine.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, rows: 50_000, text: 200 };
 
@@ -292,7 +292,9 @@ export function toCSV(txs, accounts, catName = id => ALL_CATS.find(c => c.id ===
   const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note'].join(',')];
   for (const t of [...txs].sort((a, b) => a.date.localeCompare(b.date))) {
     const head = [t.date, t.type], acct = [safeText(acc[t.accountId] || ''), safeText(acc[t.toAccountId] || '')];
-    if (t.items?.length) for (const it of t.items) rows.push([...head, (it.cents / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || '')].map(q).join(','));
+    // Tax, service charge and rounding spread over the items, so the rows add up to what was paid (as in Insights).
+    const extra = t.items?.length ? allocate(t.items.map(i => i.cents), t.amount - t.items.reduce((a, i) => a + i.cents, 0)) : [];
+    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, ((it.cents + extra[n]) / 100).toFixed(2), ...acct, safeText(catName(it.category)), safeText(t.merchant || ''), safeText(it.name || ''), safeText(t.note || '')].map(q).join(','));
     else rows.push([...head, (t.amount / 100).toFixed(2), ...acct, safeText(catName(t.category)), safeText(t.merchant || ''), '', safeText(t.note || '')].map(q).join(','));
   }
   return '﻿' + rows.join('\n'); // BOM: Excel opens Malay and Chinese text as UTF-8

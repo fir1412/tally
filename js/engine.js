@@ -210,6 +210,7 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
     const thisWeek = sum(inRange(weekStart, today));
     const before = sum(inRange(addDays(weekStart, -7 * 12), addDays(weekStart, -1)));
     for (const [c, v] of Object.entries(thisWeek)) {
+      if (c === 'bills') continue;
       const avg = (before[c] || 0) / active;
       if (avg > 0 && v >= 2 * avg && v - avg >= 2000) out.push({ id: `week-${c}-${today}`, kind: 'unusual', level: 'info', cat: c, title: ['{0} this week is {1}× your usual week', { cat: c }, (v / avg).toFixed(1)], body: ['{0} vs about {1} a week.', fmtRM(v), fmtRM(Math.round(avg))] });
     }
@@ -223,9 +224,9 @@ export function insights({ txs, budgets = {}, today, knownBills = [] }) {
     }
     return by;
   };
-  const itemsNow = count(ym), itemsPrev = count(prev);
+  const itemsNow = count(ym), itemsPrev = count(prev), hadPrev = txs.some(t => t.type === 'expense' && monthOf(t.date) === prev);
   for (const [k, v] of Object.entries(itemsNow)) {
-    if (v.n < 3) continue;
+    if (v.n < 3 || !hadPrev) continue;
     const p = itemsPrev[k];
     const change = p?.cents ? Math.round((v.cents - p.cents) / p.cents * 100) : null;
     out.push({ id: `item-${k}-${ym}`, kind: 'item', level: 'info', title: ['You bought {0} {1}× this month ({2})', { raw: v.name }, v.n, fmtRM(v.cents)], body: change == null ? ['Not bought last month.'] : change === 0 ? ['Same as last month.'] : [change > 0 ? '{0}% more than last month.' : '{0}% less than last month.', Math.abs(change)] });
