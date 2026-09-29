@@ -208,3 +208,23 @@ test('a refund on a bank statement lowers the spending it returns, not income', 
   const [r] = statementToTx([{ date: '2026-09-03', desc: 'REFUND SHOPEE MALAYSIA', amount: 5323, dir: 'in' }], { accountId: 'b' });
   if (r) assert.deepEqual([r.type, r.category, r.cat], ['income', 'refund', 'shopping']);
 });
+
+test('sheets drawn as tables: side-by-side Expenses | Income, one column per category or account; real ledgers untouched', () => {
+  const tx = rows => { const r = IO.reshape(rows), h = IO.headerRow(r); return IO.rowsToTx(r.slice(h + 1), IO.guessMapping(r[h]), { accountId: 'a', header: r[h] }).txs.map(t => [t.date, t.type, t.amount, t.category]); };
+  assert.deepEqual(tx([['', 'Expenses', '', '', '', '', 'Income', '', ''], ['', 'Date', 'Amount', 'Description', 'Category', '', 'Date', 'Amount', 'Description'], ['', '01/09/2026', '12.50', 'Lunch', 'Food', '', '25/09/2026', '3000', 'Salary']]),
+    [['2026-09-01', 'expense', 1250, 'dining'], ['2026-09-25', 'income', 300000, 'salary']]);
+  assert.deepEqual(tx([['Date', 'Food', 'Transport', 'Total'], ['01/09/2026', '12.5', '8', '20.5'], ['TOTAL', '12.5', '8', '20.5']]).map(x => x[3]), ['dining', 'transport']);
+  assert.deepEqual(IO.reshape([['Transaction Date', 'Posting Date', 'Description', 'Withdrawal', 'Balance'], ['01/09/2026', '02/09/2026', 'Tesco', '85.40', '1000']])[0], ['Transaction Date', 'Posting Date', 'Description', 'Withdrawal', 'Balance']);
+  assert.deepEqual(IO.reshape([['Date', 'Item', 'Qty', 'Unit price', 'Amount'], ['01/09/2026', 'Eggs', '2', '6.20', '12.40']])[0], ['Date', 'Item', 'Qty', 'Unit price', 'Amount']);
+});
+
+test('a lone minus in a list of spending is a refund, totals and openings are not spending, quotes inside cells stay', () => {
+  const r = run('Date,Item,Amount\n01/09/2026,A,MYR 1200\n02/09/2026,B,50\n03/09/2026,C,30\n04/09/2026,D,40\n05/09/2026,E,60\n06/09/2026,F,70\n07/09/2026,Return,-50');
+  assert.deepEqual(r.txs.map(t => t.type[0]).join(''), 'eeeeeei');
+  assert.equal(r.txs.at(-1).category, 'refund');
+  assert.deepEqual(run('Date,Description,Amount\n01/07/2026,Opening balance,1500\n05/07/2026,Tesco,85\n31/07/2026,TOTAL JUL,85').txs.map(t => t.merchant), ['Tesco']);
+  assert.equal(IO.parseCSV('Date\tItem\tAmount\n01/09/2026\tMonitor 24" Dell\t499\n02/09/2026\tCable\t15').length, 3);
+  assert.equal(IO.fileDate('Tuesday, 1 September 2026'), '2026-09-01');
+  assert.equal(IO.fileDate('Tuesday, September 1, 2026'), '2026-09-01');
+  assert.equal(IO.sheetCsvUrl('https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuvwxyz/pubhtml?gid=5'), 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuvwxyz/pub?output=csv&gid=5');
+});

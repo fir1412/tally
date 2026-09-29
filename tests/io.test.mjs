@@ -254,7 +254,7 @@ test("Touch 'n Go export: Wallet Balance and Transaction Type mapped; reloads ar
   assert.equal(IO.openingFromBalance(rows, map, txs, '2026-09-29'), 1240);
   // Type words alone (no balance column), and a DR/CR column next to an unsigned amount.
   const dir = words => IO.rowsToTx(words.map(w => ['01/09/2026', '5.00', w]), { date: 0, amount: 1, type: 2 }, { accountId: 'a' }).txs.map(t => t.type[0]).join('');
-  assert.equal(dir(['Top up', 'Cash in', 'Tambah nilai', 'Receive', 'Payment', 'Purchase', 'Transfer', 'CR', 'DR', 'C', 'D', 'Refund']), 'iiiieeeieiei');
+  assert.equal(dir(['Top up', 'Cash in', 'Tambah nilai', 'Receive', 'Payment', 'Purchase', 'Transfer', 'CR', 'DR', 'C', 'D', 'Refund']), 'iiiieeieieie');   // a lone Transfer row is a transfer half with no other side: money out, listed after the rest
   assert.deepEqual(IO.guessMapping(['Date', 'Description', 'Amount', 'DR/CR', 'Balance']), { date: 0, balance: 4, type: 3, merchant: 1, amount: 2 });
 });
 

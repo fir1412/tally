@@ -1234,4 +1234,11 @@ export default {
   "A stall, rides or a shop, kept apart from your own money.": "屋台、配車、お店のお金を、自分のお金と分けて管理。",
   "Other currencies": "他の通貨",
   "SGD and other money, at the rate you choose.": "SGD など他の通貨を、自分で選んだレートで。",
+  "This Excel file is password-protected. Open it in Excel, remove the password, save it, and try again.": "この Excel ファイルはパスワードで保護されています。Excel で開いてパスワードを外し、保存してからもう一度試してください。",
+  "This workbook has no rows of transactions (only charts or empty tabs).": "このブックには取引の行がありません（グラフか空のタブだけです）。",
+  "No amount column found. Pick it above.": "金額の列が見つかりません。上で選んでください。",
+  "No date column found. Pick it above, or open the tab with your transactions.": "日付の列が見つかりません。上で選ぶか、取引が載っているタブを開いてください。",
+  "This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.": "これは取引の一覧ではなく、まとめや予算のようです。取引が載っているタブを開くか、上で列を選んでください。",
+  "{0} rows are in another currency (SGD…) and were left out. Add an account in that currency (Settings → Accounts), then import them into it.": "{0} 行は別の通貨（SGD など）のため除外しました。その通貨の口座を追加して（設定 → 口座）、そこにインポートしてください。",
+  "{0} unpaid rows (Paid? not ticked) left out.": "未払いの {0} 行（Paid? にチェックなし）は除外しました。",
 };

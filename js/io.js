@@ -22,7 +22,7 @@ export function parseCSV(text, delim = csvDelimiter(text)) {
       if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
       else if (c === '"') inQ = false;
       else cell += c;
-    } else if (c === '"') inQ = true;
+    } else if (c === '"' && cell === '') inQ = true;
     else if (c === delim) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
@@ -134,16 +134,18 @@ function eachTag(xml, tag, fn) {
 }
 const texts = body => { let s = ''; eachTag(body, 't', (a, b) => { s += b; }); return s; };
 /** Shared strings (capped) and one worksheet's XML → rows of strings. Exported for the timing test. */
-export function sheetRows(xml, shared = []) {
-  const rows = [];
-  eachTag(xml, 'row', (_, body) => {
+const serialIso = (n, base1904) => { const d = new Date(Date.UTC(base1904 ? 1904 : 1899, base1904 ? 0 : 11, base1904 ? 1 : 30) + Math.floor(n) * 864e5 + Math.round((n % 1) * 1440) * 6e4); return d.toISOString().slice(0, n % 1 ? 16 : 10).replace('T', ' '); };
+export function sheetRows(xml, shared = [], { dates = new Set(), base1904 = false } = {}) {
+  const rows = [], nums = [];
+  eachTag(xml, 'row', (ra, body) => {
     const row = [];
+    nums.push(+ra.match(/\br="(\d+)"/)?.[1] || (nums.at(-1) || 0) + 1);
     let n = 0;
     eachTag(body, 'c', (attrs, cell) => {
-      const ref = attrs.match(/\br="([A-Z]{1,3})\d+"/)?.[1], type = attrs.match(/\bt="(\w+)"/)?.[1];
+      const ref = attrs.match(/\br="([A-Z]{1,3})\d+"/)?.[1], type = attrs.match(/\bt="(\w+)"/)?.[1], st = attrs.match(/\bs="(\d+)"/)?.[1];
       let v = '';
       if (type === 'inlineStr') v = texts(cell);
-      else { eachTag(cell, 'v', (a, b) => { v = b; return false; }); if (type === 's') v = shared[+v] ?? ''; }
+      else { eachTag(cell, 'v', (a, b) => { v = b; return false; }); if (type === 's') v = shared[+v] ?? ''; else if ((!type || type === 'n') && st && dates.has(+st) && /^\d+(\.\d+)?$/.test(v) && +v > 0) v = serialIso(+v, base1904); }
       const col = ref ? colIndex(ref) : row.length;
       if (col < 200) row[col] = unxml(v); // a crafted "ZZZ1" would make a huge sparse row
       return ++n < 1000;
@@ -151,12 +153,27 @@ export function sheetRows(xml, shared = []) {
     rows.push(Array.from(row, x => x ?? ''));
     return rows.length < LIMITS.rows;
   });
+  // A date merged down over several purchases: each row under it gets the date.
+  eachTag(xml, 'mergeCell', a => {
+    const m = a.match(/ref="([A-Z]{1,3})(\d+):([A-Z]{1,3})(\d+)"/); if (!m || m[1] !== m[3]) return;
+    const c = colIndex(m[1]), top = nums.indexOf(+m[2]); if (top < 0) return;
+    for (let i = top + 1; i < rows.length && nums[i] <= +m[4]; i++) if (!String(rows[i][c] ?? '').trim()) rows[i][c] = rows[top][c];
+  });
   return rows.filter(r => r.some(x => String(x).trim() !== ''));
+}
+/** Which cell styles show a date: built-in date formats, or a format of its own with d or y in it. */
+function dateStyles(xml) {
+  const custom = {}, out = new Set();
+  eachTag(xml, 'numFmt', a => { const id = a.match(/numFmtId="(\d+)"/)?.[1], code = unxml(a.match(/formatCode="([^"]*)"/)?.[1] || ''); if (id) custom[id] = code; });
+  const isDate = id => (id >= 14 && id <= 22) || (id >= 27 && id <= 36) || (id >= 45 && id <= 47) || (id >= 50 && id <= 58) || /[dy]/i.test(String(custom[id] || '').replace(/"[^"]*"|\[[^\]]*\]|\\./g, ''));
+  eachTag(xml, 'cellXfs', (a, body) => { let i = 0; eachTag(body, 'xf', x => { if (isDate(+(x.match(/numFmtId="(\d+)"/)?.[1] ?? 0))) out.add(i); i++; }); return false; });
+  return out;
 }
 /** Every worksheet of an .xlsx, in the workbook's tab order → [{name, rows}]. Dates stay Excel serials (fileDate reads those). */
 export async function xlsxSheets(buf) {
-  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
-  const dec = x => (x ? new TextDecoder().decode(x) : '');
+  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/styles.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const dec = x => (x ? new TextDecoder().decode(x).replace(/<(\/?)[A-Za-z][\w.-]*:(?=[A-Za-z])/g, '<$1') : '');   // <x:row> as <row> (OpenXML SDK files)
+  const opts = { dates: dateStyles(dec(files['xl/styles.xml'])), base1904: /date1904="(1|true)"/.test(dec(files['xl/workbook.xml'])) };
   const shared = [];
   eachTag(dec(files['xl/sharedStrings.xml']), 'si', (a, b) => { shared.push(unxml(texts(b))); return shared.length < 200_000; });
   const rels = {};
@@ -165,7 +182,7 @@ export async function xlsxSheets(buf) {
   eachTag(dec(files['xl/workbook.xml']), 'sheet', a => { const path = rels[a.match(/\br:id="([^"]+)"/)?.[1]]; if (files[path]) tabs.push({ name: cleanText(unxml(a.match(/\bname="([^"]*)"/)?.[1] || ''), 40), path }); });
   if (!tabs.length) for (const path of Object.keys(files).filter(n => n.startsWith('xl/worksheets/')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)))) tabs.push({ name: path.match(/sheet\d+/)[0], path });
   if (!tabs.length) throw new Error('no sheet');
-  return tabs.map(({ name, path }) => ({ name, rows: sheetRows(dec(files[path]), shared) }));
+  return tabs.map(({ name, path }) => ({ name, rows: sheetRows(dec(files[path]), shared, opts) }));
 }
 /**
  * An .xlsx as one list of rows: the first tab with a header row, then every later tab that has a date and an amount
@@ -175,9 +192,14 @@ export async function xlsxSheets(buf) {
  * 'rows'}]}, for the mapping sheet.
  */
 export async function xlsxToRows(buf) {
-  const sheets = await xlsxSheets(buf);
+  const all = await xlsxSheets(buf);
+  const ledger = rows => { const h = headerRow(rows), m = guessMapping((rows[h] || []).map(x => cleanText(x, 40))); return m.date != null && (m.amount ?? m.debit ?? m.credit) != null ? { h, m } : null; };
+  const sig = s => { const l = ledger(s.rows); if (!l) return null; const k = l.m.amount ?? l.m.debit ?? l.m.credit; return s.rows.slice(l.h + 1).map(r => `${fileDate(r[l.m.date]) || r[l.m.date]}|${fileAmount(r[k]) ?? ''}|${fileAmount(r[l.m.credit]) ?? ''}`).filter(x => !/^\|/.test(x)); };
+  const sigs = all.map(sig);
+  const sheets = all.filter((s, i) => !sigs[i] || !sigs[i].length || !sigs.some((o, j) => j !== i && o && o.length > sigs[i].length && sigs[i].every(x => o.includes(x))));
+  if (!sheets.length) throw new Error('no sheet');
   const headOf = rows => { const h = headerRow(rows); return Object.keys(guessMapping(rows[h] || [])).length >= 2 ? h : -1; };
-  const first = sheets.find(s => headOf(s.rows) >= 0) || sheets.find(s => s.rows.length);
+  const first = sheets.find(s => ledger(s.rows)) || sheets.find(s => headOf(s.rows) >= 0) || sheets.find(s => s.rows.length);
   if (!first) throw new Error('no sheet');
   const h0 = Math.max(0, headOf(first.rows)), head = [...(first.rows[h0] || [])], out = [...first.rows], tabs = { read: [first.name], skipped: [] };
   const name = x => cleanText(x, 40).toLowerCase();
@@ -204,6 +226,8 @@ export async function xlsxToRows(buf) {
 /** A Google Sheets link → its CSV export URL (the sheet must be shared "Anyone with the link"), or null. */
 export function sheetCsvUrl(link) {
   const s = String(link ?? '').trim();
+  const pub = s.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]{20,})\/pub/);
+  if (pub) { const g = s.match(/[#&?]gid=(\d+)/)?.[1]; return `https://docs.google.com/spreadsheets/d/e/${pub[1]}/pub?output=csv${g ? `&gid=${g}` : ''}`; }
   const m = s.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})/);
   if (!m) return null;
   const gid = s.match(/[#&?]gid=(\d+)/)?.[1];
@@ -215,9 +239,12 @@ export async function fileToRows(name, buf) {
   const b = new Uint8Array(buf);
   if (b.length > LIMITS.fileBytes) throw new Error('This file is over 25 MB. Split it or export a shorter date range.');
   if (b[0] === 0x50 && b[1] === 0x4b) {
-    try { return await xlsxToRows(buf); } catch { throw new Error('This Excel file could not be read. Save it as .xlsx or CSV and try again.'); }
+    try { return await xlsxToRows(buf); } catch (e) { throw new Error(e?.message === 'no sheet' ? 'This workbook has no rows of transactions (only charts or empty tabs).' : 'This Excel file could not be read. Save it as .xlsx or CSV and try again.'); }
   }
-  if (b[0] === 0xd0 && b[1] === 0xcf) throw new Error('Old Excel files (.xls) are not supported. Open it and save as .xlsx or CSV.');
+  if (b[0] === 0xd0 && b[1] === 0xcf) {
+    if (new TextDecoder('utf-16le').decode(b.subarray(0, Math.min(b.length, 1 << 20))).includes('EncryptedPackage')) throw new Error('This Excel file is password-protected. Open it in Excel, remove the password, save it, and try again.');
+    throw new Error('Old Excel files (.xls) are not supported. Open it and save as .xlsx or CSV.');
+  }
   const text = decodeBytes(b);
   if (/^\s*(OFXHEADER|<\?xml[^>]*>\s*<\?OFX|<OFX>)/i.test(text.replace(/^﻿/, ''))) return ofxToRows(text);
   return /^\s*!(type|account|option|clear)\b/i.test(text.replace(/^﻿/, '')) ? qifToRows(text) : parseCSV(text);
@@ -230,13 +257,49 @@ const HEAD = {
   balance: [/^((running|closing|available|wallet|e-?wallet|account|current|statement|ledger|book) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$|^(账户|帳戶)?(余额|餘額|结余|結餘)$/i, /balance|^baki\b|结余|結餘|余额|餘額/i],
   debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
-  type: [/^(type|jenis|类型|類型|income\/expense|expense\/income|in\/out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr\/cr|cr\/dr|debit\/credit|credit\/debit|d\/c|c\/d)$/i, null],
+  type: [/^(type|jenis|类型|類型|income ?\/ ?expense|expense ?\/ ?income|in ?\/ ?out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr ?\/ ?cr|cr ?\/ ?dr|debit ?\/ ?credit|credit ?\/ ?debit|d ?\/ ?c|c ?\/ ?d|masuk ?\/ ?keluar)$/i, null],
   category: [/^(category|categories|kategori|类别|類別|分类|分類)$/i, /categor|kategori|类别|類別|分类|分類/i],
-  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
+  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?|vendor|transaction|transaction details|particulars|what|bill|spent on|for|butiran transaksi)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
   note: [/^(notes?|nota|memo|remarks?|备注|備註|comments?)$/i, /note|nota|memo|keterangan|butiran|备注|備註|details|remark|catatan/i],
-  account: [/^(account|akaun|账户|帳戶|wallet|dompet|paid (by|with|from|using)|pay(ment)? (by|method|mode)|payment (method|mode|type)|method|bayar (guna|dengan|melalui)|kaedah (bayaran|pembayaran)|付款方式|支付方式)$/i, null],
-  amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total|cost|kos)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
+  account: [/^(account|akaun|账户|帳戶|wallet|dompet|paid (by|with|from|using)|pay(ment)? (by|method|mode)|payment (method|mode|type)|method|bayar (guna|dengan|melalui)|kaedah (bayaran|pembayaran)|付款方式|支付方式|who paid|paid by|dibayar oleh|bayar oleh|pembayar|付款人|付款者)$/i, null],
+  amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total|cost|kos|rm|myr|ringgit)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
 };
+/**
+ * Sheets people draw instead of lists, as one list. (1) Tables side by side under titles (the Google "Monthly budget"
+ * template: Expenses | Income): stacked, with the title as a Type column. Each block must name a date and money, so a
+ * bank's "Transaction Date | Posting Date" is never split. (2) One column per category or account (Date | Food |
+ * Transport | … | Total, or Date | Cash | Maybank | TNG) when there is no amount column of its own: a row per filled
+ * cell, the column's name as its Category or Account; Total and Balance columns are left out. Else rows as they are.
+ */
+export function reshape(rows) {
+  const clean = r => (r || []).map(x => cleanText(x, 40)), money = m => m.amount ?? m.debit ?? m.credit;
+  for (let h = 0; h < Math.min(rows.length, 40); h++) {
+    const r = clean(rows[h]), starts = r.map((x, i) => (HEAD.date[0].test(x) ? i : -1)).filter(i => i >= 0);
+    if (starts.length < 2) continue;
+    const blocks = starts.map((s, k) => ({ s, e: k + 1 < starts.length ? starts[k + 1] : r.length }));
+    if (!blocks.every(({ s, e }) => { const m = guessMapping(r.slice(s, e)); return m.date != null && money(m) != null; })) continue;
+    const head = r.slice(blocks[0].s, blocks[0].e).filter(Boolean), title = clean(rows[h - 1]), out = [[...head, 'Type']];
+    for (const { s, e } of blocks) {
+      const names = r.slice(s, e).map(x => x.toLowerCase()), word = title.slice(s, e).find(Boolean) || title[s - 1] || '';
+      for (const row of rows.slice(h + 1)) {
+        const cells = head.map(n => { const j = names.indexOf(n.toLowerCase()); return j >= 0 ? row[s + j] ?? '' : ''; });
+        if (cells.some(c => cleanText(c))) out.push([...cells, word]);
+      }
+    }
+    return [...rows.slice(0, h), ...out];
+  }
+  const h = headerRow(rows), head = clean(rows[h]), m = guessMapping(head), body = rows.slice(h + 1);
+  const totalLike = x => /^(total|jumlah|sum|grand total|合计|合計|总计|總計)\b/i.test(x || '');
+  if (m.date == null || (money(m) != null && !totalLike(head[money(m)]))) return rows;
+  const numeric = i => { const v = body.map(r => cleanText(r[i])).filter(Boolean); return v.length > 0 && v.filter(x => fileAmount(x) != null).length >= v.length * 0.8; };
+  const cols = head.map((x, i) => i).filter(i => i !== m.date && head[i] && !totalLike(head[i]) && !/^(baki|balance|running|结余|余额|餘額)/i.test(head[i]) && numeric(i));
+  if (cols.length < 2) return rows;
+  const cat = cols.filter(i => { const c = mapCategory(head[i]); return c && c !== 'other'; }).length * 2 >= cols.length;
+  const text = head.map((x, i) => i).filter(i => i !== m.date && !cols.includes(i) && head[i] && !totalLike(head[i]) && !numeric(i));   // a Description or Note column rides along
+  const out = [['Date', cat ? 'Category' : 'Account', 'Amount', ...text.map(i => head[i])]];
+  for (const r of body) for (const i of cols) if (fileAmount(r[i])) out.push([r[m.date], head[i], r[i], ...text.map(j => r[j])]);
+  return [...rows.slice(0, h), ...out];
+}
 /** Which column holds what: {date, amount | debit+credit, type?, category?, merchant?, note?, account?, balance?} as indexes. */
 export function guessMapping(header) {
   const h = header.map(x => cleanText(x));
@@ -254,7 +317,15 @@ export function guessMapping(header) {
 /** The header row: the first of the top 10 rows that names two or more columns, so title rows above it
  *  ("Family Budget 2026", "Prepared by…") are skipped. 0 when none does. */
 export function headerRow(rows) {
-  const named = r => Object.keys(guessMapping((r || []).map(x => cleanText(x, 40)))).length;
+  const named = r => Object.keys(guessMapping((r || []).map(x => cleanText(x, 40)))).length, dateLike = x => !!fileDate(x) || !!fileDate(x, true);
+  let best = -1, score = 0;
+  rows.slice(0, 40).forEach((r, i) => {
+    const m = guessMapping((r || []).map(x => cleanText(x, 40)));
+    if (m.date == null || (m.amount ?? m.debit ?? m.credit) == null) return;
+    const sc = rows.slice(i + 1, i + 9).filter(x => dateLike(x?.[m.date])).length * 10 + Object.keys(m).length;
+    if (sc > score) { score = sc; best = i; }
+  });
+  if (best >= 0 && score >= 10) return best;
   const i = rows.slice(0, 10).findIndex(r => named(r) >= 2);
   return i < 0 ? 0 : i;
 }
@@ -265,7 +336,7 @@ const MON_MS = ['jan', 'feb', 'mac', 'apr', 'mei', 'jun', 'jul', 'ogo', 'sep', '
 /** "28/09/2026", "28-09-26", "2026-09-28", "2026/9/28", "20260928", "28 Sep 2026", "2026年9月28日", Excel serial → ISO,
  *  or null. Day first, unless monthFirst (a US-locale sheet: see dateOrder). */
 export function fileDate(v, monthFirst = false) {
-  const s = cleanText(v, 40);
+  const s = cleanText(v, 40).replace(/^(mon|tue|wed|thu|fri|sat|sun|isnin|selasa|rabu|khamis|jumaat|sabtu|ahad)[a-z]*,?\s+/i, '');
   if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5).toISOString().slice(0, 10);
   let m, y, mo, d;
   if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/) || s.match(/^(\d{4})(\d{2})(\d{2})$/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
@@ -273,6 +344,9 @@ export function fileDate(v, monthFirst = false) {
   else if ((m = s.match(/^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[\s,.-]*(\d{2,4})/))) {
     const k = m[2].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
     [d, mo, y] = [+m[1], i + 1, +m[3]];
+  } else if ((m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/))) {
+    const k = m[1].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
+    [d, mo, y] = [+m[2], i + 1, +m[3]];
   } else if ((m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
   else return null;
   if (y < 100) y += 2000;
@@ -284,7 +358,12 @@ export function fileDate(v, monthFirst = false) {
 export function dateOrder(rows, col, mdy = false) {
   let a = false, b = false;
   for (const r of rows) { const m = cleanText(r?.[col], 40).match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/); if (m) { a ||= +m[1] > 12; b ||= +m[2] > 12; } }
-  return (b || mdy) && !a;
+  if (a || b) return b && !a;
+  // Every date could be either (9/1 … 9/12): the reading that doesn't put entries in the future wins (a US sheet's
+  // 1–12 September is not January–December with October on still to come); else the app's own order.
+  const today = new Date().toISOString().slice(0, 10), future = mf => rows.filter(r => (fileDate(r?.[col], mf) || '') > today).length;
+  const f = future(false), m = future(true);
+  return f !== m ? m < f : mdy;
 }
 const pad2 = n => String(n).padStart(2, '0');
 /** "12:40" in a cell, the fraction of an Excel date-time serial, or (bare) a Time column's "930" / "1845" (AndroMoney). */
@@ -314,7 +393,7 @@ const cleanDesc0 = s => {
   return c.replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '')
     .replace(/^(\p{L}+) (?=\1\b)/iu, '').trim() || c || cleanText(s, 120); // "Reload Reload via FPX" (type + description)
 };
-const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪/i;
+const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪|副业|副業|sampingan|freelance|bonus|dividen|dividend|interest|faedah|利息/i;
 // Wallet and bank "Transaction Type" words: a reload, top-up or money received is money in; a DR/CR column says it outright.
 const IN_TYPE = /^(cr|c|\+|in)$|reload|top ?-?up|cash ?in|tambah nilai|receiv|terima|refund|cash ?back|\bin$/i;
 const OUT_TYPE = /^(dr|d|-|out)$/i;
@@ -396,7 +475,11 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   let adjustments = 0;
   if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   // An app that signs its amounts: a file with only money in (a refund, a salary) is still income, not spending.
-  const signed = !!preset?.signed || (map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0));
+  const amts = map.amount == null ? [] : rows.map(r => fileAmount(r[map.amount])).filter(a => a), negs = amts.filter(a => a < 0).length;
+  const signed = !!preset?.signed || (negs > 0 && negs >= amts.length * 0.15);
+  // A Paid? / Done column of ticks: unticked rows are bills still to pay, not spending yet.
+  const paidCol = header.findIndex(h => /^(paid\??|done|settled|dibayar\??|sudah bayar|bayar\??|已付|已付款|已缴)$/i.test(cleanText(h, 30)));
+  const curCol = header.findIndex(h => /^(currency|curr\.?|ccy|mata wang|货币|貨幣|幣別|币种)$/i.test(cleanText(h, 30)));
   const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date, preset?.mdy);
   const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
   const bal = balanceSigns(rows, map, amtOf);
@@ -404,6 +487,9 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
   const status = header.findIndex(h => /^(status|transaction status|status transaksi|状态|狀態)$/i.test(cleanText(h, 30)));
   rows.forEach((r, n) => {
     if (status >= 0 && /fail|unsuccess|gagal|cancel|batal|reject|declin|revers|refused|失败|失敗|取消/i.test(r[status] ?? '')) return skipped.push({ row: n + 2, why: 'failed' });
+    if (paidCol >= 0 && /^(false|no|tidak|belum|0|☐|✗|否)$/i.test(cleanText(r[paidCol], 10))) return skipped.push({ row: n + 2, why: 'unpaid' });
+    // Another currency (a Currency column, or S$ / SGD in the amount) is never read as ringgit.
+    if ((curCol >= 0 && /^(sgd|s\$|usd|us\$|eur|gbp|aud|idr|thb|cny|rmb|jpy|hkd|bnd)$/i.test(cleanText(r[curCol], 10))) || /^\s*-?\s*(s\$|sgd\b)/i.test(String(r[map.amount] ?? r[map.debit] ?? r[map.credit] ?? ''))) return skipped.push({ row: n + 2, why: 'currency' });
     const cx = rowCtx(r, map, header), get = cx.get;
     const z = zoned(get('date')), date = z?.date || fileDate(get('date'), mdy);
     let amt = null, type = null, sign = 1;
@@ -412,9 +498,13 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
       if (d) { amt = Math.abs(d); type = 'expense'; sign = -1; } else if (c) { amt = Math.abs(c); type = 'income'; }
     } else {
       const a = fileAmount(get('amount'));
-      if (a != null) { amt = Math.abs(a); type = a < 0 ? 'expense' : signed ? 'income' : null; sign = a < 0 ? -1 : 1; }
+      if (a != null) { amt = Math.abs(a); type = a < 0 ? (signed ? 'expense' : 'income') : signed ? 'income' : null; sign = a < 0 ? -1 : 1; }
     }
     if (!amt) return skipped.push({ row: n + 2, why: 'amount' });
+    const refundRow = !signed && !dc && (fileAmount(get('amount')) ?? 0) < 0;   // a minus in a list of spending: money back
+    // A total or subtotal row is the sum of rows already here; a b/f or opening row is where the account started.
+    const label = cleanText(`${get('merchant')} ${get('note')} ${/[a-z]/i.test(get('date')) ? get('date') : ''}`, 80);
+    if (/^((sub ?)?total|grand total|jumlah( besar| keseluruhan| kecil)?|合计|合計|总计|總計|小计|小計|carried forward|c\/f\b)/i.test(label)) return;
     const own = preset?.amount && fileAmount(preset.amount(cx)); if (own) amt = Math.abs(own);   // Toshl: the amount in the main currency
     const tword = cleanText(get('type'), 40);
     if (tword) type = OUT_TYPE.test(tword) ? 'expense' : IN_TYPE.test(tword) ? 'income' : TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
@@ -429,7 +519,10 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     const fromMerchant = map.merchant != null && !!cleanText(get('merchant'));   // an empty Payee falls back to the note
     const merchant = cleanDesc(fromMerchant ? get('merchant') : get('note')).slice(0, 80).trim(), note = fromMerchant ? cleanText(get('note'), 200) : '';
     const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
-    const tr = preset?.transfer?.(cx);
+    if (/^(opening balance|balance b\/?f|brought forward|b\/f\b|baki (awal|dibawa|b\/?b|b\/?f|permulaan|mula)|期初|上期结余|上期結餘)/i.test(label)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; (adjAt[k] ||= []).push(''); adjustments++; return; }
+    // A Type column that says Transfer: the words say which way ("to TNG" out, "from Maybank" in), and the other half pairs up.
+    const typedTr = !preset && TRANSFER_WORD.test(tword) && (() => { const txt = `${get('merchant')} ${get('note')}`, other = txt.match(/\b(?:to|ke|kepada|from|dari|daripada)\s+(.+)$/i)?.[1]; return { dir: sign < 0 && (dc || signed) ? 'out' : /\b(from|dari|daripada|received|terima)\b/i.test(txt) ? 'in' : 'out', to: other && accounts[cleanText(other, 40).toLowerCase()] ? cleanText(other, 40) : null }; })();
+    const tr = preset?.transfer?.(cx) || typedTr;
     if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
     const rawCat = preset?.category ? preset.category(cx) : get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
     let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
@@ -439,6 +532,7 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (!tword && !signed && !bal[n] && !dc && !preset?.type && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
     if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
+    if (refundRow && type === 'income') { txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category: 'refund', cat: INCOME_CATEGORIES.some(c => c.id === category) ? 'other' : category, merchant, note, source, createdAt: now }); return; }
     txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, merchant, note, source, createdAt: now });
   });
   const { transfers, loose } = joinLegs(legs);

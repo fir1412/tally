@@ -1235,4 +1235,11 @@ export default {
   "A stall, rides or a shop, kept apart from your own money.": "Gerai, tunggangan atau kedai, diasingkan daripada wang anda sendiri.",
   "Other currencies": "Mata wang lain",
   "SGD and other money, at the rate you choose.": "SGD dan mata wang lain, pada kadar pilihan anda.",
+  "This Excel file is password-protected. Open it in Excel, remove the password, save it, and try again.": "Fail Excel ini dilindungi kata laluan. Buka dalam Excel, buang kata laluan, simpan, dan cuba lagi.",
+  "This workbook has no rows of transactions (only charts or empty tabs).": "Buku kerja ini tiada baris transaksi (hanya carta atau tab kosong).",
+  "No amount column found. Pick it above.": "Tiada lajur jumlah dijumpai. Pilih di atas.",
+  "No date column found. Pick it above, or open the tab with your transactions.": "Tiada lajur tarikh dijumpai. Pilih di atas, atau buka tab yang ada transaksi anda.",
+  "This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.": "Ini kelihatan seperti ringkasan atau bajet, bukan senarai transaksi. Buka tab yang ada transaksi anda, atau pilih lajur di atas.",
+  "{0} rows are in another currency (SGD…) and were left out. Add an account in that currency (Settings → Accounts), then import them into it.": "{0} baris dalam mata wang lain (SGD…) dan tidak dimasukkan. Tambah akaun dalam mata wang itu (Tetapan → Akaun), kemudian import ke dalamnya.",
+  "{0} unpaid rows (Paid? not ticked) left out.": "{0} baris belum dibayar (Paid? tidak ditanda) tidak dimasukkan.",
 };

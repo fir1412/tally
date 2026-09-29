@@ -1234,4 +1234,11 @@ export default {
   "A stall, rides or a shop, kept apart from your own money.": "攤位、載客或店鋪的錢，和你自己的分開。",
   "Other currencies": "其他貨幣",
   "SGD and other money, at the rate you choose.": "新幣和其他貨幣，按你選的匯率。",
+  "This Excel file is password-protected. Open it in Excel, remove the password, save it, and try again.": "這個 Excel 檔案有密碼保護。請在 Excel 中打開，移除密碼後儲存，再試一次。",
+  "This workbook has no rows of transactions (only charts or empty tabs).": "這個工作簿裡沒有交易行（只有圖表或空白頁）。",
+  "No amount column found. Pick it above.": "沒有找到金額列。請在上面選擇。",
+  "No date column found. Pick it above, or open the tab with your transactions.": "沒有找到日期列。請在上面選擇，或打開有交易記錄的那一頁。",
+  "This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.": "這看起來是匯總或預算，不是交易列表。請打開有交易記錄的那一頁，或在上面選擇列。",
+  "{0} rows are in another currency (SGD…) and were left out. Add an account in that currency (Settings → Accounts), then import them into it.": "有 {0} 行是其他貨幣（SGD…），沒有導入。請先添加該貨幣的帳戶（設定 → 帳戶），再導入到那裡。",
+  "{0} unpaid rows (Paid? not ticked) left out.": "有 {0} 行未付款（未勾選 Paid?），沒有導入。",
 };
