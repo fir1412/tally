@@ -253,3 +253,9 @@ test('Singapore and online receipts: S$ and NETS read as SGD paid by debit; poin
   const sp = parseReceipt(['Shopee Order Details', 'Serum 30ml RM45.90', 'Phone case RM19.90', 'Charger RM29.90', 'Merchandise Subtotal RM95.70', 'Shipping Subtotal RM4.90', 'Shipping Discount Subtotal -RM4.90', 'Shopee Voucher -RM5.00', 'Order Total RM90.70', 'Payment Method ShopeePay'].join('\n'));
   assert.deepEqual([sp.total, sp.service, sp.currency, sp.pay, sp.check.ok], [9070, 490, 'MYR', 'ewallet', true]);
 });
+
+test('dates the reader mangles: glued to a time, compact before a time, a missing slash, OCR month typos, a stray digit, a comma', () => {
+  for (const [line, iso] of [['Inv:12345 Ctr:7 ID:704 21:0221/04/23', '2023-04-21'], ['0001 28082022 15:23:12', '2022-08-28'], ['Date: 0105/2024 18:39', '2024-05-01'],
+    ['DATE :20/Ju1/2023 14:16:26', '2023-07-20'], ['118 AUG 2022', '2022-08-18'], ['Payment Date 06 Apr, 2024', '2024-04-06'], ['Barcode 8705040416405320240416', null]])
+    assert.equal(parseDate(line), iso, line);
+});

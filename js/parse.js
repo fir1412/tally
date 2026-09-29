@@ -72,6 +72,11 @@ export function parseTime(line) {
 const DATE_HINT = /\d{1,4}[\/.-]\d{1,2}[\/.-]\d{2,4}/;
 
 export function parseDate(line) {
+  line = String(line ?? '')
+    .replace(/(\d{1,2}:\d{2})(?=\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2})/g, '$1 ')   // a time glued to the date: "21:0221/04/23"
+    .replace(/(?<![\d/])([0-3]\d)([01]\d)\/?(20\d{2})(?=\s+\d{1,2}:\d{2})/g, '$1/$2/$3')   // "28082022 15:23:12", "0105/2024 18:39": only before a time
+    .replace(/\bju1\b/gi, 'jul').replace(/\b0ct\b/gi, 'oct').replace(/\bn0v\b/gi, 'nov').replace(/\bs3p\b/gi, 'sep')   // OCR's 1/0/3 in month names
+    .replace(/(?<!\d)\d(\d{2}\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s,/-]*20\d{2})/gi, '$1');   // "118 AUG 2022": a stray digit before the day
   const ok = (y, mo, d) => {
     if (y < 100) y += 2000;
     const dt = new Date(Date.UTC(y, mo - 1, d));
