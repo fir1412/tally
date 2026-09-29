@@ -130,7 +130,13 @@ export function parseStatement(lines) {
     if (!dt) {
       const last = rows.at(-1);
       if (!last) continue;
-      if (!last.cash.length && am.length) last.cash = am;                                              // amounts on the next line
+      if (!last.cash.length && am.length) {                                                            // amounts on the next line, often with the description
+        last.cash = am;
+        const words = rest.slice(0, am[0].at).trim();
+        if (/[a-z]{2}/i.test(words)) last.desc = `${last.desc} ${words}`.trim();
+      } else if (!last.time && !am.length && LEAD_TIME.test(line.trim())) {                          // a time on a line of its own
+        const tm = line.trim().match(LEAD_TIME); last.time = `${String(+tm[1] % (tm[3] ? 12 : 24) + (/p/i.test(tm[3] || '') ? 12 : 0)).padStart(2, '0')}:${tm[2]}`;
+      }
       else if (!am.length && last.extra < 2 && /[a-z]{2}/i.test(line)) { last.desc += ` ${line}`; last.extra++; } // wrapped description
       continue;
     }

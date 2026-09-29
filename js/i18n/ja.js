@@ -1278,4 +1278,13 @@ export default {
   "This is made-up data. Try anything: nothing here is yours.": "これは架空のデータです。自由に試してください：あなたのデータはありません。",
   "Try this: turn on airplane mode, then add an entry or scan a receipt. Tally still works: it doesn't need the internet for your money.": "試してみて：機内モードにして、記録を追加するかレシートをスキャン。Tally はそのまま動きます：お金の管理にネットは不要です。",
   "You are looking at sample data.": "サンプルデータを表示中です。",
+  "One file with your joint account, its {0} entries, joint budgets and the categories they use. Nothing from your personal accounts.": "共同口座、その {0} 件の記録、共同予算、使っているカテゴリを1つのファイルに。個人の口座は含みません。",
+  "Stickers are off. Turn them back on in Settings → Features.": "ステッカーをオフにしました。設定 → 機能 で戻せます。",
+  "Stop showing stickers": "ステッカーを表示しない",
+  "Tally can't use the camera. Allow the camera for Tally in your phone's or browser's settings, or pick photos from the gallery.": "Tally がカメラを使えません。スマホかブラウザの設定で Tally にカメラを許可するか、ギャラリーから写真を選んでください。",
+  "Insurance & takaful": "保険・タカフル",
+  "Loans": "ローン",
+  "Rent & housing": "家賃・住居",
+  "Business money: a stall, rides or a shop (RM), optional": "事業のお金：屋台、配車、お店（RM）、任意",
+  "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "アカウントなし、広告なし、追跡なし。レシートはこのスマホで読み取ります。Tally がネットに接続するのは、自身のファイル、あなたが貼った Google Sheets のリンク、あなたが求めた為替レート、あなたが送るフィードバック、あなたが追加する Google カレンダーのリマインダーのときだけです。",
 };

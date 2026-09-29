@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift } from '../io.js';
+import { fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
@@ -189,7 +189,7 @@ export const settingsView = {
         ${rules.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
-      <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, and feedback you send.'))}</p>
+      <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.'))}</p>
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(lockOn() ? (settings().lock.cred ? t('On: PIN, fingerprint or face') : t('On: PIN')) : t('Off'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
@@ -430,6 +430,10 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   const fresh = split.fresh.filter(x => !taken.has(x.id));   // reloads the wallet's file already had: now from this bank
   const photoIds = await before(fresh);
   const other = S.accounts.find(a => a.outside) || { id: uid('a'), name: t('Other bank'), kind: 'bank', opening: 0, outside: true, createdAt: Date.now() };
+  if (![...S.accounts, ...accounts].some(a => a.kind === 'cash' && !a.outside) && fresh.some(isAtm)) {   // withdrawals need a wallet to go into; its balance is the user's to give
+    const cash = { id: uid('a'), name: t('Cash'), kind: 'cash', opening: 0, typed: false, createdAt: Date.now() };
+    accounts = [...accounts, cash]; newAccounts = [...newAccounts, cash.id];
+  }
   const { pairs, paired, reloads } = planMoves(fresh, [...S.accounts, ...accounts], other.id), moved = new Set(reloads.map(x => x.id));
   if (reloads.some(x => x.accountId === other.id) && !S.accounts.includes(other)) { accounts = [...accounts, other]; newAccounts = [...newAccounts, other.id]; }
   const relinked = new Set(relink.map(x => x.id));
@@ -682,19 +686,20 @@ export const act = {
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
       <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
+      ${on('business') ? `<label class="field"><span>${esc(t('Business money: a stall, rides or a shop (RM), optional'))}</span><input id="sf-biz" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>` : ''}
       <label class="field" hidden><span>${esc(t('Joint account with your partner (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
     if ($('[data-act="sf-mode"][data-v="simple"]')?.classList.contains('on')) await setModules(PRESETS.simple);
-    const vals = ['cash', 'bank', 'ewallet', 'joint'].map(k => [k, $(`#sf-${k}`).value.trim()]);
+    const vals = ['cash', 'bank', 'ewallet', 'joint', 'biz'].map(k => [k, $(`#sf-${k}`)?.value.trim() || '']);
     const bad = vals.find(([, v]) => v && calcAmount(v) == null);
     if (bad) return ($('#sf-err').textContent = amtErr(bad[1]));
     b.disabled = true;
-    const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
+    const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account'), biz: t('Business') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || k === 'bank' || v || (k === 'ewallet' && $('#sf-ewname').value.trim())) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k === 'cash' || k === 'bank' || v || (k === 'ewallet' && $('#sf-ewname').value.trim())) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' || k === 'biz' ? 'bank' : k, scope: k === 'joint' ? 'joint' : k === 'biz' ? 'business' : 'personal', opening: calcAmount(v || '0'), typed: !!v, createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -958,7 +963,7 @@ export const act = {
     const { name, text } = jointFile(), rows = jointTx(), photos = new Set(rows.map(x => x.receiptId).filter(Boolean)).size;
     const canShare = !!navigator.canShare?.({ files: [new File([''], name, { type: 'application/json' })] });
     openSheet(`<h2 class="sh-title">${esc(t('Share joint accounts'))}</h2>
-      <p class="sh-body">${esc(t('One file with your {0} joint accounts, their {1} entries, joint budgets and the categories they use. Nothing from your personal accounts.', jointIds().size, rows.length))}</p>
+      <p class="sh-body">${esc(jointIds().size === 1 ? t('One file with your joint account, its {0} entries, joint budgets and the categories they use. Nothing from your personal accounts.', rows.length) : t('One file with your {0} joint accounts, their {1} entries, joint budgets and the categories they use. Nothing from your personal accounts.', jointIds().size, rows.length))}</p>
       <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
       ${photos ? `<label class="check"><input type="checkbox" id="jt-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photos))}</label>` : ''}
       <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it, including any receipt photos (they may show card numbers or names). Send it only to your partner, or add a password.'))}</span></p>

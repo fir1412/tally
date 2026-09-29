@@ -694,7 +694,7 @@ input.switch:checked::before { transform: translateX(20px); background: var(--bt
 .key.due, .sbar .due { background: repeating-linear-gradient(135deg, var(--warn) 0 5px, color-mix(in srgb, var(--warn) 45%, var(--panel2)) 5px 9px); }
 .key.pace, .sbar .pace { background: color-mix(in srgb, var(--accent) 35%, var(--panel2)); box-shadow: inset 0 0 0 1px var(--accent); }
 .fbar .mark { position: absolute; top: -4px; height: 26px; width: 2px; background: var(--ink); }
-.fbar .mark span { position: absolute; top: 100%; left: 0; transform: translateX(-50%); font-size: var(--fs-xs); color: var(--mute); white-space: nowrap; }
+.fbar .mark span { position: absolute; top: 100%; left: 0; transform: translateX(-50%); font-size: var(--fs-xs); color: var(--ink); background: var(--panel); padding: 0 4px; border-radius: 4px; white-space: nowrap; }   /* its own background: readable over the marker line (PM: 2.18:1) */
 .fbar .mark.end span { transform: translateX(-100%); }
 .fcast .safe { margin: 0; display: flex; flex-direction: column; }
 .fcast .safe b { font: 700 var(--fs-lg)/1.2 var(--display); color: var(--good); }
@@ -804,6 +804,8 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 /* Type-first Home: typing and scanning side by side, right under the balance. */
 .addrow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .card.sample { flex-direction: row; gap: var(--sp-2); align-items: center; justify-content: space-between; flex-wrap: wrap; border: 2px dashed var(--accent); }   /* made-up data: impossible to mistake for your own */
+.card.sticker { flex-wrap: wrap; }
+.card.sticker .stk-off { font-size: var(--fs-sm); flex-basis: 100%; text-align: right; }
 .card.sample p { margin: 0; flex: 1 1 14em; }
 .addrow.one { grid-template-columns: 1fr; }
 .addrow .btn { min-width: 0; white-space: normal; text-align: center; }

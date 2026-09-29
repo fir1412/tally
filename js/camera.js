@@ -26,7 +26,7 @@ export function startScan(onFiles) {
     video.addEventListener('loadedmetadata', () => { q('snap').disabled = false; q('snap').focus(); }, { once: true });   // a tap before the first frame would take nothing
     if (s.getVideoTracks()[0].getCapabilities?.().torch) q('torch').hidden = false;
   }).catch(() => {
-    msg.textContent = t('Tally can\'t use the camera. Allow it in Chrome\'s site settings (the lock icon next to the address), or pick photos from the gallery.');
+    msg.textContent = t("Tally can't use the camera. Allow the camera for Tally in your phone's or browser's settings, or pick photos from the gallery.");
     el.querySelector('.cam-view').classList.add('off');
     q('snap').hidden = q('done').hidden = true;   // no shutter to tap in vain: the gallery becomes the one big button
     q('gallery').classList.add('main');

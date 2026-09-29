@@ -1278,4 +1278,13 @@ export default {
   "This is made-up data. Try anything: nothing here is yours.": "這是虚構的資料。隨便試：這裡沒有你的資料。",
   "Try this: turn on airplane mode, then add an entry or scan a receipt. Tally still works: it doesn't need the internet for your money.": "試試：打開飞行模式，然後記一筆或掃描收據。Tally 照常運作：管理你的錢不需要聯網。",
   "You are looking at sample data.": "你正在查看示例資料。",
+  "One file with your joint account, its {0} entries, joint budgets and the categories they use. Nothing from your personal accounts.": "一個檔案，包含你的共同帳戶、它的 {0} 筆記錄、共同預算和用到的類別。不含你的個人帳戶。",
+  "Stickers are off. Turn them back on in Settings → Features.": "已關閉貼紙。可在 設定 → 功能 中重新打開。",
+  "Stop showing stickers": "不再顯示貼紙",
+  "Tally can't use the camera. Allow the camera for Tally in your phone's or browser's settings, or pick photos from the gallery.": "Tally 無法使用相機。請在手機或瀏覽器設定中允許 Tally 使用相機，或從相冊選擇照片。",
+  "Insurance & takaful": "保险與伊斯蘭保险",
+  "Loans": "貸款",
+  "Rent & housing": "房租與住房",
+  "Business money: a stall, rides or a shop (RM), optional": "生意的錢：攤位、載客或店鋪（RM），可選",
+  "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "無需帳戶，無廣告，無追蹤。收據在這部手機上讀取。Tally 只在以下情況聯網：加載自己的檔案、你貼上的 Google Sheets 連結、你查询的匯率、你发送的反饋，以及你添加的 Google 日曆提醒。",
 };

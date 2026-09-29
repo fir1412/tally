@@ -1279,4 +1279,13 @@ export default {
   "This is made-up data. Try anything: nothing here is yours.": "Ini data rekaan. Cubalah apa sahaja: tiada apa di sini milik anda.",
   "Try this: turn on airplane mode, then add an entry or scan a receipt. Tally still works: it doesn't need the internet for your money.": "Cuba ini: hidupkan mod pesawat, kemudian tambah catatan atau imbas resit. Tally tetap berfungsi: ia tidak perlukan internet untuk wang anda.",
   "You are looking at sample data.": "Anda sedang melihat data contoh.",
+  "One file with your joint account, its {0} entries, joint budgets and the categories they use. Nothing from your personal accounts.": "Satu fail dengan akaun bersama anda, {0} catatannya, bajet bersama dan kategori yang digunakan. Tiada apa-apa dari akaun peribadi anda.",
+  "Stickers are off. Turn them back on in Settings → Features.": "Pelekat dimatikan. Hidupkan semula di Tetapan → Ciri.",
+  "Stop showing stickers": "Jangan tunjuk pelekat lagi",
+  "Tally can't use the camera. Allow the camera for Tally in your phone's or browser's settings, or pick photos from the gallery.": "Tally tidak dapat guna kamera. Benarkan kamera untuk Tally dalam tetapan telefon atau pelayar anda, atau pilih foto dari galeri.",
+  "Insurance & takaful": "Insurans & takaful",
+  "Loans": "Pinjaman",
+  "Rent & housing": "Sewa & rumah",
+  "Business money: a stall, rides or a shop (RM), optional": "Wang perniagaan: gerai, e-hailing atau kedai (RM), pilihan",
+  "No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.": "Tiada akaun, tiada iklan, tiada penjejakan. Resit dibaca di telefon ini. Tally hanya ke internet untuk failnya sendiri, pautan Google Sheets yang anda tampal, kadar tukaran yang anda minta, maklum balas yang anda hantar, dan peringatan Google Calendar yang anda tambah.",
 };

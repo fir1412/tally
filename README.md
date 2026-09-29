@@ -16,8 +16,8 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
   coloured by pace; this month against the same point last month; a look back at last week, and now and then a nice find; budgets per category with a pace warning; insights such as unusual weeks and repeat items; a
   6- or 12-month category table with money in and net. Months can start on payday, any amount field takes sums
   (12.50+8*2), and an account can be set to what your bank shows today.
-- **Habits and bills:** Tally learns when you usually spend (lunch around 12:35 on weekdays) and nudges you to log
-  it; regular bills are detected, can add themselves on the day (monthly,
+- **Habits and bills:** Tally learns when you usually spend (lunch around 12:35 on weekdays) and nudges you on Home when you open it; a daily calendar reminder brings you back
+  to log. Regular bills are detected, can add themselves on the day (monthly,
   weekly, yearly or a set number of instalments) and can go into your calendar as reminders (.ics or Google Calendar).
 - **Bring your history:** Money Manager (Innim) backups with receipt photos; Money Manager (Realbyte) backups and
   Excel exports; the exports of Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and

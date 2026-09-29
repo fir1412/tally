@@ -27,6 +27,9 @@ export const CAT_ICONS = {
   fuel: '<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M4 10h10M14 8l4 3v7a2 2 0 0 0 4 0V9l-3-3"/>',
   gym: '<path d="M6 6v12M18 6v12M3 9v6M21 9v6M6 12h12"/>',
   shirt: '<path d="M8 3 3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/>',
+  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/>',
+  shield: '<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/>',
+  bank: '<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/>',
   wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/>',
   piggy: '<path d="M4 11a7 6 0 0 1 13-3h3v4l-2 1v3h-3v3h-3v-2H9v2H6v-3a6 6 0 0 1-2-5z"/>',
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
@@ -34,7 +37,7 @@ export const CAT_ICONS = {
 };
 /** Each built-in category's icon; a category added by hand starts with the tag. */
 export const DEFAULT_ICON = {
-  groceries: 'basket', dining: 'utensils', transport: 'car', bills: 'zap', household: 'house', health: 'heart', personal: 'scissors',
+  groceries: 'basket', dining: 'utensils', transport: 'car', bills: 'zap', housing: 'key', loans: 'bank', insurance: 'shield', household: 'house', health: 'heart', personal: 'scissors',
   kids: 'balloon', electronics: 'phone', shopping: 'bag', fun: 'film', education: 'book', giving: 'gift', other: 'dots',
   salary: 'briefcase', allowance: 'cap', family: 'family', refund: 'undo', income: 'coins',
 };

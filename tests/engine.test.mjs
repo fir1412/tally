@@ -160,7 +160,8 @@ test('categorize: street and place words never decide; Malaysian life words; car
   assert.equal(c('Kedai Runcit Taman Sekolah'), 'groceries');          // not Kids
   assert.equal(c('Kg Baru Nasi Lemak'), 'dining');
   assert.equal(E.categorize('Beras 5 kg'), 'groceries');                // a weight, not a kampung
-  for (const s of ['Siti Aminah Sewa Bilik', 'House rent', 'PTPTN', 'Hotlink prepaid', 'Xpax reload kredit', 'Air Selangor']) assert.equal(c(s), 'bills', s);
+  for (const s of ['Hotlink prepaid', 'Xpax reload kredit', 'Air Selangor']) assert.equal(c(s), 'bills', s);
+  for (const [s, k] of [['Siti Aminah Sewa Bilik', 'housing'], ['House rent', 'housing'], ['Rent', 'housing'], ['Yuran penyelenggaraan', 'housing'], ['PTPTN', 'loans'], ['Car loan Sept', 'loans'], ['Atome', 'loans'], ['Takaful Ikhlas', 'insurance'], ['Great Eastern premium', 'insurance']]) assert.equal(c(s), k, s);
   for (const s of ['Popular Bookstore', 'Kedai Buku Ilmu', 'Stationery']) assert.equal(c(s), 'education', s);
   for (const s of ['Shopee Malaysia', 'Lazada', 'Zalora', 'TikTok Shop', 'Uniqlo KLCC']) assert.equal(c(s), 'shopping', s);
   for (const s of ['虾', '苹果', '葱', '姜', '榴莲', '蒜', '辣椒']) assert.equal(E.categorize(s), 'groceries', s);

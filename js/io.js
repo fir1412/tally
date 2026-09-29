@@ -708,6 +708,8 @@ export function typedShift(accounts, existing, rows) {
   return out;
 }
 const ATM = /\b(atm|cash withdrawal|withdrawal atm|pengeluaran tunai|cdm withdrawal)\b|取款|提款/i;
+/** A bank row that is cash taken out at an ATM. */
+export const isAtm = x => x.type === 'expense' && ATM.test(`${x.merchant || ''} ${x.note || ''}`);
 const RELOAD = /\b(reload|top[\s-]?up|tambah nilai)\b/i, NOT_NAME = /^(bank|akaun|account|savings|simpanan|semasa|current|card|kad)$/;
 /**
  * E-wallet reloads left over after pairTransfers ("Reload via FPX Maybank" with no Maybank line): money the user moved
@@ -720,7 +722,7 @@ export function reloadTransfers(txs, accounts, other) {
   const words = s => String(s || '').toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || [];
   // An ATM withdrawal on a bank statement is cash moved into the wallet, not spending (the cash is spent later, and logged then).
   const cash = accounts.find(a => a.kind === 'cash' && !a.outside);
-  const atm = cash ? txs.filter(x => x.type === 'expense' && kind.get(x.accountId) !== 'cash' && ATM.test(`${x.merchant || ''} ${x.note || ''}`)).map(x => ({ ...x, type: 'transfer', toAccountId: cash.id, category: 'other' })) : [];
+  const atm = cash ? txs.filter(x => kind.get(x.accountId) !== 'cash' && isAtm(x)).map(x => ({ ...x, type: 'transfer', toAccountId: cash.id, category: 'other' })) : [];
   return txs.filter(x => x.type === 'income' && kind.get(x.accountId) === 'ewallet' && RELOAD.test(`${x.merchant || ''} ${x.note || ''}`)).map(x => {
     const text = words(`${x.merchant} ${x.note}`), from = banks.find(a => words(a.name).some(w => !NOT_NAME.test(w) && text.some(x => x === w || (w.length >= 4 && x.startsWith(w)))));   // "Maybank2u" is Maybank
     return { ...x, type: 'transfer', accountId: from?.id || other, toAccountId: x.accountId, category: 'other' };

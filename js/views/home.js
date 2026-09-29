@@ -11,7 +11,7 @@ import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
 import { dayOf, loggedDays } from '../gamify.js';
 import { STICKERS, BOOK, stickerSvg, stickerState } from '../stickers.js';
-import { on } from '../features.js';
+import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
 
@@ -36,6 +36,8 @@ const dismissed = () => S.kv.dismissed || [];
 const MODULE_OF = { bills: 'bills', insight: 'insights', nudge: 'insights', stickers: 'stickers' };
 const shown = id => !(settings().homeHide || []).includes(id) && (!MODULE_OF[id] || on(MODULE_OF[id]));
 /** Days logged up to today (entries you made, and "nothing spent" check-ins): one sticker each. */
+/** When this person started with Tally: their first entry made here, else their first account. */
+const began = () => { const m = S.tx.map(x => x.createdAt).filter(Boolean); return Math.min(...(m.length ? m : S.accounts.map(a => a.createdAt).filter(Boolean))); };
 const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
 const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
 /** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
@@ -44,7 +46,7 @@ function stickerCard(tdy) {
   const st = stickerState(stickerDays(tdy));
   return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stickerSvg(st.latest, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", t(st.latest[1])))}</b>
     <small>${esc(t('{0} of {1} in your book. One for each day you log; a missed day never takes one away.', st.got, BOOK))}</small></span></button>
-    <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></section>`;
+    <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
 }
 const greeting = () => {
   const n = settings().myName, h = +nowTime().slice(0, 2);
@@ -55,10 +57,10 @@ const dismiss = id => setKv('dismissed', [...dismissed().filter(x => x !== id), 
 const NEW = 5;
 /** The backup reminder has its own slot (it used to hide nudges for weeks). From 5 entries, or 3 days after starting. */
 function backupBanner() {
-  const tdy = today(), last = S.kv.lastBackup, began = Math.min(...S.accounts.map(a => a.createdAt).filter(Boolean));
-  if (S.tx.length && (S.tx.length >= NEW || (began < Infinity && daysBetween(dayOf(began), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
+  const tdy = today(), last = S.kv.lastBackup, start = began();
+  if (S.tx.length && (S.tx.length >= NEW || (start < Infinity && daysBetween(dayOf(start), tdy) >= 3)) && (!last || daysBetween(last.slice(0, 10), tdy) > 14) && !dismissed().includes(`backup-${tdy}`)) {
     // The first month it's a quiet reminder (orange on day 3 scared people off); after that, or once a backup is 2 weeks old, a warning.
-    const calm = !last && began < Infinity && daysBetween(dayOf(began), tdy) < 30;
+    const calm = !last && start < Infinity && daysBetween(dayOf(start), tdy) < 30;
     return `<div class="banner ${calm ? 'info' : 'warn'}">${calm ? ICON.lock : ICON.alert}<span class="grow"><b>${esc(last ? t('Last backup {0} days ago', daysBetween(last.slice(0, 10), tdy)) : t('Not backed up yet'))}</b><small>${esc(t('Your data lives only on this phone. Uninstalling Tally or clearing browser data deletes it; a backup file keeps it safe.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button></small></span>
       <span class="bactions"><button class="btn small" data-act="backup">${esc(t('Back up'))}</button><button class="btn small ghost" data-act="dismiss" data-id="backup-${tdy}">${esc(t('Later'))}</button></span></div>`;
   }
@@ -94,12 +96,12 @@ function banner(skip = null, fresh = false) {
       <button class="btn small ghost" data-act="cash-gift" data-to="${esc(cash.id)}">${esc(t('Family gave me cash'))}</button><button class="btn small ghost" data-act="dismiss" data-id="cash-off-${esc(cash.id)}">${esc(t("Don't warn for this account"))}</button>
       <button class="btn small ghost" data-act="dismiss" data-id="${esc(`${ep}:later`)}" aria-label="${esc(t('Later'))}">${ICON.x}</button></span></div>`;
   const days = new Set(S.tx.filter(x => byUser(x, settings().myName || '')).map(x => x.date)).size;
-  if (days >= 3 && days <= 4 && !dismissed().includes('remind-card')) return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(t('Want a daily nudge at 21:00?'))}</b></span>
+  if (days >= 3 && days <= 4 && !settings().remindAt && !dismissed().includes('remind-card')) return `<div class="banner info">${ICON.bell}<span class="grow"><b>${esc(t('Want a daily nudge at 21:00?'))}</b></span>
     <span class="bactions"><button class="btn small" data-act="remind-open">${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="remind-card" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></span></div>`;
   // Days away count from what was logged in Tally, never from an imported file's last row (the day someone quit their
   // old app), and never from before they started. New users get this one too: the first lapse is when a habit dies.
-  const began = Math.min(...S.accounts.map(a => a.createdAt).filter(Boolean)), own = booked().filter(x => byUser(x, settings().myName || ''));
-  const lastDay = own.reduce((m, x) => (x.date > m ? x.date : m), began < Infinity ? dayOf(began) : ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
+  const start = began(), own = booked().filter(x => byUser(x, settings().myName || ''));
+  const lastDay = own.reduce((m, x) => (x.date > m ? x.date : m), start < Infinity ? dayOf(start) : ''), away = lastDay ? daysBetween(lastDay, tdy) : 0;
   if (shown('gap') && (own.length || S.tx.length >= 3) && away >= 3 && !dismissed().includes(`gap-${tdy}`)) return `<div class="banner info">${ICON.clock}<span class="grow"><b>${esc(t('Nothing logged since {0}', fmtDate(lastDay)))}</b><small>${esc(t('Add what you remember. A rough amount for the missing days is fine.'))}</small></span>
     <span class="bactions"><button class="btn small" data-act="gap-add" data-d="${esc(addDaysIso(lastDay, 1))}">${esc(t('Add a missed day'))}</button><button class="btn small ghost" data-act="remind-open">${ICON.bell}${esc(t('Daily reminder'))}</button><button class="btn small ghost" data-act="dismiss" data-id="gap-${tdy}">${esc(t('Not now'))}</button></span></div>`;
   if (fresh) return '';
@@ -328,6 +330,7 @@ export const act = {
     setTimeout(find, 100);
   },
   'dismiss': async b => { await dismiss(b.dataset.id); render(); },
+  'stickers-off': async () => { await setModules({ stickers: false }); render(); toast(t('Stickers are off. Turn them back on in Settings → Features.')); },
   'recap-go': async b => { await dismiss(b.dataset.id); go('insights'); },
   'nudge-add': b => openTxSheet({ category: b.dataset.c, amount: +b.dataset.a, ...(b.dataset.at ? { time: b.dataset.at } : {}) }),
   'ins-span': b => { SPAN = +b.dataset.n; render(); },

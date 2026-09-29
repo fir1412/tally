@@ -19,7 +19,14 @@ Worker). The only outbound traffic is:
 - the optional **Send feedback** form (Google Forms): the typed message, optional contact, app version, device
   type, screen and language. Never amounts, shops, accounts or photos (a test checks this);
 - a **Google Sheets link**, fetched only when the user pastes one (credentials omitted);
+- an **exchange rate** from `api.frankfurter.dev`, only when the user taps "Get today's rate" on a foreign-currency
+  account: the request names the currency and nothing else (credentials omitted);
+- a **Google Calendar link**, only when the user taps it for a bill or the daily reminder: it opens Google Calendar
+  with the reminder's title (the bill's name and amount) filled in, and Google receives that text;
 - the app's own files from GitHub Pages.
+
+Settings → Privacy → "Check what Tally contacted" lists every address the page has contacted since it opened, from
+the browser's own record (`performance.getEntriesByType`).
 
 Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 
@@ -43,7 +50,7 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 | Test clock | `?today=` and `?now=` (for tests and simulations) work only on localhost / 127.0.0.1. A link to the live site can't move anyone's date. |
 | Parsers | Hostile input (huge lines, repeated patterns) is tested not to freeze the CSV, receipt and statement parsers. PDF text is grouped into rows in linear time (50,000 scattered items tested). |
 | Feedback spam | 1 message per minute and 10 per day per device; offline queue capped at 20; 4000 characters. A test checks that exactly 4 form fields are posted. |
-| Other network paths | None: a test checks that `js/` and `sw.js` use no `sendBeacon`, `WebSocket`, `XMLHttpRequest` or `EventSource`, and that `fetch` goes only to the feedback form and a pasted Sheets link. |
+| Other network paths | None: a test checks that `js/` and `sw.js` use no `sendBeacon`, `WebSocket`, `XMLHttpRequest` or `EventSource`, and that `fetch` goes only to the feedback form, a pasted Sheets link and the exchange-rate address. |
 | Supply chain | Everything is vendored and self-hosted (OCR bundle, ONNX Runtime, models, sql.js, pdf.js, fonts). No page loads a script from a CDN at runtime (the OCR spike page was removed in 73ac174, and a test checks every tracked page). Licences in `THIRD_PARTY_NOTICES.md`. |
 | Secrets | None in the code. The feedback form address is public by design. Real receipts and test data are git-ignored. |
 | App lock | Optional (Settings → Lock Tally), `js/lock.js`. A 4–6 digit PIN stored only as a salted PBKDF2-SHA-256 hash (210,000 iterations, WebCrypto), plus the phone's fingerprint or face through a WebAuthn platform authenticator with `userVerification: 'required'` (only the credential id is stored). Asked on open and after more than a minute in the background; the screen is blank in the app switcher while hidden. 5 wrong PINs → growing waits. Forgot PIN → fingerprint/face, or erase everything. Never in backups. A privacy screen, **not encryption**: anyone who can read the browser's storage (a rooted phone, devtools) can read the data, and a 4–6 digit PIN hash can be brute-forced offline. Pinned by `tests/security.test.mjs`. |
@@ -62,15 +69,16 @@ Reviewed 2026-09-29. Re-check whenever one of the triggers below becomes true.
 
 ## Known limits and follow-ups
 
-- **Backups and joint-account share files are plain JSON (or a zip).** Anyone who gets the file can read it. Send
-  them only to yourself or your spouse over a channel you trust. Optional password encryption (WebCrypto AES-GCM)
-  is a candidate for a later version.
+- **Backups and joint-account share files are plain JSON (or a zip) unless a password is set.** With a password they
+  are sealed with AES-GCM under a PBKDF2-SHA-256 key (310,000 iterations, random salt and IV; `sealBackup`, tested).
+  Without one, anyone who gets the file can read it: send it only to yourself or your partner over a channel you trust.
+  A forgotten password can't be recovered.
 - **Joint share files** hold only accounts marked Joint, their rows (a transfer from a personal account appears as
   money in, without the personal side), joint budgets and the custom categories those rows use (`makeJointShare`,
   tested). Importing one goes through `readBackup`, then `mergeJoint`: records merge by id and the newer `updatedAt`
   wins (clamped to now, so a crafted file can't win forever), and a file can never overwrite or re-scope a personal
-  account or a row that uses one. Deletions don't travel: an entry deleted on one phone comes back from the other
-  until it is deleted there too.
+  account or a row that uses one. Deletions travel: a deleted joint entry is recorded (`jointGone`, the last 1,000) and
+  the partner's next import removes it there too.
 - **Origin.** Tally now has its own origin, `https://tallymy.github.io/`, and the Play Store app wraps that one. The
   old address, `fir1412.github.io/tally/`, shares its origin with every other GitHub Pages project of that account.
   Data someone saved there stays readable by any page published on that account until they back it up and restore

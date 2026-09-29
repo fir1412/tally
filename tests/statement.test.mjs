@@ -57,6 +57,22 @@ Date  Status  Transaction Type  Reference  Description  Amount (RM)  Wallet Bala
   assert.deepEqual(tx.map(x => [x.type, x.amount]), [['income', 10000], ['expense', 1290], ['expense', 230]]);
 });
 
+test("Touch 'n Go PDF with the date, the row and the time on separate lines keeps names and times", () => {
+  const r = parseStatement(`TNG Digital Sdn Bhd  Touch 'n Go eWallet Transaction History
+Date  Status  Transaction Type  Reference  Description  Amount (RM)  Wallet Balance
+01/09/2026
+Success  Reload  TOPUP812  Reload via FPX Maybank  +RM100.00  RM105.80
+09:10
+02/09/2026
+Success  Payment  REF7  7-Eleven Seksyen 7  -RM8.60  RM97.20
+22:05
+03/09/2026
+Failed  Payment  REF8  GrabFood  -RM20.00  RM97.20
+13:00`.split('\n'));
+  assert.deepEqual(rowsOf(r), [['2026-09-01', 10000], ['2026-09-02', -860]]);
+  assert.ok(/Reload via FPX Maybank/.test(r.rows[0].desc) && /7-Eleven Seksyen 7/.test(r.rows[1].desc), r.rows.map(x => x.desc).join(' | '));
+});
+
 test('GXBank style digital bank: no balance column, signs and words decide', () => {
   const r = parseStatement(`GXBank Account statement September 2026
 01 Sep 2026  Transfer to Siti  -RM50.00

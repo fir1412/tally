@@ -1,6 +1,6 @@
 // Small rewards drawn from the user's own data: the month ring, the weekly recap and the occasional "nice find" on
 // Home. Pure rules, no DOM (tested in tests/delight.test.mjs). Only good or neutral news, and nothing rewards spending.
-import { addDays, breakdown, isBill, cycleKey, cycleSpan, daysBetween, addMonths, monthSpend, insights, billStatus } from './engine.js';
+import { addDays, breakdown, isBill, FIXED_CATS, cycleKey, cycleSpan, daysBetween, addMonths, monthSpend, insights, billStatus } from './engine.js';
 import { dayOf } from './gamify.js';
 
 const clamp = x => Math.max(0, Math.min(1, x));
@@ -68,7 +68,7 @@ export function niceFinds({ txs, today, startDay = 1, noSpend = [], bills = [], 
     const now = monthSpend(txs.filter(t => t.date <= today), ym, startDay).byCat, then = monthSpend(txs.filter(t => t.date <= upTo), lastYm, startDay).byCat;
     for (const [c, v] of Object.entries(then)) {
       const n = now[c] || 0;
-      if (c !== 'bills' && v >= 2000 && n <= v * 0.8) out.push({ id: `catdown-${c}-${ym}`, kind: 'catdown', cat: c, pct: Math.round((1 - n / v) * 100) });
+      if (!FIXED_CATS.has(c) && v >= 2000 && n <= v * 0.8) out.push({ id: `catdown-${c}-${ym}`, kind: 'catdown', cat: c, pct: Math.round((1 - n / v) * 100) });
     }
   }
   // A bill marked paid by hand on or before the day it was due, in the last week (a payment dated on its due day, added in time).

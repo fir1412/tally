@@ -6,6 +6,9 @@ export const CATEGORIES = [
   { id: 'dining', name: 'Dining', color: '#E69F00' },
   { id: 'transport', name: 'Transport', color: '#0072B2' },
   { id: 'bills', name: 'Bills', color: '#56B4E9' },
+  { id: 'housing', name: 'Rent & housing', color: '#6D28D9' },
+  { id: 'loans', name: 'Loans', color: '#B91C1C' },
+  { id: 'insurance', name: 'Insurance & takaful', color: '#65A30D' },
   { id: 'household', name: 'Household', color: '#A16207' },
   { id: 'health', name: 'Health', color: '#CC79A7' },
   { id: 'personal', name: 'Personal care', color: '#EC4899' },
@@ -147,7 +150,10 @@ const WORDS = [
   ['groceries', /\bgrocer(y|ies)\b|barang dapur|面粉|麵粉|面包|麵包|吐司/i],   // flour and bread before the dining noodles (面) and rice noodles (粉)
   // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.
   ['transport', /minyak enjin|engine oil|filter minyak|oil filter|\btayar\b|\btyres?\b|\btires?\b|puncture|wiper|bateri kereta|car battery|servis kereta|car service|bengkel|workshop|spark ?plug|\bbrek\b|\bbrakes?\b|absorber|alignment|road ?tax|cukai jalan|insurans kereta|car insurance/i],
-  ['bills', /air selangor|air kelantan|syabas|indah water|ranhill|\bsaj\b|\bpba\b water|ptptn|\brent(al)?\b|\bsewa\b|prepaid|hotlink|xpax|\btopup\b|reload (kredit|credit|phone|telefon)/i],
+  ['housing', /(house|room|home|condo|apartment|rumah|bilik) ?rent(al)?\b|\brent(al)? (rumah|bilik|house|room)|^ *(rent|sewa) *$|sewa (rumah|bilik)|maintenance fee|yuran penyelenggaraan|management fee|service charge|cukai (pintu|tanah)|quit ?rent|assessment|(housing|home) loan|pinjaman perumahan|mortgage|房租|租金|管理费|管理費|房贷|房貸/i],
+  ['loans', /ptptn|car loan|pinjaman (kereta|peribadi)|personal loan|\bloan\b|pinjaman|ansuran|instal+ments?\b|hire purchase|paylater|pay later|\bbnpl\b|\batome\b|贷款|貸款|分期/i],
+  ['insurance', /insurance|insurans|takaful|prudential|great eastern|\baia\b|allianz|etiqa|zurich|tokio marine|manulife|保险|保險/i],
+  ['bills', /air selangor|air kelantan|syabas|indah water|ranhill|\bsaj\b|\bpba\b water|\brent(al)?\b|\bsewa\b|prepaid|hotlink|xpax|\btopup\b|reload (kredit|credit|phone|telefon)/i],
   ['kids', /diaper|lampin|pampers|mamypoko|drypers|susu formula|formula|baby|bayi|toy|mainan|crayon|school|sekolah|尿布|奶粉|玩具|婴儿|嬰兒/i],
   ['health', /panadol|claritin|vitamin|ubat|medicine|medical|doctor|doktor|dental|dentist|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
   ['personal', /shampoo|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|haircut|gunting rambut|洗发|洗髮|牙膏|沐浴/i],
@@ -155,7 +161,7 @@ const WORDS = [
   ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬|虾|蝦|苹果|蘋果|葱|蔥|姜|薑|榴莲|榴槤|蒜|辣椒|瓜|豆芽|豆|芽|番茄|萝卜|蘿蔔|薯|芋|香蕉|橙|木瓜|西瓜|包菜|芥兰|芥蘭|白菜|菠菜|蘑菇|菇|蛤|蚬|蜆|螃蟹|蟹|鱿鱼|魷魚|江鱼仔|江魚仔|咸鱼|鹹魚|排骨|猪|豬|牛|羊|鸭|鴨|米粉|粿条|粿條|面条|麵條/i],
   ['household', /sabun|soap|detergent|tissue|tisu|bleach|sponge|mop|broom|penyapu|plastic|beg |bag|towel|tuala|bateri|battery|mentol|bulb|span|kitchen|dapur|pinggan|cawan|cup|peg|hanger|clorox|dynamo|downy|breeze|glad|ziploc|纸巾|紙巾|洗衣|清洁|清潔|垃圾袋|电池|電池|毛巾/i],
   ['transport', /petrol|ron ?9[57]|v-?power|diesel|primax|parking|letak kereta|toll|tol |grab|touch ?n ?go|lrt|mrt|bus|teksi|taxi|fuel|汽油|停车|停車|过路费/i],
-  ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|\bdigi\b|umobile|internet|astro|insurance|insurans|takaful|loan|pinjaman|电费|電費|水费|水費|保险|保險/i],
+  ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|\bdigi\b|umobile|internet|astro|电费|電費|水费|水費/i],
   ['electronics', /\b(hand)?phone\b|telefon|iphone|ipad|samsung|xiaomi|redmi|huawei|oppo|vivo|realme|honor|charger|pengecas|\bcable\b|kabel|earphone|earbud|headphone|headset|airpods|power ?bank|laptop|notebook|macbook|\bmonitor\b|keyboard|\bmouse\b|printer|cartridge|sd card|memory card|pendrive|thumb ?drive|\busb\b|hdmi|speaker|\btv\b|television|smart ?watch|camera|console|playstation|\bps5\b|nintendo|electronic|elektronik|gadget|手机|手機|充电|耳机|耳機|电脑|電腦|平板/i],
   ['education', /book|buku|pen |pencil|pensel|stationery|stationer|alat tulis|tuition|tuisyen|yuran|\b(school|tuition|course|exam|class|kelas|registration) fees?\b|书|書|文具|补习|補習/i],
   ['fun', /cinema|wayang|gsc|tgv|netflix|spotify|game|karaoke|bowling|concert|电影|電影/i],
@@ -284,6 +290,8 @@ export function newest(txs, n) {
   return top;
 }
 /** A payment for a bill (added by the bill itself or with "Mark as paid"). */
+/** Categories paid the same every month: never "unusual" or "down" news. */
+export const FIXED_CATS = new Set(['bills', 'housing', 'loans', 'insurance']);
 export const isBill = t => t.source === 'recurring' || !!t.bill;
 export const monthIncome = (txs, ym, sd = 1) => monthIncomes(txs, [ym], sd)[ym];
 /** Money in for several months in one pass: {ym: sen}. */
@@ -357,7 +365,7 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
     const thisWeek = sum(inRange(weekStart, today));
     const before = sum(inRange(addDays(weekStart, -7 * 12), addDays(weekStart, -1)));
     for (const [c, v] of Object.entries(thisWeek)) {
-      if (c === 'bills') continue;
+      if (FIXED_CATS.has(c)) continue;
       const avg = (before[c] || 0) / active;
       if (avg > 0 && v >= 2 * avg && v - avg >= 2000) out.push({ id: `week-${c}-${today}`, kind: 'unusual', level: 'info', cat: c, title: ['{0} this week is {1}× your usual week', { cat: c }, (v / avg).toFixed(1)], body: ['{0} vs about {1} a week.', fmtRM(v), fmtRM(Math.round(avg))] });
     }

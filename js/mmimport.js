@@ -73,7 +73,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       let category = catMap[l.Category] || (type === 'income' ? 'income' : 'other');
       if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = 'income';
       const id = mmId(t.uid);
-      tx.push({ id, date: t.date, time: localTime(t.created), type, amount: amt, accountId: mmId(l.Account), category, merchant: cleanText(t.comment, 80), note: '', source: 'import', createdAt: Date.parse(t.created) || now });
+      tx.push({ id, date: t.date, time: localTime(t.created), type, amount: amt, accountId: mmId(l.Account), category, merchant: cleanText(t.comment, 80), note: '', source: 'import', createdAt: now });
       if (photoPath.has(l.Photo)) photos.push({ txId: id, path: photoPath.get(l.Photo) });
     }
 
@@ -90,7 +90,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
         const s = side.get(r.uid) || {}, from = fromC ? r[fromC] : s.from, to = toC ? r[toC] : s.to, amt = Number(r[amtC]), toAmt = Number(r[toAmtC]);
         if (!accIds.has(from) || !accIds.has(to) || from === to || !validIso(r.date) || !Number.isInteger(amt) || amt <= 0 || amt > MAX_SEN) { transfersSkipped++; continue; }
         tx.push({ id: mmId(r.uid), date: r.date, time: localTime(r.created), type: 'transfer', amount: amt, ...(Number.isInteger(toAmt) && toAmt > 0 && toAmt <= MAX_SEN && toAmt !== amt ? { toAmount: toAmt } : {}),
-          accountId: mmId(from), toAccountId: mmId(to), category: 'other', merchant: cleanText(r.comment, 80), note: '', source: 'import', createdAt: Date.parse(r.created) || now });
+          accountId: mmId(from), toAccountId: mmId(to), category: 'other', merchant: cleanText(r.comment, 80), note: '', source: 'import', createdAt: now });
       }
     }
 
