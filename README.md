@@ -19,6 +19,9 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
 - **Bring your history:** Money Manager (Innim) backups with receipt photos, Excel (.xlsx), CSV, Google Sheets
   (paste the cells or a share link) and bank or e-wallet statements (PDF or CSV). Imports show their totals first,
   and statements are checked against their own opening and closing balances.
+- **Joint account for couples:** mark an account as Joint and switch between Me, Joint and All; joint budgets are
+  separate. Share the joint accounts (only those) with your spouse as a file; changes come back the same way and the
+  newer edit wins.
 - **Your data stays yours:** export to CSV for Excel or Sheets; back up to a file (optionally with receipt photos)
   and restore on a new phone.
 

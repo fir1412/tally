@@ -1,9 +1,9 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll } from '../state.js';
 import { t, setLang, getLang, LANGS, fmtDate } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint } from '../io.js';
 import { parseStatement, statementToTx, linesFromItems, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
@@ -56,6 +56,7 @@ function accountSheet(a = {}) {
     <label class="field"><span>${esc(t('Name'))}</span><input id="ac-name" maxlength="60" value="${esc(a.name || '')}" placeholder="${esc(t('e.g. Maybank, Cash, Touch \'n Go'))}" autofocus></label>
     <label class="field"><span>${esc(t('Type'))}</span><select id="ac-kind">${ACCOUNT_KINDS.map(k => `<option value="${k}"${(a.kind || 'bank') === k ? ' selected' : ''}>${esc(t(KIND[k]))}</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Balance when you started (RM)'))}</span><input id="ac-open" inputmode="decimal" value="${a.opening != null ? (a.opening / 100).toFixed(2) : ''}" placeholder="0.00"><small>${esc(t('For a credit card, enter what you owe as a negative number, e.g. -350.'))}</small></label>
+    <label class="field"><span>${esc(t('Whose money'))}</span><select id="ac-scope"><option value="personal">${esc(t('Mine (personal)'))}</option><option value="joint"${a.scope === 'joint' ? ' selected' : ''}>${esc(t('Joint (shared with my spouse)'))}</option></select></label>
     <p class="err" id="ac-err" role="alert"></p>
     <div class="row2">${isNew ? `<button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button>` : `<button class="btn ghost danger" data-act="acc-del" data-id="${esc(a.id)}">${esc(t('Delete'))}</button>`}<button class="btn" data-act="acc-save" data-id="${esc(a.id || '')}">${esc(t('Save'))}</button></div>`, { label: t('Account') });
 }
@@ -64,7 +65,7 @@ function accountSheet(a = {}) {
 function accSub(a, by) {
   const kind = t(KIND[a.kind] || 'Bank account');
   const n = a.name.trim().toLowerCase(), k = kind.toLowerCase();
-  return [!(k.startsWith(n) || n.startsWith(k)) && kind, fmtRM(by[a.id] || 0)].filter(Boolean).join(' · ');
+  return [a.scope === 'joint' && t('Joint'), !(k.startsWith(n) || n.startsWith(k)) && kind, fmtRM(by[a.id] || 0)].filter(Boolean).join(' · ');
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
@@ -78,6 +79,11 @@ export const settingsView = {
         <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(settings().textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label></section>
       <section class="card"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
+      <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
+        <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your spouse as a file. They import it in Tally, and their changes come back the same way.') : t('Married? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your spouse.'))}</p>
+        <label class="field"><span>${esc(t('Your name for joint entries'))}</span><input data-input="my-name" maxlength="30" value="${esc(settings().myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
+        ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
+        <button class="btn ghost wide" data-act="restore-pick">${ICON.upload}${esc(t('Import from my spouse'))}</button></section>
       <section class="card" id="backup"><h2>${esc(t('Backup'))}</h2>
         <p class="fine">${esc(last ? t('Last backup: {0}', last.slice(0, 10)) : t('Not backed up yet'))} · ${esc(t('Tally keeps everything on this phone. Save a backup file to Google Drive or email it to yourself.'))}</p>
         <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div></section>
@@ -105,6 +111,8 @@ export const input = {
   'imp-map': el => { if (el.value === '') delete IMP.map[el.dataset.k]; else IMP.map[el.dataset.k] = +el.value; showMapping(); },
   'imp-acc': el => { IMP.accountId = el.value; showMapping(); },
   'imp-accname': el => { IMP.accName = el.value; },
+  'imp-joint': el => { IMP.joint = el.checked; },
+  'my-name': el => setSetting('myName', cleanText(el.value, 30)),
   'imp-future': el => { IMP.skipFuture = el.checked; showMapping(); },
   'imp-cat': el => { IMP.catMap[el.dataset.src] = el.value; },
 };
@@ -172,6 +180,7 @@ function showMapping() {
     <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}${col('balance', t('Balance'))}</div>
     <label class="field"><span>${esc(t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('A new account'))}</option></select></label>
     ${IMP.accountId === 'new' ? `<label class="field"><span>${esc(t('Name of the new account'))}</span><input data-input="imp-accname" maxlength="40" value="${esc(newAccName())}"></label>
+      <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my spouse)'))}</label>
       ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}
     ${srcCats.length ? `<details open><summary>${esc(t('Their categories → Tally categories'))}</summary><div class="grid2">${srcCats.map(s => `<label class="field"><span>${esc(s)}</span><select data-input="imp-cat" data-src="${esc(s)}">${cats.map(c => `<option value="${esc(c.id)}"${(IMP.catMap[s] || mapCategory(s)) === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>`).join('')}</div></details>` : ''}
     <p class="${txs.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', txs.length))}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>
@@ -264,6 +273,7 @@ async function reencode(blob) {
 async function restoreText(text, zip = {}) {
   let data;
   try { data = readBackup(text); } catch (e) { return impErr(t(e.message)); }
+  if (data.joint) return importJoint(data, zip);
   const choice = S.tx.length || S.accounts.length ? await new Promise(res => {
     openSheet(`<h2 class="sh-title">${esc(t('Restore backup'))}</h2><p class="sh-body">${esc(t('The backup has {0} transactions. This phone has {1}.', data.tx.length, S.tx.length))}</p>
       <button class="btn wide" data-x="merge">${esc(t('Merge (keep both, recommended)'))}</button><button class="btn ghost danger wide" data-x="replace">${esc(t('Replace everything on this phone'))}</button><button class="btn ghost wide" data-x="no">${esc(t('Cancel'))}</button>`, { label: t('Restore backup'), onClose: () => res('no') })
@@ -282,15 +292,31 @@ async function restoreText(text, zip = {}) {
 }
 
 /** The backup, as JSON, or with photos as a zip holding the same JSON plus photos/<id>.jpg. */
-async function backupBlob(withPhotos) {
-  const { name, text } = backupFile();
+async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx) {
   if (!withPhotos) return { name, blob: new Blob([text], { type: 'application/json' }) };
   const files = [{ name: BACKUP_JSON, data: new TextEncoder().encode(text) }];
-  for (const id of new Set(S.tx.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); }
+  for (const id of new Set(txs.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); }
   return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files) };
 }
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
 const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } }) });
+// ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
+const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
+const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv }, settings().myName || '') });
+async function importJoint(data, zip = {}) {
+  const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv }, data), from = data.by || t('your spouse');
+  if (!(await confirmSheet({ title: t('Joint accounts from {0}', from), body: t('{0} accounts and {1} new or changed entries. Newer edits win. Your personal accounts are not touched.', data.accounts.length, m.tx.length), ok: t('Add') }))) return;
+  await putAll({ accounts: m.accounts, tx: m.tx, kv: {
+    ...(m.customCats.length ? { customCats: [...S.kv.customCats, ...m.customCats] } : {}),
+    ...(m.budgetsJoint ? { budgets: { ...S.kv.budgets, joint: m.budgetsJoint } } : {}),
+  } });
+  await setSetting('onboarded', true);
+  if (!settings().tourDone) await markSeen();
+  closeSheet(); go('home'); render();
+  const wanted = new Set(m.tx.map(x => x.receiptId).filter(Boolean));
+  for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) await savePhoto(id, new Blob([bytes], { type: 'image/jpeg' })); }
+  toast(t('{0} joint entries added or updated from {1}', m.tx.length, from), { k: 'good', icon: 'check' });
+}
 async function backedUp(msg) {
   await setKv('lastBackup', `${today()}T${nowTime()}`);
   closeSheet(); render(); toast(msg, { k: 'good', icon: 'check' });
@@ -315,16 +341,17 @@ export const act = {
       <label class="field"><span>${esc(t('Bank account (RM)'))}</span><input id="sf-bank" inputmode="decimal" placeholder="0.00"></label>
       <div class="grid2 keep2"><label class="field"><span>${esc(t('E-wallet (RM), optional'))}</span><input id="sf-ewallet" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <label class="field"><span>${esc(t('Its name'))}</span><input id="sf-ewname" maxlength="40" placeholder="Touch 'n Go"></label></div>
+      <label class="field"><span>${esc(t('Joint account with your spouse (RM), optional'))}</span><input id="sf-joint" inputmode="decimal" placeholder="${esc(t('leave empty to skip'))}"></label>
       <p class="err" id="sf-err" role="alert"></p><button class="btn wide" data-act="sf-go">${esc(t('Start'))}</button>`, { label: t('Your accounts') });
   },
   'sf-go': async b => {
-    const vals = ['cash', 'bank', 'ewallet'].map(k => [k, $(`#sf-${k}`).value.trim()]);
+    const vals = ['cash', 'bank', 'ewallet', 'joint'].map(k => [k, $(`#sf-${k}`).value.trim()]);
     if (vals.some(([, v]) => v && parseAmount(v) == null)) return ($('#sf-err').textContent = t('Enter amounts like 150 or 150.50.'));
     b.disabled = true;
-    const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet') };
+    const names = { cash: t('Cash'), bank: t('Bank'), ewallet: t('E-wallet'), joint: t('Joint account') };
     let n = 0;
     names.ewallet = $('#sf-ewname').value.trim().slice(0, 40) || names.ewallet;
-    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k, opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
+    for (const [k, v] of vals) if (k === 'cash' || v) await saveAccount({ id: uid('a'), name: names[k], kind: k === 'joint' ? 'bank' : k, scope: k === 'joint' ? 'joint' : 'personal', opening: parseAmount(v || '0'), createdAt: Date.now() + n++ });
     await setSetting('onboarded', true);
     closeSheet(); go('home');
     afterSetup();
@@ -335,7 +362,7 @@ export const act = {
     if (!name) return ($('#ac-err').textContent = t('Give the account a name.'));
     if (opening == null) return ($('#ac-err').textContent = t('Enter amounts like 150 or 150.50.'));
     const old = S.accounts.find(a => a.id === b.dataset.id);
-    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now() }), name, kind: $('#ac-kind').value, opening });
+    await saveAccount({ ...(old || { id: uid('a'), createdAt: Date.now() }), name, kind: $('#ac-kind').value, opening, scope: $('#ac-scope').value === 'joint' ? 'joint' : 'personal' });
     closeSheet(); render(); toast(t('Saved'));
   },
   'acc-del': async b => {
@@ -363,7 +390,7 @@ export const act = {
   'imp-go': async b => {
     b.disabled = true;
     const { txs, opening } = impPlan(), m = IMP.map;
-    if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash', opening: opening ?? 0, createdAt: Date.now() });
+    if (IMP.accountId === 'new') await saveAccount({ id: IMP.newId, name: newAccName(), kind: m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash', opening: opening ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: Date.now() });
     return commitImport(txs, IMP.name || t('file'), undefined, IMP.accountId === 'new' ? IMP.newId : null);
   },
   'mm-go': async b => {
@@ -427,6 +454,29 @@ export const act = {
     const { name, blob } = await backupBlob($('#bk-photos')?.checked);
     download(name, blob, blob.type);
     await backedUp(t('Saved {0} to your Downloads folder.', name));
+  },
+  'joint-share': () => {
+    const { name, text } = jointFile(), rows = jointTx(), photos = new Set(rows.map(x => x.receiptId).filter(Boolean)).size;
+    const canShare = !!navigator.canShare?.({ files: [new File([''], name, { type: 'application/json' })] });
+    openSheet(`<h2 class="sh-title">${esc(t('Share joint accounts'))}</h2>
+      <p class="sh-body">${esc(t('One file with your {0} joint accounts, their {1} entries, joint budgets and the categories they use. Nothing from your personal accounts.', jointIds().size, rows.length))}</p>
+      <p class="filechip">${ICON.download}<span class="grow"><b>${esc(name)}</b><small>${esc(t('{0} KB', Math.max(1, Math.round(text.length / 1024))))}</small></span></p>
+      ${photos ? `<label class="check"><input type="checkbox" id="jt-photos"> ${esc(t('Include {0} receipt photos (a bigger .zip file)', photos))}</label>` : ''}
+      <p class="warnbox">${ICON.alert}<span class="grow">${esc(t('Anyone with this file can read it. Send it only to your spouse.'))}</span></p>
+      ${canShare ? `<button class="btn wide" data-act="jt-send">${esc(t('Send to my spouse (WhatsApp, email)'))}</button>` : ''}
+      <button class="btn ${canShare ? 'ghost ' : ''}wide" data-act="jt-save">${esc(t('Save to this phone (Downloads)'))}</button>
+      <p class="fine">${esc(t('Your spouse opens Tally, taps Settings → Import from my spouse and picks this file. Newer edits win on both phones.'))} ${esc(t('Deleting an entry does not delete it on the other phone: delete it there too.'))}</p>`, { label: t('Share joint accounts') });
+  },
+  'jt-send': async () => {
+    const { name, blob } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    try { if (!(await shareFile(name, blob, blob.type))) return act['jt-save'](); } catch (e) { if (e?.name === 'AbortError') return; throw e; }
+    closeSheet(); toast(t('Sent {0}', name), { k: 'good', icon: 'check' });
+  },
+  'jt-save': async b => {
+    if (b) b.disabled = true;
+    const { name, blob } = await backupBlob($('#jt-photos')?.checked, jointFile(), jointTx());
+    download(name, blob, blob.type);
+    closeSheet(); toast(t('Saved {0} to your Downloads folder.', name), { k: 'good', icon: 'check' });
   },
   'export-csv': () => download(`tally-${today()}.csv`, toCSV(S.tx, S.accounts, catName), 'text/csv'),
   'erase': async () => {

@@ -1,6 +1,6 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid } from '../state.js';
+import { S, setKv, saveTx, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, scopedTx, scopedAccounts } from '../state.js';
 import { t, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, $, $$ } from '../ui.js';
 import { fmtRM, parseAmount, categorize, shopCategory, findDuplicate, validIso, addDays } from '../engine.js';
@@ -67,11 +67,11 @@ export async function restoreDraft() {
 const flagWhy = i => (!i.name ? t('No name read') : i.cents === 0 ? t('Price looks wrong') : t('Hard to read: check the name and price'));
 function toDraft(r) {
   const merchant = (r.merchant || '').slice(0, 80);
-  const last = [...S.tx].sort((a, b) => b.createdAt - a.createdAt)[0];
+  const last = [...scopedTx()].sort((a, b) => b.createdAt - a.createdAt)[0];   // a receipt scanned in Joint goes to a joint account
   const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: categorize(i.name, merchant, S.kv.rules), flag: !!i.flag }));
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
-    accountId: last?.accountId || S.accounts[0]?.id, category: shopCategory(merchant, S.kv.rules), items,
+    accountId: last?.accountId || scopedAccounts()[0]?.id || S.accounts[0]?.id, category: shopCategory(merchant, S.kv.rules), items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
   };
 }

@@ -27,8 +27,36 @@ const pad = n => String(n).padStart(2, '0');
 const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const today = () => (/^\d{4}-\d{2}-\d{2}$/.test(params.get('today') || '') ? params.get('today') : local(new Date()));
 export const nowTime = () => (/^\d{2}:\d{2}$/.test(params.get('now') || '') ? params.get('now') : `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`);
-/** Transactions up to today. Rows dated later (a statement's future lines) count from their own day, everywhere. */
-export const booked = () => { const d = today(); return S.tx.filter(x => x.date <= d); };
+/** Transactions up to today, in the current scope. Rows dated later (a statement's future lines) count from their own day, everywhere. */
+export const booked = () => { const d = today(); return scopedTx().filter(x => x.date <= d); };
+
+// ---- scope: Me · Joint · All (a couple's joint accounts next to personal ones) ---------------------------------
+export const jointIds = () => new Set(S.accounts.filter(a => a.scope === 'joint').map(a => a.id));
+export const hasJoint = () => S.accounts.some(a => a.scope === 'joint');
+/** 'me', 'joint' or 'all'. Without a joint account everything is 'me'. */
+export const scope = () => (hasJoint() ? (['me', 'joint'].includes(S.kv.settings.scope) ? S.kv.settings.scope : 'all') : 'me');
+/** A transaction, bill or {accountId} in scope. A transfer between a personal and a joint account is in both:
+ *  money out of one, into the other (balances() only totals the accounts it is given). */
+export function inScope(x, sc = scope(), joint = jointIds()) {
+  if (sc === 'all') return true;
+  const want = sc === 'joint';
+  return joint.has(x.accountId) === want || (x.toAccountId != null && joint.has(x.toAccountId) === want);
+}
+export const scopedTx = () => { const sc = scope(), j = jointIds(); return sc === 'all' || !j.size ? S.tx : S.tx.filter(x => inScope(x, sc, j)); };
+export const scopedAccounts = () => { const sc = scope(); return S.accounts.filter(a => sc === 'all' || (a.scope === 'joint') === (sc === 'joint')); };
+/** Budgets for the scope: personal ones as before, joint ones in budgets.joint, All = both added up (read-only). */
+export function budgetsFor(sc = scope()) {
+  const me = S.kv.budgets, jt = me.joint || { total: 0, byCat: {} };
+  if (sc !== 'all') return sc === 'joint' ? jt : me;
+  const byCat = { ...me.byCat };
+  for (const [c, v] of Object.entries(jt.byCat)) byCat[c] = (byCat[c] || 0) + v;
+  return { total: me.total + jt.total, byCat };
+}
+/** Every save is stamped (a spouse's share file merges by newest edit); joint rows also say who added them. */
+const stamp = x => {
+  const by = S.kv.settings?.myName, j = jointIds();
+  return { ...x, updatedAt: Date.now(), ...(by && !x.by && (j.has(x.accountId) || j.has(x.toAccountId)) ? { by } : {}) };
+};
 export const nowLocal = () => `${today()}T${nowTime()}`;
 export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -45,12 +73,14 @@ export async function addCategory(name, color) {
 // ---- transactions -----------------------------------------------------------------------------------------------
 /** Save a transaction. Saving the same id twice replaces it, so a double tap can never add it twice. */
 export async function saveTx(tx) {
+  tx = stamp(tx);
   const i = S.tx.findIndex(t => t.id === tx.id);
   if (i >= 0) S.tx[i] = tx; else S.tx.push(tx);
   await db.put('tx', tx);
   return tx;
 }
 export async function saveTxs(list) {
+  list = list.map(stamp);
   const ids = new Set(list.map(t => t.id));
   S.tx = [...S.tx.filter(t => !ids.has(t.id)), ...list];
   await db.putMany('tx', list);
@@ -81,6 +111,7 @@ export async function learn(itemName, category, merchant = null) {
 
 // ---- accounts, bills, photos ----------------------------------------------------------------------------------
 export async function saveAccount(a) {
+  a = { ...a, updatedAt: Date.now() };
   const i = S.accounts.findIndex(x => x.id === a.id);
   if (i >= 0) S.accounts[i] = a; else S.accounts.push(a);
   await db.put('accounts', a);
@@ -114,6 +145,11 @@ export async function addAll({ accounts, tx, recurring, kv }) {
     accounts: has(accounts, new Set(S.accounts.map(a => a.id))), tx: has(tx, new Set(S.tx.map(t => t.id))),
     recurring: has(recurring, new Set(S.recurring.map(r => r.id))), kv: kvRows(kv),
   } });
+  await load();
+}
+/** Write records as given, overwriting (a spouse's newer joint edits), all or nothing. */
+export async function putAll({ accounts = [], tx = [], kv = {} }) {
+  await db.writeAtomic({ put: { accounts, tx, kv: kvRows(kv) } });
   await load();
 }
 export async function eraseAll() {

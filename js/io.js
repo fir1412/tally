@@ -305,6 +305,7 @@ const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
 const okAmt = n => Number.isInteger(n) && n >= 0 && n <= 100_000_000_00;
 const okSigned = n => Number.isInteger(n) && Math.abs(n) <= 100_000_000_00;
 const okId = id => typeof id === 'string' && /^[\w-]{1,60}$/.test(id); // ids end up in calendar files and file names
+const upd = n => (Number.isSafeInteger(n) && n > 0 ? { updatedAt: Math.min(n, Date.now()) } : {}); // a file can't claim to be edited in the future
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
 export function readBackup(text) {
   let d;
@@ -314,7 +315,7 @@ export function readBackup(text) {
   const customIds = new Set((Array.isArray(d.kv?.customCats) ? d.kv.customCats : []).map(c => c?.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
   const accounts = (Array.isArray(d.accounts) ? d.accounts : []).filter(a => isObj(a) && okId(a.id))
-    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0 }));
+    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0, ...(a.scope === 'joint' ? { scope: 'joint' } : {}), ...upd(a.updatedAt) }));
   const ids = new Set(accounts.map(a => a.id));
   const tx = (Array.isArray(d.tx) ? d.tx : []).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
@@ -323,21 +324,25 @@ export function readBackup(text) {
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
+      ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...upd(t.updatedAt),
     }));
   const recurring = (Array.isArray(d.recurring) ? d.recurring : []).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
     .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(28, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60) }));
   const kv = {};
   if (isObj(d.kv)) {
-    if (isObj(d.kv.budgets)) kv.budgets = { total: okAmt(d.kv.budgets.total) ? d.kv.budgets.total : 0, byCat: Object.fromEntries(Object.entries(isObj(d.kv.budgets.byCat) ? d.kv.budgets.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) };
+    const bud = b => ({ total: okAmt(b.total) ? b.total : 0, byCat: Object.fromEntries(Object.entries(isObj(b.byCat) ? b.byCat : {}).filter(([k, v]) => cat(k) === k && okAmt(v))) });
+    if (isObj(d.kv.budgets)) kv.budgets = { ...bud(d.kv.budgets), ...(isObj(d.kv.budgets.joint) ? { joint: { ...bud(d.kv.budgets.joint), ...upd(d.kv.budgets.joint.updatedAt) } } : {}) };
     if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = d.kv.customCats.filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B' })).slice(0, 50);
   }
-  return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length };
+  return { accounts, tx, recurring, kv, dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30) } : {}) };
 }
 /** Merge restore: keep everything local, add what the backup has that we don't (by id). Local settings win. */
 export function mergeBackup(local, incoming) {
   const merge = (a, b) => { const ids = new Set(a.map(x => x.id)); return [...a, ...b.filter(x => !ids.has(x.id))]; };
+  const budgets = local.kv.budgets?.total || Object.keys(local.kv.budgets?.byCat || {}).length ? local.kv.budgets : incoming.kv.budgets || local.kv.budgets;
+  const jb = local.kv.budgets?.joint || incoming.kv.budgets?.joint;
   return {
     accounts: merge(local.accounts, incoming.accounts),
     tx: merge(local.tx, incoming.tx),
@@ -345,9 +350,47 @@ export function mergeBackup(local, incoming) {
     kv: {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
-      budgets: local.kv.budgets?.total || Object.keys(local.kv.budgets?.byCat || {}).length ? local.kv.budgets : incoming.kv.budgets || local.kv.budgets,
+      budgets: budgets && jb ? { ...budgets, joint: jb } : budgets,
       dismissed: [...new Set([...(local.kv.dismissed || []), ...(incoming.kv.dismissed || [])])].slice(-300),
     },
+  };
+}
+
+// ---- joint accounts: a file for the spouse ---------------------------------------------------------------------
+/**
+ * Only the joint accounts, their transactions, joint budgets and the custom categories those use: never a personal
+ * account, row, rule or budget. A transfer between a personal and a joint account goes in as money in or out of the
+ * joint account, without the personal side.
+ */
+export function makeJointShare({ accounts, tx, kv = {} }, by = '') {
+  const joint = accounts.filter(a => a.scope === 'joint'), ids = new Set(joint.map(a => a.id));
+  const rows = tx.filter(t => ids.has(t.accountId) || ids.has(t.toAccountId)).map(t => {
+    if (t.type !== 'transfer' || (ids.has(t.accountId) && ids.has(t.toAccountId))) return t;
+    const { toAccountId, ...rest } = t;
+    return ids.has(t.accountId) ? { ...rest, type: 'expense', category: 'other' } : { ...rest, type: 'income', accountId: toAccountId, category: 'income' };
+  });
+  const used = new Set(rows.flatMap(t => [t.category, ...(t.items || []).map(i => i.category)]));
+  return JSON.stringify({ app: BACKUP_APP, v: 1, kind: 'joint', by, exportedAt: new Date().toISOString(), accounts: joint, tx: rows, recurring: [],
+    kv: { budgets: { total: 0, byCat: {}, ...(kv.budgets?.joint ? { joint: kv.budgets.joint } : {}) }, customCats: (kv.customCats || []).filter(c => used.has(c.id)) } });
+}
+/**
+ * A spouse's share file (after readBackup) against this phone → the records to write. By id, the newer edit
+ * (updatedAt) wins. Nothing from the file may touch a personal account here or a row that uses one.
+ * ponytail: deletions don't travel (no tombstones), so a deleted entry comes back from the other phone; add deletedAt markers if couples ask.
+ */
+export function mergeJoint(local, incoming) {
+  const newer = (mine, theirs) => !mine || (theirs.updatedAt || 0) > (mine.updatedAt || 0);
+  const acc = new Map(local.accounts.map(a => [a.id, a])), txs = new Map(local.tx.map(t => [t.id, t]));
+  const personal = new Set(local.accounts.filter(a => a.scope !== 'joint').map(a => a.id));
+  const joint = incoming.accounts.filter(a => a.scope === 'joint' && !personal.has(a.id)), ids = new Set(joint.map(a => a.id));
+  const tx = incoming.tx.filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
+    .filter(t => { const m = txs.get(t.id); return !(m && (personal.has(m.accountId) || personal.has(m.toAccountId))) && newer(m, t); });
+  const have = new Set((local.kv.customCats || []).map(c => c.id));
+  const jb = incoming.kv.budgets?.joint, mine = local.kv.budgets?.joint;
+  return {
+    accounts: joint.filter(a => newer(acc.get(a.id), a)), tx,
+    customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
+    ...(jb && newer(mine, jb) ? { budgetsJoint: jb } : {}),
   };
 }
 
