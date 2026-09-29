@@ -74,6 +74,7 @@ const DATE_HINT = /\d{1,4}[\/.-]\d{1,2}[\/.-]\d{2,4}/;
 export function parseDate(line) {
   line = String(line ?? '')
     .replace(/(\d{1,2}:\d{2})(?=\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2})/g, '$1 ')   // a time glued to the date: "21:0221/04/23"
+    .replace(/(\d{1,2}[\/.-]\d{1,2}[\/.-]20\d{2})(?=[0-2]\d:?[0-5]\d(?!\d))/g, '$1 ')   // the time glued after the year: "29/09/20261733"
     .replace(/(?<![\d/])([0-3]\d)([01]\d)\/?(20\d{2})(?=\s+\d{1,2}:\d{2})/g, '$1/$2/$3')   // "28082022 15:23:12", "0105/2024 18:39": only before a time
     .replace(/\bju1\b/gi, 'jul').replace(/\b0ct\b/gi, 'oct').replace(/\bn0v\b/gi, 'nov').replace(/\bs3p\b/gi, 'sep')   // OCR's 1/0/3 in month names
     .replace(/(?<!\d)\d(\d{2}\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s,/-]*20\d{2})/gi, '$1');   // "118 AUG 2022": a stray digit before the day
@@ -162,7 +163,8 @@ export function shopName(lines) {
   const top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, ''))).slice(0, 8);   // a lone "Bhd" is no name
   const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
   if (!co) return null;
-  const name = co.replace(CO_TAIL, '').replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim();
+  const name = co.replace(CO_TAIL, '').replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim()
+    .replace(/\s+(\S{6,})$/, (m, w, at, s) => { const x = s.slice(0, at).toLowerCase().split(/\s+/); return x.some((a, i) => x[i + 1] && w.toLowerCase().includes(a + x[i + 1])) ? '' : m; });   // "GOOD TIMING FOOD VILLAGE MCGOODTIMING SDN BHD": the company, glued on
   return titleCase(name || co).slice(0, 80);
 }
 
@@ -240,6 +242,11 @@ export function parseReceipt(text) {
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.items = dropSummaryLines(r.items);
   r.check = checksum(r);
+  // A summary line misread past recognition ("Qty 4.50" read as "aly 4.50"): the last line is the sum of those above it.
+  if (!r.check.ok && r.items.length > 1) {
+    const last = r.items.at(-1);
+    if (last.cents === r.items.slice(0, -1).reduce((s, i) => s + i.cents, 0)) { r.items.pop(); r.check = checksum(r); if (!r.check.ok) { r.items.push(last); r.check = checksum(r); } }
+  }
   // A whole-bill discount is a line of its own when the receipt adds up with it and not without ("You saved 5.00" is often already in the subtotal).
   if (billOff && !r.check.ok) { const d = { name: 'Discount', cents: -billOff }; r.items.push(d); r.check = checksum(r); if (!r.check.ok) { r.items.pop(); r.check = checksum(r); } }
   r.pay = payKind(lines);
@@ -275,9 +282,9 @@ export function dropSummaryLines(items) {
   const end = items.findIndex(i => i.name && SUMMARY_NAME.test(i.name));
   return (end < 0 ? items : items.slice(0, end)).filter(i => !(i.name && MONEY_NAME.test(i.name)));
 }
-/** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no glued quantity ("1x Teh O",
+/** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no unit price behind ("(4.50/ea)"), no glued quantity ("1x Teh O",
  *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
-export const cleanName = n => n.replace(/^\d{4,}\s*(?=\S)/, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
+export const cleanName = n => n.replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
   .replace(/(?<=[A-Za-z])0(?![\d.,])|(?<![\dA-Za-z.])0(?=[A-Za-z]{2})/g, 'O')
   .replace(/(?<=\d[0O]*)O(?=[0O]*(?:\d|ML|G|KG|L|S|PCS|PC|X)\b)/g, '0').trim() || n;   // and O inside a number back to 0: "1OS", "50OML", "5OPCS"   // "20OZ" keeps its digits
 /**

@@ -259,3 +259,11 @@ test('dates the reader mangles: glued to a time, compact before a time, a missin
     ['DATE :20/Ju1/2023 14:16:26', '2023-07-20'], ['118 AUG 2022', '2022-08-18'], ['Payment Date 06 Apr, 2024', '2024-04-06'], ['Barcode 8705040416405320240416', null]])
     assert.equal(parseDate(line), iso, line);
 });
+
+test('a FeedMe slip: time glued to the year, the company glued to the name, a misread Qty line, a unit price in the name', () => {
+  assert.equal(parseDate('Date:29/09/20261733 Invoice no:378672'), '2026-09-29');
+  const r = parseReceipt('GOOD TIMING FOOD VILLAGE MCGOODTIMING SDN BHD\nDate:29/09/20261733\nQty Item Price (MYR)\n4.50\nCHAMCICE (L) (4.50/ea)\nLESS ICE\naly 4.50\nTotal(MYR) 4.50\nChange 0.00');
+  assert.equal(r.merchant, 'Good Timing Food Village');
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['CHAMCICE (L)', 450]]);
+  assert.equal(r.check.ok, true);
+});
