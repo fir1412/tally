@@ -141,3 +141,27 @@ test('bill suggestions: not fuel, not an instalment that has ended, not one that
   ];
   assert.deepEqual(E.recurringCandidates(txs).map(r => r.merchant), ['Unifi']);
 });
+
+test('categorize: street and place words never decide; Malaysian life words; car upkeep is Transport', () => {
+  const c = s => E.categorize(s, s);
+  assert.equal(c('Petronas JLN Hospital KB'), 'transport');            // not Health
+  assert.equal(c('7-Eleven Jln Hospital'), 'groceries');
+  assert.equal(c('Kedai Runcit Taman Sekolah'), 'groceries');          // not Kids
+  assert.equal(c('Kg Baru Nasi Lemak'), 'dining');
+  assert.equal(E.categorize('Beras 5 kg'), 'groceries');                // a weight, not a kampung
+  for (const s of ['Siti Aminah Sewa Bilik', 'House rent', 'PTPTN', 'Hotlink prepaid', 'Xpax reload kredit', 'Air Selangor']) assert.equal(c(s), 'bills', s);
+  for (const s of ['Popular Bookstore', 'Kedai Buku Ilmu', 'Stationery']) assert.equal(c(s), 'education', s);
+  for (const s of ['Shopee Malaysia', 'Lazada', 'Zalora', 'TikTok Shop', 'Uniqlo KLCC']) assert.equal(c(s), 'shopping', s);
+  for (const s of ['虾', '苹果', '葱', '姜', '榴莲', '蒜', '辣椒']) assert.equal(E.categorize(s), 'groceries', s);
+  for (const s of ['Minyak enjin 4L', 'Engine oil', 'Filter minyak', 'Oil filter', 'Tayar Michelin', 'Tyre', 'Tampal tayar', 'Puncture', 'Wiper', 'Bateri kereta', 'Car battery',
+    'Servis kereta', 'Car service', 'Bengkel Ah Seng', 'Workshop', 'Spark plug', 'Brek', 'Brake pad', 'Absorber', 'Alignment', 'Road tax', 'Cukai jalan', 'Insurans kereta']) assert.equal(E.categorize(s), 'transport', s);
+  assert.equal(E.categorize('Filter'), 'other');                        // too generic alone
+  assert.equal(E.categorize('Upah'), 'other');
+  assert.equal(E.categorize('Minyak masak'), 'groceries');              // cooking oil stays groceries
+});
+
+test('income categories: allowance and money from family, alongside salary', () => {
+  assert.ok(['allowance', 'family'].every(id => E.INCOME_CATEGORIES.some(c => c.id === id)));
+  for (const [s, want] of [['ELAUN SYIF MALAM KKM', 'allowance'], ['PTPTN disbursement', 'allowance'], ['Biasiswa JPA', 'allowance'], ['Scholarship', 'allowance'],
+    ['Duit mak', 'family'], ['Duit ayah bulan ni', 'family'], ['家用', 'family'], ['SALARY ACME', 'salary'], ['Refund Shopee', 'income']]) assert.equal(E.incomeCategory(s), want, s);
+});

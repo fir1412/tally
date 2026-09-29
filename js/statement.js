@@ -2,12 +2,12 @@
 // Layouts differ by bank, but every statement line has a date, a description, an amount and usually a running
 // balance. The change in balance says whether money came in or went out, which works for any column layout;
 // explicit markers (trailing "-", DR/CR, +/−) and words ("SALARY", "REFUND") cover lines without a balance.
-import { validIso, categorize } from './engine.js';
+import { validIso, categorize, incomeCategory } from './engine.js';
 import { cleanDesc } from './io.js';
 
 // Banks and e-wallets, matched on the statement text. Order matters: specific names before generic ones.
 export const PROVIDERS = [
-  ['tng', "Touch 'n Go eWallet", /touch\s*['’]?\s*n\s*go|tng\s*digital|tng\s*ewallet/i],
+  ['tng', "Touch 'n Go", /touch\s*['’]?\s*n\s*['’]?\s*go|\btng\b/i],
   ['grabpay', 'GrabPay', /grabpay/i], ['shopeepay', 'ShopeePay', /shopeepay/i], ['bigpay', 'BigPay', /bigpay/i],
   ['gxbank', 'GXBank', /gx\s*bank/i], ['aeonbank', 'AEON Bank', /aeon\s*bank/i], ['boostbank', 'Boost Bank', /boost\s*bank/i],
   ['boost', 'Boost', /\bboost\b/i], ['kaf', 'KAF Digital', /kaf\s*digital/i], ['ryt', 'Ryt Bank', /ryt\s*bank/i],
@@ -19,8 +19,33 @@ export const PROVIDERS = [
   ['ocbc', 'OCBC', /\bocbc\b/i], ['hsbc', 'HSBC', /\bhsbc\b/i], ['scb', 'Standard Chartered', /standard\s*chartered/i],
   ['citibank', 'Citibank', /citi\s*bank|\bciti\b/i], ['alrajhi', 'Al Rajhi Bank', /al[\s-]*rajhi/i],
 ];
-export const detectProvider = text => PROVIDERS.find(([, , re]) => re.test(text))?.slice(0, 2) || null;
-export const isWallet = id => ['tng', 'grabpay', 'shopeepay', 'bigpay', 'boost'].includes(id);
+const WALLETS = ['tng', 'grabpay', 'shopeepay', 'bigpay', 'boost'];
+export const isWallet = id => WALLETS.includes(id);
+const CARD = /credit\s*card|kad\s*kredit|card\s*statement|penyata\s*kad|信用卡/i;
+/**
+ * The bank or wallet a statement is from → [id, name, kind ('bank' | 'ewallet' | 'card')], or null. The header (the
+ * first 15 lines that are not transactions) decides, and there the name printed first wins. Only when the header
+ * names nobody does the rest count, and then a bank beats a wallet: a Maybank statement lists "TRANSFER TO TNG
+ * DIGITAL", while a Touch 'n Go one names itself above its rows.
+ */
+export function detectProvider(text) {
+  const lines = (Array.isArray(text) ? text : String(text ?? '').split('\n')).map(l => String(l ?? ''));
+  const head = lines.slice(0, 15).filter(l => !(leadDate(l) && amounts(l).length)).join('\n');
+  const at = s => PROVIDERS.map((p, i) => ({ p, i, at: s.search(p[2]) })).filter(x => x.at >= 0);
+  let hit = at(head).sort((a, b) => a.at - b.at || a.i - b.i)[0]?.p;
+  if (!hit) { const all = at(lines.join('\n')).map(x => x.p); hit = all.find(p => !isWallet(p[0])) || all[0]; }
+  return hit ? [hit[0], hit[1], isWallet(hit[0]) ? 'ewallet' : CARD.test(head) ? 'card' : 'bank'] : null;
+}
+/** Account kind from a name someone typed ("Cash", "TNG", "Maybank card", "Public Bank"). */
+export function guessKind(name) {
+  const s = String(name ?? '');
+  if (/cash|tunai|现金|現金/i.test(s)) return 'cash';
+  if (/card|\bkad\b|visa|master|amex|credit|信用卡/i.test(s)) return 'card';
+  if (/wallet|dompet|钱包|錢包|grab|boost|shopee|bigpay|setel/i.test(s)) return 'ewallet';
+  return detectProvider(s)?.[2] || 'bank';
+}
+/** Put between two PDF pages' lines, so a row's wrapped description never runs into the next page's header. */
+export const PAGE_BREAK = '\f';
 
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12, mac: 3, mei: 5, ogo: 8, okt: 10, dis: 12 };
 const y4 = y => (y == null ? null : y < 100 ? 2000 + y : y);
@@ -54,8 +79,11 @@ export function amounts(text) {
 }
 
 const OPENING = /opening|beginning|brought\s*forward|b\/f|balance\s*from|previous\s*(statement\s*)?balance|baki\s*(awal|mula|dibawa|permulaan)|期初|上期/i;
-const CLOSING = /closing|ending\s*balance|carried\s*forward|c\/f|baki\s*(akhir|penutup)|期末/i;
+const CLOSING = /closing|ending\s*balance|carried\s*forward|c\/f|baki\s*(akhir|penutup)|(di)?bawa\s*ke\s*hadapan|期末/i;
 const SKIP = /total\s*(debit|credit|withdrawal|deposit)|jumlah\s*(debit|kredit)|page\s*\d|halaman|failed|unsuccessful|gagal|reversed/i;
+// Page furniture: never part of a description, and no line after it continues the row above.
+const FURNITURE = /statement\s*of\s*account|statement\s*date|penyata\s*akaun|tarikh\s*penyata|transaction\s*history|computer[\s-]*generated|no\s*signature|janaan\s*komputer|tandatangan/i;
+const LEAD_TIME = /^([01]?\d|2[0-3]):([0-5]\d)(?::\d{2})?\s*([ap]\.?m\.?\b)?(?![\d.,])\s*/i;
 const IN_WORDS = /salary|gaji|payroll|refund|pemulangan|interest|profit|hibah|dividend|cash\s*back|rebate|deposit|transfer\s*from|trf\s*from|fund\s*transfer\s*in|received|receive|terima|masuk|credit\s*advice|reload|top[\s-]?up|duitnow\s*(in|received)/i;
 const signed = a => a.sen * (a.sign < 0 ? -1 : 1);
 
@@ -77,18 +105,27 @@ export function statementEnd(lines) {
  * reconciled}. reconciled: opening + every amount = closing, the check the user sees before importing.
  */
 export function parseStatement(lines) {
-  const provider = detectProvider(lines.join('\n')), end = statementEnd(lines);
+  const provider = detectProvider(lines), end = statementEnd(lines);
   let opening = null, closing = null;
   const rows = [];
+  const stop = () => { if (rows.length) rows.at(-1).extra = 9; };
   for (const raw of lines) {
+    if (raw === PAGE_BREAK) { stop(); continue; }
     const line = raw.replace(/\s+/g, ' ').trim();
     if (!line) continue;
     const dt = leadDate(line);
-    const rest = dt ? line.slice(dt.len).trim() : line;
+    let rest = dt ? line.slice(dt.len).trim() : line, time = null;
+    if (dt) {
+      const d2 = leadDate(rest);                                  // a value date after the posting date
+      if (d2?.y != null) rest = rest.slice(d2.len).trim();
+      const tm = rest.match(LEAD_TIME);                            // e-wallets print the time: keep it, not in the name
+      if (tm) { time = `${String(+tm[1] % (tm[3] ? 12 : 24) + (/p/i.test(tm[3] || '') ? 12 : 0)).padStart(2, '0')}:${tm[2]}`; rest = rest.slice(tm[0].length); }
+    }
     const am = amounts(rest);
-    if (OPENING.test(rest)) { if (am.length) opening = signed(am.at(-1)); continue; }
-    if (CLOSING.test(rest)) { if (am.length) closing = signed(am.at(-1)); continue; }
-    if (SKIP.test(line)) continue;
+    // The first opening only (every later page repeats "Balance B/F"); the last closing (every page ends with a C/F).
+    if (CLOSING.test(rest)) { if (am.length) closing = signed(am.at(-1)); stop(); continue; }
+    if (OPENING.test(rest)) { if (am.length && opening == null) opening = signed(am.at(-1)); stop(); continue; }
+    if (SKIP.test(line) || FURNITURE.test(line)) { stop(); continue; }
     if (!dt) {
       const last = rows.at(-1);
       if (!last) continue;
@@ -96,7 +133,7 @@ export function parseStatement(lines) {
       else if (!am.length && last.extra < 2 && /[a-z]{2}/i.test(line)) { last.desc += ` ${line}`; last.extra++; } // wrapped description
       continue;
     }
-    rows.push({ dt, desc: (am.length ? rest.slice(0, am[0].at) : rest).trim(), cash: am, extra: 0 });
+    rows.push({ dt, time, desc:(am.length ? rest.slice(0, am[0].at) : rest).trim(), cash: am, extra: 0 });
   }
 
   let prev = opening;
@@ -115,7 +152,7 @@ export function parseStatement(lines) {
     let y = r.dt.y ?? end?.y ?? new Date().getFullYear();
     if (r.dt.y == null && end && r.dt.m > end.m) y -= 1;
     const date = `${y}-${String(r.dt.m).padStart(2, '0')}-${String(r.dt.d).padStart(2, '0')}`;
-    if (validIso(date)) out.push({ date, desc: r.desc.replace(/\s+/g, ' ').slice(0, 120), amount: sign * mv.sen, ...(balance != null ? { balance } : {}) });
+    if (validIso(date)) out.push({ date, ...(r.time ? { time: r.time } : {}), desc: r.desc.replace(/\s+/g, ' ').slice(0, 120), amount: sign * mv.sen, ...(balance != null ? { balance } : {}) });
   }
   if (closing == null && out.at(-1)?.balance != null) closing = out.at(-1).balance;
   if (opening == null && out[0]?.balance != null) opening = out[0].balance - out[0].amount;
@@ -126,10 +163,10 @@ export function parseStatement(lines) {
 /** Statement rows → Tally transactions for one account. */
 export function statementToTx(rows, { accountId, source = 'statement', now = Date.now() }) {
   return rows.map((r, i) => {
-    const merchant = cleanDesc(r.desc.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ')).slice(0, 80);
+    const merchant = cleanDesc(r.desc.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ')).slice(0, 80).trim();
     const type = r.amount > 0 ? 'income' : 'expense';
-    return { id: `s${now.toString(36)}_${i}`, date: r.date, type, amount: Math.abs(r.amount), accountId, merchant,
-      category: type === 'income' ? (/salary|gaji|payroll/i.test(r.desc) ? 'salary' : 'income') : categorize(merchant, merchant), note: '', source, createdAt: now };
+    return { id: `s${now.toString(36)}_${i}`, date: r.date, ...(r.time ? { time: r.time } : {}), type, amount: Math.abs(r.amount), accountId, merchant,
+      category: type === 'income' ? incomeCategory(r.desc) : categorize(merchant, merchant), note: '', source, createdAt: now };
   });
 }
 

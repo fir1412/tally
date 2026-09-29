@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, CATEGORIES, INCOME_CATEGORIES, categorize } from './engine.js';
+import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, incomeCategory } from './engine.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, rows: 50_000, text: 200 };
 
@@ -92,32 +92,76 @@ export async function unzip(buf, want) {
 }
 const unxml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&');
 const colIndex = ref => [...ref.replace(/\d+/g, '')].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
-/** First worksheet of an .xlsx as rows of strings. Dates stay as Excel serial numbers (fileDate reads those). */
-export async function xlsxToRows(buf) {
-  let files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/worksheets/sheet1.xml');
-  if (!files['xl/worksheets/sheet1.xml']) files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
-  const sheetName = Object.keys(files).filter(n => n.startsWith('xl/worksheets/')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)))[0];
-  if (!sheetName || !files[sheetName]) throw new Error('no sheet');
-  const dec = x => new TextDecoder().decode(x);
-  const shared = files['xl/sharedStrings.xml'] ? [...dec(files['xl/sharedStrings.xml']).matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => unxml([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join(''))) : [];
-  const rows = [];
-  for (const rm of dec(files[sheetName]).matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
-    if (rows.length >= LIMITS.rows) break;
-    const row = [];
-    for (const cm of rm[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
-      const attrs = cm[1], body = cm[2] || '';
-      const ref = attrs.match(/\br="([A-Z]+)\d+"/)?.[1];
-      const type = attrs.match(/\bt="(\w+)"/)?.[1];
-      let v = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? '';
-      if (type === 's') v = shared[+v] ?? '';
-      else if (type === 'inlineStr') v = [...body.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('');
-      v = unxml(v);
-      const col = ref ? colIndex(ref) : row.length;
-      if (col < 200) row[col] = v; // a crafted "ZZZZ1" would make a huge sparse row
-    }
-    rows.push(Array.from(row, x => x ?? ''));
+// Linear scans with indexOf: a lazy regex over the whole sheet re-scans to the end on every unclosed "<row" (quadratic).
+/** Each <tag …>body</tag> (or self-closed <tag …/>) in xml → fn(attrs, body). Stops early when fn returns false. */
+function eachTag(xml, tag, fn) {
+  const open = `<${tag}`, close = `</${tag}>`;
+  for (let p = 0; ;) {
+    const s = xml.indexOf(open, p);
+    if (s < 0) return;
+    const gt = xml.indexOf('>', s);
+    if (gt < 0) return;
+    const next = xml[s + open.length];
+    if (next !== ' ' && next !== '>' && next !== '/' && next !== '\t' && next !== '\n' && next !== '\r') { p = s + open.length; continue; } // <col> is not <c>
+    if (xml[gt - 1] === '/') { if (fn(xml.slice(s + open.length, gt - 1), '') === false) return; p = gt + 1; continue; }
+    const e = xml.indexOf(close, gt);
+    if (e < 0) return;
+    if (fn(xml.slice(s + open.length, gt), xml.slice(gt + 1, e)) === false) return;
+    p = e + close.length;
   }
+}
+const texts = body => { let s = ''; eachTag(body, 't', (a, b) => { s += b; }); return s; };
+/** Shared strings (capped) and one worksheet's XML → rows of strings. Exported for the timing test. */
+export function sheetRows(xml, shared = []) {
+  const rows = [];
+  eachTag(xml, 'row', (_, body) => {
+    const row = [];
+    let n = 0;
+    eachTag(body, 'c', (attrs, cell) => {
+      const ref = attrs.match(/\br="([A-Z]{1,3})\d+"/)?.[1], type = attrs.match(/\bt="(\w+)"/)?.[1];
+      let v = '';
+      if (type === 'inlineStr') v = texts(cell);
+      else { eachTag(cell, 'v', (a, b) => { v = b; return false; }); if (type === 's') v = shared[+v] ?? ''; }
+      const col = ref ? colIndex(ref) : row.length;
+      if (col < 200) row[col] = unxml(v); // a crafted "ZZZ1" would make a huge sparse row
+      return ++n < 1000;
+    });
+    rows.push(Array.from(row, x => x ?? ''));
+    return rows.length < LIMITS.rows;
+  });
   return rows.filter(r => r.some(x => String(x).trim() !== ''));
+}
+/** Every worksheet of an .xlsx, in the workbook's tab order → [{name, rows}]. Dates stay Excel serials (fileDate reads those). */
+export async function xlsxSheets(buf) {
+  const files = await unzip(buf, n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const dec = x => (x ? new TextDecoder().decode(x) : '');
+  const shared = [];
+  eachTag(dec(files['xl/sharedStrings.xml']), 'si', (a, b) => { shared.push(unxml(texts(b))); return shared.length < 200_000; });
+  const rels = {};
+  eachTag(dec(files['xl/_rels/workbook.xml.rels']), 'Relationship', a => { const id = a.match(/\bId="([^"]+)"/)?.[1], to = a.match(/\bTarget="([^"]+)"/)?.[1]; if (id && to) rels[id] = 'xl/' + to.replace(/^\/?(xl\/)?/, ''); });
+  const tabs = [];
+  eachTag(dec(files['xl/workbook.xml']), 'sheet', a => { const path = rels[a.match(/\br:id="([^"]+)"/)?.[1]]; if (files[path]) tabs.push({ name: cleanText(unxml(a.match(/\bname="([^"]*)"/)?.[1] || ''), 40), path }); });
+  if (!tabs.length) for (const path of Object.keys(files).filter(n => n.startsWith('xl/worksheets/')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)))) tabs.push({ name: path.match(/sheet\d+/)[0], path });
+  if (!tabs.length) throw new Error('no sheet');
+  return tabs.map(({ name, path }) => ({ name, rows: sheetRows(dec(files[path]), shared) }));
+}
+/**
+ * An .xlsx as one list of rows: the first tab with a header row, then every later tab with the same header (a tab per
+ * year), its own title and header rows left out. rows.tabs = {read, skipped} tab names, for the mapping sheet.
+ */
+export async function xlsxToRows(buf) {
+  const sheets = await xlsxSheets(buf);
+  const headOf = rows => { const h = headerRow(rows); return Object.keys(guessMapping(rows[h] || [])).length >= 2 ? h : -1; };
+  const sig = r => r.map(x => cleanText(x, 40).toLowerCase()).join('|').replace(/\|+$/, '');
+  const first = sheets.find(s => headOf(s.rows) >= 0) || sheets.find(s => s.rows.length);
+  if (!first) throw new Error('no sheet');
+  const key = sig(first.rows[Math.max(0, headOf(first.rows))] || []), out = [...first.rows], tabs = { read: [first.name], skipped: [] };
+  for (const s of sheets) {
+    if (s === first || !s.rows.length) continue;
+    const h = headOf(s.rows);
+    if (h >= 0 && sig(s.rows[h]) === key && out.length < LIMITS.rows) { out.push(...s.rows.slice(h + 1)); tabs.read.push(s.name); } else tabs.skipped.push(s.name);
+  }
+  return Object.assign(out.slice(0, LIMITS.rows), { tabs });
 }
 
 // ---- Google Sheets ---------------------------------------------------------------------------------
@@ -142,24 +186,27 @@ export async function fileToRows(name, buf) {
 }
 
 // ---- guessing columns ---------------------------------------------------------------------
+// [exact name, part of a name]. Exact names are tried first for every column ("Category" before "Category Group/Category").
 const HEAD = {
-  date: /^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间)$|date|tarikh|日期/i,
-  amount: /^(amount|jumlah|amaun|金额|金額|value|nilai|sum)$|amount|jumlah|金额|金額/i,
-  debit: /debit|withdraw|pengeluaran|keluar|支出|money out|out$/i,
-  credit: /credit|deposit|kredit|masuk|收入|money in|in$/i,
-  type: /^(type|jenis|类型|類型|income\/expense|in\/out|category type|收支)$/i,
-  category: /categor|kategori|类别|類別|分类|分類/i,
-  note: /note|nota|memo|description|keterangan|butiran|备注|備註|details|remark/i,
-  merchant: /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima/i,
-  account: /^(account|akaun|账户|帳戶|wallet|dompet)$/i,
-  balance: /^(running |closing |available )?(balance|baki)|余额|餘額/i,
+  date: [/^(date|tarikh|日期|transaction date|trans(action)? ?date|posting date|time|masa|日期时间|tarikh transaksi)$/i, /date|tarikh|日期/i],
+  balance: [/^((running|closing|available|wallet|e-?wallet|account|current) )?(balance|baki)( \((rm|myr)\))?$|^baki (akhir|semasa)$/i, /balance|^baki\b|余额|餘額/i],
+  debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
+  credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
+  type: [/^(type|jenis|类型|類型|income\/expense|expense\/income|in\/out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr\/cr|cr\/dr|debit\/credit|credit\/debit|d\/c|c\/d)$/i, null],
+  category: [/^(category|categories|kategori|类别|類別|分类|分類)$/i, /categor|kategori|类别|類別|分类|分類/i],
+  merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|项目|項目|description|transaction description|keterangan|butiran|catatan|details?)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description/i],
+  note: [/^(notes?|nota|memo|remarks?|备注|備註|comments?)$/i, /note|nota|memo|keterangan|butiran|备注|備註|details|remark|catatan/i],
+  account: [/^(account|akaun|账户|帳戶|wallet|dompet|paid (by|with|from|using)|pay(ment)? (by|method|mode)|payment (method|mode|type)|method|bayar (guna|dengan|melalui)|kaedah (bayaran|pembayaran)|付款方式|支付方式)$/i, null],
+  amount: [/^(amount|jumlah|amaun|金额|金額|value|nilai|sum|price|harga|价格|價格|total)( \((rm|myr)\))?$/i, /amount|jumlah|amaun|金额|金額|price|harga/i],
 };
-/** Which column holds what: {date, amount | debit+credit, type?, category?, note?, merchant?, account?} as indexes. */
+/** Which column holds what: {date, amount | debit+credit, type?, category?, merchant?, note?, account?, balance?} as indexes. */
 export function guessMapping(header) {
   const h = header.map(x => cleanText(x));
   const m = {}; const used = [];
-  for (const k of ['date', 'balance', 'debit', 'credit', 'type', 'category', 'merchant', 'note', 'account', 'amount']) {
-    const i = h.findIndex((x, j) => HEAD[k].test(x) && !used.includes(j));
+  for (const pass of [0, 1]) for (const k of ['date', 'balance', 'debit', 'credit', 'type', 'category', 'merchant', 'note', 'account', 'amount']) {
+    const re = HEAD[k][pass];
+    if (m[k] != null || !re) continue;
+    const i = h.findIndex((x, j) => re.test(x) && !used.includes(j));
     if (i >= 0) { m[k] = i; used.push(i); }
   }
   if (m.amount != null && (m.debit == null) !== (m.credit == null)) { delete m.debit; delete m.credit; } // one-sided: use amount
@@ -177,13 +224,14 @@ export function headerRow(rows) {
 // ---- dates in files -----------------------------------------------------------------------------
 const MON_EN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MON_MS = ['jan', 'feb', 'mac', 'apr', 'mei', 'jun', 'jul', 'ogo', 'sep', 'okt', 'nov', 'dis'];
-/** "28/09/2026", "28-09-26", "2026-09-28", "2026/9/28", "28 Sep 2026", "2026年9月28日", Excel serial → ISO, or null. Day first. */
-export function fileDate(v) {
+/** "28/09/2026", "28-09-26", "2026-09-28", "2026/9/28", "28 Sep 2026", "2026年9月28日", Excel serial → ISO, or null.
+ *  Day first, unless monthFirst (a US-locale sheet: see dateOrder). */
+export function fileDate(v, monthFirst = false) {
   const s = cleanText(v, 40);
   if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5).toISOString().slice(0, 10);
   let m, y, mo, d;
   if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
-  else if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) [d, mo, y] = [+m[1], +m[2], +m[3]];
+  else if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) [d, mo, y] = monthFirst ? [+m[2], +m[1], +m[3]] : [+m[1], +m[2], +m[3]];
   else if ((m = s.match(/^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[ -,]*(\d{2,4})/))) {
     const k = m[2].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
     [d, mo, y] = [+m[1], i + 1, +m[3]];
@@ -193,29 +241,50 @@ export function fileDate(v) {
   const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   return mo >= 1 && validIso(iso) && y >= 2000 && y <= 2100 ? iso : null;
 }
+/** Month first for a whole column when some "a/b/yyyy" has b > 12 and none has a > 12 (7/13/2026 is 13 July). */
+export function dateOrder(rows, col) {
+  let a = false, b = false;
+  for (const r of rows) { const m = cleanText(r?.[col], 40).match(/^(\d{1,2})[-/.](\d{1,2})[-/.]\d{2,4}/); if (m) { a ||= +m[1] > 12; b ||= +m[2] > 12; } }
+  return b && !a;
+}
+const timeOf = v => { const m = cleanText(v, 40).match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null; };
 
 // ---- rows → transactions ---------------------------------------------------------------------------
 const ALL_CATS = [...CATEGORIES, ...INCOME_CATEGORIES];
-/** Bank and wallet descriptions without their channel prefix: "CARD PURCHASE TESCO" → "TESCO". */
 /** Shouting bank text reads as a name: "NASI LEMAK ANTARABANGSA" → "Nasi Lemak Antarabangsa"; short codes (TNB, KFC, MR DIY) stay. */
 const unshout = s => (/[a-z]/.test(s) ? s : s.replace(/[A-Z]{4,}/g, w => w[0] + w.slice(1).toLowerCase()));
+/** Bank and wallet descriptions without the time, status and channel prefix: "07:52 Success Payment 7-Eleven" → "7-Eleven". */
 export const cleanDesc = s => unshout(cleanDesc0(s));
-const cleanDesc0 = s => cleanText(s, 120).replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '').trim() || cleanText(s, 120);
+const LEAD = /^(\d{1,2}:\d{2}(:\d{2})?\s*([ap]\.?m\.?)?\s+)?((success(ful)?|completed?|berjaya|pending|approved)\b[\s:-]*)?/i;
+const cleanDesc0 = s => {
+  const c = cleanText(s, 120).replace(LEAD, '');
+  return c.replace(/^(card purchase|sale debit|pos purchase|debit card|mydebit|duitnow( qr| to| transfer)?|fpx( payment)?|jompay|ibg( credit| debit)?|instant transfer|fund transfer( to| from)?|trf( to| from)?|payment( to| via)?|online banking|pembayaran|pindahan)\b[\s:-]*/i, '')
+    .replace(/^(\p{L}+) (?=\1\b)/iu, '').trim() || c || cleanText(s, 120); // "Reload Reload via FPX" (type + description)
+};
 const INCOME_WORD = /income|pendapatan|masuk|收入|credit|kredit|deposit|salary|gaji|paycheck|payroll|wage|薪/i;
-const TRANSFER_WORD = /transfer|pindahan|转账|轉帳|top ?up|reload/i;
-/** Another app's category name → ours: exact id/name, then words. catMap (from the mapping step) wins. */
-export function mapCategory(name, catMap = {}, merchant = '') {
-  const n = cleanText(name, 60);
+// Wallet and bank "Transaction Type" words: a reload, top-up or money received is money in; a DR/CR column says it outright.
+const IN_TYPE = /^(cr|c|\+|in)$|reload|top ?-?up|cash ?in|tambah nilai|receiv|terima|refund|cash ?back|\bin$/i;
+const OUT_TYPE = /^(dr|d|-|out)$/i;
+const TRANSFER_WORD = /transfer|pindahan|转账|轉帳/i;
+/** Another app's category name → ours: catMap (the mapping step), then the user's own categories by name, then ours by
+ *  id or name, then words. */
+export function mapCategory(name, catMap = {}, merchant = '', custom = []) {
+  const n = cleanText(name, 60), lo = n.toLowerCase();
   if (Object.hasOwn(catMap, n)) return catMap[n];
-  const hit = ALL_CATS.find(c => c.id === n.toLowerCase() || c.name.toLowerCase() === n.toLowerCase());
+  const hit = [...custom, ...ALL_CATS].find(c => c.id === lo || String(c.name).toLowerCase() === lo);
   if (hit) return hit.id;
-  if (/salary|gaji|paycheck|payroll|wage|工资|薪/i.test(n)) return 'salary';
-  if (/food|drink|makan|餐|meal|restaurant/i.test(n)) return 'dining';
-  if (/transport|car|kereta|fuel|交通/i.test(n)) return 'transport';
-  if (/bill|util|bil |bil$|账单|帳單/i.test(n)) return 'bills';
-  if (/shop|belanja|购物|購物|cloth|pakaian/i.test(n)) return 'shopping';
-  return categorize(n, merchant);
+  return CAT_WORDS.find(([, re]) => re.test(n))?.[0] || categorize(n, merchant);
 }
+// Category names people use in their own sheets, English, Malay and Chinese. Order matters: "Sekolah Anak" is Kids.
+const CAT_WORDS = [
+  ['salary', /salary|gaji|paycheck|payroll|wage|工资|工資|薪/i], ['allowance', /elaun|allowance|biasiswa|scholarship|津贴|津貼/i],
+  ['groceries', /grocer|barang dapur|runcit|pasar|杂货|雜貨|超市|买菜|買菜/i], ['dining', /food|drink|makan|minum|餐|meal|restaurant|饮食|飲食/i],
+  ['transport', /transport|pengangkutan|\bcar\b|kereta|fuel|petrol|minyak|toll|parking|交通|汽油/i], ['bills', /bill|util|\bbil\b|账单|帳單|水电|水電/i],
+  ['health', /health|kesihatan|perubatan|medical|医疗|醫療|健康/i], ['personal', /personal|penjagaan diri|kecantikan|beauty|个人护理|個人護理/i],
+  ['household', /household|rumah|perabot|家居|日用/i], ['kids', /\bkids?\b|children|anak|kanak|孩子|小孩|儿童|兒童/i],
+  ['electronics', /electronic|elektronik|gadget|gajet|电子|電子/i], ['shopping', /shop|belanja|购物|購物|cloth|pakaian/i],
+  ['fun', /entertain|hiburan|leisure|娱乐|娛樂/i], ['education', /educat|pendidikan|school|sekolah|yuran|教育|学费|學費/i],
+];
 /** Excel stores computed cells as long doubles ("12.720000000000001"): round those to sen, read the rest as typed. */
 export const fileAmount = v => { const s = cleanText(v, 40); return /^-?\d+\.\d{3,}$/.test(s) ? Math.round(parseFloat(s) * 100) : parseAmount(s); };
 /** Short stable hash (FNV-1a) → base36. */
@@ -235,32 +304,49 @@ export function importIds(txs, prefix) {
   return txs;
 }
 /**
- * Rows (after the header) → {txs, skipped: [{row, why}]}. Amounts: a signed amount, or debit/credit columns.
- * A type column (income/expense) wins over the sign. With no type column: if any amount is negative the file is
- * signed (negative = spent, positive = received); if none is, every amount is spending (most money apps).
- */
-/**
  * Opening balance for a new account from a statement's Balance column: the balance on the last row up to `upTo`,
  * minus everything imported up to then. Works for oldest-first and newest-first files. null without a balance column.
  */
 export function openingFromBalance(rows, map, txs, upTo) {
   if (map.balance == null || map.date == null) return null;
-  const dated = rows.map((r, i) => ({ i, date: fileDate(r[map.date]), bal: fileAmount(r[map.balance]) })).filter(x => x.date && x.bal != null && x.date <= upTo);
+  const mdy = dateOrder(rows, map.date);
+  const dated = rows.map((r, i) => ({ i, date: fileDate(r[map.date], mdy), bal: fileAmount(r[map.balance]) })).filter(x => x.date && x.bal != null && x.date <= upTo);
   if (!dated.length) return null;
   const asc = dated[0].date <= dated.at(-1).date;
   const last = dated.reduce((a, b) => (b.date > a.date || (b.date === a.date && asc) ? b : a));
   const net = txs.filter(x => x.date <= upTo).reduce((s, x) => s + (x.type === 'income' ? x.amount : -x.amount), 0);
   return last.bal - net;
 }
-export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import', idPrefix = 'i', now = Date.now() } = {}) {
+/** Each row's direction from its running balance (1 in, −1 out, 0 can't tell), in whichever order the file runs. */
+export function balanceSigns(rows, map, amtOf) {
+  if (map.balance == null) return [];
+  const pts = rows.map((r, i) => ({ i, a: amtOf(r), b: fileAmount(r[map.balance]) })).filter(p => p.a && p.b != null);
+  const fit = (p, q) => (q && Math.abs(p.b - q.b) === p.a ? Math.sign(p.b - q.b) : 0);
+  const asc = pts.map((p, k) => fit(p, pts[k - 1])), desc = pts.map((p, k) => fit(p, pts[k + 1]));
+  const use = asc.filter(Boolean).length >= desc.filter(Boolean).length ? asc : desc;
+  const out = [];
+  pts.forEach((p, k) => { out[p.i] = use[k]; });
+  return out;
+}
+/**
+ * Rows (after the header) → {txs, skipped: [{row, why}]}. Amounts: a signed amount, or debit/credit columns.
+ * Direction: the running balance when it says, else a type column (income/expense, DR/CR, Payment/Reload), else the
+ * sign. With neither: if any amount is negative the file is signed (negative = spent); if none is, all is spending.
+ * `accounts` maps an Account column's values (lower case) to account ids.
+ */
+export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now() } = {}) {
   const txs = [], skipped = [];
+  rows = rows.slice(0, LIMITS.rows);
   const signed = map.amount != null && rows.some(r => (fileAmount(r[map.amount]) ?? 0) < 0);
-  rows.slice(0, LIMITS.rows).forEach((r, n) => {
+  const dc = map.debit != null || map.credit != null, mdy = map.date != null && dateOrder(rows, map.date);
+  const amtOf = r => { const a = dc ? fileAmount(r[map.debit]) || fileAmount(r[map.credit]) : fileAmount(r[map.amount]); return a ? Math.abs(a) : null; };
+  const bal = balanceSigns(rows, map, amtOf);
+  rows.forEach((r, n) => {
     const get = k => (map[k] != null ? r[map[k]] ?? '' : '');
-    const date = fileDate(get('date'));
+    const date = fileDate(get('date'), mdy);
     if (!date) return skipped.push({ row: n + 2, why: 'date' });
     let amt = null, type = null;
-    if (map.debit != null || map.credit != null) {
+    if (dc) {
       const d = fileAmount(get('debit')), c = fileAmount(get('credit'));
       if (d) { amt = Math.abs(d); type = 'expense'; } else if (c) { amt = Math.abs(c); type = 'income'; }
     } else {
@@ -269,19 +355,68 @@ export function rowsToTx(rows, map, { accountId, catMap = {}, source = 'import',
     }
     if (!amt) return skipped.push({ row: n + 2, why: 'amount' });
     const tword = cleanText(get('type'), 40);
-    if (tword) type = TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
-    type ||= 'expense'; // ponytail: transfers from other apps come in as expenses to review; their other side is unknown
-    const merchant = cleanDesc(map.merchant != null ? get('merchant') : get('note')).slice(0, 80);
+    if (tword) type = OUT_TYPE.test(tword) ? 'expense' : IN_TYPE.test(tword) ? 'income' : TRANSFER_WORD.test(tword) ? 'expense' : INCOME_WORD.test(tword) ? 'income' : 'expense';
+    if (bal[n] && !dc && !signed) type = bal[n] > 0 ? 'income' : 'expense'; // only unsigned amounts: columns and signs say it outright
+    type ||= 'expense'; // ponytail: transfers from other apps come in as expenses; pairTransfers joins the ones it can see
+    const merchant = cleanDesc(map.merchant != null ? get('merchant') : get('note')).slice(0, 80).trim();
     const rawCat = get('category');
-    let category = rawCat ? mapCategory(rawCat, catMap, merchant) : categorize(merchant, merchant);
+    let category = rawCat ? mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
-    if (!tword && !signed && map.debit == null && map.credit == null && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
-    if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = /salary|gaji|工资|薪/i.test(rawCat + ' ' + merchant) ? 'salary' : 'income';
+    if (!tword && !signed && !bal[n] && !dc && INCOME_CATEGORIES.some(c => c.id === category)) type = 'income';
+    if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
     if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
-    txs.push({ id: '', date, type, amount: amt, accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });
+    const time = timeOf(get('date')), acc = map.account != null && accounts[cleanText(get('account'), 40).toLowerCase()];
+    txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc || accountId, category, merchant, note: map.merchant != null ? cleanText(get('note'), 200) : '', source, createdAt: now });
   });
   return { txs: importIds(txs, idPrefix), skipped };
 }
+
+// ---- after an import: already here? transfers between the user's own accounts ----------------------------------------
+/**
+ * Split an import into {fresh, dups}. Already here: the same id (the same file again); the same money on the same day
+ * and account from another source (a receipt, then its statement line); or one side of a transfer already recorded
+ * (a wallet reload paired with its bank line earlier, then the wallet's statement brought in). Rows repeated within
+ * the import all stay (two teh tarik on one day).
+ */
+export function splitDups(existing, txs) {
+  const ids = new Set(existing.map(x => x.id)), by = new Map(), add = (k, x) => { const l = by.get(k); if (l) l.push(x); else by.set(k, [x]); };
+  for (const y of existing) {
+    if (y.type !== 'transfer') add(`${y.accountId}|${y.date}|${y.amount}`, y);
+    else { add(`out|${y.accountId}|${y.amount}`, y); add(`in|${y.toAccountId}|${y.amount}`, y); }
+  }
+  // Each existing transaction stands for one incoming row at most.
+  const take = (list = [], ok) => { const i = list.findIndex(ok); return i >= 0 && !!list.splice(i, 1); };
+  const tr = x => by.get(`${x.type === 'income' ? 'in' : 'out'}|${x.accountId}|${x.amount}`);
+  const dup = x => ids.has(x.id)
+    || take(by.get(`${x.accountId}|${x.date}|${x.amount}`), y => y.source !== x.source && y.type === x.type)
+    || take(tr(x), y => y.date === x.date) || take(tr(x), y => Math.abs(daysBetween(y.date, x.date)) <= 1);
+  const fresh = [], dups = [];
+  for (const x of txs) (dup(x) ? dups : fresh).push(x);
+  return { fresh, dups };
+}
+const TOPUP = /reload|top[\s-]?up|tambah nilai|transfer|\btrf\b|pindahan|touch\s*['’]?\s*n\s*['’]?\s*go|\btng\b|grab\s*pay|\bboost\b|shopee\s*pay|big\s*pay|setel|own account|akaun sendiri|\bvia\b|cash\s*in/i;
+/**
+ * Money that left one account and arrived in another: an expense and an income of the same amount, on two different
+ * accounts, within a day, one of them worded like a top-up or transfer ("TRANSFER TO TNG DIGITAL", "Reload via
+ * Maybank"). Only pairs touching `fresh` (the import). → [[expense, income]], each transaction used once, nearest day first.
+ */
+export function pairTransfers(all, fresh) {
+  const isNew = new Set(fresh.map(x => x.id)), used = new Set(), pairs = [], ins = new Map();
+  for (const i of all) if (i.type === 'income' && i.category !== 'salary') { const l = ins.get(i.amount); if (l) l.push(i); else ins.set(i.amount, [i]); }
+  const word = x => TOPUP.test(`${x.merchant || ''} ${x.note || ''}`);
+  for (const o of all.filter(x => x.type === 'expense' && ins.has(x.amount)).sort((a, b) => a.date.localeCompare(b.date))) {
+    let best = null;
+    for (const i of ins.get(o.amount)) {
+      if (used.has(i.id) || i.accountId === o.accountId || !(isNew.has(o.id) || isNew.has(i.id)) || !(word(o) || word(i))) continue;
+      const d = Math.abs(daysBetween(o.date, i.date));
+      if (d <= 1 && (!best || d < best.d)) best = { i, d };
+    }
+    if (best) { used.add(best.i.id); pairs.push([o, best.i]); }
+  }
+  return pairs;
+}
+/** One transfer for a pair: the expense's id, day and text, into the income's account. */
+export const asTransfer = ([o, i]) => ({ ...o, type: 'transfer', toAccountId: i.accountId, category: 'other' });
 
 // ---- export ------------------------------------------------------------------------------------------
 const q = v => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));

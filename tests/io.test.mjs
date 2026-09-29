@@ -21,7 +21,7 @@ test('bank statement: debit/credit columns, semicolons, bad rows skipped with a 
   const csv = 'Transaction Date;Description;Debit;Credit;Balance\n01-09-2026;DUITNOW TO ALI;150.00;;1000.00\n02-09-2026;SALARY SEPT;;4,200.00;5200.00\n31-02-2026;BAD DATE;1.00;;\n03-09-2026;NO AMOUNT;;;';
   const [head, ...rows] = IO.parseCSV(csv);
   const map = IO.guessMapping(head);
-  assert.equal(map.debit, 2); assert.equal(map.credit, 3); assert.equal(map.note, 1);
+  assert.equal(map.debit, 2); assert.equal(map.credit, 3); assert.equal(map.merchant, 1);
   const { txs, skipped } = IO.rowsToTx(rows, map, { accountId: 'bank', source: 'statement' });
   assert.deepEqual(txs.map(t => [t.type, t.amount]), [['expense', 15000], ['income', 420000]]);
   assert.deepEqual(skipped.map(s => s.why), ['date', 'amount']);
@@ -49,6 +49,11 @@ async function makeXlsx() {
     ['xl/sharedStrings.xml', enc('<sst><si><t>Date</t></si><si><t>Amount</t></si><si><t>Note</t></si><si><r><t>Kopi </t></r><r><t>O &amp; roti</t></r></si></sst>'), 0],
     ['xl/worksheets/sheet1.xml', await deflate(enc('<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2"><v>46293</v></c><c r="B2"><v>-6.5</v></c><c r="C2" t="s"><v>3</v></c></row><row r="3"><c r="A3" t="inlineStr"><is><t>27/09/2026</t></is></c><c r="C3" t="inlineStr"><is><t>no amount</t></is></c></row></sheetData></worksheet>')), 8],
   ];
+  return zipOf(files);
+}
+async function zipOf(files) {
+  const enc = s => new TextEncoder().encode(s);
+  files = files.map(([name, data, method = 0]) => [name, typeof data === 'string' ? enc(data) : data, method]);
   const parts = [], central = [];
   let off = 0;
   for (const [name, data, method] of files) {
@@ -67,7 +72,7 @@ async function makeXlsx() {
 
 test('xlsx: read without a library, routed by content not name', async () => {
   const rows = await IO.fileToRows('whatever.csv', (await makeXlsx()).buffer);
-  assert.deepEqual(rows, [['Date', 'Amount', 'Note'], ['46293', '-6.5', 'Kopi O & roti'], ['27/09/2026', '', 'no amount']]);
+  assert.deepEqual([...rows], [['Date', 'Amount', 'Note'], ['46293', '-6.5', 'Kopi O & roti'], ['27/09/2026', '', 'no amount']]);
   const { txs, skipped } = IO.rowsToTx(rows.slice(1), IO.guessMapping(rows[0]), { accountId: 'a' });
   assert.deepEqual(txs.map(t => [t.date, t.amount, t.merchant]), [['2026-09-28', 650, 'Kopi O & roti']]);
   assert.equal(skipped.length, 1);
@@ -138,4 +143,107 @@ test('photo backup zip: written stored, read back byte for byte', async () => {
   const out = await IO.unzip(await blob.arrayBuffer(), () => true);
   assert.equal(new TextDecoder().decode(out[IO.BACKUP_JSON]), '{"app":"tally"}');
   assert.deepEqual([...out['photos/p_1.jpg']], [...photo]);
+});
+
+// ---- wallets, several tabs, account columns, transfers between own accounts -----------------------------------------
+const ws = rows => `<worksheet><sheetData>${rows.map((r, i) => `<row r="${i + 1}">${r.map((v, j) => (v === '' ? '' : typeof v === 'number' ? `<c r="${'ABCDEF'[j]}${i + 1}"><v>${v}</v></c>` : `<c r="${'ABCDEF'[j]}${i + 1}" t="inlineStr"><is><t>${v}</t></is></c>`)).join('')}</row>`).join('')}</sheetData></worksheet>`;
+test('xlsx with a tab per year: every tab with the same header is read in tab order, a Pivot tab is skipped', async () => {
+  const head = ['Date', 'Item', 'Category', 'Amount', 'Paid by', 'Remarks'];
+  const zip = await zipOf([
+    ['xl/workbook.xml', '<workbook><sheets><sheet name="2024" sheetId="1" r:id="rId3"/><sheet name="Pivot" sheetId="4" r:id="rId1"/><sheet name="2025" sheetId="2" r:id="rId2"/></sheets></workbook>'],
+    ['xl/_rels/workbook.xml.rels', '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="/xl/worksheets/sheet2.xml"/><Relationship Id="rId3" Target="worksheets/sheet3.xml"/></Relationships>'],
+    ['xl/worksheets/sheet1.xml', ws([['SUM of Amount', '2024', '2025'], ['Parents', 800, 300]])],
+    ['xl/worksheets/sheet2.xml', ws([['Mei Ling - Expenses 2025'], head, [45700, 'Wet market', 'Groceries', 80.75, 'TNG', ''], [45701, 'Allowance for Mum', 'Parents', 300, 'Card', '妈妈']])],
+    ['xl/worksheets/sheet3.xml', ws([['Mei Ling - Expenses 2024'], head, [45300, 'Nasi lemak', 'Food & Beverage', 6.5, 'Cash', ''], [45301, 'Dad birthday dinner', 'Parents', 500, 'Card', '']])],
+  ]);
+  const rows = await IO.fileToRows('meiling.xlsx', zip.buffer);
+  assert.deepEqual(rows.tabs, { read: ['2024', '2025'], skipped: ['Pivot'] });
+  const h = IO.headerRow(rows), map = IO.guessMapping(rows[h]);
+  assert.deepEqual(map, { date: 0, merchant: 1, category: 2, amount: 3, account: 4, note: 5 });
+  const { txs } = IO.rowsToTx(rows.slice(h + 1), map, { accountId: 'fallback', accounts: { cash: 'a_cash', card: 'a_card', tng: 'a_tng' }, customCats: [{ id: 'c_par', name: 'Parents' }], catMap: { 'Food & Beverage': 'dining' } });
+  assert.deepEqual(txs.map(t => [t.date, t.amount, t.accountId, t.category, t.merchant]), [
+    ['2024-01-09', 650, 'a_cash', 'dining', 'Nasi lemak'], ['2024-01-10', 50000, 'a_card', 'c_par', 'Dad birthday dinner'],
+    ['2025-02-12', 8075, 'a_tng', 'groceries', 'Wet market'], ['2025-02-13', 30000, 'a_card', 'c_par', 'Allowance for Mum'],
+  ]);
+});
+
+test('xlsx parsing is linear: a 400 KB sheet of unclosed "<row " (and other junk) parses fast', () => {
+  for (const junk of ['<row '.repeat(80_000), '<row><c r="A1"><v>1'.repeat(20_000), '<c<c<c'.repeat(70_000), `<row>${'<c r="A1"/>'.repeat(40_000)}</row>`]) {
+    const t0 = performance.now();
+    IO.sheetRows(junk, []);
+    assert.ok(performance.now() - t0 < 500, `${junk.slice(0, 12)}… took ${Math.round(performance.now() - t0)} ms`);
+  }
+  assert.deepEqual(IO.sheetRows('<row r="1"><c r="B1" t="s"><v>0</v></c><col/><c r="C1"><v>2.5</v></c></row>', ['Teh']), [['', 'Teh', '2.5']]);
+});
+
+test("Touch 'n Go export: Wallet Balance and Transaction Type mapped; reloads are money in; time kept", () => {
+  const [head, ...rows] = IO.parseCSV('Date,Status,Transaction Type,Reference,Description,Details,Amount (RM),Wallet Balance\n01/09/2026 02:14,Success,Payment,TNG1,7-Eleven Jln Hospital,eWallet Balance,RM8.60,RM3.80\n01/09/2026 07:52,Success,Reload,TNG2,Reload via Maybank,Maybank2u,RM100.00,RM103.80\n02/09/2026 23:40,Success,DuitNow QR,TNG3,Nasi Kerabu Kak Nab,eWallet Balance,RM7.50,RM96.30');
+  const map = IO.guessMapping(head);
+  assert.deepEqual(map, { date: 0, balance: 7, type: 2, merchant: 4, note: 5, amount: 6 });
+  const { txs } = IO.rowsToTx(rows, map, { accountId: 'w' });
+  assert.deepEqual(txs.map(t => [t.time, t.type, t.amount, t.category, t.merchant]), [
+    ['02:14', 'expense', 860, 'groceries', '7-Eleven Jln Hospital'], ['07:52', 'income', 10000, 'income', 'Reload via Maybank'], ['23:40', 'expense', 750, 'dining', 'Nasi Kerabu Kak Nab']]);
+  assert.equal(IO.openingFromBalance(rows, map, txs, '2026-09-29'), 1240);
+  // Type words alone (no balance column), and a DR/CR column next to an unsigned amount.
+  const dir = words => IO.rowsToTx(words.map(w => ['01/09/2026', '5.00', w]), { date: 0, amount: 1, type: 2 }, { accountId: 'a' }).txs.map(t => t.type[0]).join('');
+  assert.equal(dir(['Top up', 'Cash in', 'Tambah nilai', 'Receive', 'Payment', 'Purchase', 'Transfer', 'CR', 'DR', 'C', 'D', 'Refund']), 'iiiieeeieiei');
+  assert.deepEqual(IO.guessMapping(['Date', 'Description', 'Amount', 'DR/CR', 'Balance']), { date: 0, balance: 4, type: 3, merchant: 1, amount: 2 });
+});
+
+test('the running balance decides direction for unsigned amounts, oldest-first or newest-first', () => {
+  const up = [['01/08/2026', 'Opening', '', '100.00'], ['02/08/2026', 'Shop', '30.00', '70.00'], ['03/08/2026', 'Salary', '500.00', '570.00'], ['04/08/2026', 'Kopi', '5.00', '565.00']];
+  const map = { date: 0, merchant: 1, amount: 2, balance: 3 };
+  assert.deepEqual(IO.rowsToTx(up, map, { accountId: 'a' }).txs.map(t => t.type), ['expense', 'income', 'expense']);
+  assert.deepEqual(IO.rowsToTx([...up].reverse(), map, { accountId: 'a' }).txs.map(t => t.type), ['expense', 'income', 'expense']);
+});
+
+test('headers: exact names first, Income/Expense and Outflow/Inflow columns, Price, Item and Catatan as the description', () => {
+  assert.deepEqual(IO.guessMapping(['Account', 'Flag', 'Date', 'Payee', 'Category Group/Category', 'Category Group', 'Category', 'Memo', 'Outflow', 'Inflow', 'Cleared']), { date: 2, debit: 8, credit: 9, category: 6, merchant: 3, note: 7, account: 0 });
+  assert.deepEqual(IO.guessMapping(['Date', 'Description', 'Income', 'Expense', 'Balance']), { date: 0, balance: 4, debit: 3, credit: 2, merchant: 1 });
+  assert.deepEqual(IO.guessMapping(['Date', 'Item', 'Category', 'Price']), { date: 0, category: 2, merchant: 1, amount: 3 });
+  assert.deepEqual(IO.guessMapping(['Tarikh', 'Kategori', 'Jumlah (RM)', 'Catatan']), { date: 0, category: 1, merchant: 3, amount: 2 });
+  for (const h of ['Paid by', 'Payment method', 'Bayar guna', '付款方式', 'Account']) assert.equal(IO.guessMapping(['Date', 'Amount', h]).account, 2, h);
+  assert.equal(IO.mapCategory('Barang Dapur'), 'groceries');
+  assert.equal(IO.mapCategory('Petrol'), 'transport');
+  assert.equal(IO.mapCategory('Groceries', {}, '', [{ id: 'c_1', name: 'Groceries' }]), 'c_1'); // the user's own category first
+});
+
+test('US-locale sheets: month first when the column says so', () => {
+  const rows = [['7/4/2026', '1'], ['7/13/2026', '2'], ['9/18/2026', '3']];
+  assert.equal(IO.dateOrder(rows, 0), true);
+  assert.deepEqual(IO.rowsToTx(rows, { date: 0, amount: 1 }, { accountId: 'a' }).txs.map(t => t.date), ['2026-07-04', '2026-07-13', '2026-09-18']);
+  assert.equal(IO.dateOrder([['13/7/2026'], ['4/7/2026']], 0), false);
+  assert.equal(IO.fileDate('4/7/2026'), '2026-07-04');
+});
+
+test('descriptions: time, status and a repeated type word stripped; names trimmed after the 80-character cut', () => {
+  assert.equal(IO.cleanDesc('07:52 Success Payment 7-Eleven Jln Hospital'), '7-Eleven Jln Hospital');
+  assert.equal(IO.cleanDesc('13:07:21 Payment - Shopee Order'), 'Shopee Order');
+  assert.equal(IO.cleanDesc('Berjaya DuitNow QR Nasi Kerabu'), 'Nasi Kerabu');
+  assert.equal(IO.cleanDesc('Reload Reload via Maybank'), 'Reload via Maybank');
+  assert.equal(IO.cleanDesc('Pending Grab Car'), 'Grab Car');
+  const { txs } = IO.rowsToTx([['01/09/2026', '5', `${'x'.repeat(79)} yz`]], { date: 0, amount: 1, merchant: 2 }, { accountId: 'a' });
+  assert.equal(txs[0].merchant, 'x'.repeat(79));
+});
+
+test('already here: same account only; the other side of a recorded transfer counts once', () => {
+  const bank = { id: 'm1', date: '2026-09-01', type: 'expense', amount: 10000, accountId: 'mb', source: 'statement', merchant: 'Transfer to TNG' };
+  const reload = { id: 'i1', date: '2026-09-01', type: 'income', amount: 10000, accountId: 'tng', source: 'import', merchant: 'Reload via Maybank' };
+  assert.equal(IO.splitDups([bank], [reload]).fresh.length, 1);                                         // other account: new
+  assert.equal(IO.splitDups([{ ...reload, id: 'x', source: 'statement' }], [reload]).dups.length, 1);   // CSV, then PDF, of one wallet
+  const tr = IO.asTransfer([bank, reload]);
+  assert.deepEqual([tr.id, tr.type, tr.accountId, tr.toAccountId], ['m1', 'transfer', 'mb', 'tng']);
+  const again = { ...reload, id: 's9', source: 'statement' }, second = { ...again, id: 's10', date: '2026-09-02' };
+  assert.deepEqual(IO.splitDups([tr], [again, second]), { fresh: [second], dups: [again] });            // one transfer stands for one row
+});
+
+test('pairTransfers: bank out + wallet in, same amount within a day, worded like a top-up; nothing else', () => {
+  const tx = (id, date, type, amount, accountId, merchant) => ({ id, date, type, amount, accountId, merchant, category: type === 'income' ? 'income' : 'other' });
+  const bank = [tx('b1', '2026-09-01', 'expense', 10000, 'mb', 'Transfer TO TNG Digital SDN BHD Reload'), tx('b2', '2026-09-08', 'expense', 5000, 'mb', 'Transfer TO TNG Digital'),
+    tx('b3', '2026-09-02', 'expense', 35000, 'mb', 'Siti Aminah Sewa Bilik'), tx('b4', '2026-09-10', 'expense', 2000, 'mb', 'Transfer to Ali')];
+  const wallet = [tx('w1', '2026-09-01', 'income', 10000, 'tng', 'Reload via Maybank'), tx('w2', '2026-09-09', 'income', 5000, 'tng', 'Reload via Maybank'),
+    tx('w3', '2026-09-02', 'income', 35000, 'tng', 'Refund'), tx('w4', '2026-09-13', 'income', 2000, 'tng', 'Reload'), tx('w5', '2026-09-01', 'income', 10000, 'mb', 'Reload')];
+  assert.deepEqual(IO.pairTransfers([...bank, ...wallet], wallet).map(([o, i]) => `${o.id}>${i.id}`), ['b1>w1', 'b2>w2']);
+  assert.deepEqual(IO.pairTransfers([...bank, ...wallet], []), []);                                    // only pairs touching the import
+  assert.equal(IO.pairTransfers([...bank, { ...wallet[0], category: 'salary' }], bank).length, 0);
 });

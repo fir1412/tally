@@ -17,8 +17,14 @@ export const CATEGORIES = [
 ];
 export const INCOME_CATEGORIES = [
   { id: 'salary', name: 'Salary', color: '#059669' },
+  { id: 'allowance', name: 'Allowance', color: '#10B981' },
+  { id: 'family', name: 'From family', color: '#6EE7B7' },
   { id: 'income', name: 'Other income', color: '#34D399' },
 ];
+/** Which income category text reads as: pay, an allowance or scholarship, money from family, else other income. */
+export const incomeCategory = s => (/salary|gaji|payroll|paycheck|wage|工资|工資|薪/i.test(s) ? 'salary'
+  : /elaun|allowance|ptptn|biasiswa|scholarship|bursary|zakat pendidikan|津贴|津貼|奖学金|獎學金/i.test(s) ? 'allowance'
+  : /duit (mak|emak|ibu|ayah|abah|bapa|papa|mama)|(from|dari) (mum|mom|mother|dad|father|parents|family|keluarga|mak|ayah|abah|ibu)|家用|爸|妈|媽/i.test(s) ? 'family' : 'income');
 export const ACCOUNT_KINDS = ['cash', 'bank', 'ewallet', 'card', 'savings'];
 export const MAX_SEN = 100_000_000_00; // RM 100 million: anything bigger is a typo or an attack
 
@@ -67,39 +73,50 @@ export const itemKey = name => String(name ?? '').toUpperCase().replace(/\b\d{5,
 // Malaysian shop words in English, Malay and Chinese, most specific first (奶粉 is Kids, not a 粉 noodle).
 // ponytail: keyword list; user corrections become rules.
 const WORDS = [
+  // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.
+  ['transport', /minyak enjin|engine oil|filter minyak|oil filter|\btayar\b|\btyres?\b|\btires?\b|puncture|wiper|bateri kereta|car battery|servis kereta|car service|bengkel|workshop|spark ?plug|\bbrek\b|\bbrakes?\b|absorber|alignment|road ?tax|cukai jalan|insurans kereta|car insurance/i],
+  ['bills', /air selangor|air kelantan|syabas|indah water|ranhill|\bsaj\b|\bpba\b water|ptptn|\brent(al)?\b|\bsewa\b|prepaid|hotlink|xpax|\btopup\b|reload (kredit|credit|phone|telefon)/i],
   ['kids', /diaper|lampin|pampers|mamypoko|drypers|susu formula|formula|baby|bayi|toy|mainan|crayon|school|sekolah|尿布|奶粉|玩具|婴儿|嬰兒/i],
-  ['health', /panadol|claritin|vitamin|ubat|medicine|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
-  ['personal', /shampoo|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|洗发|洗髮|牙膏|沐浴/i],
+  ['health', /panadol|claritin|vitamin|ubat|medicine|medical|doctor|doktor|dental|dentist|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
+  ['personal', /shampoo|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|haircut|gunting rambut|洗发|洗髮|牙膏|沐浴/i],
   ['dining', /nasi|mee |mee$|mi goreng|roti canai|teh |kopi|coffee|latte|milo ais|ais |burger|pizza|chicken rice|laksa|satay|restoran|restaurant|cafe|kafe|food|makan|drink|minum|set meal|meal|kfc|mcd|mamak|饭|面|粉|咖啡|茶|奶茶|套餐|饮料|點心|点心|包子|炒/i],
-  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬/i],
+  ['groceries', /beras|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬|虾|蝦|苹果|蘋果|葱|蔥|姜|薑|榴莲|榴槤|蒜|辣椒/i],
   ['household', /sabun|soap|detergent|tissue|tisu|bleach|sponge|mop|broom|penyapu|plastic|beg |bag|towel|tuala|bateri|battery|mentol|bulb|span|kitchen|dapur|pinggan|cawan|cup|peg|hanger|clorox|dynamo|downy|breeze|glad|ziploc|纸巾|紙巾|洗衣|清洁|清潔|垃圾袋|电池|電池|毛巾/i],
   ['transport', /petrol|ron ?9[57]|v-?power|diesel|primax|parking|letak kereta|toll|tol |grab|touch ?n ?go|lrt|mrt|bus|teksi|taxi|fuel|汽油|停车|停車|过路费/i],
-  ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|digi|umobile|internet|astro|insurance|insurans|takaful|loan|pinjaman|电费|電費|水费|水費|保险|保險/i],
-  ['electronics', /\b(hand)?phone\b|telefon|iphone|ipad|samsung|xiaomi|redmi|huawei|oppo|vivo|realme|honor|charger|pengecas|\bcable\b|kabel|earphone|earbud|headphone|headset|airpods|power ?bank|laptop|notebook|macbook|\bmonitor\b|keyboard|\bmouse\b|printer|cartridge|sd card|memory card|pendrive|thumb ?drive|\busb\b|hdmi|speaker|\btv\b|television|smart ?watch|camera|console|playstation|\bps5\b|nintendo|electronic|elektronik|手机|手機|充电|耳机|耳機|电脑|電腦|平板/i],
-  ['education', /book|buku|pen |pencil|pensel|stationery|alat tulis|tuition|tuisyen|yuran|fee|书|書|文具|补习|補習/i],
+  ['bills', /tnb|electric|elektrik|syabas|air selangor|water bill|unifi|maxis|celcom|\bdigi\b|umobile|internet|astro|insurance|insurans|takaful|loan|pinjaman|电费|電費|水费|水費|保险|保險/i],
+  ['electronics', /\b(hand)?phone\b|telefon|iphone|ipad|samsung|xiaomi|redmi|huawei|oppo|vivo|realme|honor|charger|pengecas|\bcable\b|kabel|earphone|earbud|headphone|headset|airpods|power ?bank|laptop|notebook|macbook|\bmonitor\b|keyboard|\bmouse\b|printer|cartridge|sd card|memory card|pendrive|thumb ?drive|\busb\b|hdmi|speaker|\btv\b|television|smart ?watch|camera|console|playstation|\bps5\b|nintendo|electronic|elektronik|gadget|手机|手機|充电|耳机|耳機|电脑|電腦|平板/i],
+  ['education', /book|buku|pen |pencil|pensel|stationery|stationer|alat tulis|tuition|tuisyen|yuran|fee|书|書|文具|补习|補習/i],
   ['fun', /cinema|wayang|gsc|tgv|netflix|spotify|game|karaoke|bowling|concert|电影|電影/i],
 ];
 const SHOPS = [
   ['dining', /restoran|restaurant|kedai makan|cafe|kafe|kopitiam|bakery|mamak|food court|medan selera|kfc|mcdonald|pizza|starbucks|tealive|zus|餐厅|餐廳|茶室|饭店|飯店|咖啡店/i],
   ['transport', /petronas|shell|petromart|caltex|bhpetrol|petron/i],
+  ['shopping', /shopee|lazada|zalora|tiktok ?shop|uniqlo|padini|vincci|h&m|\bzara\b|cotton on/i],
+  ['education', /popular|bookshop|bookstore|kedai buku|mph|kinokuniya|stationery|stationer/i],
   ['health', /guardian|watsons|farmasi|pharmacy|caring|big pharmacy|klinik|clinic|药房|藥房/i],
   ['household', /mr\.? ?d\.?i\.?y|daiso|ikea|eco-?shop|kedai perkakasan|hardware|五金/i],
   ['groceries', /speedmart|mydin|aeon|tesco|lotus|giant|jaya grocer|village grocer|econsave|nsk|hero|family ?mart|7-eleven|99 |mart|grocer|pasar|supermarket|runcit|超市|杂货|雜貨/i],
   ['kids', /toys|mothercare|anakku|baby/i],
   ['electronics', /senheng|harvey norman|courts|machines|switch|all ?it|urban republic|thunder match|\bsamsung\b|apple store|electronic|电器|電器/i],
 ];
+// Street and place words in statement text ("PETRONAS JLN HOSPITAL KB") name where, not what: they never decide.
+// "kg" after a number is a weight, not a kampung.
+const PLACE = /\b(jln|jalan|lorong|lrg|taman|tmn|persiaran|lebuh(raya)?|bandar|kampung|kpg|(?<![\d.]\s?)kg)\.?\s+[\p{L}\d]+/giu;
+export const unplace = s => String(s ?? '').replace(PLACE, ' ');
 /** Category for an item: the user's own rule first, then item words, then the shop's usual category. */
 export function categorize(name, merchant = '', rules = {}) {
   const k = itemKey(name);
   if (k && Object.hasOwn(rules, k)) return rules[k];
   const shop = shopCategory(merchant, rules);
-  for (const [c, re] of WORDS) if (re.test(' ' + String(name ?? '') + ' ')) return c === 'groceries' && shop === 'dining' ? 'dining' : c; // teh at a kopitiam is a meal
+  const n = ' ' + unplace(name) + ' ';
+  for (const [c, re] of WORDS) if (re.test(n)) return c === 'groceries' && shop === 'dining' ? 'dining' : c; // teh at a kopitiam is a meal
   return shop;
 }
 export function shopCategory(merchant = '', rules = {}) {
   const mk = 'SHOP ' + itemKey(merchant);
   if (Object.hasOwn(rules, mk)) return rules[mk];
-  for (const [c, re] of SHOPS) if (re.test(String(merchant ?? ''))) return c;
+  const m = unplace(merchant);
+  for (const [c, re] of SHOPS) if (re.test(m)) return c;
   return 'other';
 }
 
