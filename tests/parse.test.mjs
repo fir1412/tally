@@ -225,3 +225,19 @@ test('full-width digits and O inside numbers', () => {
   assert.equal(parseReceipt('SHOP\nDATE: 27/09/２0２6\nTOTAL 5.00').date, '2026-09-27');
   assert.deepEqual(['TELUR GRED A 1OS', 'AIR 50OML', 'SOCK 5OPCS', 'HAMMER 20OZ', 'MILO 1KG'].map(cleanName), ['TELUR GRED A 10S', 'AIR 500ML', 'SOCK 50PCS', 'HAMMER 20OZ', 'MILO 1KG']);
 });
+
+test('discounts: under an item, or on the whole bill when the receipt adds up with it; a "you saved" note already in the subtotal is left alone', () => {
+  const item = parseReceipt(['SHOP SDN BHD', '1x 9555520701063 3.75', 'LETTUCE', '1x 9555837602046 4.20', 'CUCUMBER', 'Discount ~0.20', 'SUB-TOTAL 7.75', 'TOTAL 7.75', 'MYDebit 7.75'].join('\n'));
+  assert.deepEqual(item.items.map(i => [i.name, i.cents]), [['LETTUCE', 375], ['CUCUMBER', 420], ['Discount', -20]]);
+  assert.equal(item.pay, 'card'); assert.ok(item.check.ok);
+  const bill = parseReceipt(['SHOP SDN BHD', 'RICE 5KG 26.50', 'OIL 5KG 31.90', 'SUBTOTAL 58.40', 'MEMBER DISCOUNT -5.00', 'TOTAL 53.40', 'CASH 60.00'].join('\n'));
+  assert.deepEqual(bill.items.at(-1), { name: 'Discount', cents: -500 }); assert.ok(bill.check.ok);
+  const saved = parseReceipt(['SHOP SDN BHD', 'RICE 5KG 21.50', 'OIL 5KG 31.90', 'SUBTOTAL 53.40', 'YOU SAVED 5.00', 'TOTAL 53.40'].join('\n'));
+  assert.ok(!saved.items.some(i => i.name === 'Discount')); assert.ok(saved.check.ok);
+});
+
+test('"2 x 10.90" next to its line total is one item, whichever side the total is on', () => {
+  const below = parseReceipt(['GUARDIAN SDN BHD', 'DETTOL HAND WASH 9.90', 'COLGATE TOTAL 150G', '2 x 10.90', '21.80', 'SUBTOTAL', '31.70', 'TOTAL', 'RM 31.70', 'CASH', '40.00'].join('\n'));
+  assert.deepEqual(below.items.map(i => [i.name, i.cents]), [['DETTOL HAND WASH', 990], ['COLGATE TOTAL 150G', 2180]]);
+  assert.equal(below.pay, 'cash');
+});

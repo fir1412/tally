@@ -96,7 +96,7 @@ function toDraft(r) {
   const category = shopCategory(merchant, S.kv.rules);
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
-    accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category }), category, items,
+    accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay }), category, items,
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
   };
 }

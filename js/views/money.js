@@ -84,7 +84,7 @@ const anyBudget = b => !!(b.total || Object.keys(b.byCat || {}).length || b.join
 /** Words and prices in the amount ("鱼 25, 菜 8"): several things bought, better typed as items. */
 const hasWords = v => /\p{L}/u.test(v) && /\d/.test(v);
 export const input = {
-  'tx-acc': () => reopen(),   // the amount's currency, and "Received" between two currencies
+  'tx-acc': () => { accPicked = true; reopen(); },   // the amount's currency, and "Received" between two currencies
   'tx-amt': el => { const b = $('#tx-words'); if (b) b.hidden = !hasWords(el.value); el.removeAttribute('aria-invalid'); },
   'act-q': el => { F.q = el.value; clearTimeout(qTimer); qTimer = setTimeout(() => { const pos = el.selectionStart; refilter(); const q = $('#act-q'); q.focus(); q.setSelectionRange(pos, pos); }, 250); },
   // Typing a name picks the category it had before (until one is tapped): "Grab to office" → Transport.
@@ -195,6 +195,7 @@ async function rateFrom(x) {
   await saveAccount({ ...fx, rate: +(rm / units).toFixed(4) });
 }
 let catPicked = false;   // a category tapped in the sheet is never changed by typing the name
+let accPicked = false;   // nor an account picked by hand by switching Spent / Received
 /** "1340", "13.40", "9:05" → "13:40" / "09:05"; anything else → no time. */
 export const hhmmIn = v => { const m = String(v ?? '').trim().match(/^([01]?\d|2[0-3])[:.\s]?([0-5]\d)$/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined; };
 function readForm() {
@@ -229,7 +230,7 @@ const usualCategory = () => {
 /** Open the add sheet, optionally prefilled ({type, category, amount} from a nudge or bill). */
 export function openTxSheet(preset = {}) {
   draft = { id: uid('t'), type: 'expense', amount: 0, accountId: defaultAccount('quick', { amount: preset.amount || 0 }), category: usualCategory(), date: today(), time: nowTime(), merchant: '', source: 'quick', ...preset };
-  catPicked = !!preset.category;
+  catPicked = !!preset.category; accPicked = !!preset.accountId;
   catInView(openSheet(sheetHtml(), { label: t('Add') }));
 }
 
@@ -325,8 +326,12 @@ export const act = {
   'tx-new': () => openTxSheet(),
   'sheet-close': () => closeSheet(),
   'cat-show': b => showCategory(b.dataset.c, b.dataset.m || undefined),
-  'tx-open': b => { const x = S.tx.find(y => y.id === b.dataset.id); if (!x) return; draft = structuredClone(x); catPicked = true; catInView(openSheet(sheetHtml(), { label: t('Transaction') })); },
-  'tx-type': b => { readForm(); draft.type = b.dataset.type; if (draft.type === 'income' && !INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'other'; reopen(); },
+  'tx-open': b => { const x = S.tx.find(y => y.id === b.dataset.id); if (!x) return; draft = structuredClone(x); catPicked = accPicked = true; catInView(openSheet(sheetHtml(), { label: t('Transaction') })); },
+  'tx-type': b => {
+    readForm(); draft.type = b.dataset.type;
+    if (!accPicked && draft.type !== 'transfer') { const id = defaultAccount(draft.type === 'income' ? 'income' : 'quick', { amount: draft.amount || 0 }), sel = $('#tx-acc'); if (id && sel) sel.value = id; }   // money in lands where income usually does
+    if (draft.type === 'income' && !INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'salary'; if (draft.type === 'expense' && INCOME_CATEGORIES.some(c => c.id === draft.category)) draft.category = 'other'; reopen(); 
+  },
   'tx-cat': b => { readForm(); catPicked = true; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.
   'tx-split': async () => {

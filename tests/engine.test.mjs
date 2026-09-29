@@ -329,3 +329,17 @@ test('pickAccount: bills from the main bank, receipts by shop, size and habit, q
   assert.equal(E.pickAccount({ accounts: accounts.slice(0, 1), txs, bal: { cash: -500 }, kind: 'quick' }), 'cash');   // nothing better
   assert.equal(pick('receipt', { shop: 'Petronas', amount: 9000 }), 'visa');             // a card is never "short"
 });
+
+test('the receipt says how it was paid: card, e-wallet or cash; a card or wallet receipt goes to that kind of account; money in to where income lands', async () => {
+  const { payKind } = await import('../js/parse.js');
+  assert.equal(payKind(['TOTAL 294.80', 'VISA ************1234 294.80']), 'card');
+  assert.equal(payKind(['CASH BILL', 'TOTAL 12.00', 'TNG EWALLET 12.00']), 'ewallet');
+  assert.equal(payKind(['CASH BILL', 'TOTAL 12.00', 'CASH 20.00', 'CHANGE 8.00']), 'cash');
+  assert.equal(payKind(['CASH SALE', 'TOTAL 12.00']), null);   // a title, not how it was paid
+  const accounts = [{ id: 'cash', kind: 'cash' }, { id: 'mbb', kind: 'bank' }, { id: 'tng', kind: 'ewallet' }, { id: 'visa', kind: 'card' }];
+  const txs = [{ id: 's', type: 'income', category: 'salary', accountId: 'mbb', amount: 500000, date: '2026-09-01' }, { id: 'e', type: 'expense', accountId: 'tng', amount: 900, date: '2026-09-02', createdAt: 9 }];
+  const bal = { cash: 5000, mbb: 200000, tng: 100, visa: 0 };
+  assert.equal(E.pickAccount({ accounts, txs, bal, kind: 'receipt', amount: 29480, pay: 'card' }), 'visa');
+  assert.equal(E.pickAccount({ accounts, txs, bal, kind: 'receipt', amount: 1200, pay: 'ewallet' }), 'tng');   // even when TNG looks short: that's what paid
+  assert.equal(E.pickAccount({ accounts, txs, bal, kind: 'income' }), 'mbb');
+});

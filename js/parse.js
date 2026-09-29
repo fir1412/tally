@@ -8,6 +8,7 @@ import { calcAmount } from './engine.js';
 // A glued unit ("1.25L", "0.50KG") is a pack size in a name, not a price with a tax code.
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
 const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
+const UNIT_ONLY = /^\s*(\d{1,3})\s*[x×]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
@@ -26,7 +27,8 @@ const DISCOUNT = /disc(ount)?|diskaun|potongan|saving/i;
 // Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
 const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|restaurant|supermarket|hypermarket|pharmacy|farmasi|\bkedai\b|\bmart\b|\bstore\b|bakery|\bcafe\b/i;
 /** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
-const bareName = s => s.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/\b(pcs?|set|units?|ea|nos?|btl|pkt|x)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+const bareName = s => s.replace(/^\s*(?:\d+\s*x|x\s*[1il]|[1il]\s*x)(?=\s*\d{6,})/i, ' ')   // "1x 9555…", read as "XI 3693…" / "IX 9555…": a qty and a barcode
+  .replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/\b(pcs?|set|units?|ea|nos?|btl|pkt|x)\b/gi, ' ').replace(/\s+/g, ' ').trim();
 // Year may be glued to the time by OCR: "25/12/20188:13PM", "01/03/1819:14"
 // Day first (Malaysia) with one separator used twice ("#19-04/05/2024" is 04/05, not 19-04/05); year first; and the
 // year may run straight into the time ("2024-04-0402:43:48").
@@ -165,6 +167,7 @@ export function parseReceipt(text) {
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
   let pendingName = null; // name line waiting for a "2 x 3.50  7.00" line
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
+  let billOff = 0;        // a discount on the whole bill
   const below = namesBelow(lines);
 
   r.merchant = shopName(lines);
@@ -194,11 +197,16 @@ export function parseReceipt(text) {
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
     else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
     else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
+    else if (DISCOUNT.test(key) && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
+    else if (DISCOUNT.test(key) && cents && r.total === null) billOff += Math.abs(cents);   // "Member discount -5.00" between subtotal and total
     else if (r.subtotal === null && r.total === null && !COUNT.test(label)) { // items stop at the subtotal or first real total
       const name = label.replace(QTY, '').trim();
       const qtyOnly = !/[a-z]{2}/i.test(bareName(name));   // "2587 1.00 PCS 48.00": code, qty and price; the name is elsewhere
       // Number-only line: its name is the line above, or (code-qty-price layout) the line below, filled in above
-      r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents });
+      const unit = line.match(UNIT_ONLY);   // "2 x 10.90" with no line total: the total is on the line next to it
+      const prev = r.items.at(-1);
+      if (qtyOnly && !unit && prev?.q && prev.q * prev.cents === cents) { prev.cents = cents; delete prev.q; }   // "2 x 10.90" then "21.80": one item
+      else r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents, ...(unit ? { q: +unit[1] } : {}) });
     }
     pendingName = null;
   }
@@ -212,10 +220,28 @@ export function parseReceipt(text) {
   // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
   if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
   if (Math.abs(r.rounding ?? 0) > 5) r.rounding = null;
+  // "2 x 10.90" next to "21.80" (above or below it) is one item of 21.80, named from whichever line has the name.
+  for (let i = 0; i < r.items.length; i++) {
+    const u = r.items[i]; if (!u.q) continue;
+    const j = [i + 1, i - 1].find(k => r.items[k] && !r.items[k].q && r.items[k].cents === u.q * u.cents);
+    if (j !== undefined) { r.items[j].name ||= u.name; r.items.splice(i--, 1); }
+  }
+  for (const it of r.items) delete it.q;
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.items = dropSummaryLines(r.items);
   r.check = checksum(r);
+  // A whole-bill discount is a line of its own when the receipt adds up with it and not without ("You saved 5.00" is often already in the subtotal).
+  if (billOff && !r.check.ok) { const d = { name: 'Discount', cents: -billOff }; r.items.push(d); r.check = checksum(r); if (!r.check.ok) { r.items.pop(); r.check = checksum(r); } }
+  r.pay = payKind(lines);
   return r;
+}
+/** How it was paid, from the payment line: 'card', 'ewallet' or 'cash' (null when the receipt doesn't say).
+ *  A card or wallet line wins over cash: "CASH BILL" / "CASH SALE" is a receipt title, not how it was paid. */
+export function payKind(lines) {
+  if (lines.some(l => /\b(visa|master ?card|amex|[mh]y ?debit|debit ?card|credit ?card|kad (debit|kredit)|card ?no|contactless|paywave)\b|信用卡|扣账卡/i.test(l))) return 'card';
+  if (lines.some(l => /touch ?'?n ?go|\btng\b|e-?wallet|grab ?pay|\bboost\b|shopee ?pay|duitnow|\bmae\b|setel|big ?pay|电子钱包/i.test(l))) return 'ewallet';
+  if (lines.some(l => /^(cash|tunai|现金|現金)\b(?! ?(bill|sale|sales|receipt))(.*\d|\s*[:：]?\s*$)/i.test(l))) return 'cash';   // "CASH 95.00", or "CASH" with the amount on the next line
+  return null;
 }
 
 const amountsIn = line => [...line.matchAll(ALL_AMOUNTS)].map(m => +m[1] * 100 + +m[2]);
@@ -261,6 +287,8 @@ const isQtyOnly = l => { const m = l.match(AMOUNT); return !!m && !/[a-z]{2}/i.t
 // One layout per receipt: are item names printed above or below number-only lines? Vote over the receipt.
 // Tie: if the first number-only line is also the first money line, the text above it is the header, so names are below.
 function namesBelow(lines) {
+  const end = lines.findIndex(l => SUBTOTAL.test(l) || (TOTAL.test(l) && AMOUNT.test(l)));   // only the item block: a tax summary after the total votes nothing
+  if (end > 0) lines = lines.slice(0, end);
   let above = 0, below = 0, first = -1;
   lines.forEach((l, i) => {
     if (!isQtyOnly(l)) return;
