@@ -220,3 +220,8 @@ test('misspelt totals and payment lines are never items', () => {
   assert.deepEqual(r.items.map(i => i.name), ['NASI LEMAK', 'TEH TARIK']);
   assert.deepEqual(dropSummaryLines([{ name: 'Mee Goreng', cents: 700 }, { name: 'AHOUNT', cents: 700 }, { name: 'Kopi', cents: 200 }]).map(i => i.name), ['Mee Goreng']);
 });
+
+test('full-width digits and O inside numbers', () => {
+  assert.equal(parseReceipt('SHOP\nDATE: 27/09/２0２6\nTOTAL 5.00').date, '2026-09-27');
+  assert.deepEqual(['TELUR GRED A 1OS', 'AIR 50OML', 'SOCK 5OPCS', 'HAMMER 20OZ', 'MILO 1KG'].map(cleanName), ['TELUR GRED A 10S', 'AIR 500ML', 'SOCK 50PCS', 'HAMMER 20OZ', 'MILO 1KG']);
+});

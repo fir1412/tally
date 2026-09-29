@@ -116,6 +116,11 @@ export const itemKey = name => String(name ?? '').toUpperCase().replace(/\b\d{5,
 // Malaysian shop words in English, Malay and Chinese, most specific first (奶粉 is Kids, not a 粉 noodle).
 // ponytail: keyword list; user corrections become rules.
 const WORDS = [
+  // Named by what they are, before "rice" or "egg" make a meal groceries, or "Penang" looks like a pen.
+  ['dining', /economy rice|mixed rice|chap ?fan|杂饭|雜飯|经济饭|經濟飯|nasi campur|roti (telur|canai|kosong|bom)|char kue?y teow/i],
+  ['transport', /\bbrt\b|rapid ?(kl|penang|kuantan|bus)|巴士|公交|\bbas\b|\bbus\b|\blrt\b|\bmrt\b/i],
+  ['education', /fotostat|photo ?copy|cetak nota|复印|複印/i],
+  ['groceries', /\bgrocer(y|ies)\b|barang dapur/i],
   // Car upkeep first: "minyak enjin" is not cooking oil, "bateri kereta" not a household battery. Not "filter" or "upah" alone.
   ['transport', /minyak enjin|engine oil|filter minyak|oil filter|\btayar\b|\btyres?\b|\btires?\b|puncture|wiper|bateri kereta|car battery|servis kereta|car service|bengkel|workshop|spark ?plug|\bbrek\b|\bbrakes?\b|absorber|alignment|road ?tax|cukai jalan|insurans kereta|car insurance/i],
   ['bills', /air selangor|air kelantan|syabas|indah water|ranhill|\bsaj\b|\bpba\b water|ptptn|\brent(al)?\b|\bsewa\b|prepaid|hotlink|xpax|\btopup\b|reload (kredit|credit|phone|telefon)/i],
@@ -132,6 +137,7 @@ const WORDS = [
   ['fun', /cinema|wayang|gsc|tgv|netflix|spotify|game|karaoke|bowling|concert|电影|電影/i],
 ];
 const SHOPS = [
+  ['groceries', /\bkk ?(super ?)?mart\b/i],   // a convenience store, not "mart" shopping
   ['dining', /restoran|restaurant|kedai makan|cafe|kafe|kopitiam|bakery|mamak|food court|medan selera|kfc|mcdonald|pizza|starbucks|tealive|zus|餐厅|餐廳|茶室|饭店|飯店|咖啡店/i],
   ['transport', /petronas|shell|petromart|caltex|bhpetrol|petron/i],
   ['shopping', /shopee|lazada|zalora|tiktok ?shop|uniqlo|padini|vincci|h&m|\bzara\b|cotton on/i],

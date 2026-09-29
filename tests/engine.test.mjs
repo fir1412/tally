@@ -271,3 +271,8 @@ test('daily reminder: every day at the chosen time, from today if still ahead, e
   assert.equal(dailyEvent({ at: '21:00', title: 'Tally' }, new Date(2026, 8, 29, 22, 0)).start, '20260930T210000');
   assert.match(ics([morning]), /RRULE:FREQ=DAILY/);
 });
+
+test('categories people named in the simulation', () => {
+  for (const [n, c] of [['Economy rice', 'dining'], ['BRT Sunway', 'transport'], ['Rapid Penang 巴士', 'transport'], ['Fotostat nota', 'education'], ["Lotus's groceries", 'groceries'], ['ROTI TELUR', 'dining']]) assert.equal(E.categorize(n, ''), c, n);
+  assert.equal(E.shopCategory('KK Mart'), 'groceries');
+});

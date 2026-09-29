@@ -162,7 +162,7 @@ export const settingsView = {
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change PIN') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         <p class="fine">${esc(t('A privacy lock for people who pick up your phone. Your data is not encrypted.'))}</p>
         <button class="btn ghost danger wide" data-act="erase">${ICON.trash}${esc(t('Erase everything on this phone'))}</button>
-        <p class="legal"><a class="link" href="privacy.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></p></section>
+        <p class="legal"><a class="link" href="privacy${getLang() === 'en' ? '' : '.' + getLang()}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a></p></section>
       <section class="card"><h2>${esc(t('Help and feedback'))}</h2>
         <div class="row2"><button class="btn ghost" data-act="tour">${esc(t('Take the tour'))}</button><button class="btn ghost" data-act="whats-new">${esc(t("What's new"))}</button></div>
         ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
@@ -748,7 +748,8 @@ export const act = {
     if (b) b.disabled = true;   // also called from bk-share when the phone can't share files
     const { name, blob, missing } = await backupBlob($('#bk-photos')?.checked);
     download(name, blob, blob.type);
-    closeSheet(); toast(t('Download started. Check your Downloads folder for {0}.', name), { k: 'good', icon: 'check' });
+    // Counted as a backup (else "Not backed up" nags forever), worded so the user still checks the file landed.
+    await backedUp(t('Download started. Check your Downloads folder for {0}.', name));
     warnMissingPhotos(missing);
   },
   'joint-share': () => {
