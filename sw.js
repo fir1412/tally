@@ -1,5 +1,5 @@
 // Offline cache (adapted from we go gim). Bump VERSION whenever app files change.
-const VERSION = 'tally-v4';
+const VERSION = 'tally-v5';
 const CORE = [
   './', './index.html', './privacy.html', './manifest.webmanifest', './css/app.css', './icons/icon.svg',
   './js/app.js', './js/state.js', './js/db.js', './js/engine.js', './js/ui.js', './js/io.js', './js/i18n.js', './js/parse.js',
@@ -9,7 +9,7 @@ const CORE = [
 // The OCR engine, models and sql.js (~45 MB) rarely change: their own cache survives app updates.
 // Bump ASSETS if one of them changes.
 const ASSETS = 'tally-assets-v1';
-const isAsset = url => /\/(vendor|models)\//.test(url.pathname);
+const isAsset = url => /\/(vendor|models|fonts)\//.test(url.pathname);
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
