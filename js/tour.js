@@ -7,9 +7,13 @@ import { render, route, APP_VERSION } from './app.js';
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
   '0.5.0': [
+    'Bring your history from Money Manager (Realbyte, Excel or .mmbak), Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and AndroMoney: no column matching, and transfers, accounts and categories come across',
     'Learn Tally: short missions that show what Tally can do, each ticked off when you do it (Settings, and on Home while you are new)',
     'Streaks and badges, off unless you turn them on in Settings: a logging streak with one rest day a week, and badges for good money habits',
     'With streaks on, a day with nothing spent keeps your streak going: tap Nothing spent today',
+    'The receipt reader shows how far its first download has got, and Settings can download it ahead of time',
+    'Tips for a clear receipt photo before your first scan, and from the scan screens',
+    'Set an account to what your bank shows today: Edit account, Balance today',
   ],
   '0.4.0': [
     'Joint account for couples: mark an account as Joint, switch between Me, Joint and All, and set joint budgets',

@@ -4,7 +4,8 @@ import { t, setLang, getLang, LANGS, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $ } from '../ui.js';
 import { lockOn, lockSheet, lockOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount } from '../engine.js';
-import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc } from '../io.js';
+import { fileToRows, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, toCSV, makeBackup, readBackup, mergeBackup, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow } from '../io.js';
+import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION } from '../app.js';
 import { openFeedback } from '../feedback.js';
@@ -38,7 +39,7 @@ export const welcomeView = {
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
       </ul>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
-      <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data (Money Manager, Excel, Google Sheets)'))}</button>
+      <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data (Money Manager, Money Lover, Spendee, Wallet, YNAB, Excel…)'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
       ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : `<p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>`}
       <h2 class="welcome-h">${esc(t('How it works'))}</h2>
@@ -99,7 +100,7 @@ export const settingsView = {
         <div class="row2"><button class="btn" data-act="backup">${ICON.download}${esc(t('Back up now'))}</button><button class="btn ghost" data-act="restore-pick">${esc(t('Restore'))}</button></div>
         <p class="warnbox">${ICON.alert}<span>${esc(t('Uninstalling Tally or clearing its site data deletes everything on this phone. Back up first.'))}</span></p>
         ${storage.persisted == null ? '' : `<p class="fine">${esc(storage.persisted ? t('Storage: protected. The browser will not clear Tally to free up space.') : t('Storage: not protected. The browser may clear Tally if the phone runs out of space, so keep a backup.'))}</p>`}</section>
-      <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager (.mmbackup), Excel, CSV, a bank statement, or Google Sheets.'))}</p>
+      <section class="card"><h2>${esc(t('Bring data in'))}</h2><p class="fine">${esc(t('From Money Manager, Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney, Excel, CSV, a bank statement, or Google Sheets.'))}</p>
         <button class="btn ghost wide" data-act="import-open">${ICON.upload}${esc(t('Import'))}</button>
         <button class="btn ghost wide" data-act="export-csv">${ICON.download}${esc(t('Export to Excel (CSV)'))}</button></section>
       <section class="card"><h2>${esc(t('Categories'))}</h2><ul class="chips static">${expenseCats().map(c => `<li class="chip"><span class="dot" style="background:${esc(c.color)}"></span>${esc(t(c.name))}</li>`).join('')}</ul>
@@ -139,7 +140,8 @@ function importSheet() {
   openSheet(`<h2 class="sh-title">${esc(t('Bring data in'))}</h2>
     <label class="btn wide filebtn">${ICON.upload}${esc(t('Choose a file'))}<input type="file" id="imp-file" hidden></label>
     <p class="fine">${esc(t("Can't see your file here? Open your phone's file manager, long-press the file and Share it to Tally. Or move it to another folder once, then it shows up here."))}</p>
-    <p class="fine">${esc(t('Money Manager backup (.mmbackup), Excel (.xlsx), CSV from your bank or another app, or a Tally backup.'))}</p>
+    <p class="fine">${esc(t('Exports and backups from Money Manager (Innim or Realbyte), Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl or AndroMoney; Excel (.xlsx) or CSV from your bank; or a Tally backup.'))}</p>
+    <details class="howto"><summary>${esc(t('How to export from your money app'))}</summary><ul class="newlist">${howTo().map(([a, s]) => `<li><b>${esc(a)}:</b> ${esc(s)}</li>`).join('')}</ul></details>
     <h3>${esc(t('From Google Sheets'))}</h3>
     <label class="field"><span>${esc(t('Paste the cells (select all in the sheet, copy, paste here)'))}</span><textarea id="imp-paste" rows="4" placeholder="Date	Amount	Category	Note"></textarea></label>
     <button class="btn ghost wide" data-act="imp-paste">${esc(t('Use pasted cells'))}</button>
@@ -148,6 +150,22 @@ function importSheet() {
     <p class="err" id="imp-err" role="alert"></p>`, { label: t('Import') });
   $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); });
 }
+/** Where each app keeps its export (presets.js reads them with no column matching). Menu names as the apps' help pages
+ *  give them; ponytail: check a path when an app redesigns its settings. */
+const howTo = () => [
+  ['Money Manager (Realbyte)', t('More → Backup → Export data to Excel, or Backup data for a .mmbak file.')],
+  ['Money Manager (Innim)', t('Settings → Backup → create a backup (.mmbackup).')],
+  ['Money Lover', t('Settings → Export to CSV or Excel, with all wallets.')],
+  ['Spendee', t('Settings → Export (CSV). One file per wallet; transfers between them are matched.')],
+  ['Wallet by BudgetBakers', t('Settings → Export → all data, CSV.')],
+  ['Monefy', t('Settings → Export to file (CSV).')],
+  ['YNAB', t('Budget menu → Export budget; unzip it and pick the Register file.')],
+  ['Cashew', t('Settings → Import and export → Export CSV.')],
+  ['Bluecoins', t('Settings → Export to CSV.')],
+  ['1Money', t('Settings → Export to CSV.')],
+  ['Toshl', t('On toshl.com: Export → CSV.')],
+  ['AndroMoney', t('Settings → Export → CSV (Excel), all accounts.')],
+];
 const newAccName = () => cleanText(IMP?.accName || '', 40) || cleanText(String(IMP?.name || '').replace(/\.[a-z0-9]{2,5}$/i, ''), 40) || t('Imported');
 const impAccount = () => (IMP.accountId === 'new' ? IMP.newId : IMP.accountId);
 const impErr = m => { const el = $('#imp-err'); if (el) el.textContent = m; else toast(m, { k: 'bad' }); };
@@ -170,11 +188,15 @@ export async function importFile(f) {
     const head = new Uint8Array(buf.slice(0, 64));
     const zipAt = head.findIndex((x, i) => x === 0x50 && head[i + 1] === 0x4b && head[i + 2] === 3 && head[i + 3] === 4);
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
-    if (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64)) { kind = 'Money Manager'; return await importMoneyManager(buf); }
+    if (!/\.mmbak$/i.test(f.name) && (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64))) { kind = 'Money Manager'; return await importMoneyManager(buf); }
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) return await restoreText(new TextDecoder().decode(buf));
+    // Money Manager by Realbyte (.mmbak): SQLite, bare or zipped
+    if (/\.mmbak$/i.test(f.name) || new TextDecoder().decode(head.slice(0, 15)) === 'SQLite format 3') { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }
     if (zipAt === 0) {
-      const z = await unzip(buf, n => n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n)).catch(() => ({}));
+      const names = [];
+      const z = await unzip(buf, n => (names.push(n), n === BACKUP_JSON || /^photos\/[\w-]{1,60}\.jpg$/.test(n))).catch(() => ({}));
       if (z[BACKUP_JSON]) return await restoreText(new TextDecoder().decode(z[BACKUP_JSON]), z);
+      if (names.length && !names.some(n => n.startsWith('xl/'))) { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }   // a renamed .mmbak
     }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
     startMapping(await fileToRows(f.name, buf), f.name);
@@ -189,49 +211,51 @@ async function startMapping(rows, name) {
   const prov = detectProvider([String(name || '').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_.-]+/g, ' '), ...rows.slice(0, h).map(r => r.join(' '))]);
   const kind = prov?.[2] || (header.some(x => /wallet|dompet/i.test(x)) ? 'ewallet' : null);
   // The columns and categories chosen the last time a file with this header came in.
-  const saved = settings().importMaps?.[sig], okMap = saved?.map && Object.values(saved.map).every(i => Number.isInteger(i) && i >= 0 && i < header.length);
+  // Another money app's export: its columns, transfers and categories are known (presets.js).
+  const preset = detectPreset(header, name);
+  const saved = settings().importMaps?.[sig], okMap = saved?.map && (saved.preset || null) === (preset?.id || null) && Object.values(saved.map).every(i => Number.isInteger(i) && i >= 0 && i < header.length);
   const have = new Set([...expenseCats(), ...INCOME_CATEGORIES].map(c => c.id));
   const catMap = Object.fromEntries(Object.entries(saved?.catMap || {}).filter(([, v]) => have.has(v)));
   const existing = prov && findAccount(prov[1], kind);
   // Another app's history or a bank's statement is its own account by default (Round 2: imports landed in Cash).
-  IMP = { rows: rows.slice(h + 1), header, sig, map: okMap ? { ...saved.map } : guessMapping(header), accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || '', kind, catMap, accIds: {}, name, skipFuture: true, tabs: rows.tabs };
+  IMP = { rows: rows.slice(h + 1), header, sig, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || '', kind, catMap, accIds: {}, name, skipFuture: true, tabs: rows.tabs };
   showMapping();
 }
 /** Their categories, each with its Tally category: chosen, remembered, matched by name, or a new one named after it. */
 function catChoices() {
   const { rows, map } = IMP, out = {};
   if (map.category == null) return out;
-  for (const s of new Set(rows.map(r => cleanText(r[map.category], 60)).filter(Boolean))) {
+  const ctx = { preset: IMP.preset, header: IMP.header };
+  for (const s of new Set(rows.filter(r => isMoneyRow(r, map, ctx)).map(r => cleanText(r[map.category], 60)).filter(Boolean))) {
     if (Object.keys(out).length >= 60) break;
-    const guess = mapCategory(s, {}, '', S.kv.customCats);
+    const guess = IMP.preset?.cats?.[s.toLowerCase()] || mapCategory(s, {}, '', S.kv.customCats);
     out[s] = IMP.catMap[s] || (guess === 'other' && !/^(other|others|misc|lain|lain-lain|lain2|其他|其它)$/i.test(s) ? `new:${s}` : guess);
   }
   return out;
 }
 /** An Account column ("Paid by": Cash / TNG / Card): one account per value, an existing one when the name matches. */
 function accPlan() {
-  const { rows, map } = IMP, values = [], lookup = {};
-  if (map.account == null) return { values, lookup, blanks: false };
-  for (const v of new Set(rows.map(r => cleanText(r[map.account], 40)).filter(Boolean))) {
+  const { rows, map } = IMP, values = [], lookup = {}, { names, blanks } = accountNames(rows, map, { preset: IMP.preset, header: IMP.header });
+  for (const v of names) {
     if (values.length >= 20) break;
     const kind = guessKind(v), a = findAccount(v, kind);
     const id = a?.id || (IMP.accIds[v.toLowerCase()] ||= uid('a'));
     values.push({ v, id, kind, isNew: !a });
     lookup[v.toLowerCase()] = id;
   }
-  return { values, lookup, blanks: rows.some(r => !cleanText(r[map.account], 40)) };
+  return { values, lookup, blanks };
 }
 /** The rows as they will be imported, with the sheet's choices applied, what is already here, and a new account's opening balance. */
 function impPlan() {
   const acc = accPlan();
-  const { txs: all, skipped } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), accounts: acc.lookup, catMap: catChoices(), customCats: S.kv.customCats });
+  const { txs: all, skipped, loose, adjustments, opening: adjusted } = rowsToTx(IMP.rows, IMP.map, { accountId: impAccount(), accounts: acc.lookup, catMap: catChoices(), customCats: S.kv.customCats, preset: IMP.preset, header: IMP.header });
   const tdy = today(), future = all.filter(x => x.date > tdy).length, txs = IMP.skipFuture ? all.filter(x => x.date <= tdy) : all;
-  return { txs, ...splitDups(S.tx, txs), skipped, future, acc, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
+  return { txs, ...splitDups(S.tx, txs), skipped, future, acc, loose, adjustments, adjusted, opening: IMP.accountId === 'new' && IMP.map.account == null ? openingFromBalance(IMP.rows, IMP.map, all, tdy) : null };
 }
 function showMapping() {
   const { header, map, rows } = IMP;
   const col = (k, label) => `<label class="field"><span>${esc(label)}</span><select data-input="imp-map" data-k="${k}"><option value="">${esc(t('(none)'))}</option>${header.map((h, i) => `<option value="${i}"${map[k] === i ? ' selected' : ''}>${esc(h || t('Column {0}', i + 1))}</option>`).join('')}</select></label>`;
-  const { fresh, dups, skipped, future, opening, acc } = impPlan();
+  const { fresh, dups, skipped, future, opening, acc, loose, adjustments } = impPlan(), moved = fresh.filter(x => x.type === 'transfer').length;
   // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
   const dates = fresh.map(x => x.date).sort(), sum = k => fresh.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
   const choices = catChoices(), cats = [...expenseCats(), ...INCOME_CATEGORIES], tabs = IMP.tabs;
@@ -240,6 +264,7 @@ function showMapping() {
       <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my spouse)'))}</label>
       ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}`;
   openSheet(`<h2 class="sh-title">${esc(t('Match the columns'))}</h2><p class="fine">${esc(IMP.name || '')} · ${esc(t('{0} rows', rows.length))}</p>
+    ${IMP.preset ? `<p class="okbox">${esc(t('Recognised: {0} export. Columns, accounts, transfers and categories are matched for you; change anything that looks wrong.', IMP.preset.name))}</p>` : ''}
     ${tabs && (tabs.read.length > 1 || tabs.skipped.length) ? `<p class="fine">${esc(t('Tabs read: {0}', tabs.read.join(', ')))}${tabs.skipped.length ? ` · ${esc(t('Tabs skipped (different columns): {0}', tabs.skipped.join(', ')))}` : ''}</p>` : ''}
     <div class="grid2">${col('date', t('Date'))}${col('amount', t('Amount'))}${col('debit', t('Money out (debit)'))}${col('credit', t('Money in (credit)'))}${col('type', t('Income or expense'))}${col('category', t('Category'))}${col('merchant', t('Shop / payee'))}${col('note', t('Note'))}${col('balance', t('Balance'))}${col('account', t('Account'))}</div>
     ${acc.values.length ? `<p class="fine">${esc(t('Accounts from this column: {0}', acc.values.map(a => (a.isNew ? t('{0} (new)', a.v) : a.v)).join(', ')))}</p>` : ''}
@@ -248,9 +273,10 @@ function showMapping() {
     ${fresh.length || !dups.length ? `<p class="${fresh.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', fresh.length))}${dups.length ? ` · ${esc(t('{0} already in Tally, will be skipped', dups.length))}` : ''}${skipped.length ? ` · ${esc(t('{0} rows skipped (no date or amount)', skipped.length))}` : ''}</p>`
       : `<p class="warnbox">${esc(t('All {0} rows are already in Tally. Nothing new to import.', dups.length))}</p>`}
     ${fresh.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
+    ${moved || loose || adjustments ? `<p class="fine">${[moved && t('{0} transfers between your accounts', moved), loose && t('{0} transfers to accounts not in this file, counted as money in or out', loose), adjustments && t('{0} balance corrections folded into opening balances (not counted as spending)', adjustments)].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
     ${future ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('{0} rows are dated after today. If that looks wrong, check the date column: day and month may be swapped.', future))}
       <label class="check"><input type="checkbox" data-input="imp-future"${IMP.skipFuture ? ' checked' : ''}> ${esc(t('Leave them out'))}</label></span></div>` : ''}
-    <ul class="list preview">${fresh.slice(0, 5).map(x => `<li class="rowb"><span>${esc(fmtDate(x.date))}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
+    <ul class="list preview">${fresh.slice(0, 5).map(x => `<li class="rowb"><span>${esc(fmtDate(x.date))}</span><span class="grow">${esc(x.merchant || '')}</span><span class="amt ${x.type}">${x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−'}${esc(fmtRM(x.amount))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="imp-go" ${fresh.length ? '' : 'disabled'}>${esc(t('Import {0}', fresh.length))}</button></div>`, { label: t('Import') });
 }
 const CAT_COLORS = ['#0EA5E9', '#E11D48', '#84CC16', '#F97316', '#8B5CF6', '#14B8A6', '#EAB308', '#EC4899', '#78716C', '#22C55E'];
@@ -276,15 +302,19 @@ async function commitImport(txs, label, { before = async () => [], newAccounts =
     await undoMore(); render();
   } });
 }
-async function importMoneyManager(buf) {
+/** Money Manager backups: Innim (.mmbackup) or, with app 'realbyte', Realbyte (.mmbak). An Innim-looking zip without
+ *  MyFinance.db gets a second try as Realbyte. */
+async function importMoneyManager(buf, app) {
   impErr(t('Reading the Money Manager backup…'));
-  const { loadSqlJs, readMoneyManager } = await import('../mmimport.js');
-  const mm = await readMoneyManager(buf, await loadSqlJs());
+  const { loadSqlJs, readMoneyManager, readRealbyte } = await import('../mmimport.js');
+  const SQL = await loadSqlJs();
+  const mm = app === 'realbyte' ? await readRealbyte(buf, SQL) : await readMoneyManager(buf, SQL).catch(e => (/MyFinance.db is missing/.test(e.message) ? readRealbyte(buf, SQL) : Promise.reject(e)));
   IMP = { mm, buf };
-  openSheet(`<h2 class="sh-title">${esc(t('Money Manager backup'))}</h2>
+  openSheet(`<h2 class="sh-title">${esc(mm.app === 'realbyte' ? t('Money Manager (Realbyte) backup') : t('Money Manager backup'))}</h2>
     <ul class="list"><li>${esc(t('{0} transactions', mm.tx.length))}</li><li>${esc(t('{0} accounts: {1}', mm.accounts.length, mm.accounts.map(a => a.name).join(', ')))}</li>
     <li>${esc(t('{0} of your categories kept as they are', mm.customCats.length))}</li>${mm.skipped ? `<li class="warn">${esc(t('{0} could not be read and will be skipped', mm.skipped))}</li>` : ''}
     ${mm.adjustments ? `<li>${esc(t('{0} balance corrections folded into opening balances (not counted as spending)', mm.adjustments))}</li>` : ''}
+    ${mm.transfers ? `<li>${esc(t('{0} transfers between your accounts', mm.transfers))}</li>` : ''}
     ${mm.transfersSkipped ? `<li class="warn">${esc(t('{0} transfers between accounts were not imported', mm.transfersSkipped))}</li>` : ''}
     ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM (amounts kept as they are): {0}', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
     ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
@@ -486,12 +516,12 @@ export const act = {
   },
   'imp-go': async b => {
     b.disabled = true;
-    const { txs, opening, acc } = impPlan(), m = IMP.map, made = [], now = Date.now();
+    const { txs, opening, acc, adjusted } = impPlan(), m = IMP.map, made = [], now = Date.now();
     if (IMP.accountId === 'new' && txs.some(x => x.accountId === IMP.newId)) {
-      await saveAccount({ id: IMP.newId, name: newAccName(), kind: IMP.kind || (m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash'), opening: opening ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
+      await saveAccount({ id: IMP.newId, name: newAccName(), kind: IMP.kind || (m.debit != null || m.credit != null || m.balance != null ? 'bank' : 'cash'), opening: opening ?? adjusted[''] ?? 0, scope: IMP.joint ? 'joint' : 'personal', createdAt: now });
       made.push(IMP.newId);
     }
-    for (const [n, a] of acc.values.entries()) if (a.isNew) { await saveAccount({ id: a.id, name: a.v, kind: a.kind, opening: 0, createdAt: now + n + 1 }); made.push(a.id); }
+    for (const [n, a] of acc.values.entries()) if (a.isNew) { await saveAccount({ id: a.id, name: a.v, kind: a.kind, opening: adjusted[a.v.toLowerCase()] || 0, createdAt: now + n + 1 }); made.push(a.id); }
     // "New category: Parents" becomes a real category when a row uses it; the choices are remembered for this header.
     const choices = catChoices(), madeCats = [];
     for (const [src, v] of Object.entries(choices)) {
@@ -501,9 +531,9 @@ export const act = {
       for (const x of txs) if (x.category === v) x.category = c.id;
       choices[src] = c.id;
     }
-    const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
+    const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
     await setSetting('importMaps', Object.fromEntries(maps));
-    return commitImport(txs, IMP.name || t('file'), { newAccounts: made, undoMore: () => setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id))) });
+    return commitImport(txs, IMP.preset?.name || IMP.name || t('file'), { newAccounts: made, undoMore: () => setKv('customCats', S.kv.customCats.filter(c => !madeCats.includes(c.id) || S.tx.some(x => x.category === c.id))) });
   },
   'mm-go': async b => {
     b.disabled = true;
@@ -511,7 +541,7 @@ export const act = {
     for (const a of mm.accounts) if (!S.accounts.some(x => x.id === a.id)) await saveAccount(a);
     const have = new Set(S.kv.customCats.map(c => c.id));
     await setKv('customCats', [...S.kv.customCats, ...mm.customCats.filter(c => !have.has(c.id))]);
-    await commitImport(mm.tx, 'Money Manager', { before: async fresh => {
+    await commitImport(mm.tx, mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { before: async fresh => {
       if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
       const want = new Map(fresh.map(x => [x.id, x]));

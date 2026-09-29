@@ -1,0 +1,10 @@
+Date,Wallet,Type,Category name,Amount,Currency,Note,Labels,Author
+2026-09-01T01:00:00+00:00,Maybank,Income,Salary,3500,MYR,September pay,,Aisyah
+2026-09-02T02:15:00+00:00,Maybank,Outgoing Transfer,Transfer,-100,MYR,Reload,,Aisyah
+2026-09-02T02:15:00+00:00,TNG,Incoming Transfer,Transfer,100,MYR,Reload,,Aisyah
+2026-09-03T04:40:00+00:00,Cash,Expense,Food & Drink,-12.5,MYR,Nasi lemak,,Aisyah
+2026-09-05T10:00:00+00:00,Maybank,Outgoing Transfer,Transfer,-200,MYR,ATM,,Aisyah
+2026-09-05T10:00:00+00:00,Cash,Incoming Transfer,Transfer,200,MYR,ATM,,Aisyah
+2026-09-13T10:00:00+00:00,Maybank,Expense,Groceries,-85.4,MYR,Tesco,,Aisyah
+2026-09-14T00:30:00+00:00,TNG,Expense,Transport,-30,MYR,Toll,,Aisyah
+2026-09-20T17:30:00+00:00,Cash,Income,Gifts,20,MYR,Refund,,Aisyah

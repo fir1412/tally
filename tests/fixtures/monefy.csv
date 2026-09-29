@@ -1,0 +1,10 @@
+date,account,category,amount,currency,converted amount,currency,description
+01/09/2026,Maybank,Salary,3500,MYR,3500,MYR,September pay
+02/09/2026,Maybank,To 'TNG',-100,MYR,-100,MYR,Reload
+02/09/2026,TNG,From 'Maybank',100,MYR,100,MYR,Reload
+03/09/2026,Cash,Eating out,-12.50,MYR,-12.50,MYR,Nasi lemak
+05/09/2026,Maybank,To 'Cash',-200,MYR,-200,MYR,ATM
+05/09/2026,Cash,From 'Maybank',200,MYR,200,MYR,ATM
+13/09/2026,Maybank,Food,-85.40,MYR,-85.40,MYR,Tesco
+14/09/2026,TNG,Transport,-30,MYR,-30,MYR,Toll
+20/09/2026,Cash,Deposits,20,MYR,20,MYR,Refund

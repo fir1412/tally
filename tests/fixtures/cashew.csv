@@ -1,0 +1,15 @@
+account,amount,currency,title,note,date,income,type,category name,subcategory name,color,icon,emoji,budget,objective
+Maybank,1000.0,MYR,Balance correction,Updated balance,2026-08-31 09:00:00.000,true,null,Balance Correction,,,,,,
+Maybank,3500.0,MYR,September pay,,2026-09-01 09:00:00.000,true,null,Salary,,,,,,
+TNG,100.0,MYR,TNG Transfer In,"Transferred Balance
+Maybank → TNG",2026-09-02 10:15:01.000,true,null,Balance Correction,,,,,,
+Maybank,-100.0,MYR,Maybank Transfer Out,"Transferred Balance
+Maybank → TNG",2026-09-02 10:15:00.000,false,null,Balance Correction,,,,,,
+Cash,-12.5,MYR,Nasi lemak,,2026-09-03 12:40:00.000,false,null,Dining,,,,,,
+Cash,200.0,MYR,Cash Transfer In,"Transferred Balance
+Maybank → Cash",2026-09-05 18:00:01.000,true,null,Balance Correction,,,,,,
+Maybank,-200.0,MYR,Maybank Transfer Out,"Transferred Balance
+Maybank → Cash",2026-09-05 18:00:00.000,false,null,Balance Correction,,,,,,
+Maybank,-85.4,MYR,Tesco,,2026-09-13 18:00:00.000,false,null,Groceries,,,,,,
+TNG,-30.0,MYR,Toll,,2026-09-14 08:30:00.000,false,null,Transit,,,,,,
+Cash,20.0,MYR,Refund,,2026-09-20 12:00:00.000,true,null,Gifts,,,,,,

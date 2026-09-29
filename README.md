@@ -16,9 +16,11 @@ everything on your phone: no account, no ads, no tracking. English, Bahasa Melay
   6- or 12-month category table with money in and net.
 - **Habits and bills:** Tally learns when you usually spend (lunch around 12:35 on weekdays) and nudges you to log
   it; regular bills are detected and can go into your calendar as reminders (.ics or Google Calendar).
-- **Bring your history:** Money Manager (Innim) backups with receipt photos, Excel (.xlsx), CSV, Google Sheets
-  (paste the cells or a share link) and bank or e-wallet statements (PDF or CSV). Imports show their totals first,
-  and statements are checked against their own opening and closing balances.
+- **Bring your history:** Money Manager (Innim) backups with receipt photos; Money Manager (Realbyte) backups and
+  Excel exports; the exports of Money Lover, Spendee, Wallet, Monefy, YNAB, Cashew, Bluecoins, 1Money, Toshl and
+  AndroMoney, recognised with no column matching, their transfers, accounts and categories included; Excel (.xlsx),
+  CSV, Google Sheets (paste the cells or a share link) and bank or e-wallet statements (PDF or CSV). Imports show
+  their totals first, and statements are checked against their own opening and closing balances.
 - **Joint account for couples:** mark an account as Joint and switch between Me, Joint and All; joint budgets are
   separate. Share the joint accounts (only those) with your spouse as a file; changes come back the same way and the
   newer edit wins.
@@ -60,7 +62,7 @@ outside the repo.
 | `js/engine.js` | Pure money logic: categories, item split, balances, budget pace, insights, habits, bills |
 | `js/parse.js`, `js/align.js` | Receipt text → items and totals; typed item lines; photo straightening |
 | `js/scan.js`, `js/ocr-worker.js` | On-device OCR in a Web Worker |
-| `js/io.js`, `js/statement.js`, `js/mmimport.js` | CSV/Excel/Sheets import, bank statements, Money Manager, backups (zip with photos), CSV export |
+| `js/io.js`, `js/statement.js`, `js/mmimport.js`, `js/presets.js` | CSV/Excel/Sheets import, bank statements, Money Manager, other apps' exports, backups (zip with photos), CSV export |
 | `js/i18n.js`, `js/i18n/` | English, Malay and Chinese |
 | `js/tour.js`, `js/feedback.js` | First-run tour, What's new, updates; in-app feedback |
 | `js/learn.js`, `js/gamify.js` | Learn Tally mission rules; logging streak and badge rules (pure, tested) |

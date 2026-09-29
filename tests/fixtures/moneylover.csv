@@ -1,0 +1,10 @@
+ID,Note,Amount,Category,Account,Currency,Date,Event,Exclude Report
+1,September pay,3500,Salary,Maybank,MYR,01/09/2026,,FALSE
+2,Reload,-100,Outgoing Transfer,Maybank,MYR,02/09/2026,,FALSE
+3,Reload,100,Incoming Transfer,TNG,MYR,02/09/2026,,FALSE
+4,Nasi lemak,-12.5,Food & Beverage,Cash,MYR,03/09/2026,,FALSE
+5,ATM,-200,Outgoing Transfer,Maybank,MYR,05/09/2026,,FALSE
+6,ATM,200,Incoming Transfer,Cash,MYR,05/09/2026,,FALSE
+7,Tesco,-85.4,Houseware,Maybank,MYR,13/09/2026,,FALSE
+8,Toll,-30,Transportation,TNG,MYR,14/09/2026,,FALSE
+9,Refund,20,Other Income,Cash,MYR,20/09/2026,,FALSE

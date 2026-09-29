@@ -1,0 +1,8 @@
+"DATE","TYPE","FROM ACCOUNT","TO ACCOUNT / TO CATEGORY","AMOUNT","CURRENCY","AMOUNT 2","CURRENCY 2","TAGS","NOTES"
+"09/01/26","Income","Maybank","Salary","3500","MYR","3500","MYR","","September pay"
+"09/02/26","Transfer","Maybank","TNG","100","MYR","100","MYR","","Reload"
+"09/03/26","Expense","Cash","Food","12.5","MYR","12.5","MYR","","Nasi lemak"
+"09/05/26","Transfer","Maybank","Cash","200","MYR","200","MYR","","ATM"
+"09/13/26","Expense","Maybank","Groceries","85.4","MYR","85.4","MYR","","Tesco"
+"09/14/26","Expense","TNG","Transport","30","MYR","30","MYR","","Toll"
+"09/20/26","Income","Cash","Gifts","20","MYR","20","MYR","","Refund"
