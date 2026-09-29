@@ -776,3 +776,5 @@ a.srclink { display: inline-flex; align-items: center; min-height: 44px; }   /* 
 .tabs > .tab { min-width: 0; } .tabs > .tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .hero .big { font-size: min(var(--fs-2xl), 10.5vw); }   /* the balance stays on one line, inside the screen */
 .demo-r span { min-width: 0; } .demo-r span i:first-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .demo-r span i:last-child { flex: none; }   /* a long name gives way; the price always shows */
+.calcbar output { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 420px) { .calcbar [data-op="("], .calcbar [data-op=")"] { display: none; } }   /* the result has room on a phone; ( ) still type from the keyboard */

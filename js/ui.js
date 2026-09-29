@@ -215,6 +215,9 @@ if (typeof document !== 'undefined') {
   // the two now (pinch-zoom aside) instead of a height remembered earlier, which a rotation or first load makes stale.
   // Browsers that shrink the page itself are caught by the remembered full height, measured again after a rotation.
   let full = { h: innerHeight, o: screen.orientation?.angle ?? 0 };
+  // The full height is the tallest seen in this orientation: measured while the keyboard stayed up (the shop field,
+  // then back to the amount) it would read as "no keyboard" and the bar never came back.
+  const remember = () => { const o = screen.orientation?.angle ?? 0; full = o === full.o ? { h: Math.max(full.h, innerHeight), o } : { h: innerHeight, o }; };
   const keyboardUp = () => {
     const v = window.visualViewport, o = screen.orientation?.angle ?? 0;
     if (o !== full.o) full = { h: innerHeight, o };
@@ -229,7 +232,7 @@ if (typeof document !== 'undefined') {
     if (visible) { place(); show(); }
   };
   // The room left for the bar goes a moment later, so the tap that left the field (on Save) lands where it aimed.
-  const hide = () => { field = null; bar.hidden = true; setTimeout(() => { if (!field) { document.body.classList.remove('calc-on'); full = { h: innerHeight, o: screen.orientation?.angle ?? 0 }; } }, 400); };
+  const hide = () => { field = null; bar.hidden = true; setTimeout(() => { if (!field) { document.body.classList.remove('calc-on'); remember(); } }, 400); };
   document.addEventListener('focusin', e => {
     if (!e.target.matches?.(AMT)) return hide();
     field = e.target;
@@ -248,7 +251,7 @@ if (typeof document !== 'undefined') {
     field.setRangeText(op, field.selectionStart ?? field.value.length, field.selectionEnd ?? field.value.length, 'end');
     field.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  window.visualViewport?.addEventListener('resize', () => { if (field) syncBar(); else full = { h: innerHeight, o: screen.orientation?.angle ?? 0 }; });
+  window.visualViewport?.addEventListener('resize', () => { if (field) syncBar(); else remember(); });
   addEventListener('resize', () => field && syncBar());   // the page itself resized (keyboard in some browsers, rotation)
   window.visualViewport?.addEventListener('scroll', () => field && syncBar());
 }
