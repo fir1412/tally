@@ -85,14 +85,16 @@ export function fmtRM(sen, { plain = false } = {}) {
 // ---- dates -------------------------------------------------------------------------------
 export const monthOf = iso => iso.slice(0, 7);
 export const daysInMonth = ym => new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate();
-export function addMonths(ym, n) {
-  const d = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1));
-  return d.toISOString().slice(0, 7);
+export function addMonths(ym, n) {   // string arithmetic: payday months run this for every row
+  const m = +ym.slice(5, 7) - 1 + n, y = +ym.slice(0, 4) + Math.floor(m / 12);
+  return `${String(y).padStart(4, '0')}-${pad2(m - Math.floor(m / 12) * 12 + 1)}`;
 }
 export function addDays(iso, n) {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
+/** Order of two ISO dates (or 'HH:MM' times): plain string order, many times faster than localeCompare. */
+export const byDate = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 export const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
 const pad2 = n => String(n).padStart(2, '0');
 /**
@@ -110,8 +112,10 @@ export const validIso = s => /^(19[89]\d|20\d\d)-\d{2}-\d{2}$/.test(String(s)) &
   !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
 
 // ---- categorizing ----------------------------------------------------------------------------
+/** fn(text) worked out once per text: the same shop and item names come back on every screen. */
+const once = fn => { const m = new Map(); return s => { let v = m.get(s); if (v === undefined) { if (m.size > 20000) m.clear(); m.set(s, v = fn(s)); } return v; }; };
 /** Key for remembering an item: "KS SNRS 2PK " → "KS SNRS 2PK". Pure codes and prices are dropped. */
-export const itemKey = name => String(name ?? '').toUpperCase().replace(/\b\d{5,}\b/g, '').replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+export const itemKey = once(name => String(name ?? '').toUpperCase().replace(/\b\d{5,}\b/g, '').replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
 
 // Malaysian shop words in English, Malay and Chinese, most specific first (奶粉 is Kids, not a 粉 noodle).
 // ponytail: keyword list; user corrections become rules.
@@ -145,7 +149,7 @@ const SHOPS = [
 // Street and place words in statement text ("PETRONAS JLN HOSPITAL KB") name where, not what: they never decide.
 // "kg" after a number is a weight, not a kampung.
 const PLACE = /\b(jln|jalan|lorong|lrg|taman|tmn|persiaran|lebuh(raya)?|bandar|kampung|kpg|(?<![\d.]\s?)kg)\.?\s+[\p{L}\d]+/giu;
-export const unplace = s => String(s ?? '').replace(PLACE, ' ');
+export const unplace = once(s => String(s ?? '').replace(PLACE, ' '));
 /** Category for an item: the user's own rule first, then item words, then the shop's usual category. */
 export function categorize(name, merchant = '', rules = {}) {
   const k = itemKey(name);
@@ -209,25 +213,47 @@ export function balances(accounts, txs, upTo = null) {
  * Transfers never count. For pace: `each` lists the single everyday payments behind the total and each category,
  * `fixed` sums the bill payments (they come once a month, not every day).
  */
-export function monthSpend(txs, ym, sd = 1) {
-  const byCat = {}, each = { total: [] }, fixed = { total: 0 };
-  let total = 0;
+export const monthSpend = (txs, ym, sd = 1) => monthSpends(txs, [ym], sd)[ym];
+/** monthSpend for several months in one pass over the transactions: {ym: monthSpend(txs, ym, sd)}. */
+export function monthSpends(txs, yms, sd = 1) {
+  const by = new Map(yms.map(ym => [ym, { total: 0, byCat: {}, each: { total: [] }, fixed: { total: 0 } }]));
   for (const t of txs) {
-    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
-    const bill = isBill(t);
-    total += t.amount; if (bill) fixed.total += t.amount; else each.total.push(t.amount);
+    const m = t.type === 'expense' && by.get(cycleKey(t.date, sd));
+    if (!m) continue;
+    const bill = isBill(t), { byCat, each, fixed } = m;
+    m.total += t.amount; if (bill) fixed.total += t.amount; else each.total.push(t.amount);
     for (const { category, cents } of breakdown(t)) {
       byCat[category] = (byCat[category] || 0) + cents;
       if (bill) fixed[category] = (fixed[category] || 0) + cents; else (each[category] ||= []).push(cents);
     }
   }
-  return { total, byCat, each, fixed };
+  return Object.fromEntries(yms.map(ym => [ym, by.get(ym)]));
+}
+/** The n latest transactions (by date, then the last added), as a stable sort would list them, without sorting them all. */
+export function newest(txs, n) {
+  const later = (a, b) => byDate(b.date, a.date) || (b.createdAt - a.createdAt) || 0, top = [];
+  if (!(n > 0)) return top;
+  for (const x of txs) {
+    if (top.length === n && later(x, top[n - 1]) >= 0) continue;
+    let i = top.length;
+    while (i > 0 && later(x, top[i - 1]) < 0) i--;
+    top.splice(i, 0, x);
+    if (top.length > n) top.pop();
+  }
+  return top;
 }
 /** A payment for a bill (added by the bill itself or with "Mark as paid"). */
 export const isBill = t => t.source === 'recurring' || !!t.bill;
-export const monthIncome = (txs, ym, sd = 1) => txs.filter(t => t.type === 'income' && cycleKey(t.date, sd) === ym).reduce((s, t) => s + t.amount, 0);
+export const monthIncome = (txs, ym, sd = 1) => monthIncomes(txs, [ym], sd)[ym];
+/** Money in for several months in one pass: {ym: sen}. */
+export function monthIncomes(txs, yms, sd = 1) {
+  const by = new Map(yms.map(ym => [ym, 0]));
+  for (const t of txs) if (t.type === 'income') { const k = cycleKey(t.date, sd); if (by.has(k)) by.set(k, by.get(k) + t.amount); }
+  return Object.fromEntries(by);
+}
 export function cashFlow(txs, endYm, n = 6, sd = 1) {
-  return Array.from({ length: n }, (_, i) => addMonths(endYm, i - n + 1)).map(ym => ({ ym, income: monthIncome(txs, ym, sd), expense: monthSpend(txs, ym, sd).total }));
+  const yms = Array.from({ length: n }, (_, i) => addMonths(endYm, i - n + 1)), sp = monthSpends(txs, yms, sd), inc = monthIncomes(txs, yms, sd);
+  return yms.map(ym => ({ ym, income: inc[ym], expense: sp[ym].total }));
 }
 /** Balance at the end of each of the last n months or cycles (today for the current one). */
 export function balanceTrend(accounts, txs, today, n = 6, sd = 1) {
@@ -253,7 +279,7 @@ export function pace(budget, spent, today, { startDay = 1, amounts = [], fixed =
 }
 
 // ---- duplicates --------------------------------------------------------------------------------
-const shopWord = s => itemKey(s).split(' ').filter(w => w.length > 2 || /\p{Script=Han}/u.test(w)).slice(0, 2).join(' ');
+const shopWord = once(s => itemKey(s).split(' ').filter(w => w.length > 2 || /\p{Script=Han}/u.test(w)).slice(0, 2).join(' '));
 /** An existing transaction that is probably the same purchase: same day, same amount, same shop (or no shop). */
 export function findDuplicate(tx, txs) {
   return txs.find(t => t.id !== tx.id && t.type === tx.type && t.amount === tx.amount && t.date === tx.date
@@ -269,7 +295,7 @@ export function findDuplicate(tx, txs) {
 export function insights({ txs, budgets = {}, today, knownBills = [], startDay = 1 }) {
   const out = [], sd = startDay;
   const ym = cycleKey(today, sd), prev = addMonths(ym, -1);
-  const now = monthSpend(txs, ym, sd), last = monthSpend(txs, prev, sd);
+  const { [ym]: now, [prev]: last } = monthSpends(txs, [ym, prev], sd);
   // Pace: a budget heading over before the month ends.
   const checks = [['total', budgets.total, now.total], ...Object.entries(budgets.byCat || {}).map(([c, b]) => [c, b, now.byCat[c] || 0])];
   for (const [c, b, spent] of checks) {
@@ -282,8 +308,9 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
   // Unusual week: a category this week at 2x or more its usual week. "Usual" = the average over the weeks of the
   // last 12 that have any spending at all (4+ needed), so an old or stray receipt can't stretch the history.
   const weekStart = addDays(today, -6);
-  const inRange = (a, b) => txs.filter(t => t.type === 'expense' && !isBill(t) && t.date >= a && t.date <= b);
-  const active = Array.from({ length: 12 }, (_, k) => addDays(weekStart, -7 * (k + 1))).filter(s => inRange(s, addDays(s, 6)).length).length;
+  const from = addDays(weekStart, -7 * 12), flex = txs.filter(t => t.type === 'expense' && !isBill(t) && t.date >= from && t.date <= today);
+  const inRange = (a, b) => flex.filter(t => t.date >= a && t.date <= b);
+  const active = Array.from({ length: 12 }, (_, k) => addDays(weekStart, -7 * (k + 1))).filter(s => { const e = addDays(s, 6); return flex.some(t => t.date >= s && t.date <= e); }).length;
   if (active >= 4) {
     const sum = list => { const by = {}; for (const t of list) for (const x of breakdown(t)) by[x.category] = (by[x.category] || 0) + x.cents; return by; };
     const thisWeek = sum(inRange(weekStart, today));
@@ -295,15 +322,17 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
     }
   }
   // Item patterns: an item bought 3+ times this month, compared with last month.
-  const count = m => {
-    const by = {};
-    for (const t of txs) if (t.type === 'expense' && cycleKey(t.date, sd) === m) for (const it of t.items || []) {
+  const itemsNow = {}, itemsPrev = {};
+  let hadPrev = false;
+  for (const t of txs) {
+    if (t.type !== 'expense') continue;
+    const m = cycleKey(t.date, sd), by = m === ym ? itemsNow : m === prev ? itemsPrev : null;
+    if (m === prev) hadPrev = true;
+    if (by) for (const it of t.items || []) {
       const k = itemKey(it.name); if (!k) continue;
       (by[k] ||= { n: 0, cents: 0, name: it.name }); by[k].n++; by[k].cents += it.cents;
     }
-    return by;
-  };
-  const itemsNow = count(ym), itemsPrev = count(prev), hadPrev = txs.some(t => t.type === 'expense' && cycleKey(t.date, sd) === prev);
+  }
   for (const [k, v] of Object.entries(itemsNow)) {
     if (v.n < 3 || !hadPrev) continue;
     const p = itemsPrev[k];
@@ -312,19 +341,19 @@ export function insights({ txs, budgets = {}, today, knownBills = [], startDay =
   }
   // Price changes in the last 30 days: the same item costs 10%+ more (or less) than the previous time.
   // Only each item's latest change, and the 3 most recent of those.
-  const seen = {}, moved = {};
-  for (const t of txs.filter(t => t.type === 'expense').sort((a, b) => a.date.localeCompare(b.date))) {
+  const seen = {}, moved = {}, since = addDays(today, -30);
+  for (const t of txs.filter(t => t.type === 'expense').sort((a, b) => byDate(a.date, b.date))) {
     for (const it of t.items || []) {
       const k = itemKey(it.name), unit = it.unit ?? it.cents;
       if (!k || !(unit > 0)) continue;
-      if (seen[k] && t.date >= addDays(today, -30) && seen[k].date < t.date) {
+      if (seen[k] && t.date >= since && seen[k].date < t.date) {
         const ch = (unit - seen[k].unit) / seen[k].unit;
         if (Math.abs(ch) >= 0.1) moved[k] = { id: `price-${k}-${t.date}`, kind: 'price', level: ch > 0 ? 'info' : 'good', date: t.date, title: [ch > 0 ? '{0} went up {1}%' : '{0} went down {1}%', { raw: it.name }, Math.round(Math.abs(ch) * 100)], body: ['This time {0}, last time ({1}) {2}', fmtRM(unit), { date: seen[k].date }, fmtRM(seen[k].unit)] };
       }
       seen[k] = { unit, date: t.date };
     }
   }
-  out.push(...Object.values(moved).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3));
+  out.push(...Object.values(moved).sort((a, b) => byDate(b.date, a.date)).slice(0, 3));
   // Recurring: same shop and about the same amount in 3+ different months, not yet set up as a bill.
   for (const r of recurringCandidates(txs, knownBills)) out.push({ id: `rec-${r.key}`, kind: 'recurring', level: 'info', title: ['{0} looks like a monthly bill ({1})', { raw: r.merchant }, fmtRM(r.amount)], body: ['Add it to your bills to get a reminder before it is due.'], rec: r });
   // Month recap: the first 5 days of a month look back at the last one.
@@ -525,7 +554,7 @@ export const plainItem = name => !!itemKey(name) && !/\d{5,}/.test(name) && !/[A
 /** Price history of items on `min`+ receipts: [{key, name, points: [{date, unit}]}], most bought first. */
 export function priceHistory(txs, min = 3) {
   const by = {};
-  for (const t of txs.filter(x => x.type === 'expense' && x.items?.length).sort((a, b) => a.date.localeCompare(b.date))) {
+  for (const t of txs.filter(x => x.type === 'expense' && x.items?.length).sort((a, b) => byDate(a.date, b.date))) {
     const seen = new Set();   // the same item twice on one receipt is one purchase
     for (const it of t.items) {
       const k = itemKey(it.name), unit = it.unit ?? it.cents;
@@ -534,7 +563,7 @@ export function priceHistory(txs, min = 3) {
       (by[k] ||= { key: k, name: it.name, points: [] }).points.push({ date: t.date, unit });
     }
   }
-  return Object.values(by).filter(h => h.points.length >= min).sort((a, b) => b.points.length - a.points.length || b.points.at(-1).date.localeCompare(a.points.at(-1).date));
+  return Object.values(by).filter(h => h.points.length >= min).sort((a, b) => b.points.length - a.points.length || byDate(b.points.at(-1).date, a.points.at(-1).date));
 }
 /**
  * Your basket: the items you keep buying (priceHistory), each at its latest price (bought in the last 90 days) against

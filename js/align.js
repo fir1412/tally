@@ -60,9 +60,11 @@ export async function readAligned(detect, raw) {
   let tries = 1;
   let best = { raw, turns: 0, texts: (await detect(raw)).texts };
   best.score = readScore(best.texts);
-  const sideways = verticalShare(best.texts) > 0.5, poor = meanConf(best.texts) < 0.8 || best.texts.length < 4;
+  // Each try is a whole detect + read. Tall boxes: a quarter turn either way. Level boxes that read badly: only
+  // upside down is left (a quarter turn would stand the lines on end). Too few boxes to tell: every turn.
+  const few = best.texts.length < 4, sideways = verticalShare(best.texts) > 0.5, poor = few || meanConf(best.texts) < 0.8;
   if (sideways || poor) {
-    for (const turns of sideways ? [1, 3] : [2, 1, 3]) {
+    for (const turns of sideways ? [1, 3] : few ? [2, 1, 3] : [2]) {
       const r = rotate90(raw, turns), texts = (await detect(r)).texts, score = readScore(texts);
       tries++;
       if (score > best.score * 1.15) best = { raw: r, turns, texts, score };
