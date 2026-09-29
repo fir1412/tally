@@ -21,7 +21,7 @@ const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|ju
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
 const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
-const TAX = /\bsst\b|\bgst\b|\bvat\b|service\s*tax|sales\s*tax|\btax\b|cukai/i;
+const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax\b|cukai/i;
 const ROUNDING = /round|pelarasan|bundar/i;
 const DISCOUNT = /disc(ount)?|\bdsc\b|diskaun|potongan|saving|voucher|baucar|coupon|kupon|promo|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
 // Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
@@ -245,6 +245,7 @@ export function parseReceipt(text) {
   // A refund or return slip is money back, not spending (words only: a "-38.80" alone is often OCR noise).
   // A title line ("REFUND RECEIPT", "CREDIT NOTE", "退货单") or a refund total; never "No refund after 30 days".
   r.refund = lines.some(l => /^\W*(refund|return(ed)?|credit note|nota kredit|pemulangan|bayaran balik|退款|退货|退貨)(\s*(receipt|slip|note|invoice|resit|单|單))?\W*$/i.test(l) || /\b(total\s*refund(ed)?|refund\s*(amount|total))\b/i.test(l));
+  if (r.refund) { for (const it of r.items) it.cents = Math.abs(it.cents); r.check = checksum(r); }   // a refund slip prints -42.90: the money back, as positive lines
   return r;
 }
 /** How it was paid, from the payment line: 'card', 'ewallet' or 'cash' (null when the receipt doesn't say).

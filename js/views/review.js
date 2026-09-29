@@ -169,10 +169,11 @@ export const reviewView = {
     const old = !current.existing && d.date < addDays(today(), -60);
     const dup = !current.existing && d.total ? findDuplicate({ ...d, amount: d.total }, S.tx) : null;
     const catOpts = sel => expenseCats().map(x => `<option value="${esc(x.id)}"${sel === x.id ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
-    const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', fmtRM(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
+    const acct = S.accounts.find(x => x.id === d.accountId), money = v => fmtAcct(acct, v);   // "SGD 16.98" on an SGD account
+    const status = current.manual ? (d.items.length ? `<p class="okbox">${ICON.check}${esc(t('Total {0}', money(itemsSum(d))))}</p>` : `<p class="fine">${esc(t('Add each thing you bought with its price. The total adds itself up.'))}</p>`)
       : d.total == null ? `<div class="warnbox">${ICON.alert}<span class="grow">${esc(d.items.length ? t('No total found: the bottom of the receipt may be cut off. Type the total, or take the photo again.') : t('No total found. Type the total from the receipt.'))}<span class="bactions"><button class="btn small ghost" data-act="scan">${ICON.camera}${esc(t('Retake'))}</button><button class="link tipsrow" data-act="photo-tips">${esc(t('Tips for a clear photo'))}</button></span></span></div>`
-      : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', fmtRM(d.total)))}</p>`
-      : `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', fmtRM(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), fmtRM(d.total)))}${gapOf(d) > 0 ? `<button class="btn small ghost" data-act="rv-gapitem">${ICON.plus}${esc(t('Missed an item of {0}?', fmtRM(gapOf(d))))}</button>` : ''}</span></div>`;
+      : c.ok ? `<p class="okbox">${ICON.check}${esc(t('Items add up to the total {0}', money(d.total)))}</p>`
+      : `<div class="warnbox">${ICON.alert}<span class="grow">${esc(t('Items add up to {0}, the receipt says {1}. Check the amber lines or add a missing item.', money(itemsSum(d) + (d.service || 0) + (d.taxIncluded ? 0 : d.tax || 0) + (d.rounding || 0)), money(d.total)))}${gapOf(d) > 0 ? `<button class="btn small ghost" data-act="rv-gapitem">${ICON.plus}${esc(t('Missed an item of {0}?', money(gapOf(d))))}</button>` : ''}</span></div>`;
     const gap = !current.manual && c && !c.ok && d.items.length ? gapOf(d) : 0;
     const gapLine = gap > 0 ? `<div class="gapline"><b class="grow">${esc(t('Not itemised'))}</b><span class="amt">${esc(fmtRM(gap))}</span>
       <select class="icat" data-input="rv-f" data-k="gapCat" aria-label="${esc(`${t('Not itemised')}: ${t('Category')}`)}">${catOpts(gapCat(d))}</select></div>` : '';
