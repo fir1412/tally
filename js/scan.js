@@ -94,7 +94,7 @@ function rows(boxes) {
 }
 
 /**
- * Photo → {receipt, text, photo, ms, turns, angle}. receipt is parseReceipt's result, with item.flag set when the item is
+ * Photo → {receipt, text, photo, ms, turns, angle, tries}. receipt is parseReceipt's result, with item.flag set when the item is
  * worth a second look (low OCR confidence, no name, or a zero price).
  * photo is a re-encoded JPEG (max 1200 px): smaller, and the location data in the original is dropped.
  * onStage: 'prep', 'read', then 'turn' / 'straighten' when the photo needs another pass.
@@ -122,5 +122,5 @@ export async function readReceipt(file, onStage = () => {}) {
   const small = up === c ? draw(bmp, 1200) : shrink(up, 1200);
   const photo = await new Promise(r => small.toBlob(r, 'image/jpeg', 0.8));
   bmp.close?.();
-  return { receipt, text, photo, ms: performance.now() - t0, turns: aligned.turns, angle: aligned.angle };
+  return { receipt, text, photo, ms: performance.now() - t0, turns: aligned.turns, angle: aligned.angle, tries: aligned.tries || 1 };
 }

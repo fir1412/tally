@@ -17,12 +17,15 @@ async function ready() {
   } });
   return ocr;
 }
-self.onmessage = async ({ data: { id, raw } }) => {
+// One read at a time: a read-ahead of the next photo and a retry must not run the model at once.
+let chain = Promise.resolve();
+self.onmessage = e => { chain = chain.then(() => read(e.data)); };
+async function read({ id, raw }) {
   try {
     const o = await ready();
     if (!raw) return self.postMessage({ id, texts: [] });
     // Straighten first (sideways/upside-down turns, big tilts): the pixel work stays off the page's thread.
     const r = await readAligned(x => o.detect(x), raw, stage => self.postMessage({ id, stage }));
-    self.postMessage({ id, texts: r.texts.map(({ text, mean, box }) => ({ text, mean, box })), turns: r.turns, angle: r.angle });
+    self.postMessage({ id, texts: r.texts.map(({ text, mean, box }) => ({ text, mean, box })), turns: r.turns, angle: r.angle, tries: r.tries });
   } catch (e) { self.postMessage({ id, error: String(e?.message || e) }); }
-};
+}

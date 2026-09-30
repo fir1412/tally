@@ -24,7 +24,7 @@ ocrProgress((got, total) => {
 });
 // While a photo is read: what the reader is doing now, and a bar eased toward how long the last read took on this phone.
 // ponytail: the bar is time-based (the worker can't report inside one detect); it never reaches the end until the read does.
-let est = 5000;   // ms; learned from each plain read
+let est = 5000;   // ms for one pass, learned from each read
 const STAGES = { prep: () => t('Getting the photo ready…'), read: () => t('Finding the text…'), lines: () => t('Reading each line…'), turn: () => t('Turning the photo the right way up…'), straighten: () => t('Straightening the photo…') };
 const stageNow = () => (current.stage === 'read' && performance.now() - current.t0 > current.est * 0.4 ? 'lines' : current.stage);
 let ticker = 0;
@@ -55,17 +55,28 @@ export async function enqueue(files) {
     await saveQueue();
   } finally { pump(); }   // read them now whatever happened to the saved copies
 }
+// While one receipt is checked, the next photo is already being read, so a pile of receipts goes one after another.
+function readAhead() {
+  const n = queue[0];
+  if (!n || n.ahead || !ocrReady()) return;
+  n.t0 = performance.now();
+  n.ahead = readReceipt(n.file, s => { n.stage = s; if (current?.id === n.id) onStage(s); });
+  n.ahead.catch(() => {});   // pump reports it when this photo's turn comes
+}
 async function pump() {
+  if (current?.status === 'ready') readAhead();
   if (reading || current?.status === 'ready' || current?.status === 'reading') return;
   const next = queue.shift();
   if (!next) { current = null; return; }
-  current = { ...next, status: 'reading', thumb: URL.createObjectURL(next.file) };
+  const { ahead, t0, stage, ...rest } = next;   // the read-ahead's own fields; adopted below
+  current = { ...rest, status: 'reading', thumb: URL.createObjectURL(next.file) };
   saveQueue();
   reading = true; refresh(); announce(t('Reading…'));
   try {
     if (!ocrReady()) await loadOcr();
-    const { receipt, photo, ms, turns } = await readReceipt(next.file, onStage);
-    if (current.t0 && !current.extra) est = performance.now() - current.t0;
+    if (stage) { Object.assign(current, { t0, est, stage }); refresh(); clearInterval(ticker); ticker = setInterval(paintRead, 250); }   // read ahead, still going
+    const { receipt, photo, ms, turns, tries } = await (ahead || readReceipt(next.file, onStage));
+    est = ms / tries;
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft, reveal: true, ...(photo ? { thumb: URL.createObjectURL(photo) } : {}) };   // the upright photo, as it was read
@@ -81,6 +92,7 @@ async function pump() {
   if (current?.status === 'error') await saveQueue();
   else deletePhotos([`q_${next.id}`]);   // read: the draft holds its own copy now; an unreadable one waits for Skip
   reading = false; refresh();
+  if (current?.status === 'ready') readAhead();
 }
 /** Photos being read or waiting (in memory only): an app update must not reload now. */
 export const busy = () => reading || queue.length > 0;
