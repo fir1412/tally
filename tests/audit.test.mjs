@@ -36,3 +36,11 @@ test('a zoned CSV date is held to the same range as every other date (an impossi
   assert.ok(r.txs.every(t => E.validIso(t.date)));
   assert.deepEqual(r.skipped.map(s => s.why), ['date', 'date']);
 });
+
+test("a restored or partner's file cannot plant a creation time outside 2000..now (year 500 crashed Home's banner)", async () => {
+  const IO = await import('../js/io.js');
+  const bad = Date.UTC(500, 5, 15), good = Date.UTC(2026, 8, 1);
+  const b = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, accounts: [{ id: 'a1', name: 'Joint', kind: 'bank', createdAt: bad }],
+    tx: [{ id: 'p1', date: '2026-09-21', type: 'expense', amount: 100, accountId: 'a1', createdAt: bad }, { id: 'p2', date: '2026-09-22', type: 'expense', amount: 100, accountId: 'a1', createdAt: good }] }));
+  assert.deepEqual([b.accounts[0].createdAt, ...b.tx.map(t => t.createdAt)], [0, 0, good]);
+});

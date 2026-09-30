@@ -4,7 +4,7 @@ import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
-import { download } from '../io.js';
+import { download, okMs } from '../io.js';
 import { render, go } from '../app.js';
 import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip } from './money.js';
 import { learnHome, streakHome } from './learn.js';
@@ -54,7 +54,7 @@ function affordHtml(r) {
     <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))}</p>`;
 }
 /** When this person started with Tally: their first entry made here, else their first account. */
-const began = () => { const m = S.tx.map(x => x.createdAt).filter(Boolean); return Math.min(...(m.length ? m : S.accounts.map(a => a.createdAt).filter(Boolean))); };
+const began = () => { const m = S.tx.map(x => okMs(x.createdAt)).filter(Boolean); return Math.min(...(m.length ? m : S.accounts.map(a => okMs(a.createdAt)).filter(Boolean))); };   // okMs: a bad time stored before the intake check
 const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
 const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
 /** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */

@@ -867,6 +867,8 @@ const RESERVED = new Set(['__proto__', 'constructor', 'prototype']); // never an
 export const okId = id => typeof id === 'string' && /^[\w-]{1,60}$/.test(id) && !RESERVED.has(id);
 const list = (x, max) => (Array.isArray(x) ? x.slice(0, max) : []);
 const upd = n => (Number.isSafeInteger(n) && n > 0 ? { updatedAt: Math.min(n, Date.now()) } : {}); // a file can't claim to be edited in the future
+/** A creation time from a file: 2000 to tomorrow, else 0 (unknown). Year 500 became '500-06-15' in Home's banner and crashed it. */
+export const okMs = n => (Number.isSafeInteger(n) && n >= Date.UTC(2000, 0, 1) && n <= Date.now() + 864e5 ? n : 0);
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
 export function readBackup(text) {
   if (String(text).length > LIMITS.backupJson) throw new Error('This backup is too big to restore (over 50 MB).');
@@ -883,13 +885,13 @@ export function readBackup(text) {
   const customIds = new Set(customCats.map(c => c.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
   const accounts = list(d.accounts, 200).filter(a => isObj(a) && okId(a.id))
-    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: +a.createdAt || 0, ...(a.scope === 'joint' || a.scope === 'business' ? { scope: a.scope } : {}),
+    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: okMs(+a.createdAt), ...(a.scope === 'joint' || a.scope === 'business' ? { scope: a.scope } : {}),
       ...(/^[A-Z]{3}$/.test(a.currency) && a.currency !== 'MYR' ? { currency: a.currency, ...(+a.rate > 0 && +a.rate < 1e5 ? { rate: +a.rate } : {}) } : {}), ...(a.outside === true ? { outside: true } : {}), ...(a.typed === true ? { typed: true } : {}), ...upd(a.updatedAt) }));
   const ids = new Set(accounts.map(a => a.id));
   const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId, ...(okAmt(t.toAmount) && t.toAmount > 0 ? { toAmount: t.toAmount } : {}) } : {}), ...(+t.rate > 0 && +t.rate < 1e5 ? { rate: +t.rate } : {}),
-      category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: +t.createdAt || 0,
+      category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: okMs(+t.createdAt),
       ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) })) } : {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
