@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
+import { parseReceipt, joinRows, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -314,4 +314,11 @@ test('phone-photo receipts: tax after the payment, OCR misreads, a label above i
 test('an O read for the 0 of a sen amount ("RMO.01") still counts as the rounding', () => {
   const r = parseReceipt('SHOP A\n12345 SHOWER GEL 11.50\n27159 HAND WASH 7.64\nSUBTOTAL (QTY 2) RM19.14\nROUNDING RMO.01\nSUBTOTAL (QTY 2) RM19.15\nCASH RM20.00');
   assert.equal(r.total, 1915); assert.equal(r.rounding, 1); assert.ok(r.check.ok);
+});
+
+test('joinRows: words past a row\'s price (a keyboard key, a till screen\'s other panel) go on their own line', () => {
+  const at = (text, x0, x1, y) => ({ text, box: [[x0, y], [x1, y], [x1, y + 20], [x0, y + 20]] });
+  assert.equal(joinRows([at('ROSK SENS SKIN CRM 6.90 PgDn', 0, 600, 0)]), 'ROSK SENS SKIN CRM 6.90\nPgDn');   // read as one box
+  assert.equal(joinRows([at('NASI GORENG', 0, 200, 0), at('7.50', 300, 360, 0), at('WELCOME TO', 900, 1200, 0)]), 'NASI GORENG 7.50\nWELCOME TO');
+  assert.equal(joinRows([at('EGGS OMEGA', 0, 200, 0), at('8.00', 300, 360, 0), at('Z', 380, 390, 0)]), 'EGGS OMEGA 8.00 Z');   // a tax code stays
 });

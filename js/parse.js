@@ -44,7 +44,8 @@ const monthOf = s => MON.split('|').indexOf(s.slice(0, 3).toLowerCase()) + 1;
 export function joinRows(boxes) {
   const b = boxes.map(({ text, box }) => {
     const ys = box.map(p => p[1]), top = Math.min(...ys), bottom = Math.max(...ys);
-    return { text, x: Math.min(...box.map(p => p[0])), y: (top + bottom) / 2, h: bottom - top };
+    const xs = box.map(p => p[0]);
+    return { text, x: Math.min(...xs), r: Math.max(...xs), y: (top + bottom) / 2, h: bottom - top };
   }).sort((a, c) => a.y - c.y);
   const rows = [];
   for (const w of b) {
@@ -52,7 +53,12 @@ export function joinRows(boxes) {
     if (row && Math.abs(w.y - row.y) < Math.min(w.h, row.h) / 2) row.words.push(w);
     else rows.push({ y: w.y, h: w.h, words: [w] });
   }
-  return rows.map(r => r.words.sort((a, c) => a.x - c.x).map(w => w.text).join(' ')).join('\n');
+  // Words far past a row's price are something else beside the slip (a keyboard's "PgDn", a till screen's "WELCOME TO"):
+  // their own line, so the price stays at the end of its row. Short codes (Z, SR) stay.
+  return rows.map(r => r.words.sort((a, c) => a.x - c.x).reduce((out, w, i, ws) => {
+    const p = ws[i - 1], away = p && /\d[.,]\d{2}\s*$/.test(p.text) && w.x - p.r > 2.5 * r.h && !/\d[.,]\d{2}/.test(w.text) && (w.text.match(/\p{L}/gu) || []).length >= 3;
+    return (away ? out + '\n' : out ? out + ' ' : '') + w.text;
+  }, '').replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2')).join('\n');   // the same, read into one box
 }
 
 export function toCents(m) {
@@ -243,7 +249,7 @@ export function parseReceipt(text) {
   // Cash rounding: 68.12 is paid as 68.10. When the rounded amount is printed too, that is the total.
   if (r.total > 0 && r.total % 5) {
     const r5 = Math.round(r.total / 5) * 5;
-    if (lines.some(l => amountsIn(l).includes(r5))) { r.rounding = (r.rounding ?? 0) + r5 - r.total; r.total = r5; }
+    if (lines.some(l => amountsIn(l).includes(r5))) { r.rounding = r.rounding === r5 - r.total ? r.rounding : (r.rounding ?? 0) + r5 - r.total; r.total = r5; }   // a printed "ROUNDING 0.01" is this same step
   }
   // A tax line printed after the payment ("TOTAL 6% Service Tax 0.98" under "Cash 20.00") counts only when it is exactly
   // the gap between the subtotal and the total: a tax summary table there never adds a guess.
