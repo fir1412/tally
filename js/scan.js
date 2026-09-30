@@ -7,12 +7,12 @@ import { imageInfo, LIMITS } from './io.js';
 let worker = null, loading = null, ready = false, seq = 0;
 const pending = new Map();
 /** One OCR request. A worker that doesn't answer within 2 minutes (first run includes the 40 MB download) is reset. */
-function call(raw, onStage = () => {}) {
+function call(raw, onStage = () => {}, zoom = false) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
     const timer = setTimeout(() => { pending.delete(id); reset(); reject(new Error('The receipt reader stopped responding. Try again.')); }, 120_000);
     pending.set(id, { stage: onStage, resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
-    worker.postMessage({ id, raw });
+    worker.postMessage({ id, raw, zoom });
   });
 }
 function reset() { worker?.terminate(); worker = null; loading = null; ready = false; for (const p of pending.values()) p.reject(new Error('reset')); pending.clear(); }
@@ -108,19 +108,23 @@ export async function readReceipt(file, onStage = () => {}) {
   const { data, width, height } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
   onStage('read');
   const aligned = await call({ data, width, height }, onStage); // the worker aligns (js/align.js) and reads
-  const lines = rows(aligned.texts);
-  const text = lines.map(l => l.text).join('\n');
-  const receipt = parseReceipt(text);
+  let lines = rows(aligned.texts), text = lines.map(l => l.text).join('\n'), receipt = parseReceipt(text), tries = aligned.tries || 1, zoomed = false;
+  // Items that don't add up (not a card slip with no items): one closer look at the paper, kept only if that one adds up.
+  if (!receipt.check.ok && (receipt.items.length || receipt.total == null)) {
+    const z = await call({ data, width, height }, onStage, true), zl = rows(z.texts), zt = zl.map(l => l.text).join('\n'), zr = parseReceipt(zt);
+    tries += z.tries || 1;
+    if (zr.check.ok) { lines = zl; text = zt; receipt = zr; zoomed = true; }
+  }
   // The photo as it was read (turned and straightened like js/align.js did): upright on screen, and each item knows the
   // band of it that it came from (item.crop: top and bottom as shares of the height), so the review can show it.
   const up = aligned.turns || aligned.angle ? straightened(c, aligned.turns, aligned.angle) : c;
   for (const it of receipt.items) {
-    const line = lines.find(l => it.name && l.text.includes(it.name));
+    const line = !zoomed && lines.find(l => it.name && l.text.includes(it.name));   // a zoomed read's rows aren't in the photo's coordinates
     it.flag = !it.name || (line && line.conf < 0.85) || it.cents === 0;
     if (line) it.crop = { t: Math.max(0, (line.y - line.h) / up.height), b: Math.min(1, (line.y + line.h) / up.height) };
   }
   const small = up === c ? draw(bmp, 1200) : shrink(up, 1200);
   const photo = await new Promise(r => small.toBlob(r, 'image/jpeg', 0.8));
   bmp.close?.();
-  return { receipt, text, photo, ms: performance.now() - t0, turns: aligned.turns, angle: aligned.angle, tries: aligned.tries || 1 };
+  return { receipt, text, photo, ms: performance.now() - t0, turns: aligned.turns, angle: aligned.angle, tries };
 }

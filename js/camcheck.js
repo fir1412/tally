@@ -9,7 +9,7 @@ export function toGray(rgba) {
 }
 
 /** Otsu's threshold: the grey level that best splits the picture into paper and the rest. */
-function otsu(hist, n) {
+export function otsu(hist, n) {
   let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
   let wB = 0, sumB = 0, best = 0, at = 128;
   for (let i = 0; i < 256; i++) {

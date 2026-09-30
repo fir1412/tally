@@ -1452,4 +1452,5 @@ export default {
   "The tour ends with installing Tally on this phone, or shows where to do it later": "ツアーの最後に Tally をこのスマホにインストールするか、後でどこからできるかを案内します",
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共有口座とバックアップ：削除した記録が戻らず、どのバックアップも復元できるよう、さらに修正しました",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally が無料なのはなぜ？情熱のプロジェクトでオープンソース：ようこそ画面か設定をご覧ください",
+  "Looking closer at the small print…": "小さな文字を拡大して読んでいます…",
 };

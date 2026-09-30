@@ -1,5 +1,6 @@
 // Straighten a receipt before reading it: sideways / upside-down photos, and small tilts that make rows drift into
 // each other. Pure pixel maths on raw RGBA ({data, width, height}), shared by the app and the benchmark.
+import { toGray, otsu } from './camcheck.js';
 
 /** Rotate by quarter turns clockwise (1 = 90°, 2 = 180°, 3 = 270°). */
 export function rotate90(raw, turns) {
@@ -50,6 +51,54 @@ export const verticalShare = boxes => (boxes.length ? boxes.filter(b => {
 /** How well a reading went: confident characters that look like receipt text. */
 export const readScore = boxes => boxes.reduce((s, b) => s + (b.mean ?? 0) * (String(b.text).match(/[\p{L}\p{N}]/gu) || []).length, 0);
 const meanConf = boxes => (boxes.length ? boxes.reduce((s, b) => s + (b.mean ?? 0), 0) / boxes.length : 0);
+
+// The longest run of indexes whose share is at least `min`.
+function longestRun(share, min) {
+  let best = [0, -1], s = -1;
+  for (let i = 0; i <= share.length; i++) {
+    if (i < share.length && share[i] >= min) { if (s < 0) s = i; } else if (s >= 0) { if (i - 1 - s > best[1] - best[0]) best = [s, i - 1]; s = -1; }
+  }
+  return best;
+}
+/** Where the paper is: {x, y, w, h}, or null when it can't be told from the background or already fills the picture. */
+export function paperBox(gray, w, h) {
+  const hist = new Uint32Array(256); for (const v of gray) hist[v]++;
+  const cut = otsu(hist, w * h);
+  let pN = 0, pS = 0, dS = 0; for (let i = 0; i < 256; i++) if (i > cut) { pN += hist[i]; pS += i * hist[i]; } else dS += i * hist[i];
+  const sep = pN && pN < w * h ? pS / pN - dS / (w * h - pN) : 0;
+  if (sep < 25 || pN / (w * h) > 0.85) return null;
+  const col = new Float32Array(w); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (gray[y * w + x] > cut) col[x] += 1 / h;
+  const [x0, x1] = longestRun(col, 0.35 * Math.max(...col));
+  const row = new Float32Array(h); for (let y = 0; y < h; y++) { let c = 0; for (let x = x0; x <= x1; x++) if (gray[y * w + x] > cut) c++; row[y] = c / (x1 - x0 + 1); }
+  const [y0, y1] = longestRun(row, 0.35 * Math.max(...row));
+  const px = Math.round(w * 0.02), py = Math.round(h * 0.02), x = Math.max(0, x0 - px), y = Math.max(0, y0 - py);
+  const box = { x, y, w: Math.min(w, x1 + px + 1) - x, h: Math.min(h, y1 + py + 1) - y };
+  return box.w * box.h > 0.9 * w * h ? null : box;
+}
+/**
+ * A second look at a photo that didn't add up: the paper cut out, scaled up (small print from far away gets bigger) and
+ * its grey stretched from the 1st to the 99th percentile (faded thermal print). Tuned on 95 phone photos: far-away,
+ * faded slips read on retry; always cropping loses rows on light tables, so this is only the retry.
+ * ponytail: at most 3000 px long and 4.5 MP (about 1.5x a normal read) to stay inside a phone's memory.
+ */
+export function zoomPaper(raw, { long = 3000, maxUp = 4, pixels = 4.5e6 } = {}) {
+  const { data, width: w, height: h } = raw, gray = toGray(data), b = paperBox(gray, w, h) || { x: 0, y: 0, w, h };
+  const s = Math.min(maxUp, long / Math.max(b.w, b.h), Math.sqrt(pixels / (b.w * b.h))), W = Math.round(b.w * s), H = Math.round(b.h * s);
+  const hist = new Uint32Array(256); for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) hist[gray[y * w + x]]++;
+  const n = b.w * b.h; let lo = 0, hi = 255, a = 0;
+  for (lo = 0; lo < 255 && (a += hist[lo]) < n * 0.01; lo++); a = 0; for (hi = 255; hi > 0 && (a += hist[hi]) < n * 0.01; hi--);
+  if (hi - lo < 20) { lo = 0; hi = 255; }
+  const k = 255 / (hi - lo), out = new Uint8ClampedArray(W * H * 4);
+  for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) {
+    const sx = Math.min(b.w - 1.001, X / s) + b.x, sy = Math.min(b.h - 1.001, Y / s) + b.y, x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0, d = (Y * W + X) * 4, a0 = y0 * w + x0;
+    for (let c = 0; c < 3; c++) {
+      const p = i => data[i * 4 + c];
+      out[d + c] = (p(a0) * (1 - fx) * (1 - fy) + p(a0 + 1) * fx * (1 - fy) + p(a0 + w) * (1 - fx) * fy + p(a0 + w + 1) * fx * fy - lo) * k;
+    }
+    out[d + 3] = 255;
+  }
+  return { data: out, width: W, height: H };
+}
 
 /**
  * Read with alignment: detect once; if the text looks sideways or reads badly, try the other quarter turns; then

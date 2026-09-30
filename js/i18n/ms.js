@@ -1453,4 +1453,5 @@ export default {
   "The tour ends with installing Tally on this phone, or shows where to do it later": "Lawatan berakhir dengan memasang Tally di telefon ini, atau menunjukkan di mana untuk melakukannya kemudian",
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "Akaun bersama dan sandaran: lebih banyak pembaikan supaya catatan yang dipadam kekal dipadam dan setiap sandaran boleh dipulihkan",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Kenapa Tally percuma? Projek minat, sumber terbuka: lihat Selamat datang atau Tetapan",
+  "Looking closer at the small print…": "Melihat tulisan kecil dengan lebih dekat…",
 };

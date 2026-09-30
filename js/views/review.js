@@ -25,7 +25,7 @@ ocrProgress((got, total) => {
 // While a photo is read: what the reader is doing now, and a bar eased toward how long the last read took on this phone.
 // ponytail: the bar is time-based (the worker can't report inside one detect); it never reaches the end until the read does.
 let est = 5000;   // ms for one pass, learned from each read
-const STAGES = { prep: () => t('Getting the photo ready…'), read: () => t('Finding the text…'), lines: () => t('Reading each line…'), turn: () => t('Turning the photo the right way up…'), straighten: () => t('Straightening the photo…') };
+const STAGES = { prep: () => t('Getting the photo ready…'), read: () => t('Finding the text…'), lines: () => t('Reading each line…'), turn: () => t('Turning the photo the right way up…'), straighten: () => t('Straightening the photo…'), zoom: () => t('Looking closer at the small print…') };
 const stageNow = () => (current.stage === 'read' && performance.now() - current.t0 > current.est * 0.4 ? 'lines' : current.stage);
 let ticker = 0;
 function paintRead() {

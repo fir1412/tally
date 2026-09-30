@@ -1453,4 +1453,5 @@ export default {
   "The tour ends with installing Tally on this phone, or shows where to do it later": "导览最后会引导你把 Tally 安装到这部手机，或告诉你之后在哪里安装",
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共同账户与备份：更多修复，删除的记录保持删除，每个备份都能恢复",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally 为什么免费？热爱之作，开源：见欢迎页或设置",
+  "Looking closer at the small print…": "正在放大查看小字…",
 };

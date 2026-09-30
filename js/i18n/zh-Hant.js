@@ -1452,4 +1452,5 @@ export default {
   "The tour ends with installing Tally on this phone, or shows where to do it later": "導覽最後會引導你把 Tally 安裝到這部手機，或告訴你之後在哪裡安裝",
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共同帳戶與備份：更多修複，刪除的記錄保持刪除，每個備份都能恢復",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally 為什麼免費？熱爱之作，開源：见歡迎頁或設定",
+  "Looking closer at the small print…": "正在放大查看小字…",
 };

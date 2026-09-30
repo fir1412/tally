@@ -61,3 +61,20 @@ test('the reading screen hears about each extra pass, and its bar never ends bef
   assert.deepEqual(at, [...at].sort((a, b) => a - b), 'only moves forward');
   assert.ok(at[2] >= 75 && at.at(-1) <= 95, `about 80 % at the usual time, never full: ${at}`);
 });
+
+test('a second look at a far-away, faded receipt: the paper cut out, made bigger, its grey stretched', async () => {
+  const { zoomPaper, paperBox } = await import('../js/align.js');
+  const w = 400, h = 600, data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const paper = x >= 150 && x < 250 && y >= 150 && y < 450, ink = paper && y % 20 < 3 && x > 160 && x < 240;
+    data.fill(paper ? (ink ? 150 : 200) : 40, (y * w + x) * 4, (y * w + x) * 4 + 3); data[(y * w + x) * 4 + 3] = 255;   // faded ink on paper, on a dark lap
+  }
+  const b = paperBox((await import('../js/camcheck.js')).toGray(data), w, h);
+  assert.ok(b && b.x <= 150 && b.x > 120 && b.x + b.w >= 250 && b.w < 140 && b.y <= 150 && b.y + b.h >= 450, JSON.stringify(b));
+  const z = zoomPaper({ data, width: w, height: h });
+  assert.ok(z.height > 1200 && z.width * z.height <= 4.5e6, `${z.width}x${z.height}: the paper's 300 rows, about 4x`);
+  let lo = 255, hi = 0; for (let i = 0; i < z.data.length; i += 4) { lo = Math.min(lo, z.data[i]); hi = Math.max(hi, z.data[i]); }
+  assert.ok(lo < 20 && hi > 235, `faded 150-200 stretched to ${lo}-${hi}`);
+  const big = zoomPaper({ data: new Uint8ClampedArray(3000 * 2000 * 4).fill(128), width: 3000, height: 2000 });
+  assert.ok(big.width * big.height <= 4.5e6 + 1e4, 'never more than about 1.5x a normal read');
+});
