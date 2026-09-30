@@ -666,7 +666,7 @@ export function taxRelief(txs, year) {
       // A payment without items is judged by its shop and note alone.
       const id = reliefOf(parts.length === 1 && !it.name ? shop : it.name, shop, it.category);
       if (!id) continue;
-      const L = lines[id], e = L.entries.find(x => x.id === t.id);
+      const L = lines[id], last = L.entries.at(-1), e = last?.id === t.id ? last : null;   // a payment's parts come together: only the last entry can be it
       if (e) e.cents += it.cents; else L.entries.push({ id: t.id, date: t.date, merchant: t.merchant || it.name, cents: it.cents, proof: !!t.receiptId });
       L.total += it.cents;
     }

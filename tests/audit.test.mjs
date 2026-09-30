@@ -12,3 +12,10 @@ test('habits stays fast on a huge imported history (no copy of the window per st
   assert.ok(ms(() => { out = E.habits(tx, '2026-09-30'); }) < 1000, 'habits took over a second on 64k rows');
   assert.equal(out[0].category, 'dining');
 });
+
+test('the tax-relief card stays fast on a huge imported history (no search per matching row)', () => {
+  const tx = Array.from({ length: 64_000 }, (_, i) => ({ id: `z${i}`, date: '2026-03-01', type: 'expense', amount: 250, merchant: 'Zakat', category: 'giving' }));
+  let out;
+  assert.ok(ms(() => { out = E.taxRelief(tx, 2026); }) < 1000, 'taxRelief took over a second on 64k rows');
+  assert.equal(out.find(l => l.entries.length)?.entries.length, 64_000);   // still one entry per payment
+});
