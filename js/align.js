@@ -120,7 +120,9 @@ export async function readAligned(detect, raw, onStage = () => {}) {
   const few = best.texts.length < 4, blocks = blocky(best.texts), sideways = blocks || verticalShare(best.texts) > 0.5, poor = few || meanConf(best.texts) < 0.8;
   if (sideways || poor) {
     onStage('turn');
-    for (const turns of sideways ? [1, 3] : few ? [2, 1, 3] : [2]) {
+    // A read that is level but poor can still be sideways (synthetic bench: 70 of 189 photos turned 270° were only ever
+    // tried upside down): every turn, the best kept. ponytail: two more reads for poor photos only.
+    for (const turns of sideways ? [1, 3] : [2, 1, 3]) {
       const r = rotate90(raw, turns), texts = (await detect(r)).texts, score = readScore(texts);
       tries++;
       if (score > best.score * 1.15 || (blocky(best.texts) && !blocky(texts) && score > best.score * 0.8)) best = { raw: r, turns, texts, score };

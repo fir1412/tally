@@ -41,13 +41,13 @@ test('byDate orders ISO dates and HH:MM times as localeCompare did', () => {
   for (const a of v) for (const b of v) assert.equal(E.byDate(a, b), Math.sign(a.localeCompare(b)), `${a} ${b}`);
 });
 
-test('level text that reads badly tries upside down only; too little text still tries every turn', async () => {
+test('level text that reads badly tries every turn and keeps the best (it may be sideways); too little text too', async () => {
   const raw = { width: 4, height: 2, data: new Uint8ClampedArray(32).fill(255) };
   const line = (y, mean) => ({ text: 'NASI LEMAK 12.90', mean, box: [[0, y], [300, y], [300, y + 20], [0, y + 20]] });
   let calls = 0;
-  const upsideDown = async r => { calls++; return { texts: [0, 40, 80, 120].map(y => line(y, r.data === raw.data ? 0.4 : 0.95)) }; };
+  const upsideDown = async () => { calls++; return { texts: [0, 40, 80, 120].map(y => line(y, calls === 1 ? 0.4 : calls === 2 ? 0.95 : 0.5)) }; };   // as is: poor; upside down: good; sideways: poor
   const r = await readAligned(upsideDown, raw);
-  assert.equal(calls, 2);
+  assert.equal(calls, 4);   // as is, then 180°, 90°, 270° (synthetic bench: 270° photos 74.6% -> 93.1% totals)
   assert.equal(r.turns, 2);
   calls = 0;
   await readAligned(async () => { calls++; return { texts: [line(0, 0.9)] }; }, raw);
