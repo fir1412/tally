@@ -49,6 +49,23 @@ test('a zip cannot hand out the same stored bytes under many names (a 2 MB Money
   for (const z of [ok, pre]) assert.deepEqual(Object.entries(await IO.unzip(z, () => true)).map(([k, v]) => [k, v.length]), [['photos/a.jpg', 5000], ['photos/b.jpg', 7000]]);
 });
 
+test("setting the phone's clock back doesn't skip the lock after time in the background", async () => {
+  let wall = Date.UTC(2026, 8, 30, 9), mono = 1_000_000;
+  const realNow = Date.now, realPerf = performance.now, on = {}, shown = [];
+  const L = await import('../js/lock.js'), { S } = await import('../js/state.js');   // before the page below: ui.js checks for one when it loads
+  const el = () => ({ setAttribute() {}, addEventListener() {}, querySelector: () => null, remove() {}, classList: { add() {}, remove() {} }, set innerHTML(v) {} });
+  globalThis.document = { visibilityState: 'visible', addEventListener: (k, f) => { on[k] = f; }, createElement: el,
+    body: { children: [], classList: { add() {}, remove() {} }, append: x => shown.push(x) } };
+  Date.now = () => wall; performance.now = () => mono;
+  try {
+    S.kv.settings ={ lock: { hash: 'x', salt: 'x', iter: 1, kind: 'pin', len: 4 } };
+    L.watch(() => {});
+    const away = async (real, set = 0) => { document.visibilityState = 'hidden'; await on.visibilitychange(); wall += real + set; mono += real; document.visibilityState = 'visible'; on.visibilitychange(); await new Promise(r => setTimeout(r, 0)); return shown.length; };
+    assert.equal(await away(30_000), 0);                      // back within a minute: no lock
+    assert.equal(await away(2 * 3600_000, -3 * 3600_000), 1);   // 2 h away, clock set back 3 h: locked (was skipped)
+  } finally { Date.now = realNow; performance.now = realPerf; delete globalThis.document; }
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

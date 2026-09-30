@@ -210,11 +210,15 @@ export function gate() {
 }
 /** Lock again after more than a minute away; while hidden, the app switcher shows a blank screen. Then `onResume`. */
 export function watch(onResume) {
-  let away = Date.now();
+  let away = Date.now(), awayMono = performance.now();
   document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'hidden') { away = Date.now(); if (lockOn()) document.body.classList.add('veil'); return; }
+    if (document.visibilityState === 'hidden') { away = Date.now(); awayMono = performance.now(); if (lockOn()) document.body.classList.add('veil'); return; }
     document.body.classList.remove('veil');
-    if (lockOn() && Date.now() - away > AWAY) await gate();
+    // Either clock past a minute, or the phone's clock moved back: lock. The phone's clock alone can be set back by
+    // whoever holds the phone; the monotonic one can't, but may stop while the phone sleeps, so both are asked.
+    // ponytail: a clock set to within a minute after leaving, with under a minute awake since, still gets in.
+    const wall = Date.now() - away, mono = performance.now() - awayMono;
+    if (lockOn() && (wall > AWAY || wall < 0 || mono > AWAY)) await gate();
     onResume();
   });
 }
