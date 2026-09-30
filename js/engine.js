@@ -544,7 +544,28 @@ const billPeriod = (r, date) => (r.freq === 'weekly' ? [addDays(date, -3), addDa
 /** Paid for the period of the payment due on `date`: an expense with the bill's name, whatever the amount (utility bills vary), or one tagged with the bill. */
 export function billPaid(r, date, txs) {
   const name = String(r.name || '').trim().toLowerCase(), [a, b] = billPeriod(r, date);
-  return txs.some(t => t.type === 'expense' && t.date >= a && t.date <= b && (t.bill === r.id || String(t.id).startsWith(`rec-${r.id}-`) || (!!name && !t.bill && !String(t.id).startsWith('rec-') && String(t.merchant || '').trim().toLowerCase() === name)));
+  if (txs.length < 256) return txs.some(t => t.type === 'expense' && t.date >= a && t.date <= b && (t.bill === r.id || String(t.id).startsWith(`rec-${r.id}-`) || (!!name && !t.bill && !String(t.id).startsWith('rec-') && String(t.merchant || '').trim().toLowerCase() === name)));
+  // A big list: its paid dates by bill tag, posted id and shop name, sorted, found by binary search. Scanning every row
+  // for every due date of every bill froze the first screen for minutes on a file of 500 bills and 200,000 rows.
+  const { bill, rec, shop } = paidIndex(txs), hit = v => { if (!v) return false; let lo = 0, hi = v.length; while (lo < hi) { const m = (lo + hi) >> 1; if (v[m] < a) lo = m + 1; else hi = m; } return lo < v.length && v[lo] <= b; };
+  return hit(bill.get(r.id)) || hit(rec.get(String(r.id))) || (!!name && hit(shop.get(name)));
+}
+const paidIdx = new WeakMap();   // per rows array: the app replaces it on every change, never edits it in place
+function paidIndex(txs) {
+  let ix = paidIdx.get(txs);
+  if (ix) return ix;
+  ix = { bill: new Map(), rec: new Map(), shop: new Map() };
+  const add = (m, k, d) => (m.get(k) || m.set(k, []).get(k)).push(d);
+  for (const t of txs) {
+    if (t.type !== 'expense' || typeof t.date !== 'string') continue;
+    const id = String(t.id), posted = id.startsWith('rec-');
+    if (t.bill) add(ix.bill, t.bill, t.date);
+    if (posted) for (let k = id.indexOf('-', 5); k > 0; k = id.indexOf('-', k + 1)) add(ix.rec, id.slice(4, k), t.date);   // every r.id with id.startsWith(`rec-${r.id}-`)
+    if (!t.bill && !posted) add(ix.shop, String(t.merchant || '').trim().toLowerCase(), t.date);
+  }
+  for (const m of Object.values(ix)) for (const v of m.values()) v.sort();
+  paidIdx.set(txs, ix);
+  return ix;
 }
 /**
  * Where a bill stands today. date: the payment due in the next 3 days, else the latest one due (so an unpaid one
