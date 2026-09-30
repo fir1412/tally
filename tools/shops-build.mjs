@@ -46,14 +46,34 @@ for (const line of readFileSync(src, 'utf8').split('\n')) {
   const c = catOf.get(kind); if (c) e.cats.set(c, (e.cats.get(c) || 0) + 1);
 }
 const top = m => [...m].sort((a, b) => b[1] - a[1])[0]?.[0];
-const out = [...count].filter(([k, e]) => (e.brand || e.n >= 2) && (words(top(e.names)).length > 1 || (e.brand && k.length >= 6)))   // one word: a brand only ("Burger", "Express" are words).sort((a, b) => b[1].n - a[1].n)
+// One-word names only when they are a brand: "Burger", "Express" are words.
+const out = [...count].filter(([k, e]) => (e.brand || e.n >= 2) && (words(top(e.names)).length > 1 || (e.brand && k.length >= 6))).sort((a, b) => b[1].n - a[1].n)
   .map(([, e]) => `${top(e.names)}|${CODE[top(e.cats)] || '-'}`);
+// The companies behind brands, as receipts print them ("Trendcell Sdn Bhd" is Jaya Grocer): name|code|brand. From
+// D:/tally-data/products/operators.tsv (OSM operator tags, ODbL, and Wikidata, CC0). Holding companies and the pairs
+// that point a company at a sister brand are left out.
+const ops = process.argv[3] || 'D:/tally-data/products/operators.tsv';
+const SKIP_OP = /\b(group|holdings?|plantations|axiata|ytl|drb|usaha tegas|lion|gch retail|aeon co|mr\.? ?d\.?i\.?y|eco-shop|gerbang alaf)\b/i;
+const codeOf = new Map(out.map(l => l.split('|')).map(([n, c]) => [compact(n), c]));
+const legal = s => s.replace(/\(\s*(m|malaysia)\s*\)|\b(sdn\.?|sendirian|berhad|bhd\.?|enterprise|trading|marketing)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+let aliases = 0;
+try {
+  const [head, ...rows] = readFileSync(ops, 'utf8').trim().split('\n').map(l => l.split('\t'));
+  const col = n => head.indexOf(n);
+  for (const r of rows) {
+    const name = legal(r[col('operator_or_legal_name')]), brand = r[col('brand')];
+    if (r[col('new_vs_app')] !== '1' || SKIP_OP.test(r[col('operator_or_legal_name')]) || !brand || /[|"\\]/.test(name + brand)) continue;
+    if (/bank|insur|takaful|financ|credit|capital|securit|assurance|invest/i.test(name + ' ' + brand)) continue;   // a card slip prints the bank above the shop: never the shop
+    if (compact(name).length < 6 || (words(name).length < 2 && compact(name).length < 8) || codeOf.has(compact(name))) continue;   // short or one-word: too easily a word
+    out.push(`${name}|${codeOf.get(compact(brand)) || '-'}|${brand}`); codeOf.set(compact(name), '-'); aliases++;
+  }
+} catch { console.log('no operators file: skipped'); }
 const body = `// Malaysian chains and shop names seen at 2+ places, with their category: ${out.length} names from OpenStreetMap
 // (© OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright). Built by tools/shops-build.mjs; don't edit.
 // Each line: name|category code (g groceries, d dining, t transport, h health, p personal, o household, e electronics,
-// s shopping, k kids, u education, f fun, - unknown).
+// s shopping, k kids, u education, f fun, - unknown)[|the brand it is, for a company name]. Company names: OSM and Wikidata (CC0).
 export default ${JSON.stringify(out.join('\n'))};
 `;
 writeFileSync(new URL('../js/shops.js', import.meta.url), body);
-console.log(out.length, 'names,', (body.length / 1024).toFixed(0), 'KB; brands', [...count.values()].filter(e => e.brand).length);
+console.log(out.length, 'names,', (body.length / 1024).toFixed(0), 'KB; brands', [...count.values()].filter(e => e.brand).length, '; company aliases', aliases);
 console.log(out.slice(0, 60).join('  '));

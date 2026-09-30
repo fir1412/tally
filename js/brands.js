@@ -58,7 +58,7 @@ export function brandOf(lines, max = 10) {
 const CODES = { g: 'groceries', d: 'dining', t: 'transport', h: 'health', p: 'personal', o: 'household', e: 'electronics', s: 'shopping', k: 'kids', u: 'education', f: 'fun' };
 const squash = s => String(s).toUpperCase().replace(/[^\p{L}\p{N}]/gu, '');
 let index = null;   // "MRDIY" → ['MR.DIY', 'household'], built on the first receipt
-const shops = () => index ||= new Map(SHOPS.split('\n').map(l => l.split('|')).map(([n, c]) => [squash(n), [n, CODES[c] || null]]).reverse());   // reversed: the most common spelling wins
+const shops = () => index ||= new Map(SHOPS.split('\n').map(l => l.split('|')).map(([n, c, brand]) => [squash(n), [brand || n, CODES[c] || null]]).reverse());   // a company's line names its brand   // reversed: the most common spelling wins
 /** A known shop named on the receipt's top lines: {name, category} or null. Whole words only, glued the way OCR glues
  *  them ("MR D.I.Y." is MRDIY); the longest name on the earliest line wins. */
 export function knownShop(lines, max = 8) {
