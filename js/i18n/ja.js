@@ -1446,4 +1446,10 @@ export default {
   "A passion project by {0}, one developer in Malaysia.": "マレーシアの一人の開発者 {0} が情熱で作っているプロジェクトです。",
   "Open source: anyone can read the code.": "オープンソース：誰でもコードを読めます。",
   "No servers to pay for, and none of your money data to sell.": "支払うサーバー代はなく、売るようなあなたのお金のデータもありません。",
+  "Reading a receipt shows what Tally is doing, with a bar that keeps moving": "レシートを読む間、Tally が何をしているかを表示し、バーが動き続けます",
+  "A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone": "たくさんのレシートがより速く：確認している間に次のレシートを読み、読み取りにスマホの力をより多く使います",
+  "Imported categories no longer show codes like &#x1f35c; and join the ones you already have": "取り込んだカテゴリーに &#x1f35c; のようなコードが出なくなり、既存のカテゴリーにまとまります",
+  "The tour ends with installing Tally on this phone, or shows where to do it later": "ツアーの最後に Tally をこのスマホにインストールするか、後でどこからできるかを案内します",
+  "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共有口座とバックアップ：削除した記録が戻らず、どのバックアップも復元できるよう、さらに修正しました",
+  "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally が無料なのはなぜ？情熱のプロジェクトでオープンソース：ようこそ画面か設定をご覧ください",
 };

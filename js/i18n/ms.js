@@ -1447,4 +1447,10 @@ export default {
   "A passion project by {0}, one developer in Malaysia.": "Projek minat {0}, seorang pembangun di Malaysia.",
   "Open source: anyone can read the code.": "Sumber terbuka: sesiapa pun boleh membaca kodnya.",
   "No servers to pay for, and none of your money data to sell.": "Tiada pelayan untuk dibayar, dan tiada data kewangan anda untuk dijual.",
+  "Reading a receipt shows what Tally is doing, with a bar that keeps moving": "Semasa membaca resit, Tally menunjukkan apa yang sedang dibuat, dengan bar yang terus bergerak",
+  "A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone": "Timbunan resit lebih cepat: resit seterusnya dibaca semasa anda menyemak yang ini, dan bacaan menggunakan lebih banyak kuasa telefon",
+  "Imported categories no longer show codes like &#x1f35c; and join the ones you already have": "Kategori yang diimport tidak lagi menunjukkan kod seperti &#x1f35c; dan digabungkan dengan kategori sedia ada",
+  "The tour ends with installing Tally on this phone, or shows where to do it later": "Lawatan berakhir dengan memasang Tally di telefon ini, atau menunjukkan di mana untuk melakukannya kemudian",
+  "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "Akaun bersama dan sandaran: lebih banyak pembaikan supaya catatan yang dipadam kekal dipadam dan setiap sandaran boleh dipulihkan",
+  "Why is Tally free? A passion project, open source: see Welcome or Settings": "Kenapa Tally percuma? Projek minat, sumber terbuka: lihat Selamat datang atau Tetapan",
 };

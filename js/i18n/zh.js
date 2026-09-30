@@ -1447,4 +1447,10 @@ export default {
   "A passion project by {0}, one developer in Malaysia.": "这是 {0} 的热爱之作，一位来自马来西亚的独立开发者。",
   "Open source: anyone can read the code.": "开源：任何人都可以查看代码。",
   "No servers to pay for, and none of your money data to sell.": "没有服务器费用，也没有你的财务数据可卖。",
+  "Reading a receipt shows what Tally is doing, with a bar that keeps moving": "读取收据时会显示 Tally 正在做什么，进度条一直在走",
+  "A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone": "一叠收据处理得更快：你检查这张时下一张已在读取，读取也会用上手机更多的性能",
+  "Imported categories no longer show codes like &#x1f35c; and join the ones you already have": "导入的类别不再显示 &#x1f35c; 这样的代码，并会并入你已有的类别",
+  "The tour ends with installing Tally on this phone, or shows where to do it later": "导览最后会引导你把 Tally 安装到这部手机，或告诉你之后在哪里安装",
+  "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共同账户与备份：更多修复，删除的记录保持删除，每个备份都能恢复",
+  "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally 为什么免费？热爱之作，开源：见欢迎页或设置",
 };

@@ -6,6 +6,14 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.3.0': [
+    'Reading a receipt shows what Tally is doing, with a bar that keeps moving',
+    'A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone',
+    'Imported categories no longer show codes like &#x1f35c; and join the ones you already have',
+    'The tour ends with installing Tally on this phone, or shows where to do it later',
+    'Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores',
+    'Why is Tally free? A passion project, open source: see Welcome or Settings',
+  ],
   '1.2.0': [
     'The camera tells you when a receipt is too dark, blurry, too far or too close, and turns green when it can be read',
     'Joint accounts: a bill or account you delete stays deleted on both phones, and imported joint entries reach your partner',

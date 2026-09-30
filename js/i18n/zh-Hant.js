@@ -1446,4 +1446,10 @@ export default {
   "A passion project by {0}, one developer in Malaysia.": "這是 {0} 的熱爱之作，一位來自馬來西亞的獨立開發者。",
   "Open source: anyone can read the code.": "開源：任何人都可以查看代碼。",
   "No servers to pay for, and none of your money data to sell.": "沒有服務器費用，也沒有你的財務資料可賣。",
+  "Reading a receipt shows what Tally is doing, with a bar that keeps moving": "讀取收據時會顯示 Tally 正在做什麼，進度條一直在走",
+  "A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone": "一叠收據處理得更快：你檢查這張時下一張已在讀取，讀取也會用上手機更多的性能",
+  "Imported categories no longer show codes like &#x1f35c; and join the ones you already have": "導入的類別不再顯示 &#x1f35c; 這樣的代碼，並會並入你已有的類別",
+  "The tour ends with installing Tally on this phone, or shows where to do it later": "導覽最後會引導你把 Tally 安裝到這部手機，或告訴你之後在哪裡安裝",
+  "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共同帳戶與備份：更多修複，刪除的記錄保持刪除，每個備份都能恢復",
+  "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally 為什麼免費？熱爱之作，開源：见歡迎頁或設定",
 };
