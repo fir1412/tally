@@ -935,9 +935,10 @@ export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? 
 /** The receipt photos an import may write: those of the rows it adds or updates, never an id that another row on this
  *  phone (`before`) already uses. A file can't overwrite a photo it doesn't own. */
 export const photosToWrite = (rows, before) => {
-  const owner = new Map(before.filter(t => t.receiptId).map(t => [t.receiptId, t.id]));
-  return new Set(rows.filter(t => t.receiptId && (owner.get(t.receiptId) ?? t.id) === t.id).map(t => t.receiptId));
+  const users = photoUsers(before);   // every row using a photo: one photo can be shared (Money Manager links one to many entries)
+  return new Set(rows.filter(t => t.receiptId && [...(users.get(t.receiptId) || [t.id])].every(id => id === t.id)).map(t => t.receiptId));
 };
+const photoUsers = rows => { const m = new Map(); for (const t of rows) if (t.receiptId) (m.get(t.receiptId) || m.set(t.receiptId, new Set()).get(t.receiptId)).add(t.id); return m; };
 /** Merge restore: keep everything local, add what the backup has that we don't (by id). Local settings win. */
 export function mergeBackup(local, incoming) {
   const merge = (a, b) => { const ids = new Set(a.map(x => x.id)); return [...a, ...b.filter(x => !ids.has(x.id))]; };
@@ -1004,8 +1005,9 @@ export function mergeJoint(local, incoming) {
   const myGone = local.kv.jointGone || {}, theirGone = incoming.gone || {}, me = local.kv.settings?.myName || '';
   // A photo id a row here already uses belongs to that row: a file's row pointing at it loses the link (else the next
   // joint share would send a personal row's photo, and the zip's copy would overwrite it).
-  const photoOf = new Map(local.tx.filter(t => t.receiptId).map(t => [t.receiptId, t.id]));
-  const ownPhoto = t => ((photoOf.get(t.receiptId) ?? t.id) === t.id ? t : (({ receiptId, ...r }) => r)(t));
+  // A row keeps the link it already has here (shared or not); photosToWrite then decides whether the file's copy is written.
+  const used = photoUsers(local.tx);
+  const ownPhoto = t => (!t.receiptId || !used.has(t.receiptId) || txs.get(t.id)?.receiptId === t.receiptId ? t : (({ receiptId, ...r }) => r)(t));
   const tx = incoming.tx.map(remap).filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
     .filter(t => { const m = txs.get(t.id); return !(m && (personal.has(m.accountId) || personal.has(m.toAccountId))) && newer(m, t) && !((myGone[t.id] || 0) >= (t.updatedAt || 0)); })
     .map(t => { const m = txs.get(t.id); return m ? { ...t, ...(m.spouse ? { spouse: true } : {}), ...(m.by && !t.by ? { by: m.by } : {}) } : { ...t, ...(me && t.by === me ? {} : { spouse: true }) }; })

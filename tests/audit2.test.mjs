@@ -121,6 +121,19 @@ test('a sealed save still being encrypted when the erase runs cannot land in the
   assert.deepEqual([C.S.S.kv.reviewDraft ?? null, shim.rows('kv').filter(r => r.ct).length], [null, 0]);
 });
 
+test("a partner's file can't replace the photo a personal entry shares with a joint one (only the last row using it was asked)", async () => {
+  const IO = await import('../js/io.js');
+  const local = { accounts: [{ id: 'me', name: 'Maybank', kind: 'bank' }, { id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint' }], recurring: [], kv: {},
+    tx: [{ id: 'mm_1aa', date: '2026-09-01', type: 'expense', amount: 100, accountId: 'me', receiptId: 'pS', updatedAt: 5 },
+      { id: 'mm_9zz', date: '2026-09-01', type: 'expense', amount: 200, accountId: 'jt', receiptId: 'pS', updatedAt: 5 }] };   // one Money Manager photo, two entries
+  const file = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kind: 'joint', by: 'Partner', accounts: [{ id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint' }],
+    tx: [{ id: 'mm_9zz', date: '2026-09-01', type: 'expense', amount: 250, accountId: 'jt', receiptId: 'pS', updatedAt: 60 }, { id: 'n1', date: '2026-09-02', type: 'expense', amount: 9, accountId: 'jt', receiptId: 'pS', updatedAt: 60 }] }));
+  const m = IO.mergeJoint(local, file);
+  assert.deepEqual(m.tx.map(t => [t.id, t.receiptId]), [['mm_9zz', 'pS'], ['n1', undefined]]);   // the joint row keeps its link; a new row can't take it
+  assert.deepEqual([...IO.photosToWrite(m.tx, local.tx)], []);   // but the file's copy is never written over the personal entry's photo
+  assert.deepEqual([...IO.photosToWrite([{ id: 'mm_9zz', receiptId: 'pJ' }], [...local.tx, { id: 'mm_9zz', receiptId: 'pJ' }])], ['pJ']);   // a photo only it uses: still written
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];
