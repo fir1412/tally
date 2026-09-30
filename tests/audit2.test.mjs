@@ -230,6 +230,35 @@ test('turning encryption on leaves nothing in the clear that another tab saved m
   assert.ok(C.S.S.tx.some(t => t.id === 'tPlain'), 'still readable once unlocked');
 });
 
+test("turning encryption off while things save leaves nothing sealed under the dropped key, and loses no edit", async () => {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(), B = await shim.tab(), LA = await A.lock(), LB = await B.lock();
+  await A.S.load();
+  await A.S.saveAccount({ id: 'a1', name: 'Dummy Bank', kind: 'bank', opening: 0, createdAt: 1 });
+  const t1 = { id: 't1', accountId: 'a1', type: 'expense', amount: 1000, date: '2026-09-01', merchant: 'DUMMY ONE', category: 'dining', createdAt: 1 };
+  await A.S.saveTxs([t1]);
+  await A.S.setSetting('lock', await LA.makeLock('1234'));
+  await LA.encryptOn('1234');
+  await B.S.load(); const enc = B.S.S.kv.settings.lock.enc; B.db.setKey(await LB.unwrapDek('1234', enc), enc.key); await B.S.load();   // B: the same phone's other tab, unlocked
+  const P = Object.getPrototypeOf(crypto.subtle), importKey = P.importKey;
+  let hooked = false;
+  P.importKey = async function (...a) {   // the slow new-PIN hash inside encryptOff: saves land meanwhile, here and in B
+    if (!hooked && a[4]?.includes?.('deriveBits')) {
+      hooked = true;
+      await A.S.saveTx({ ...t1, amount: 9999 }); await A.S.saveTx({ ...t1, id: 'tWin', amount: 7 }); await A.S.setKv('reviewDraft', { draft: { merchant: 'DUMMY DRAFT' } });
+      await B.S.saveTx({ ...t1, id: 'tB', amount: 5 });
+    }
+    return importKey.apply(this, a);
+  };
+  try { await LA.encryptOff('1234'); } finally { P.importKey = importKey; }
+  const late = await B.S.saveTx({ ...t1, id: 'tLate', amount: 3 }).then(() => 'landed', () => 'refused');   // B hasn't heard yet
+  assert.equal(late, 'refused');
+  assert.deepEqual(['accounts', 'tx', 'recurring', 'kv', 'receipts'].flatMap(s => shim.rows(s).filter(r => r.ct).map(r => `${s}:${r.id ?? r.key}`)), []);
+  const C = await shim.tab(); await C.S.load();   // threw 'Tally is locked' at every start
+  assert.deepEqual(C.S.S.tx.map(t => [t.id, t.amount]).sort(), [['t1', 9999], ['tB', 5], ['tWin', 7]]);
+  assert.equal(C.S.S.kv.reviewDraft?.draft?.merchant, 'DUMMY DRAFT');
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

@@ -13,7 +13,9 @@ let mem = null; // fallback: {store: {id: obj}}
 // {id or key, iv, ct}: AES-GCM of the record under a random data key that exists only in memory after unlocking.
 // Receipt photos are sealed too (their bytes after a JSON header). Old plain records still read, so turning it on or
 // off can move the photos a few at a time. IndexedDB only: the localStorage fallback can't hold the bytes.
-let dek = null, sealed = false, dekFor = null;
+let dek = null, sealed = false, dekFor = null, plainWrites = false;
+/** Turning encryption off: this page saves in the clear while it can still read sealed records with its key. */
+export const writePlain = v => { plainWrites = !!v; };
 /** The data key for this session (null: none), and the wrapped key (settings.lock.enc.key) it was unwrapped from. */
 export const setKey = (k, wrapped = null) => { dek = k; dekFor = k ? wrapped : null; };
 export const getKey = () => dek;
@@ -44,7 +46,7 @@ export async function openRecord(rec, key) {
   return { ...rest, blob: new Blob([data.subarray(4 + n)], { type: blobType }) };
 }
 async function seal(store, obj) {
-  if (!idb || plainRec(store, obj)) return obj;
+  if (!idb || plainWrites || plainRec(store, obj)) return obj;
   if (!dek) { if (sealed) throw new Error('Tally is locked'); return obj; }
   return sealRecord(store, obj, dek);
 }
@@ -146,8 +148,7 @@ export async function all(store) {
 export async function put(store, obj) {
   alive();
   if (!idb) { lsWrite(store, m => { m[store === 'kv' ? obj.key : obj.id] = obj; }); return obj; }
-  const rec = await seal(store, obj);
-  await tx(store, 'readwrite', os => { os.put(rec); });
+  await writeRecs(store, [await seal(store, obj)]);
   notify(store);
   return obj;
 }
@@ -155,9 +156,60 @@ export async function put(store, obj) {
 export async function putMany(store, list) {
   alive();
   if (!idb) return lsWrite(store, m => { for (const o of list) m[store === 'kv' ? o.key : o.id] = o; });
-  const recs = await Promise.all(list.map(o => seal(store, o)));
-  await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
+  await writeRecs(store, await Promise.all(list.map(o => seal(store, o))));
   notify(store);
+}
+/** A sealed record is stored only in a transaction that finds the stored settings still wrapping this page's key: once
+ *  another tab turned encryption off (or changed the key), the save is refused, never left where nothing can open it. */
+const wrapsMine = s => !!dekFor && s?.value?.lock?.enc?.key === dekFor;
+function writeRecs(store, recs) {
+  if (!recs.some(r => r?.ct)) return tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
+  return new Promise((resolve, reject) => {
+    let t;
+    try { alive(); t = idb.transaction([...new Set([store, 'kv'])], 'readwrite'); } catch (e) { failHandler(e); return reject(e); }
+    const g = t.objectStore('kv').get('settings');
+    g.onsuccess = () => {
+      if (!wrapsMine(g.result)) { setKey(null); return t.abort(); }
+      const os = t.objectStore(store); for (const o of recs) os.put(o);
+    };
+    t.oncomplete = () => resolve();
+    t.onerror = t.onabort = () => { const e = t.error || new Error('Tally is locked'); failHandler(e); reject(e); };
+  });
+}
+/** Turning encryption off: every record of `store` still sealed is rewritten in the clear with `key`, one at a time
+ *  (photos are big), and only while it is still that same sealed record (a newer save wins). */
+export async function unsealStore(store, key) {
+  let n = 0;
+  for (const id of await keys(store)) {
+    const r = await tx(store, 'readonly', os => reqP(os.get(id)));
+    if (!r?.ct) continue;
+    const plain = await openRecord(r, key);
+    await tx(store, 'readwrite', os => { const g = os.get(id); g.onsuccess = () => { if (g.result?.ct && String(g.result.iv) === String(r.iv)) os.put(plain); }; });
+    n++;
+  }
+  if (n) notify(store);
+}
+/** The settings get `lock` (no encryption) only if no record in any store is still sealed, checked in the same
+ *  transaction over every store: no sealed save can land between the check and the switch. → the settings, or null.
+ *  ponytail: reads every record (photos too) in one transaction and saves wait meanwhile; fine for a rare switch. */
+export function commitPlain(lock) {
+  return new Promise((resolve, reject) => {
+    let t, left = false, open = STORES.length, next = null;
+    try { alive(); t = idb.transaction(STORES, 'readwrite'); } catch (e) { return reject(e); }
+    for (const s of STORES) {
+      const c = t.objectStore(s).openCursor();
+      c.onsuccess = () => {
+        const cur = c.result;
+        if (cur && !left && !cur.value?.ct) return cur.continue();
+        if (cur?.value?.ct) left = true;
+        if (--open || left) return;
+        const g = t.objectStore('kv').get('settings');
+        g.onsuccess = () => { next = { ...(g.result?.value || {}), lock }; t.objectStore('kv').put({ key: 'settings', value: next }); };
+      };
+    }
+    t.oncomplete = () => { if (next) notify('all'); resolve(next); };
+    t.onerror = t.onabort = () => reject(t.error);
+  });
 }
 
 export async function del(store, key) {
@@ -203,12 +255,6 @@ export async function plainKeys(store) {
     r.onerror = () => rej(r.error);
   }));
 }
-/** Write records exactly as given (turning encryption on or off moves them a few at a time). */
-export async function putRaw(store, recs) {
-  alive();
-  await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
-  notify(store);
-}
 
 /** Close and delete the whole database (leaving the old address). */
 export async function destroy() {
@@ -250,17 +296,25 @@ export async function writeAtomic({ clear = [], del = {}, put = {} }) {
     notify('all'); return;
   }
   const sealedPut = Object.fromEntries(await Promise.all(Object.entries(put).map(async ([s, list]) => [s, await Promise.all(list.map(o => seal(s, o)))])));   // before the transaction: it would close while waiting
+  // Sealed records need settings that wrap this page's key: its own settings in this write, else the stored ones (writeRecs).
+  const anySealed = Object.values(sealedPut).some(l => l.some(r => r?.ct)), own = (put.kv || []).find(r => r.key === 'settings');
+  if (anySealed && own && !wrapsMine(own)) throw new Error('Tally is locked');
+  const check = anySealed && !own;
   await new Promise((resolve, reject) => {
     let t;
-    try {
-      alive();   // the seal above can outlast an erase on this page
-      t = idb.transaction(stores, 'readwrite');
+    const write = () => {
       for (const s of clear) t.objectStore(s).clear();
       for (const [s, keys] of Object.entries(del)) for (const k of keys) t.objectStore(s).delete(k);
       for (const [s, list] of Object.entries(sealedPut)) { const os = t.objectStore(s); for (const o of list) os.put(o); }
+    };
+    try {
+      alive();   // the seal above can outlast an erase on this page
+      t = idb.transaction(check ? [...new Set([...stores, 'kv'])] : stores, 'readwrite');
+      if (!check) write();
+      else { const g = t.objectStore('kv').get('settings'); g.onsuccess = () => { if (!wrapsMine(g.result)) { setKey(null); return t.abort(); } write(); }; }
     } catch (e) { try { t?.abort(); } catch {} failHandler(e); return reject(e); } // abort: a half-written restore must not commit
     t.oncomplete = resolve;
-    t.onerror = t.onabort = () => { failHandler(t.error); reject(t.error); };
+    t.onerror = t.onabort = () => { const e = t.error || new Error('Tally is locked'); failHandler(e); reject(e); };
   });
   notify('all');
 }

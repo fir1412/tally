@@ -36,7 +36,9 @@ function makeTx(data, conn) {
   t.abort = () => { t.aborted = true; };
   chain = chain.then(() => new Promise(res => later(() => {
     if (t.aborted) { t.onabort?.(); return res(); }
-    while (t.ops.length) t.ops.shift()();
+    const before = Object.fromEntries(Object.entries(data).map(([k, s]) => [k, new Map(s.map)]));   // an abort from a callback undoes what ran
+    while (t.ops.length && !t.aborted) t.ops.shift()();
+    if (t.aborted) { for (const [k, m] of Object.entries(before)) if (data[k]) data[k].map = m; t.onabort?.(); return res(); }
     later(() => { t.oncomplete?.(); res(); });
   })));
   return t;

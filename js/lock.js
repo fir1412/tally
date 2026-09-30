@@ -62,16 +62,23 @@ export async function sealPhotos() {
   for (const s of ['accounts', 'tx', 'recurring', 'kv', 'receipts'])
     for (const ids of chunks((await db.plainKeys(s)).filter(k => !(s === 'kv' && k === 'settings')), 20)) await db.putMany(s, (await Promise.all(ids.map(id => db.get(s, id)))).filter(Boolean));
 }
-/** Back to plain storage with the current PIN or password (it gets its hash back). Photos first, while the key is here. */
+/** Back to plain storage with the current PIN or password (it gets its hash back). What is stored is opened in place, not
+ *  a snapshot (a save meanwhile, here or in another tab, is opened too), and the settings lose the key only in the
+ *  transaction that finds nothing sealed: closing Tally half-way leaves it encrypted, every record still openable. */
 export async function encryptOff(code) {
   const key = db.getKey(), old = settings().lock;
   if (!key || !(await checkPin(code, old))) throw new Error('wrong');
-  for (const ids of chunks(await db.keys('receipts'), 20)) await db.putRaw('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
-  const [accounts, tx, recurring, kv] = await Promise.all(['accounts', 'tx', 'recurring', 'kv'].map(s => db.all(s)));
-  const next = { ...settings(), lock: await makeLock(code, old.cred, old.kind) };
+  const lock = await makeLock(code, old.cred, old.kind);   // the slow part first
+  db.writePlain(true);   // this page saves in the clear from here
+  let next = null;
+  try {
+    for (let pass = 0; !next; pass++) {
+      if (pass === 5) throw new Error('busy');   // another tab keeps saving sealed: encryption stays on, try again
+      for (const s of db.STORES) await db.unsealStore(s, key);
+      next = await db.commitPlain(lock);
+    }
+  } finally { db.writePlain(false); }
   db.setKey(null); db.expectSealed(false);
-  try { await db.writeAtomic({ put: { accounts, tx, recurring, kv: [...kv.filter(r => r.key !== 'settings'), { key: 'settings', value: next }] } }); }
-  catch (e) { db.setKey(key, old.enc.key); db.expectSealed(true); throw e; }
   S.kv.settings = next;
 }
 /** Is this the PIN or password? Encrypted: only if it unwraps the data key (kept for the lock screen: `opened`). */
