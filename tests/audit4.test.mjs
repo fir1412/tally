@@ -49,6 +49,7 @@ test('an entry moved off the joint account (a split bill a friend paid) goes fro
   await St.saveTx({ id: 'bill', type: 'expense', date: '2026-09-15', accountId: 'jt', category: 'dining', merchant: 'Kedai', amount: 9000, source: 'quick', createdAt: 1 });
   await St.saveTx({ id: 'e1', type: 'expense', date: '2026-09-16', accountId: 'jt', category: 'dining', amount: 500, source: 'quick', createdAt: 1 });
   const partner = { accounts: [jt], tx: S.tx.map(t => ({ ...t, spouse: true })), recurring: [], kv: { settings: { myName: 'Wei' } } };
+  await new Promise(r => setTimeout(r, 5));   // the split comes later than the swap (a marker must be newer than the row)
   await saveSplit({ tx: S.tx.find(x => x.id === 'bill'), people: [ME, 'Ali'], who: [[]], paidBy: 'Ali', today: '2026-10-01' });
   await St.saveTx({ ...S.tx.find(x => x.id === 'e1'), accountId: 'mine' });   // and an ordinary edit to a personal account
   const m = IO.mergeJoint(partner, IO.readBackup(IO.makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, 'Aina')));
