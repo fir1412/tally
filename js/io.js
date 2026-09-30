@@ -435,6 +435,13 @@ export function mapCategory(name, catMap = {}, merchant = '', custom = []) {
   if (hit) return hit.id;
   return CAT_WORDS.find(([, re]) => re.test(n))?.[0] || categorize(n, merchant);
 }
+/** Another app's category → the Tally one with exactly that name (built-in or the user's own), else null: imports keep the user's names. */
+export function sameCategory(name, custom = [], income = false) {
+  const lo = cleanText(name, 40).toLowerCase();
+  return (lo && [...custom.filter(c => (c.kind === 'income') === income), ...(income ? INCOME_CATEGORIES : CATEGORIES)].find(c => String(c.name).toLowerCase() === lo)?.id) || null;   // the name shown, never Tally's inner id ("Income" is not "Other income")
+}
+/** "Other" in another app is Tally's Other, not a new category. */
+export const OTHER_NAME = /^(other|others|misc|lain|lain-lain|lain2|其他|其它)$/i;
 // Category names people use in their own sheets, English, Malay and Chinese. Order matters: "Sekolah Anak" is Kids.
 const CAT_WORDS = [
   ['salary', /salary|gaji|paycheck|payroll|wage|工资|工資|薪/i], ['allowance', /elaun|allowance|biasiswa|scholarship|津贴|津貼/i],
@@ -567,8 +574,9 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (category === 'groceries' && !CAT_WORDS.find(([c]) => c === 'groceries')[1].test(rawCat || '') && shopCategory(merchant) === 'dining') category = 'dining';
     // No type column and unsigned amounts: a row the user mapped to Salary / Other income is money in, not spending.
     if (!tword && !signed && !bal[n] && !dc && !preset?.type && (INCOME_CATEGORIES.some(c => c.id === category) || INCOME_WORD.test(cleanText(rawCat, 60)))) type = 'income';
-    if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
-    if (type === 'expense' && INCOME_CATEGORIES.some(c => c.id === category)) category = 'other';
+    const ownIncome = String(category).startsWith('new:') || customCats.some(c => c.id === category && c.kind === 'income');   // their own name: settled when saved
+    if (type === 'income' && !ownIncome && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
+    if (type === 'expense' && (INCOME_CATEGORIES.some(c => c.id === category) || customCats.some(c => c.id === category && c.kind === 'income'))) category = 'other';
     if (refundRow && type === 'income') { txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category: 'refund', cat: INCOME_CATEGORIES.some(c => c.id === category) ? 'other' : category, merchant, note, source, createdAt: now }); return; }
     txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, merchant, note, source, createdAt: now });
   });

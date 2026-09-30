@@ -117,6 +117,26 @@ test('Money Manager (Innim): an SGD account keeps its currency; transfers withou
   assert.deepEqual(Object.values(E.balances(mm.accounts, mm.tx).by), [90000, 20000]);   // today's balances match Money Manager
 });
 
+test("another app's categories keep their names: Tally's only when the name is exactly Tally's, else the user's own (income too)", async () => {
+  const db = sqlite(`create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
+    create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);
+    create table category(uid, title, type, color, isRemoved); create table sync_link(entityUid, entityType, otherType, otherUid, isRemoved);
+    insert into account values ('b', 'Maybank', 'MYR', '2026-01-01', 0); insert into account_balance values ('b', 0);
+    insert into category values ('f', 'Food', 'Expense', 0, 0), ('d', 'dining', 'Expense', 0, 0), ('t', 'Transit', 'Expense', 0, 0), ('o', 'Other', 'Expense', 0, 0), ('n', 'Nafaqah', 'Income', 0, 0), ('s', 'Salary', 'Income', 0, 0);
+    insert into "transaction" values ('1', 'Expense', 100, '2026-09-01', 'a', '', 0), ('2', 'Expense', 100, '2026-09-01', 'b', '', 0), ('3', 'Expense', 100, '2026-09-01', 'c', '', 0),
+      ('4', 'Expense', 100, '2026-09-01', 'd', '', 0), ('5', 'Income', 100, '2026-09-01', 'e', '', 0), ('6', 'Income', 100, '2026-09-01', 'f', '', 0);
+    insert into sync_link values ${['f', 'd', 't', 'o', 'n', 's'].map((c, i) => `('${i + 1}', 'Transaction', 'Account', 'b', 0), ('${i + 1}', 'Transaction', 'Category', '${c}', 0)`).join(', ')};`);
+  const mm = await readMoneyManager(new Uint8Array(await IO.zipStore([{ name: 'MyFinance.db', data: db }]).arrayBuffer()), SQL);
+  const name = id => mm.customCats.find(c => c.id === id)?.name || id;
+  assert.deepEqual(mm.tx.map(t => name(t.category)), ['Food', 'dining', 'Transit', 'other', 'Nafaqah', 'salary']);   // not Food → Dining, Transit → Transport
+  assert.deepEqual(mm.customCats.map(c => [c.name, c.kind || 'expense']), [['Food', 'expense'], ['Transit', 'expense'], ['Nafaqah', 'income']]);
+  // A spreadsheet's own category on money in stays its own until saved (it becomes an income category then).
+  const csv = IO.rowsToTx([['2026-09-01', 'Nafaqah', '500.00'], ['2026-09-02', 'Kopi', '-5.00']], { date: 0, category: 1, amount: 2 }, { accountId: 'a', catMap: { Nafaqah: 'new:Nafaqah' }, customCats: [] });
+  assert.deepEqual(csv.txs.filter(t => t.type === 'income').map(t => t.category), ['new:Nafaqah']);
+  assert.equal(IO.sameCategory('ENTERTAINMENT'), 'fun');
+  assert.equal(IO.sameCategory('Transit'), null);
+});
+
 test('Money Manager (Innim): transfers come in when the backup names both accounts (link rows or columns); balances still match', async () => {
   const base = `create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
     create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);

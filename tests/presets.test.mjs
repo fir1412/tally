@@ -141,12 +141,12 @@ test('Money Manager (Realbyte) .mmbak: bare or zipped; transfers once, correctio
     assert.equal(mm.transfers, 2);
     assert.equal(mm.adjustments, 2);
     assert.equal(mm.tx.length, 8);   // 6 entries + 2 transfers; the mirror halves and the deleted row left out
-    const by = m => mm.tx.find(t => t.merchant === m);
+    const by = m => mm.tx.find(t => t.merchant === m), cat = id => mm.customCats.find(c => c.id === id)?.name || id;
     assert.deepEqual([by('Reload').type, by('Reload').accountId, by('Reload').toAccountId], ['transfer', 'rb_a-bank', 'rb_a-tng']);
-    assert.deepEqual([by('Nasi lemak').date, by('Nasi lemak').time, by('Nasi lemak').category], ['2026-09-03', '12:40', 'dining']);   // Breakfast, under Food
+    assert.deepEqual([by('Nasi lemak').date, by('Nasi lemak').time, cat(by('Nasi lemak').category)], ['2026-09-03', '12:40', 'Food']);   // Breakfast, under Food: their category keeps its name
     assert.deepEqual([by('Refund').type, by('Refund').category, by('September pay').category], ['income', 'income', 'salary']);
-    assert.equal(by('Musang King').category, mm.customCats[0].id);
-    assert.deepEqual(mm.customCats.map(c => c.name), ['Durian Trips']);
+    assert.deepEqual([cat(by('Musang King').category), cat(by('Toll').category), by('Tesco').category], ['Durian Trips', 'Transportation', 'household']);   // exactly Tally's name: Tally's
+    assert.deepEqual(mm.customCats.map(c => c.name), ['Food', 'Transportation', 'Durian Trips']);
     const bal = Object.fromEntries(mm.accounts.map(a => [a.id, a.opening]));
     for (const t of mm.tx) { bal[t.accountId] += t.type === 'income' ? t.amount : -t.amount; if (t.type === 'transfer') bal[t.toAccountId] += t.amount; }
     assert.deepEqual(bal, { 'rb_a-bank': 411460, 'rb_a-tng': 7000, 'rb_a-cash': 19450 });

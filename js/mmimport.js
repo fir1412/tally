@@ -1,9 +1,19 @@
 // Import from "Money manager & expenses" (Innim) backups (.mmbackup): a zip holding MyFinance.db (SQLite) and
 // photos/. SQLite is read with sql.js (vendored, loaded only here). Accounts keep their current balances.
 // Also Money Manager by Realbyte backups (.mmbak), below.
-import { unzip, cleanText, mapCategory, hash, okId, okSigned } from './io.js';
+import { unzip, cleanText, mapCategory, sameCategory, OTHER_NAME, hash, okId, okSigned } from './io.js';
 import { INCOME_CATEGORIES, validIso, MAX_SEN, nextColor } from './engine.js';
 import { guessKind } from './statement.js';
+
+/** Their category keeps its name: Tally's of exactly that name, else a new one called the same (50 at most, then the nearest of Tally's). */
+function keepName(title, income, customCats, id, color) {
+  const same = sameCategory(title, [], income);
+  if (same) return same;
+  if (!OTHER_NAME.test(title) && customCats.length < 50) { customCats.push({ id, name: title, color, ...(income ? { kind: 'income' } : {}) }); return id; }
+  if (income) return /salary|gaji|工资|薪/i.test(title) ? 'salary' : 'income';
+  const near = mapCategory(title);
+  return INCOME_CATEGORIES.some(x => x.id === near) ? 'other' : near;
+}
 
 /** Load sql.js in the browser (UMD script → window.initSqlJs). Node tests pass their own SQL instead. */
 export async function loadSqlJs() {
@@ -40,14 +50,8 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
     const customCats = [];
     const catMap = Object.create(null);
     for (const c of rows(`select uid, title, type, color from category where isRemoved = 0 limit 2000`)) {
-      const title = cleanText(c.title, 40) || 'Category';
-      let id = mapCategory(title);
-      if (c.type === 'Income') id = INCOME_CATEGORIES.some(x => x.id === id) ? id : /salary|gaji|工资|薪/i.test(title) ? 'salary' : 'income';
-      else if (id === 'other' && !/^other|lain|其他/i.test(title) && customCats.length < 50) {
-        id = `c_mm_${hash(c.uid)}`; // stable per backup: a second backup never lands in the first one's categories
-        customCats.push({ id, name: title, color: hex(c.color) });
-      } else if (INCOME_CATEGORIES.some(x => x.id === id)) id = 'other';
-      catMap[c.uid] = id;
+      const title = cleanText(c.title, 40) || 'Category', income = c.type === 'Income';
+      catMap[c.uid] = keepName(title, income, customCats, `c_mm_${hash(c.uid)}`, hex(c.color));   // stable per backup: a second backup never lands in the first one's categories
     }
 
     // Links: transaction → account / category / photo.
@@ -71,7 +75,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       if (!l.Category && !cleanText(t.comment)) { adjustments++; continue; }
       const type = t.type === 'Income' ? 'income' : 'expense';
       let category = catMap[l.Category] || (type === 'income' ? 'income' : 'other');
-      if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category)) category = 'income';
+      if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category) && !customCats.some(c => c.id === category && c.kind === 'income')) category = 'income';
       const id = mmId(t.uid);
       tx.push({ id, date: t.date, time: localTime(t.created), type, amount: amt, accountId: mmId(l.Account), category, merchant: cleanText(t.comment, 80), note: '', source: 'import', createdAt: now });
       if (photoPath.has(l.Photo)) photos.push({ txId: id, path: photoPath.get(l.Photo) });
@@ -142,19 +146,10 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
     if (has('ZCATEGORY') && need('ZCATEGORY', ['uid', 'NAME', 'TYPE'])) {
       const all = rows(`select uid, NAME, TYPE${cols('ZCATEGORY').has('pUid') ? ', pUid' : ", '' as pUid"} from ZCATEGORY where ${live('ZCATEGORY')} limit 2000`);
       const byUid = new Map(all.map(c => [String(c.uid), c]));
-      for (const c of all) {
-        const title = cleanText(c.NAME, 40) || 'Category', parent = byUid.get(String(c.pUid));
-        let id = mapCategory(title);
-        if (id === 'other' && parent) id = mapCategory(cleanText(parent.NAME, 40));   // a subcategory: its parent says more
-        if (String(c.TYPE) === '0') id = INCOME_CATEGORIES.some(x => x.id === id) ? id : /salary|gaji|工资|薪/i.test(title) ? 'salary' : 'income';
-        else if (id === 'other' && !/^other|lain|其他/i.test(title) && !parent && customCats.length < 50) {
-          id = `c_rb_${hash(c.uid)}`;
-          customCats.push({ id, name: title, color: nextColor(customCats.map(x => x.color)) });
-        } else if (INCOME_CATEGORIES.some(x => x.id === id)) id = 'other';
-        catMap[String(c.uid)] = id;
-      }
-      // A subcategory of a custom category files under it.
-      for (const c of all) if (catMap[String(c.uid)] === 'other' && byUid.get(String(c.pUid))) catMap[String(c.uid)] = catMap[String(c.pUid)] || 'other';
+      for (const c of all) if (!byUid.get(String(c.pUid)))
+        catMap[String(c.uid)] = keepName(cleanText(c.NAME, 40) || 'Category', String(c.TYPE) === '0', customCats, `c_rb_${hash(c.uid)}`, nextColor(customCats.map(x => x.color)));
+      // A subcategory files under its category (Tally has one level), which keeps its name.
+      for (const c of all) if (byUid.get(String(c.pUid))) catMap[String(c.uid)] = catMap[String(c.pUid)] || (String(c.TYPE) === '0' ? 'income' : 'other');
     }
 
     const ac = cols('ASSETS'), cur = has('CURRENCY') && ac.has('currencyUid') && need('CURRENCY', ['uid', 'ISO']);

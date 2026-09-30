@@ -3,8 +3,8 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -364,8 +364,8 @@ function catChoices() {
   const ctx = { preset: IMP.preset, header: IMP.header };
   for (const s of new Set(rows.filter(r => isMoneyRow(r, map, ctx)).map(r => cleanText(rowCategory(r, map, ctx), 60)).filter(Boolean))) {
     if (Object.keys(out).length >= 60) break;
-    const guess = ownKey(IMP.preset?.cats, s.toLowerCase()) || mapCategory(s, {}, '', S.kv.customCats);
-    out[s] = IMP.catMap[s] || (guess === 'other' && !/^(other|others|misc|lain|lain-lain|lain2|其他|其它)$/i.test(s) ? `new:${s}` : guess);
+    // Their names stay: the Tally category of exactly that name, else a new one called the same. "Other" stays Other.
+    out[s] = IMP.catMap[s] || sameCategory(s, S.kv.customCats) || sameCategory(s, S.kv.customCats, true) || (OTHER_NAME.test(s) ? 'other' : `new:${s}`);
   }
   return out;
 }
@@ -888,10 +888,12 @@ export const act = {
     const choices = catChoices(), newCats = [];
     for (const [src, v] of Object.entries(choices)) {
       if (!v.startsWith('new:') || !fresh.some(x => x.category === v)) continue;
-      const c = [...S.kv.customCats, ...newCats].find(x => norm(x.name) === norm(v.slice(4))) || { id: uid('c_'), name: v.slice(4), color: '#64748B' };
-      if (!S.kv.customCats.some(x => x.id === c.id)) newCats.push(c);
-      for (const x of txs) if (x.category === v) x.category = c.id;
-      choices[src] = c.id;
+      const name = v.slice(4), own = [...S.kv.customCats, ...newCats], inc = !fresh.some(x => x.category === v && x.type !== 'income');   // only money in: an income category
+      // 50 of the user's own at most (a backup with more won't restore): past that, the nearest Tally category.
+      const c = own.find(x => norm(x.name) === norm(name) && (x.kind === 'income') === inc) || (own.length < 50 ? { id: uid('c_'), name, color: nextColor(own.map(x => x.color)), ...(inc ? { kind: 'income' } : {}) } : null);
+      if (c && !S.kv.customCats.some(x => x.id === c.id)) newCats.push(c);
+      for (const x of txs) if (x.category === v) x.category = x.type === 'income' && !inc ? incomeCategory(`${name} ${x.merchant}`) : c ? c.id : inc ? incomeCategory(name) : mapCategory(name);
+      if (c) choices[src] = c.id;
     }
     const maps = Object.entries({ ...settings().importMaps, [IMP.sig]: { map: m, ...(IMP.preset ? { preset: IMP.preset.id } : {}), catMap: Object.fromEntries(Object.entries(choices).filter(([, v]) => !v.startsWith('new:'))) } }).slice(-30);
     const sourceKey = IMP.sourceKey, importedAccount = IMP.accountId === 'new' ? IMP.newId : IMP.accountId;
