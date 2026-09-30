@@ -446,8 +446,10 @@ const LEAD_EMOJI = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}️‍⃣\s]+/
 /** The HTML codes catName decodes (and what repairCatNames looks for: the same, so a name it can't decode is left alone). */
 export const CAT_CODE = /&#(x[0-9a-f]{1,6}|\d{1,7});/i;
 export function catName(s) {
-  const d = String(s ?? '').replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => cp(parseInt(h, 16))).replace(/&#(\d{1,7});/g, (m, n) => cp(+n))
-    .replace(/&(amp|lt|gt|quot|apos);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[k]).trim();
+  // Decoded text is file text too: cleaned again (NFKC, no hidden, bidi or control characters), or the codes would
+  // bring back what cleanText removed.
+  const d = cleanText(String(s ?? '').replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => cp(parseInt(h, 16))).replace(/&#(\d{1,7});/g, (m, n) => cp(+n))
+    .replace(/&(amp|lt|gt|quot|apos);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[k]), 60);
   return d.replace(LEAD_EMOJI, '').trim() || d;
 }
 /** Another app's category → the Tally one with exactly that name (built-in or the user's own), else null: imports keep the user's names. */
