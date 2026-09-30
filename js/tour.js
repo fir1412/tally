@@ -6,6 +6,13 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.2.0': [
+    'The camera tells you when a receipt is too dark, blurry, too far or too close, and turns green when it can be read',
+    'Joint accounts: a bill or account you delete stays deleted on both phones, and imported joint entries reach your partner',
+    'Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore',
+    'The lock asks again after a minute away even if the phone\'s clock is changed',
+    'Turning encryption on or off can no longer lock you out or leave entries unencrypted',
+  ],
   '1.1.0': [
     'Close any card by swiping it down',
     'Bring your Cashew backup straight in (the .sql file)',

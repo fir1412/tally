@@ -1428,4 +1428,9 @@ export default {
   "Move closer": "再靠近一点",
   "Too dark. Find more light": "太暗了。换个亮一点的地方",
   "Too dark. Tap the light": "太暗了。点按补光灯",
+  "The camera tells you when a receipt is too dark, blurry, too far or too close, and turns green when it can be read": "相机会提示收据太暗、模糊、太远或太近，能看清时框会变绿",
+  "Joint accounts: a bill or account you delete stays deleted on both phones, and imported joint entries reach your partner": "共同账户：你删除的账单或账户在两部手机上都保持删除，导入的共同记录也会同步给伴侣",
+  "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "备份：无法恢复的备份不会再显示为已保存，含大量照片的加密备份也能恢复",
+  "The lock asks again after a minute away even if the phone's clock is changed": "即使更改了手机时间，离开一分钟后锁仍会再次要求解锁",
+  "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "开启或关闭加密不会再把你锁在外面，也不会留下未加密的记录",
 };

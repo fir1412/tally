@@ -1427,4 +1427,9 @@ export default {
   "Move closer": "もっと近づけて",
   "Too dark. Find more light": "暗すぎます。明るい場所へ",
   "Too dark. Tap the light": "暗すぎます。ライトをタップ",
+  "The camera tells you when a receipt is too dark, blurry, too far or too close, and turns green when it can be read": "レシートが暗い・ぼやけている・遠すぎる・近すぎるときはカメラが知らせ、読める状態になると枠が緑になります",
+  "Joint accounts: a bill or account you delete stays deleted on both phones, and imported joint entries reach your partner": "共同口座：削除した請求や口座は両方のスマホで削除されたままになり、取り込んだ共同の記録はパートナーにも届きます",
+  "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "バックアップ：復元できないバックアップを保存済みと表示しなくなり、写真の多いパスワード付きバックアップも復元できます",
+  "The lock asks again after a minute away even if the phone's clock is changed": "スマホの時計を変えても、1分離れるとロックがもう一度求められます",
+  "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "暗号化のオン・オフで締め出されたり、暗号化されない記録が残ったりしなくなりました",
 };

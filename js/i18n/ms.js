@@ -1428,4 +1428,9 @@ export default {
   "Move closer": "Dekatkan lagi",
   "Too dark. Find more light": "Terlalu gelap. Cari tempat lebih terang",
   "Too dark. Tap the light": "Terlalu gelap. Tekan lampu",
+  "The camera tells you when a receipt is too dark, blurry, too far or too close, and turns green when it can be read": "Kamera memberitahu jika resit terlalu gelap, kabur, terlalu jauh atau terlalu dekat, dan bertukar hijau apabila ia boleh dibaca",
+  "Joint accounts: a bill or account you delete stays deleted on both phones, and imported joint entries reach your partner": "Akaun bersama: bil atau akaun yang anda padam kekal dipadam di kedua-dua telefon, dan catatan bersama yang diimport sampai kepada pasangan anda",
+  "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "Sandaran: Tally tidak lagi mengatakan sandaran disimpan jika ia tidak boleh dipulihkan, dan sandaran berkata laluan dengan banyak foto kini boleh dipulihkan",
+  "The lock asks again after a minute away even if the phone's clock is changed": "Kunci akan bertanya semula selepas seminit walaupun jam telefon diubah",
+  "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "Menghidupkan atau mematikan penyulitan tidak lagi boleh mengunci anda keluar atau meninggalkan catatan tanpa penyulitan",
 };
