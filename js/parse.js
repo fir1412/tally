@@ -21,7 +21,7 @@ const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|ju
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
 const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
-const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax\b|cukai/i;
+const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax(?![a-z])|cukai/i;   // "TAX6%" too
 const ROUNDING = /round|pelarasan|bundar/i;
 const MONEY_LABEL = new RegExp([TOTAL, SUBTOTAL, TAX, SERVICE, ROUNDING].map(x => x.source).join('|'), 'i');
 const DISCOUNT = /disc(ount)?|\bdsc\b|diskaun|potongan|sa[uv]ing|voucher|baucar|coupon|kupon|pro[mn]o|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
@@ -177,6 +177,9 @@ export function parseReceipt(text) {
   const lines = text.split(/\r?\n/).map(l => l.slice(0, 300).replace(/\s+/g, ' ').trim())   // receipt lines are short: a runaway one can't stall the patterns
     .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
     .map(l => l.replace(/\bRM ?O(?=[.,]\d{2}\b)/gi, 'RM0'))   // "RMO.01": OCR's O for the 0 of a sen amount
+    // "1,299.00" is one amount: without this the amount patterns read "299.00" and leave "1," in the name, and a total
+    // misread the same way still adds up (CORD bench). Commas only: "3 499.00" may be 3 × 499.
+    .map(l => l.replace(/(?<![\d.,])(\d{1,3})((?:,\d{3})+)(?=[.,]\d{2}(?!\d))/g, (m, a, b) => a + b.replace(/,/g, '')))
     // Words past a row's price are something beside the slip (a keyboard's "PgDn", a till screen's "WELCOME TO"): their
     // own line, so the price stays at the end of its row. Tax codes (Z, SR) are shorter and stay.
     .flatMap(l => l.replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2').split('\n'))
@@ -209,7 +212,7 @@ export function parseReceipt(text) {
       const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
       if (hasText && last && last.name === null) { last.name = line; pendingName = null; } // name printed under the price
-      else pendingName = hasText ? line : null;
+      else pendingName = hasText ? (pendingName && r.items.length && line.length <= 14 && pendingName.length < 40 && !TOTAL.test(line) && !PAYMENT.test(line) ? `${pendingName} ${line}` : line) : null;   // a name wrapped onto a short second line ("SPECIAL"): both halves; never the shop's header
       continue;
     }
     const cents = toCents(m);
@@ -218,7 +221,11 @@ export function parseReceipt(text) {
 
     const adj = ROUNDING.test(key) ? 'rounding' : SERVICE.test(key) ? 'service' : TAX.test(key) ? 'tax' : null;
     // Money off first: "Shipping Discount Subtotal -4.90" and "Shopee Voucher -5.00" are discounts, not the subtotal.
-    const off = DISCOUNT.test(key) && !!cents && r.total === null && !/^\W*(sub\s*-?\s*)?t[o0]tal\b/i.test(key);
+    // Money off: a negative amount, or a short line led or ended by the word ("MEMBER DISC 2.00", "Voucher 5.00");
+    // "MILO PROMO PACK 17.50" and "TNG RELOAD VOUCHER 50.00" are things bought.
+    const offWord = cents < 0 || (key.split(/\s+/).length <= 3 && (DISCOUNT.test(key.split(/\s+/)[0]) || DISCOUNT.test(key.split(/\s+/).at(-1))));
+    const offKey = DISCOUNT.test(key) && offWord;
+    const off = offKey && !!cents && r.total === null && !/^\W*(sub\s*-?\s*)?t[o0]tal\b/i.test(key);
     if (off && r.subtotal === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });
     else if (off) billOff += Math.abs(cents);
     // Watsons: "SUBTOTAL 19.14, ROUNDING 0.01, SUBTOTAL 19.15": the second one, rounded, is what was paid.
@@ -228,8 +235,8 @@ export function parseReceipt(text) {
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
     else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
     else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
-    else if (DISCOUNT.test(key) && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
-    else if (DISCOUNT.test(key) && cents && r.total === null) billOff += Math.abs(cents);   // "Member discount -5.00" between subtotal and total
+    else if (offKey && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
+    else if (offKey && cents && r.total === null) billOff += Math.abs(cents);   // "Member discount -5.00" between subtotal and total
     else if (cents < 0 && r.subtotal !== null && r.total === null) billOff += -cents;   // "1 Frappe (any flavor) -9.50": a promotion between subtotal and total
     else if (r.subtotal === null && r.total === null && !COUNT.test(label)) { // items stop at the subtotal or first real total
       const name = label.replace(QTY, '').trim();
@@ -318,7 +325,8 @@ export function dropSummaryLines(items) {
 }
 /** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no unit price behind ("(4.50/ea)"), no glued quantity ("1x Teh O",
  *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
-export const cleanName = n => n.replace(/\s+(unit|units|pkt|pkts|pck|ea)$/i, '').replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
+export const cleanName = n => n.replace(/\s*@\s*\d+[.,]\d{2}\b/g, '').replace(/(?<=[A-Za-z)])(?<![Rr][Mm])\s*\d+[.,]\d{2}(\s+[x×]?\d{1,3})?\s*$/, '')   // a unit price (and qty) left in the name: "ICED TEA 1.20 5", "@200.00"
+  .replace(/\s+(unit|units|pkt|pkts|pck|ea)$/i, '').replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
   .replace(/(?<=[A-Za-z])0(?![\d.,])|(?<![\dA-Za-z.])0(?=[A-Za-z]{2})/g, 'O')
   .replace(/(?<=\d[0O]*)O(?=[0O]*(?:\d|ML|G|KG|L|S|PCS|PC|X)\b)/g, '0').trim() || n;   // and O inside a number back to 0: "1OS", "50OML", "5OPCS"   // "20OZ" keeps its digits
 /**

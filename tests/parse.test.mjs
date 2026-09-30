@@ -328,3 +328,14 @@ test('a known Malaysian chain from the shop list names the shop and gives its us
   assert.notEqual(parseReceipt('KEDAI ABC\nNO.31G, JALAN SETIA INDAH\nCHEESE BURGER 4.50\nTOTAL 4.50').merchant, 'Setia');
   assert.equal(parseReceipt('CHEESE BURGER 4.50\nTOTAL 4.50').shopCat ?? null, null);   // "Burger" is a word, not a shop
 });
+
+test('found on real receipts (CORD bench): thousands commas, TAX6%, a name on two lines, a promo pack, a unit price in the name', () => {
+  const big = parseReceipt('SENHENG\nTV 1,299.00\nTOTAL 1,299.00');
+  assert.equal(big.total, 129900); assert.deepEqual(big.items.map(i => [i.name, i.cents]), [['TV', 129900]]);   // not 299.00 that "adds up"
+  assert.equal(parseReceipt('CAFE\nNASI LEMAK 10.00\nTAX6% 0.60\nTOTAL 10.60').tax, 60);
+  const wrap = parseReceipt('KEDAI\nTEH O 2.00\nNASI GORENG KAMPUNG\nSPECIAL\n1 12.50 12.50\nTOTAL 14.50');
+  assert.equal(wrap.items.at(-1).name, 'NASI GORENG KAMPUNG SPECIAL');
+  const promo = parseReceipt('MART\nMILO PROMO PACK 17.50\nMEMBER DISC -2.00\nTOTAL 15.50');
+  assert.deepEqual(promo.items.map(i => i.cents), [1750, -200]); assert.ok(promo.check.ok);
+  assert.equal(cleanName('ICED TEA 1.20 5'), 'ICED TEA'); assert.equal(cleanName('RM1.50'), 'RM1.50');
+});
