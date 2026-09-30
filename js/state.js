@@ -251,7 +251,8 @@ export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, 
 export const OLD_HOME = globalThis.location?.hostname === 'fir1412.github.io', NEW_HOME = 'https://tallymy.github.io/';
 /** Everything Tally keeps at this address, and only Tally's: its database, its storage keys, caches and offline worker. */
 export async function wipeSite() {
-  await db.destroy();
+  db.setKey(null); db.expectSealed(false);
+  await db.wipe();   // the erase every tab hears of: one still open here (the fallback has no versionchange) mustn't write the old data back
   try { for (const k of Object.keys(localStorage)) if (k.startsWith('tally')) localStorage.removeItem(k); } catch {}
   try { for (const k of await caches.keys()) if (k.startsWith('tally')) await caches.delete(k); } catch {}
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (new URL(r.scope).pathname.startsWith('/tally/')) await r.unregister(); } catch {}

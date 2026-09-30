@@ -66,6 +66,34 @@ test("setting the phone's clock back doesn't skip the lock after time in the bac
   } finally { Date.now = realNow; performance.now = realPerf; delete globalThis.document; }
 });
 
+/** Two tabs of the same site using the localStorage fallback (no IndexedDB: some private windows). */
+async function fallbackTabs() {
+  const shim = await import('./fixtures/idbshim.mjs'), idb = globalThis.indexedDB;
+  const ls = Object.create({ getItem(k) { return Object.hasOwn(this, k) ? this[k] : null; }, setItem(k, v) { this[k] = String(v); }, removeItem(k) { delete this[k]; } });
+  globalThis.localStorage = ls; delete globalThis.indexedDB;
+  const A = await shim.tab(), B = await shim.tab();
+  const done = () => { globalThis.indexedDB = idb; delete globalThis.localStorage; };
+  try {
+    assert.equal(await A.S.load(), 'localstorage');
+    await A.S.saveAccount({ id: 'a1', name: 'Dummy Bank', kind: 'bank', opening: 0, createdAt: 1 });
+    await A.S.saveTxs([{ id: 't1', accountId: 'a1', type: 'expense', amount: 100, date: '2026-09-01', merchant: 'DUMMY ONE', category: 'dining', createdAt: 1 }]);
+    await B.S.load();
+  } catch (e) { done(); throw e; }
+  return { shim, A, B, ls, done };
+}
+const tick = () => new Promise(r => setTimeout(r, 5));
+
+test("erasing at the old address tells every open tab, so another tab's next save can't write the erased data back", async () => {
+  const { A, B, ls, done } = await fallbackTabs();
+  try {
+    await A.S.wipeSite();
+    await tick();   // the other tab hears of it
+    const late = await B.S.saveTx({ id: 'tB', accountId: 'a1', type: 'expense', amount: 5, date: '2026-09-02', merchant: 'DUMMY B', category: 'dining', createdAt: 2 }).then(() => 'landed', () => 'refused');
+    assert.equal(late, 'refused');
+    assert.deepEqual(Object.keys(ls).filter(k => k.startsWith('tally')), []);   // nothing of Tally's is left at the address
+  } finally { done(); }
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];
