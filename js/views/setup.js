@@ -171,7 +171,7 @@ export const settingsView = {
     $('#reader [data-act="reader-get"]')?.remove(); $('#reader-dl')?.remove();
   },
   render() {
-    const rules = Object.entries(S.kv.rules), bal = balances(S.accounts, S.tx, today()).by;
+    const rules = Object.entries(S.kv.rules), names = Object.entries(S.kv.itemNames || {}), bal = balances(S.accounts, S.tx, today()).by;
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
       <nav class="jumps chips" aria-label="${esc(t('Go to'))}">${[['s-backup', t('Backup & restore')], ['s-accounts', t('Accounts')], ['s-cats', t('Categories')], ['look', t('Language & text size')], ['remind', t('Daily reminder')], ['s-help', t('Help and feedback')]].map(([id, l]) => `<button class="chip" data-act="jump" data-to="${id}">${esc(l)}</button>`).join('')}</nav>
@@ -204,9 +204,9 @@ export const settingsView = {
       <section class="card" id="s-cats"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-edit" data-c="${esc(c.id)}" aria-label="${esc(t('Icon and colour: {0}', t(c.name)))}">${badge(c)}${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
         <label class="toggle"><span class="grow"><b>${esc(t('Only my categories'))}</b><small>${esc(t("Hide Tally's categories and stop its guesses. Things go to Other until you pick a category; Tally then remembers."))}</small></span><input type="checkbox" class="switch" data-input="own-cats"${settings().ownCats ? ' checked' : ''}></label>
-        ${rules.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
-        <details><summary>${esc(t('What Tally remembers ({0})', rules.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))}</p>
-          <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
+        ${rules.length || names.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
+        <details><summary>${esc(t('What Tally remembers ({0})', rules.length + names.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))} ${esc(t('When you fix an item\'s name, Tally reads it that way next time.'))}</p>
+          <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}${names.slice(-200).reverse().map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k)} → ${esc(v)}</span><button class="icon-btn" data-act="name-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.'))}</p>
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(!lockOn() ? t('Off') : settings().lock.kind === 'pass' ? t('On: password') : settings().lock.cred && !encOn() ? t('On: PIN, fingerprint or face') : t('On: PIN'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change the lock') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
@@ -599,7 +599,7 @@ async function restoreText(text, zip = {}) {
       .addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { res(b.dataset.x); closeSheet(); } });
   }) : 'replace';
   if (choice === 'no') return;
-  const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
+  const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {} } };
   const before = choice === 'merge' ? S.tx : [], had = new Set(before.map(x => x.id));   // a merge keeps these rows as they are, photos too
   if (choice === 'merge') {
     const merged = mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data);
@@ -665,7 +665,7 @@ function askPassword() {
 }
 const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
-const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
@@ -823,7 +823,7 @@ export const act = {
   jump: b => { const el = document.getElementById(b.dataset.to); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); el?.querySelector('h2')?.setAttribute('tabindex', '-1'); el?.querySelector('h2')?.focus({ preventScroll: true }); },
   'rules-clear': async () => {
     if (!(await confirmSheet({ title: t('Forget everything Tally learned?'), body: t('Items and shops you filed yourself will be guessed afresh. Your entries keep their categories.'), ok: t('Forget'), danger: true }))) return;
-    await setKv('rules', {}); render(); toast(t('Forgotten.'));
+    await setKv('rules', {}); await setKv('itemNames', {}); render(); toast(t('Forgotten.'));
   },
   // A category's look: its icon (tap one; the built-in one again resets it) and, from here, its colour.
   'cat-edit': b => {
@@ -892,6 +892,7 @@ export const act = {
   },
   'set-start': async b => { await setSetting('start', b.dataset.v === 'activity' ? 'activity' : null); render(); },
   'set-week': async b => { await setSetting('weekStart', +b.dataset.v === 0 ? 0 : 1); render(); },
+  'name-del': async b => { const r = { ...S.kv.itemNames }; delete r[b.dataset.k]; await setKv('itemNames', r); render(); },
   'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
   'import-open': () => importSheet(),
   'imp-paste': () => { const v = $('#imp-paste').value; if (!v.trim()) return impErr(t('Paste some cells first.')); startMapping(parseCSV(v, v.includes('\t') ? '\t' : undefined), t('Pasted cells'), { sheet: true }).catch(e => { console.error(e); impErr(t(e.message)); }); },

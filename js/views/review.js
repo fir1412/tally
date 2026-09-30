@@ -4,7 +4,7 @@ import { S, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, learn, 
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
+import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { on } from '../features.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES, readPct } from '../scan.js';
@@ -132,7 +132,11 @@ function toDraft(r) {
   // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const meal = c => (r.meal && c === 'groceries' ? 'dining' : c);   // a restaurant bill: its dishes are dining
-  const items = r.items.map(i => ({ name: (i.name || '').slice(0, 80), raw: (i.name || '').slice(0, 80), cents: i.cents, category: meal(categorize(i.name, merchant, S.kv.rules)), flag: !!i.flag, ...(i.crop ? { crop: i.crop } : {}) }));
+  // Each item as read, then as this user renamed that same reading before ("WS B121 WET WIPES" → "WS BT21 WET WIPES").
+  const items = r.items.map(i => {
+    const raw = (i.name || '').slice(0, 80), fixed = raw && S.kv.itemNames?.[itemKey(raw)], name = fixed || raw;
+    return { name, raw, cents: i.cents, category: meal(categorize(name, merchant, S.kv.rules)), flag: !fixed && !!i.flag, ...(i.crop ? { crop: i.crop } : {}) };
+  });
   items.forEach((i, n) => { if (i.cents < 0 && n > 0) i.category = items[n - 1].category; });   // money off belongs to the item it sits under
   const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
@@ -431,6 +435,8 @@ export const act = {
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop
       await setKv('shopNames', Object.fromEntries([...Object.entries(S.kv.shopNames || {}), [itemKey(d.readName), tx.merchant.slice(0, 80)]].slice(-500)));
+    const names = learnNames(S.kv.itemNames, d.items);   // and the names they gave items the reader got wrong
+    if (names) await setKv('itemNames', names);
     if (learnIt) for (const i of d.items.filter(x => x.changed)) await learn(i.name || i.raw, i.category);
     landed(tx.id);
     const first = !current.existing && firstWord(tx.receiptId ? 'receipt' : 'entry');

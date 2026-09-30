@@ -140,6 +140,17 @@ export const validIso = s => /^(19[89]\d|20\d\d)-\d{2}-\d{2}$/.test(String(s)) &
 const once = fn => { const m = new Map(); return s => { let v = m.get(s); if (v === undefined) { if (m.size > 20000) m.clear(); m.set(s, v = fn(s)); } return v; }; };
 /** Key for remembering an item: "KS SNRS 2PK " → "KS SNRS 2PK". Pure codes and prices are dropped. */
 export const itemKey = once(name => String(name ?? '').toUpperCase().replace(/\b\d{5,}\b/g, '').replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
+/** Item names the user fixed on a receipt ({name, raw: as read}) → the updated reading→name map, or null if nothing
+ *  changed. A name put back to what was read forgets it. The newest 2000 are kept. */
+export function learnNames(map = {}, items = []) {
+  const m = { ...map }; let changed = false;
+  for (const { name = '', raw = '' } of items) {
+    const k = itemKey(raw), v = name.trim().slice(0, 80); if (!k) continue;
+    if (v && v !== raw) { if (m[k] !== v) { delete m[k]; m[k] = v; changed = true; } }   // re-added: newest last
+    else if (Object.hasOwn(m, k)) { delete m[k]; changed = true; }
+  }
+  return changed ? Object.fromEntries(Object.entries(m).slice(-2000)) : null;
+}
 
 // Malaysian shop words in English, Malay and Chinese, most specific first (奶粉 is Kids, not a 粉 noodle).
 // ponytail: keyword list; user corrections become rules.

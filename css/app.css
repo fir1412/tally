@@ -68,6 +68,8 @@ h3 { font-size: var(--fs-sm); margin: var(--sp-2) 0 0; }
 
 .hero { padding: var(--sp-1) 0; display: flex; flex-direction: column; gap: 2px; }
 .hero .label { color: var(--mute); font-size: var(--fs-sm); }
+.hero .balrow { display: flex; align-items: center; gap: 4px; }
+.hero .eyebtn { margin-block: -10px; color: var(--mute); }
 .card.month .spent { font: 700 var(--fs-xl)/1.1 var(--display); letter-spacing: -.01em; }
 .delta { margin: 0; font-size: var(--fs-sm); } .delta.good { color: var(--good); } .delta.bad { color: var(--bad); }
 .hero .big { font-size: var(--fs-2xl); font-weight: 750; letter-spacing: -.02em; line-height: 1.1; }

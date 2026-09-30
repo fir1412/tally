@@ -942,6 +942,7 @@ export function readBackup(text) {
     if (isObj(d.kv.budgets)) kv.budgets = { ...bud(d.kv.budgets), ...(isObj(d.kv.budgets.joint) ? { joint: { ...bud(d.kv.budgets.joint), ...upd(d.kv.budgets.joint.updatedAt) } } : {}), ...(isObj(d.kv.budgets.business) ? { business: bud(d.kv.budgets.business) } : {}) };
     if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k && !RESERVED.has(k)));
     if (isObj(d.kv.shopNames)) kv.shopNames = Object.fromEntries(Object.entries(d.kv.shopNames).slice(0, 500).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
+    if (isObj(d.kv.itemNames)) kv.itemNames = Object.fromEntries(Object.entries(d.kv.itemNames).slice(-2000).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
@@ -954,7 +955,7 @@ export function readBackup(text) {
 const SETTINGS = {
   monthStart: v => Number.isInteger(v) && ((v >= 1 && v <= 28) || v === -1 || v === -2), weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh', 'zh-Hant', 'ja'].includes(v),
   textSize: v => [100, 115, 130].includes(v), theme: v => ['light', 'dark'].includes(v), accent: v => /^#[0-9a-f]{6}$/i.test(v),
-  compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
+  compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', hideBal: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),
   appPalette: v => /^[a-z]{1,12}$/.test(v), palette: v => /^[a-z]{1,12}$/.test(v),
@@ -994,6 +995,8 @@ export function mergeBackup(local, incoming) {
     recurring: merge(local.recurring, incoming.recurring),
     kv: {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
+      shopNames: { ...(incoming.kv.shopNames || {}), ...(local.kv.shopNames || {}) },
+      itemNames: { ...(incoming.kv.itemNames || {}), ...(local.kv.itemNames || {}) },
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
       catColors: { ...(incoming.kv.catColors || {}), ...(local.kv.catColors || {}) },
       catIcons: { ...(incoming.kv.catIcons || {}), ...(local.kv.catIcons || {}) },

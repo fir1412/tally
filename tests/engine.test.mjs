@@ -399,3 +399,11 @@ test('a stall\'s cash is never the default for a personal typed spend', () => {
   assert.notEqual(E.pickAccount({ accounts, txs, kind: 'quick', amount: 1200 }), 'stall');
   assert.equal(E.pickAccount({ accounts: accounts.slice(2), txs, kind: 'quick', amount: 1200 }), 'stall');   // the Business view: its own accounts
 });
+
+test('learnNames: remembers item names the user fixed, forgets one put back, null when nothing changed', () => {
+  const m = E.learnNames({}, [{ name: 'WS BT21 WET WIPES', raw: '1023497 WS B121 WET WIPES' }, { name: 'SWEET CORN 2PCS', raw: 'SWEET CORN 2PCS' }]);
+  assert.deepEqual(m, { 'WS B121 WET WIPES': 'WS BT21 WET WIPES' });   // the code is dropped from the key: the same misread on the next slip
+  assert.equal(E.learnNames(m, [{ name: 'WS BT21 WET WIPES', raw: 'WS B121 WET WIPES' }]), null);
+  assert.deepEqual(E.learnNames(m, [{ name: 'WS B121 WET WIPES', raw: 'WS B121 WET WIPES' }]), {});
+  assert.equal(E.learnNames(m, [{ name: 'Typed', raw: '' }]), null);   // an item added by hand has no reading to fix
+});

@@ -1,5 +1,5 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, nowTime, settings, setKv, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
+import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
 import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
@@ -183,6 +183,9 @@ const firstScan = () => `<section class="card firstscan"><div class="rowb"><h2>$
   ${demoCard()}<p class="fine">${esc(t('Receipts are read on this phone and split into categories automatically.'))}</p>
   <div class="row2"><button class="btn" data-act="scan">${ICON.camera}${esc(t('Take a photo'))}</button><button class="btn ghost" data-act="scan-pick">${ICON.image}${esc(t('From gallery'))}</button></div></section>`;
 let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
+// Hidden balance (the eye next to it): the total and every account show this until tapped again, so a glance over the
+// shoulder sees nothing. It stays hidden on the next open.
+const MASK = 'RM ••••';
 export const homeView = {
   title: 'Home',
   /** A save just made lands here: its row flashes, the balance and month count to their new values, the ring moves. */
@@ -195,7 +198,7 @@ export const homeView = {
     const row = document.querySelector(`.txrow[data-id="${CSS.escape(id)}"]`); if (row) row.dataset.new = '';
     if (!was) return;
     const big = $('.hero .big'), sp = $('.card.month .spent'), arc = $('.ring .arc');
-    if (was.bal !== drawn.bal) { countUp(big, was.bal, drawn.bal); replay(big, 'land'); }
+    if (was.bal != null && drawn.bal != null && was.bal !== drawn.bal) { countUp(big, was.bal, drawn.bal); replay(big, 'land'); }
     if (was.spent !== drawn.spent) { countUp(sp, was.spent, drawn.spent); replay(sp, 'land'); }
     if (arc && was.frac != null && was.frac !== drawn.frac) {   // from where it was to where it is now (CSS transition)
       arc.style.setProperty('--f', (was.frac * 100).toFixed(1)); void arc.getBoundingClientRect();
@@ -216,7 +219,8 @@ export const homeView = {
     const recent = cached(newest, upToday, 8);
     const word = p && (spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'));
     const rg = ring({ budget: B, spent, before, p });
-    drawn = { bal: bal.total, spent, frac: rg?.frac };
+    const hide = !!settings().hideBal;
+    drawn = { bal: hide ? null : bal.total, spent, frac: rg?.frac };
     // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
     const fresh = S.tx.length < NEW, ws = settings().weekStart === 0 ? 0 : 1, rc = !fresh && shown('insight') && cached(weekRecap, upToday, tdy, ws);
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
@@ -224,11 +228,11 @@ export const homeView = {
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${OLD_HOME ? movedCard() : ''}${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button><button class="link" data-act="net-check">${esc(t('Check what Tally contacted'))}</button></section>` : ''}<div class="cols"><div class="col">
       <section class="hero">
-        ${(n => (n ? `<span class="label">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}</span>
-        <div class="big num">${esc(fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
+        ${(n => (n ? `<span class="label balrow">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}<button class="icon-btn eyebtn" data-act="bal-hide" aria-pressed="${hide}" aria-label="${esc(hide ? t('Show balance') : t('Hide balance'))}">${hide ? ICON.eyeOff : ICON.eye}</button></span>
+        <div class="big num">${esc(hide ? MASK : fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
         <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
         ${shownUnset.length ? `<p class="fine">${esc(t('Balance not set: {0}', shownUnset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(shownUnset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
-        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
+        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : hide ? MASK : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${!hide && isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
         ${on('afford') && S.tx.length ? `<button class="btn small ghost afford-btn" data-act="afford">${ICON.wallet}${esc(t('Can I afford it?'))}</button>` : ''}
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
@@ -329,6 +333,7 @@ const weekSpent = (txs, tdy) => {
 };
 const addDaysIso = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const act = {
+  'bal-hide': async () => { await setSetting('hideBal', !settings().hideBal); render(); $('.eyebtn')?.focus(); },
   'stickers-open': () => {
     const st = stickerState(stickerDays(today()));
     openSheet(`<h2 class="sh-title">${esc(st.book > 1 ? t('Sticker book {0}', st.book) : t('Sticker book'))}</h2><p class="sh-body">${esc(t('One for each day you log. Missed days never take one away.'))}</p>
