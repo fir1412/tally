@@ -142,16 +142,35 @@ export function showWhatsNew(from = '') {
 // iPhone Safari clears a web app's storage after 7 days without use unless it is on the Home Screen (WebKit's cap).
 export const iosBrowser = () => typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
   && !(navigator.standalone || matchMedia('(display-mode: standalone)').matches);
+/** How to put Tally on the home screen in this browser, as [title, [[icon, words]…], note]. Only Chrome-family browsers can do it in one tap. */
+function installSteps() {
+  const ua = navigator.userAgent, samsung = /SamsungBrowser/.test(ua);
+  // A link opened inside WhatsApp, Instagram, Facebook…: their viewer can't add apps, a real browser can.
+  if (/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok|Snapchat|; wv\)/.test(ua)) return [t('Open Tally in your browser first'),
+    [[ICON.list, t('Tap ⋮ or ⋯ at the top')], [ICON.globe, t('Open in Chrome or Safari')], [ICON.download, t('Then tap Install Tally again')]],
+    t('Apps like WhatsApp, Instagram and Facebook open links in their own viewer, which cannot add apps to the home screen.')];
+  if (iosBrowser()) return [t('Make Tally an app on your iPhone'), [[ICON.share, t('Tap Share')], [ICON.plusSquare, t('Add to Home Screen')], [ICON.home, t('Open Tally from there')]],
+    /CriOS|EdgiOS|FxiOS/.test(ua) ? t('In Chrome, Edge or Firefox on iPhone, Share is in the address bar or the ⋯ menu.') : ''];
+  if (/Android/.test(ua)) return [t('Add Tally to your home screen'), [[ICON.list, samsung ? t('Tap the menu ≡ at the bottom') : t('Tap the browser menu ⋮')],
+    [ICON.plusSquare, samsung ? t('Add page to → Home screen') : t('Tap Install or Add to Home screen')], [ICON.home, t('Open Tally from there')]], ''];
+  if (/Firefox\//.test(ua)) return [t('Install Tally on this computer'), [[ICON.globe, t('Firefox on a computer cannot install web apps. Open this page in Chrome or Edge')],
+    [ICON.download, t('Click the install icon at the right of the address bar')]], ''];
+  if (/Macintosh/.test(ua) && /Version\/[\d.]+ Safari/.test(ua)) return [t('Install Tally on this Mac'), [[ICON.list, t('In the menu bar, choose File')], [ICON.plusSquare, t('Add to Dock')]], ''];
+  return [t('Install Tally on this computer'), [[ICON.download, t('Click the install icon at the right of the address bar')], [ICON.list, t('Or open the browser menu and choose Install Tally')]], ''];
+}
+/** Numbered pictures and a few words. */
+function stepsSheet([title, steps, note], { why = '', then, stack = false } = {}) {
+  const el = openSheet(`<h2 class="sh-title">${esc(title)}</h2>${why ? `<p class="sh-body">${esc(why)}</p>` : ''}
+    <ol class="iossteps">${steps.map(([ic, w], i) => `<li><span class="iosnum">${i + 1}</span><span class="tour-ic">${ic}</span><b>${esc(w)}</b></li>`).join('')}</ol>
+    ${note ? `<p class="fine">${esc(note)}</p>` : ''}<button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`, { label: title, stack, onClose: () => then?.() });
+  el.addEventListener('click', e => { if (e.target.closest('[data-x]')) closeSheet(); });
+}
 /** Three pictures and a few words: Share → Add to Home Screen → open Tally from there. */
 export function homeScreenTip(then) {
   setKv('settings', { ...S.kv.settings, iosTipAt: Date.now() });
-  const steps = [[ICON.share, t('Tap Share')], [ICON.plusSquare, t('Add to Home Screen')], [ICON.home, t('Open Tally from there')]];
-  const el = openSheet(`<h2 class="sh-title">${esc(t('Make Tally an app on your iPhone'))}</h2>
-    <p class="sh-body">${esc(t('On the Home Screen it opens like any app, works offline and keeps your entries.'))}</p>
-    <ol class="iossteps">${steps.map(([ic, w], i) => `<li><span class="iosnum">${i + 1}</span><span class="tour-ic">${ic}</span><b>${esc(w)}</b></li>`).join('')}</ol>
-    <p class="fine">${esc(t("Why: Safari clears websites you haven't opened for 7 days; Home Screen apps are kept."))}</p>
-    <button class="btn wide" data-x="ok">${esc(t('Got it'))}</button>`, { label: t('Make Tally an app on your iPhone'), onClose: () => then?.() });
-  el.addEventListener('click', e => { if (e.target.closest('[data-x]')) closeSheet(); });
+  const [title, steps] = installSteps();
+  stepsSheet([title, steps, t("Why: Safari clears websites you haven't opened for 7 days; Home Screen apps are kept.")],
+    { why: t('On the Home Screen it opens like any app, works offline and keeps your entries.'), then });
 }
 const iosTipDue = () => iosBrowser() && S.accounts.length && Date.now() - (settings().iosTipAt || 0) > 3 * 864e5;
 
@@ -177,9 +196,11 @@ export function afterSetup() {
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (['settings', 'welcome'].includes(route())) render(); });
 window.addEventListener('appinstalled', () => { installEvt = null; toast(t('Installed. Open Tally from your home screen.'), { k: 'good', icon: 'check' }); });
-export const canInstall = () => !!installEvt;
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+/** Offered in every browser until Tally runs as an app: one tap where the browser allows it, its own steps everywhere else. */
+export const canInstall = () => !!installEvt || !installed();
 export async function promptInstall() {
-  const e = installEvt; if (!e) return false;
+  const e = installEvt; if (!e) { stepsSheet(installSteps(), { stack: true }); return false; }
   installEvt = null;
   e.prompt();
   return (await e.userChoice).outcome === 'accepted';

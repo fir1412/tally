@@ -115,7 +115,7 @@ export const welcomeView = {
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
         <li>${ICON.download}<span>${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</span></li>
       </ul>
-      ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : `<p class="fine">${esc(t('Tip: install Tally from your browser menu (Add to Home screen) so it opens like an app and works offline.'))}</p>`}
+      ${canInstall() ? `<button class="btn ghost wide" data-act="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
       <h2 class="welcome-h">${esc(t('How it works'))}</h2>
       <ol class="steps">
         <li><b>${esc(t('Snap'))}</b><span>${esc(t('Photograph a receipt, or pick several from your gallery. No receipt? Just type the amount.'))}</span></li>
