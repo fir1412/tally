@@ -1,5 +1,5 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
@@ -17,7 +17,7 @@ import { badge } from './money.js';
 import { goalsSettings } from './goals.js';
 import { MODULES, PRESETS, on, setModules, presetNow } from '../features.js';
 import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
-import { sampleData } from '../sample.js';
+import { startSample, sampleRows, endSample } from '../sample.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow, okMine, surfacesFrom, paletteFor } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
@@ -1125,20 +1125,14 @@ export const act = {
     toast(t('Copied. In the new sheet, tap cell A1 and paste. Tally clears the clipboard in 2 minutes where the phone allows it.'), { k: 'good', icon: 'check' });
     setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 120_000);   // other apps and keyboards read the clipboard: best effort
   },
-  // Sample data: a made-up month to look around in; "Start for real" removes it (and anything added to its accounts).
+  // Sample data: two made-up months to look around in (only on an empty app); "Start for real" removes it (and anything added to its accounts).
   'sample-go': async () => {
-    await addAll({ ...sampleData(today(), Date.now(), t('Cash')), recurring: [], kv: {} });
-    await setSetting('sample', true); await setSetting('onboarded', true);
+    await startSample(today(), t('Cash'));
     go('home');
   },
   'sample-end': async () => {
-    const ids = new Set(S.accounts.filter(a => a.sample).map(a => a.id));
-    const gone = S.tx.filter(x => x.sample || ids.has(x.accountId) || ids.has(x.toAccountId));
-    if (gone.some(x => !x.sample) && !(await confirmSheet({ title: t('Remove the sample data?'), body: t('Entries you added to the sample accounts go too.'), ok: t('Remove') }))) return;
-    await deleteTxs(gone.map(x => x.id));
-    for (const id of ids) await deleteAccount(id).catch(() => {});
-    await setSetting('sample', false);
-    if (!S.accounts.length) await setSetting('onboarded', false);
+    if (sampleRows().tx.some(x => !x.sample) && !(await confirmSheet({ title: t('Remove the sample data?'), body: t('Entries you added to the sample accounts go too.'), ok: t('Remove') }))) return;
+    await endSample();
     go(S.accounts.length ? 'home' : 'welcome'); toast(t('Sample data removed. Your turn.'));
   },
   // What this page has contacted since it opened, from the browser's own record, so nobody has to take our word for it.
