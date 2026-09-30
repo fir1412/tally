@@ -19,3 +19,25 @@ test("a backup's removed categories only move into a category an entry can have:
   try { assert.doesNotThrow(() => E.monthSpend([{ id: 't', type: 'expense', date: '2026-10-01', amount: 500, accountId: 'a', category: E.categorize('BERAS 5KG'), createdAt: 1 }], '2026-10')); }
   finally { E.movedCategories({}); }
 });
+
+test("a friend's debt comes from a file only on the row that moves it through Owed to you or You owe", () => {
+  const jt = { id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 }, jt2 = { ...jt, id: 'jt2', name: 'Joint savings', kind: 'savings' };
+  const local = { accounts: [jt, { id: 'mine', name: 'Mine', kind: 'bank', opening: 0, createdAt: 1 }], tx: [], recurring: [], kv: { settings: { myName: 'Aina' } } };
+  const file = { app: IO.BACKUP_APP, v: 1, kind: 'joint', by: 'Wei', accounts: [jt, jt2], recurring: [], gone: [], kv: {}, tx: [
+    { id: 'p1', type: 'transfer', date: '2026-09-20', amount: 50000, accountId: 'jt', toAccountId: 'jt2', category: 'other', owedBy: 'Ali', source: 'quick', createdAt: 1, updatedAt: 2 },
+    { id: 'p2', type: 'expense', date: '2026-09-21', amount: 30000, accountId: 'jt', category: 'dining', owedTo: 'Siti', source: 'quick', createdAt: 1, updatedAt: 2 }] };
+  const m = IO.mergeJoint(local, IO.readBackup(JSON.stringify(file)));
+  assert.equal(m.tx.length, 2, 'the rows still come in');
+  assert.deepEqual(E.openShares(m.tx), { owedMe: [], iOwe: [] }, "the partner's file puts no debts on this phone's Home");
+  // A backup keeps the real ones: shares into Owed to you, a bill in You owe, and the paybacks.
+  const acc = [{ id: 'b', name: 'Bank', kind: 'bank', opening: 0 }, { id: 'om', name: 'Owed to you', kind: 'owedme', opening: 0 }, { id: 'io', name: 'You owe', kind: 'iowe', opening: 0 }];
+  const tx = [
+    { id: 's1', type: 'transfer', date: '2026-09-01', amount: 900, accountId: 'b', toAccountId: 'om', category: 'other', owedBy: 'Ali', source: 'quick', createdAt: 1 },
+    { id: 's2', type: 'transfer', date: '2026-09-02', amount: 400, accountId: 'om', toAccountId: 'b', category: 'other', repaidBy: 'Ali', source: 'quick', createdAt: 1 },
+    { id: 's3', type: 'expense', date: '2026-09-03', amount: 700, accountId: 'io', category: 'dining', owedTo: 'Siti', source: 'quick', createdAt: 1 },
+    { id: 's4', type: 'transfer', date: '2026-09-04', amount: 200, accountId: 'b', toAccountId: 'io', category: 'other', repaidTo: 'Siti', source: 'quick', createdAt: 1 },
+    { id: 'x1', type: 'transfer', date: '2026-09-05', amount: 999900, accountId: 'b', toAccountId: 'io', category: 'other', owedBy: 'Boss', source: 'quick', createdAt: 1 }];
+  const back = IO.readBackup(IO.makeBackup({ accounts: acc, tx, recurring: [], kv: {} }));
+  const open = E.openShares(back.tx), who = l => l.map(f => `${f.name}:${f.sen}`);
+  assert.deepEqual([who(open.owedMe), who(open.iOwe)], [['Ali:500'], ['Siti:500']]);
+});

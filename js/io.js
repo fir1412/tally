@@ -927,13 +927,19 @@ export function readBackup(text) {
   // when a friend did. My share can be nothing (amount 0).
   const split = s => (isObj(s) && okAmt(s.total) && s.total > 0 ? { total: s.total, with: list(s.with, 8).map(friend).filter(Boolean),
     who: list(s.who, 500).map(w => list(w, 8).filter(p => p === '' || friend(p)).map(p => p && friend(p))), ...(Array.isArray(s.items) ? { items: cleanItems(s.items) } : {}), ...(ids.has(s.acc) ? { acc: s.acc } : {}) } : null);
+  // A friend's debt rides only on the row that moves it (as splitRows and Paid back write them): a share into Owed to you,
+  // a payback out of it, a bill a friend paid in You owe, my payback into it. Anywhere else (a partner's joint rows, which
+  // never touch these accounts) it would put a made-up debt on Home.
+  const kindOf = new Map(accounts.map(a => [a.id, a.kind])), tr = t => t.type === 'transfer';
+  const OWE_TAG = { owedBy: t => tr(t) && kindOf.get(t.toAccountId) === 'owedme', repaidBy: t => tr(t) && kindOf.get(t.accountId) === 'owedme',
+    owedTo: t => t.type === 'expense' && kindOf.get(t.accountId) === 'iowe', repaidTo: t => tr(t) && kindOf.get(t.toAccountId) === 'iowe' };
   const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && (t.amount > 0 || (t.type === 'expense' && !!split(t.split))) && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId, ...(okAmt(t.toAmount) && t.toAmount > 0 ? { toAmount: t.toAmount } : {}) } : {}), ...(+t.rate > 0 && +t.rate < 1e5 ? { rate: +t.rate } : {}),
       category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: okMs(+t.createdAt),
       ...(Array.isArray(t.items) ? { items: cleanItems(t.items) } : {}),
       ...(t.type === 'expense' && split(t.split) ? { split: split(t.split) } : {}), ...(okId(t.splitOf) ? { splitOf: t.splitOf } : {}),
-      ...['owedBy', 'owedTo', 'repaidBy', 'repaidTo'].reduce((o, k) => (friend(t[k]) ? { ...o, [k]: friend(t[k]) } : o), {}),
+      ...Object.entries(OWE_TAG).reduce((o, [k, ok]) => (ok(t) && friend(t[k]) ? { ...o, [k]: friend(t[k]) } : o), {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
       ...(okId(t.refundOf) ? { refundOf: t.refundOf } : {}), ...(validIso(t.warranty) ? { warranty: t.warranty } : {}), ...(validIso(t.returnBy) ? { returnBy: t.returnBy } : {}),
