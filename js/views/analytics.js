@@ -116,7 +116,7 @@ function foodCard(M) {
 
 // ---- 2. your prices --------------------------------------------------------------------------------------------------------------
 function spark(points) {
-  const W = 84, H = 28, vs = points.map(p => p.unit), lo = Math.min(...vs), sp = Math.max(...vs) - lo || 1;
+  const W = 84, H = 28, vs = points.map(p => p.unit), lo = vs.reduce((a, b) => (b < a ? b : a), Infinity), sp = vs.reduce((a, b) => (b > a ? b : a), -Infinity) - lo || 1;   // no spread: one item can be on 125k+ receipts
   const xy = points.map((p, i) => [2 + i / (points.length - 1) * (W - 6), H - 4 - (p.unit - lo) / sp * (H - 8)]);
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${xy.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${xy.at(-1)[0].toFixed(1)}" cy="${xy.at(-1)[1].toFixed(1)}" r="3" fill="var(--accent)"/></svg>`;
 }

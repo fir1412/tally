@@ -44,3 +44,12 @@ test("a restored or partner's file cannot plant a creation time outside 2000..no
     tx: [{ id: 'p1', date: '2026-09-21', type: 'expense', amount: 100, accountId: 'a1', createdAt: bad }, { id: 'p2', date: '2026-09-22', type: 'expense', amount: 100, accountId: 'a1', createdAt: good }] }));
   assert.deepEqual([b.accounts[0].createdAt, ...b.tx.map(t => t.createdAt)], [0, 0, good]);
 });
+
+test('Home and the price sparkline never spread a whole-dataset array into Math.min/max (throws past ~125k rows)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const home = readFileSync(new URL('../js/views/home.js', import.meta.url), 'utf8'), an = readFileSync(new URL('../js/views/analytics.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(home.match(/^const began = .*$/m)[0], /Math\.(min|max)\(\.\.\./, 'began() spreads every createdAt');
+  assert.doesNotMatch(an.match(/^.*vs = points\.map.*$/m)[0], /Math\.(min|max)\(\.\.\./, 'the sparkline spreads every purchase');
+  const big = Array.from({ length: 200_000 }, (_, i) => i + 1);
+  assert.throws(() => Math.min(...big), RangeError);   // why: the engine's argument limit, well under the 200,000-row intake cap
+});

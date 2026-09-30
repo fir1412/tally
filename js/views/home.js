@@ -54,7 +54,8 @@ function affordHtml(r) {
     <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))}</p>`;
 }
 /** When this person started with Tally: their first entry made here, else their first account. */
-const began = () => { const m = S.tx.map(x => okMs(x.createdAt)).filter(Boolean); return Math.min(...(m.length ? m : S.accounts.map(a => okMs(a.createdAt)).filter(Boolean))); };   // okMs: a bad time stored before the intake check
+// A loop, not Math.min(...all): spreading 125k+ values throws. okMs: a bad time stored before the intake check.
+const began = () => { const least = list => list.reduce((m, x) => { const v = okMs(x.createdAt); return v && v < m ? v : m; }, Infinity), m = least(S.tx); return m < Infinity ? m : least(S.accounts); };
 const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
 const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
 /** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
