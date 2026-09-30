@@ -3,7 +3,7 @@ import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, c
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
+import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -457,11 +457,16 @@ export const act = {
   'tx-del': async () => {
     // A split bill goes with its friends' shares (what they owe for it), in the same write.
     const shares = S.tx.filter(y => y.splitOf === draft.id), owed = shares.reduce((s, y) => s + y.amount, 0);
-    if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtAcct(accOf(draft.accountId), draft.amount)}${shares.length ? `. ${t("Your friends' shares ({0} owed to you) are deleted too.", fmtRM(owed))}` : ''}`, ok: t('Delete'), danger: true }))) return;
-    const gone = [S.tx.find(y => y.id === draft.id), ...shares].filter(Boolean), undo = await deleteTxs([draft.id, ...shares.map(y => y.id)]);
-    for (const x of gone) await keepToday(x, -1);   // a back-dated entry moved the starting balance when it came in: move it back
+    // Paid back for this bill and nothing left to settle: that payback goes too (or shrinks to what another bill still owes).
+    const { drop, trim } = leftOverPaybacks(S.tx, [draft.id, ...shares.map(y => y.id)]), was = trim.map(y => S.tx.find(z => z.id === y.id));
+    const paid = drop.reduce((s, y) => s + y.amount, 0) + was.reduce((s, y, i) => s + y.amount - trim[i].amount, 0);
+    if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtAcct(accOf(draft.accountId), draft.amount)}${shares.length ? `. ${t("Your friends' shares ({0} owed to you) are deleted too.", fmtRM(owed))}` : ''}${paid ? ` ${t('What was paid back for it ({0}) is taken off too.', fmtRM(paid))}` : ''}`, ok: t('Delete'), danger: true }))) return;
+    const gone = [S.tx.find(y => y.id === draft.id), ...shares, ...drop].filter(Boolean), undo = await deleteTxs(gone.map(y => y.id));
+    if (trim.length) await saveTxs(trim);
+    for (const x of [...gone, ...was]) await keepToday(x, -1);   // a back-dated entry moved the starting balance when it came in: move it back
+    for (const x of trim) await keepToday(x);
     closeSheet(); render();
-    toast(t('Deleted'), { undo: async () => { await undo(); for (const x of gone) await keepToday(x); render(); } });
+    toast(t('Deleted'), { undo: async () => { await undo(); if (was.length) await saveTxs(was); for (const x of trim) await keepToday(x, -1); for (const x of [...gone, ...was]) await keepToday(x); render(); } });
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
   'tx-photo-dl': () => downloadReceipts([{ tx: draft }]),

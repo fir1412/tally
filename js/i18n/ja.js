@@ -1512,6 +1512,7 @@ export default {
   "You owe": "借りている分",
   "You owe {0}": "{0}さんへの借り",
   "Your friends' shares ({0} owed to you) are deleted too.": "友だちの分（立て替え分{0}）も削除されます。",
+  "What was paid back for it ({0}) is taken off too.": "この分として返してもらった額（{0}）も取り消されます。",
   "Your share of {0} · split with {1}": "{0}のうち自分の分 · {1}と割り勘",
   "paid": "支払い",
   "{0} paid": "{0}さんが支払い",

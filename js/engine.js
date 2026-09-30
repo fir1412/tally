@@ -289,6 +289,27 @@ export function openShares(txs) {
   });
   return { owedMe: open(me), iOwe: open(them) };
 }
+/**
+ * Deleting split-bill rows (`goneIds`: a bill and its friends' shares): paybacks with those friends that would then
+ * settle more than is still owed no longer settle anything. → {drop: [tx], trim: [tx with the smaller amount]},
+ * newest payback first. Friends the deleted rows don't name are left as they are.
+ */
+export function leftOverPaybacks(txs, goneIds) {
+  const gone = new Set(goneIds), left = txs.filter(x => !gone.has(x.id)), out = { drop: [], trim: [] };
+  const debt = x => (x.type === 'transfer' && x.owedBy ? ['me', x.owedBy] : x.type === 'expense' && x.owedTo ? ['them', x.owedTo] : null);
+  const back = x => (x.type === 'transfer' && x.repaidBy ? ['me', x.repaidBy] : x.type === 'transfer' && x.repaidTo ? ['them', x.repaidTo] : null);
+  const touched = new Set(txs.filter(x => gone.has(x.id)).map(debt).filter(Boolean).map(k => k.join('\n')));
+  for (const key of touched) {
+    const of = f => x => f(x)?.join('\n') === key;
+    let over = left.filter(of(back)).reduce((s, x) => s + x.amount, 0) - left.filter(of(debt)).reduce((s, x) => s + x.amount, 0);
+    for (const x of left.filter(of(back)).sort((a, b) => byDate(b.date, a.date) || (b.createdAt || 0) - (a.createdAt || 0))) {
+      if (over <= 0) break;
+      if (x.amount <= over) out.drop.push(x); else out.trim.push({ ...x, amount: x.amount - over });
+      over -= x.amount;
+    }
+  }
+  return out;
+}
 /** A row in an account of another currency, in RM at `rate`: amount and items converted, the account's own amount kept in `fx`. */
 export function toRM(x, rate) {
   const r = { ...x, amount: Math.round(x.amount * rate), fx: x.amount };

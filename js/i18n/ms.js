@@ -1513,6 +1513,7 @@ export default {
   "You owe": "Hutang anda",
   "You owe {0}": "Anda berhutang kepada {0}",
   "Your friends' shares ({0} owed to you) are deleted too.": "Bahagian kawan anda ({0} yang mereka hutang) turut dipadam.",
+  "What was paid back for it ({0}) is taken off too.": "Bayaran balik untuknya ({0}) turut dibuang.",
   "Your share of {0} · split with {1}": "Bahagian anda daripada {0} · dikongsi dengan {1}",
   "paid": "bayar",
   "{0} paid": "{0} yang bayar",

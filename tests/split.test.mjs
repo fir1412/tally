@@ -9,7 +9,7 @@ const disk = new Map();
 globalThis.localStorage = { getItem: k => disk.get(k) ?? null, setItem: (k, v) => { if (full) throw new Error('QuotaExceededError'); disk.set(k, String(v)); } };
 const { S, load, saveAccount, saveTx, replaceAll } = await import('../js/state.js');
 const { splitBill, splitShares, saveSplit, ME } = await import('../js/views/splitbill.js');
-const { balances, monthSpend, taxRelief, openShares, itemAmounts } = await import('../js/engine.js');
+const { balances, monthSpend, taxRelief, openShares, itemAmounts, leftOverPaybacks } = await import('../js/engine.js');
 const { readBackup, makeBackup } = await import('../js/io.js');
 
 const sum = xs => xs.reduce((s, x) => s + x, 0);
@@ -195,4 +195,25 @@ test('backups keep splits, shares and the two accounts, and restore checks them'
   assert.ok(!('owedBy' in t2) && !('repaidBy' in t2) && !('splitOf' in t2));
   assert.ok(!r.tx.some(x => x.id === 't3'));
   assert.deepEqual(r.tx.find(x => x.id === 't4').split, { total: 900, with: ['Wei'], who: [['', 'Wei'], []] });
+});
+
+test('deleting a split bill takes off what was paid back for it, and only what nothing else still owes', () => {
+  const share = (id, of, who, amount, date = '2026-09-15') => ({ id, type: 'transfer', splitOf: of, owedBy: who, amount, date, accountId: 'bank', toAccountId: 'owed' });
+  const back = (id, who, amount, date, k = 'repaidBy') => ({ id, type: 'transfer', [k]: who, amount, date, accountId: 'owed', toAccountId: 'bank' });
+  const tx = [
+    { id: 'A', type: 'expense', amount: 5000, date: '2026-09-15' }, share('a1', 'A', 'Aisyah', 4675), share('a2', 'A', 'Wei', 4092),
+    { id: 'B', type: 'expense', amount: 2000, date: '2026-09-20' }, share('b1', 'B', 'Aisyah', 3000, '2026-09-20'),
+    back('r1', 'Aisyah', 2000, '2026-09-18'), back('r2', 'Aisyah', 5000, '2026-09-25'), back('r3', 'Wei', 2000, '2026-09-19'),
+    back('r4', 'Hafiz', 900, '2026-09-19'),   // someone else's leftover: not this bill's business
+    { id: 'C', type: 'expense', amount: 2563, owedTo: 'Hafiz', date: '2026-09-21' }, back('r5', 'Hafiz', 2563, '2026-09-22', 'repaidTo'),
+  ];
+  // Bill A goes: Aisyah still owes 30.00 (bill B) of the 70.00 she paid, so her newest payback shrinks to 10.00; Wei's goes.
+  const a = leftOverPaybacks(tx, ['A', 'a1', 'a2']);
+  assert.deepEqual(a.drop.map(x => x.id), ['r3']);
+  assert.deepEqual(a.trim.map(x => [x.id, x.amount]), [['r2', 1000]]);
+  // A bill a friend paid: what I paid them back for it goes, not the other side's paybacks under the same name.
+  assert.deepEqual(leftOverPaybacks(tx, ['C']), { drop: [tx.find(x => x.id === 'r5')], trim: [] });
+  // A duplicate bill: the payback still settles the one that's left, so nothing changes.
+  const dup = [share('d1', 'X', 'Aisyah', 4675), share('d2', 'Y', 'Aisyah', 4675), back('r', 'Aisyah', 4675, '2026-09-20')];
+  assert.deepEqual(leftOverPaybacks(dup, ['Y', 'd2']), { drop: [], trim: [] });
 });

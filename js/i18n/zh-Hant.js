@@ -1512,6 +1512,7 @@ export default {
   "You owe": "你欠別人",
   "You owe {0}": "你欠{0}",
   "Your friends' shares ({0} owed to you) are deleted too.": "朋友的份額（欠你的{0}）也會一併刪除。",
+  "What was paid back for it ({0}) is taken off too.": "為它還的錢（{0}）也會一併扣除。",
   "Your share of {0} · split with {1}": "你在{0}中的份額 · 與{1}分攤",
   "paid": "付款",
   "{0} paid": "{0}付的款",
