@@ -1501,6 +1501,7 @@ export default {
   "Open your sticker book any time from Home, even before you log today": "Buka buku pelekat anda bila-bila masa dari Utama, walaupun sebelum mencatat hari ini",
   "{0} of {1} days. Missed days can still be filled in until {2}.": "{0} daripada {1} hari. Hari yang terlepas masih boleh diisi sehingga {2}.",
   "A month's missed stickers can be filled in until the 7th of the next month": "Pelekat yang terlepas dalam sebulan boleh diisi sehingga 7 hari bulan berikutnya",
+  "Deleting a split bill also takes off what friends paid back for it": "Memadam bil kongsi turut membuang bayaran balik kawan untuknya",
   "At most {0}.": "Paling banyak {0}.",
   "Owed to you": "Orang berhutang kepada anda",
   "Paid back": "Sudah bayar balik",

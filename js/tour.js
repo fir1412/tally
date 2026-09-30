@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.8.1': [
+    "Deleting a split bill also takes off what friends paid back for it",
+  ],
   '1.8.0': [
     'Tamil (beta): Tally in தமிழ். Suggest a better word from Settings',
   ],
