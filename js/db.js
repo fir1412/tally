@@ -54,8 +54,13 @@ const unseal = rec => openRecord(rec, dek);
 const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tally-data') : null;
 bc?.unref?.(); // Node only (tests): an open channel must not keep the process alive
 const notify = store => { try { bc?.postMessage({ store, at: Date.now() }); } catch {} };
-/** Called with the store name when another tab of the app changed data. */
+/** Called with the store name when another tab of the app changed data ('erased': everything is gone, reload). */
 export const onRemoteChange = cb => bc?.addEventListener('message', e => cb(e.data?.store));
+// After an erase, here or in another tab, this page's copies of the old data (a draft, an Undo) must not write it
+// back into the fresh store: every write is refused until the page reloads.
+let erased = false;
+bc?.addEventListener('message', e => { if (e.data?.store === 'erased') erased = true; });
+const alive = () => { if (erased) throw new Error("Tally's data was erased. Reload to start again."); };
 /** Called when a save failed (for example the fallback storage is full). */
 let failHandler = () => {};
 export const onSaveFailed = cb => { failHandler = cb; };
@@ -138,6 +143,7 @@ export async function all(store) {
 }
 
 export async function put(store, obj) {
+  alive();
   if (!idb) { lsWrite(store, m => { m[store === 'kv' ? obj.key : obj.id] = obj; }); return obj; }
   const rec = await seal(store, obj);
   await tx(store, 'readwrite', os => { os.put(rec); });
@@ -146,6 +152,7 @@ export async function put(store, obj) {
 }
 
 export async function putMany(store, list) {
+  alive();
   if (!idb) return lsWrite(store, m => { for (const o of list) m[store === 'kv' ? o.key : o.id] = o; });
   const recs = await Promise.all(list.map(o => seal(store, o)));
   await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
@@ -153,12 +160,14 @@ export async function putMany(store, list) {
 }
 
 export async function del(store, key) {
+  alive();
   if (!idb) return lsWrite(store, m => { delete m[key]; });
   await tx(store, 'readwrite', os => { os.delete(key); });
   notify(store);
 }
 
 export async function clear(store) {
+  alive();
   if (!idb) return lsWrite(store, m => { for (const k in m) delete m[k]; });
   await tx(store, 'readwrite', os => { os.clear(); });
   notify(store);
@@ -195,6 +204,7 @@ export async function plainKeys(store) {
 }
 /** Write records exactly as given (turning encryption on or off moves them a few at a time). */
 export async function putRaw(store, recs) {
+  alive();
   await tx(store, 'readwrite', os => { for (const o of recs) os.put(o); });
   notify(store);
 }
@@ -208,11 +218,13 @@ export async function destroy() {
 /** Erase: the whole database in one step. Every other tab's connection gets versionchange, closes and reloads (open()),
  *  so a write it had pending fails instead of landing in a half-cleared store. The fallback clears every store at once. */
 export async function wipe() {
-  if (!idb) return mem && writeAtomic({ clear: STORES });
-  await destroy();
+  if (!idb) { if (mem) await writeAtomic({ clear: STORES }); } else await destroy();
+  erased = true;
+  notify('erased');   // the fallback has no versionchange: other tabs learn it here
 }
 /** Delete many keys in one transaction with one change notice (undo of a big import). */
 export async function delMany(store, keys) {
+  alive();
   if (!idb) return lsWrite(store, m => { for (const k of keys) delete m[k]; });
   await tx(store, 'readwrite', os => { for (const k of keys) os.delete(k); });
   notify(store);
@@ -224,6 +236,7 @@ export async function delMany(store, keys) {
  * One IndexedDB transaction, so a crash or full disk mid-way leaves the old data untouched.
  */
 export async function writeAtomic({ clear = [], del = {}, put = {} }) {
+  alive();
   const stores = [...new Set([...clear, ...Object.keys(del), ...Object.keys(put)])];
   if (!idb) {
     const backup = structuredClone(mem);

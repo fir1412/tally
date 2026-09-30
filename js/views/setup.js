@@ -1084,6 +1084,6 @@ export const act = {
   },
   'erase': async () => {
     if (!(await confirmSheet({ title: t("Erase all of Tally's data?"), body: t('This deletes only Tally\'s own data: your accounts, entries, receipt photos, budgets, bills, categories and settings, kept in the storage of the browser Tally runs in on this phone. Other apps, your gallery, your files and the rest of the phone are not touched. It cannot be undone. Back up first if you might want them.'), ok: t("Erase Tally's data"), danger: true }))) return;
-    await eraseAll(); go('welcome'); toast(t("Tally's data was erased."));
+    await eraseAll(); location.hash = '#/welcome'; location.reload();   // a fresh page: drafts, queues and Undo from before can't write back
   },
 };

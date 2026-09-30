@@ -103,3 +103,14 @@ test('erase is one step: another open tab writing right after it cannot leave a 
   await C.S.load();   // threw 'Tally is locked' before: a sealed row with no key left to open it
   assert.deepEqual([C.S.S.tx.length, C.S.S.accounts.length, shim.rows('tx').length], [0, 0, 0]);
 });
+
+test("after an erase no live copy writes the old data back: this page's pending draft, another tab's Undo", async () => {
+  const { shim, A, B } = await twoTabs();
+  const undo = await B.S.deleteTxs(['t1']);   // B shows 'Deleted · Undo'
+  await A.S.eraseAll();
+  const late = [await A.S.setKv('reviewDraft', { draft: { merchant: 'DUMMY PRE-ERASE' } }).then(() => 'landed', () => 'refused'), await undo().then(() => 'landed', () => 'refused')];
+  assert.deepEqual(late, ['refused', 'refused']);
+  const C = await shim.tab();
+  await C.S.load();
+  assert.deepEqual([C.S.S.tx.length, C.S.S.kv.reviewDraft ?? null], [0, null]);
+});

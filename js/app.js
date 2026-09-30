@@ -193,7 +193,8 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
     await gate();   // app lock: nothing is shown before the PIN
     if (settings().lock?.enc) { await load(); sealPhotos().catch(() => {}); }   // encrypted: the data could only be read once the PIN unlocked its key
-    onRemoteChange(async () => { await load(); if (locked()) { await gate(); await load(); } refresh(); });   // encrypted or re-keyed in another tab: ask here too
+    onRemoteChange(async s => { if (s === 'erased') return location.reload();   // erased in another tab: nothing here may write the old data back
+      await load(); if (locked()) { await gate(); await load(); } refresh(); });   // encrypted or re-keyed in another tab: ask here too
     setTimeout(() => sweepPhotos().catch(() => {}), 8000);   // photos of entries deleted before this start (after their Undo was over)
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
