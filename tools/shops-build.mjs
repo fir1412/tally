@@ -68,10 +68,26 @@ try {
     out.push(`${name}|${codeOf.get(compact(brand)) || '-'}|${brand}`); codeOf.set(compact(name), '-'); aliases++;
   }
 } catch { console.log('no operators file: skipped'); }
+// Grocery and food chains from OpenDOSM PriceCatcher (KPDN/DOSM, CC BY 4.0): the shops where it records prices, grouped
+// by chain in D:/tally-data/gov/chains.tsv. Only the chains OSM doesn't have; one-word names need 5+ outlets and letters.
+const cap = s => s.toLowerCase().replace(/(^|[\s(-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+let chains = 0;
+try {
+  const [head, ...rows] = readFileSync(process.argv[4] || 'D:/tally-data/gov/chains.tsv', 'utf8').trim().split('\n').map(l => l.split('\t'));
+  const col = n => head.indexOf(n);
+  for (const r of rows) {
+    const name = cap(r[col('chain')] || ''), k = compact(name), n = +r[col('premises')];
+    if (r[col('in_shops_js')] !== 'NEW' || !k || codeOf.has(k) || /[|"\\]/.test(name)) continue;
+    if (words(name).every(w => GENERIC.has(w) || /^\d+$/.test(w))) continue;
+    if (words(name).length < 2 && (k.length < 5 || n < 5)) continue;
+    out.push(`${name}|${r[col('code')] || '-'}`); codeOf.set(k, r[col('code')] || '-'); chains++;
+  }
+} catch { console.log('no PriceCatcher chains file: skipped'); }
+console.log('PriceCatcher chains', chains);
 const body = `// Malaysian chains and shop names seen at 2+ places, with their category: ${out.length} names from OpenStreetMap
 // (© OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright). Built by tools/shops-build.mjs; don't edit.
 // Each line: name|category code (g groceries, d dining, t transport, h health, p personal, o household, e electronics,
-// s shopping, k kids, u education, f fun, - unknown)[|the brand it is, for a company name]. Company names: OSM and Wikidata (CC0).
+// s shopping, k kids, u education, f fun, - unknown)[|the brand it is, for a company name]. Company names: OSM and Wikidata (CC0). Some grocery chains: OpenDOSM PriceCatcher (KPDN, DOSM), CC BY 4.0.
 export default ${JSON.stringify(out.join('\n'))};
 `;
 writeFileSync(new URL('../js/shops.js', import.meta.url), body);
