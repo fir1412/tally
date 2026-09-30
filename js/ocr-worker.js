@@ -9,7 +9,8 @@ async function ready() {
   if (ocr) return ocr;
   const { Ocr, env } = await import('../vendor/ocr.js');
   env.wasm.wasmPaths = new URL('../vendor/', import.meta.url).href;
-  env.wasm.numThreads = 1; // GitHub Pages can't enable threads; one thread is what every user gets
+  // Several cores once the page is cross-origin isolated (sw.js adds the headers GitHub Pages can't); one otherwise.
+  env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
   ocr = await Ocr.create({ models: {
     detectionPath: new URL('../models/ch_PP-OCRv4_det_infer.onnx', import.meta.url).href,
     recognitionPath: new URL('../models/ch_PP-OCRv4_rec_infer.onnx', import.meta.url).href,
