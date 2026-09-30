@@ -53,10 +53,11 @@ const meanConf = boxes => (boxes.length ? boxes.reduce((s, b) => s + (b.mean ?? 
 
 /**
  * Read with alignment: detect once; if the text looks sideways or reads badly, try the other quarter turns; then
- * straighten a tilt over 3°. detect(raw) → {texts}. Returns {texts, turns, angle, tries}.
+ * straighten a tilt over 3°. detect(raw) → {texts}. Returns {texts, turns, angle, tries}. onStage('turn'|'straighten') before
+ * each extra pass, so the screen can say why the read is taking longer.
  * ponytail: rotation only, no perspective correction (a receipt photographed at a steep angle stays trapezoid).
  */
-export async function readAligned(detect, raw) {
+export async function readAligned(detect, raw, onStage = () => {}) {
   let tries = 1;
   let best = { raw, turns: 0, texts: (await detect(raw)).texts };
   best.score = readScore(best.texts);
@@ -64,6 +65,7 @@ export async function readAligned(detect, raw) {
   // upside down is left (a quarter turn would stand the lines on end). Too few boxes to tell: every turn.
   const few = best.texts.length < 4, sideways = verticalShare(best.texts) > 0.5, poor = few || meanConf(best.texts) < 0.8;
   if (sideways || poor) {
+    onStage('turn');
     for (const turns of sideways ? [1, 3] : few ? [2, 1, 3] : [2]) {
       const r = rotate90(raw, turns), texts = (await detect(r)).texts, score = readScore(texts);
       tries++;
@@ -72,6 +74,7 @@ export async function readAligned(detect, raw) {
   }
   const angle = skewAngle(best.texts);
   if (Math.abs(angle) > 3 && Math.abs(angle) < 30) { // small tilts: PaddleOCR copes, resampling only blurs (A/B on real photos)
+    onStage('straighten');
     const texts = (await detect(rotateBy(best.raw, -angle))).texts;
     tries++;
     if (readScore(texts) >= best.score * 0.95) return { texts, turns: best.turns, angle, tries };

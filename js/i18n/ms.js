@@ -1437,4 +1437,9 @@ export default {
   "It opens like any app, works offline, and keeps your entries safe on this phone.": "Ia dibuka seperti aplikasi biasa, berfungsi tanpa internet dan menyimpan catatan anda dengan selamat di telefon ini.",
   "Last step": "Langkah terakhir",
   "You can install Tally any time in Settings.": "Anda boleh memasang Tally bila-bila masa di Tetapan.",
+  "Getting the photo ready…": "Menyediakan foto…",
+  "Finding the text…": "Mencari tulisan…",
+  "Reading each line…": "Membaca setiap baris…",
+  "Turning the photo the right way up…": "Memusingkan foto supaya tegak…",
+  "Straightening the photo…": "Meluruskan foto…",
 };

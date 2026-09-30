@@ -1437,4 +1437,9 @@ export default {
   "It opens like any app, works offline, and keeps your entries safe on this phone.": "它会像普通应用一样打开，可离线使用，并把你的记录安全地保存在这部手机上。",
   "Last step": "最后一步",
   "You can install Tally any time in Settings.": "你可以随时在设置中安装 Tally。",
+  "Getting the photo ready…": "正在准备照片…",
+  "Finding the text…": "正在查找文字…",
+  "Reading each line…": "正在逐行读取…",
+  "Turning the photo the right way up…": "正在把照片转正…",
+  "Straightening the photo…": "正在把照片摆直…",
 };

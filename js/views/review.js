@@ -7,7 +7,7 @@ import { firstWord } from './learn.js';
 import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { on } from '../features.js';
-import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES } from '../scan.js';
+import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES, readPct } from '../scan.js';
 let saved = false; ocrSaved().then(v => { saved = v; }, () => {});   // already on this phone: starting it is not a download
 import { render, go, scanned } from '../app.js';
 import { accName } from './money.js';
@@ -22,6 +22,25 @@ ocrProgress((got, total) => {
   const bar = document.getElementById('ocr-prog'), txt = document.getElementById('ocr-pct');
   if (bar) bar.value = dlPct; if (txt) txt.textContent = dlText;
 });
+// While a photo is read: what the reader is doing now, and a bar eased toward how long the last read took on this phone.
+// ponytail: the bar is time-based (the worker can't report inside one detect); it never reaches the end until the read does.
+let est = 5000;   // ms; learned from each plain read
+const STAGES = { prep: () => t('Getting the photo ready…'), read: () => t('Finding the text…'), lines: () => t('Reading each line…'), turn: () => t('Turning the photo the right way up…'), straighten: () => t('Straightening the photo…') };
+const stageNow = () => (current.stage === 'read' && performance.now() - current.t0 > current.est * 0.4 ? 'lines' : current.stage);
+let ticker = 0;
+function paintRead() {
+  if (current?.status !== 'reading' || !current.t0) return clearInterval(ticker);
+  const bar = document.getElementById('read-prog'), txt = document.getElementById('read-stage');
+  if (bar) bar.value = readPct(performance.now() - current.t0, current.est); if (txt) txt.textContent = STAGES[stageNow()]();
+}
+function onStage(stage) {
+  if (current?.status !== 'reading') return;
+  const now = performance.now();
+  current.stage = stage;
+  if (stage === 'prep') { current.t0 = now; current.est = est; refresh(); clearInterval(ticker); ticker = setInterval(paintRead, 250); }
+  else if (stage !== 'read') { current.extra = true; current.est = Math.max(current.est, now - current.t0 + est); }   // one more pass: about one more read
+  paintRead();
+}
 const queue = [];     // files waiting to be read
 let current = null;   // {id, file?, status: 'reading'|'ready'|'error', draft, photo, ms, error}
 let reading = false;
@@ -45,7 +64,8 @@ async function pump() {
   reading = true; refresh(); announce(t('Reading…'));
   try {
     if (!ocrReady()) await loadOcr();
-    const { receipt, photo, ms, turns } = await readReceipt(next.file);
+    const { receipt, photo, ms, turns } = await readReceipt(next.file, onStage);
+    if (current.t0 && !current.extra) est = performance.now() - current.t0;
     const draft = toDraft(receipt);
     if (photo) { draft.receiptId = uid('p'); if (!(await savePhoto(draft.receiptId, photo))) delete draft.receiptId; }   // saved now so a draft survives a restart
     current = { ...current, status: 'ready', ms, turns, draft, reveal: true, ...(photo ? { thumb: URL.createObjectURL(photo) } : {}) };   // the upright photo, as it was read
@@ -166,7 +186,8 @@ export const reviewView = {
       <button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
       <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
-      <section class="card center" aria-busy="true"><p>${esc(ocrReady() ? t('Reading the receipt on this phone. This takes a few seconds.') : saved ? t('Starting the reader…') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>
+      <section class="card center" aria-busy="true">${current.t0 ? `<p id="read-stage">${esc(STAGES[stageNow()]())}</p><div class="dl"><progress id="read-prog" max="100" value="${readPct(performance.now() - current.t0, current.est)}" aria-label="${esc(t('Reading…'))}"></progress></div>`
+        : `<p>${esc(ocrReady() || saved ? t('Starting the reader…') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>`}
       ${ocrReady() || saved ? '' : `<button class="btn ghost wide" data-act="go" data-to="home">${esc(t('Use Tally while it downloads'))}</button><div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
       ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}<button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>

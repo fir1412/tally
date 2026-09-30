@@ -22,7 +22,7 @@ self.onmessage = async ({ data: { id, raw } }) => {
     const o = await ready();
     if (!raw) return self.postMessage({ id, texts: [] });
     // Straighten first (sideways/upside-down turns, big tilts): the pixel work stays off the page's thread.
-    const r = await readAligned(x => o.detect(x), raw);
+    const r = await readAligned(x => o.detect(x), raw, stage => self.postMessage({ id, stage }));
     self.postMessage({ id, texts: r.texts.map(({ text, mean, box }) => ({ text, mean, box })), turns: r.turns, angle: r.angle });
   } catch (e) { self.postMessage({ id, error: String(e?.message || e) }); }
 };

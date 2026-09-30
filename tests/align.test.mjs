@@ -50,3 +50,14 @@ test('readAligned tries quarter turns for sideways text and straightens a tilt',
   assert.equal(Math.round(r.angle), 5);
   assert.equal(r.tries, 4); // original, 90°, 270°, straightened
 });
+
+test('the reading screen hears about each extra pass, and its bar never ends before the read does', async () => {
+  const raw = { width: 4, height: 2, data: new Uint8ClampedArray(32).fill(255) }, stages = [];
+  const detect = async r => ({ texts: r.width === 2 ? [box(0, 0, 300, 20, 5), box(0, 40, 300, 20, 5), box(0, 80, 300, 20, 5), box(0, 120, 300, 20, 5)] : [tall(0, 0), tall(40, 0), tall(80, 0), tall(120, 0)] });
+  await readAligned(detect, raw, s => stages.push(s));
+  assert.deepEqual(stages, ['turn', 'straighten']);
+  const { readPct } = await import('../js/scan.js');
+  const at = [0, 1000, 5000, 20000, 600000].map(ms => readPct(ms, 5000));
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'only moves forward');
+  assert.ok(at[2] >= 75 && at.at(-1) <= 95, `about 80 % at the usual time, never full: ${at}`);
+});

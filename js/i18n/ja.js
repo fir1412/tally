@@ -1436,4 +1436,9 @@ export default {
   "It opens like any app, works offline, and keeps your entries safe on this phone.": "普通のアプリのように開き、オフラインでも使え、記録をこのスマホに安全に保存します。",
   "Last step": "最後のステップ",
   "You can install Tally any time in Settings.": "Tally はいつでも設定からインストールできます。",
+  "Getting the photo ready…": "写真を準備しています…",
+  "Finding the text…": "文字を探しています…",
+  "Reading each line…": "1行ずつ読んでいます…",
+  "Turning the photo the right way up…": "写真の向きを直しています…",
+  "Straightening the photo…": "写真の傾きを直しています…",
 };

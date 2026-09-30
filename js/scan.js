@@ -7,16 +7,18 @@ import { imageInfo, LIMITS } from './io.js';
 let worker = null, loading = null, ready = false, seq = 0;
 const pending = new Map();
 /** One OCR request. A worker that doesn't answer within 2 minutes (first run includes the 40 MB download) is reset. */
-function call(raw) {
+function call(raw, onStage = () => {}) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
     const timer = setTimeout(() => { pending.delete(id); reset(); reject(new Error('The receipt reader stopped responding. Try again.')); }, 120_000);
-    pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
+    pending.set(id, { stage: onStage, resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
     worker.postMessage({ id, raw });
   });
 }
 function reset() { worker?.terminate(); worker = null; loading = null; ready = false; for (const p of pending.values()) p.reject(new Error('reset')); pending.clear(); }
 export const ocrReady = () => ready;
+/** The reading bar, 0–95 %: ms so far against the expected ms. Eases out and never ends before the read does. */
+export const readPct = (el, est) => Math.round(95 * (1 - Math.exp(-2 * el / est)));
 // What the reader needs, with sizes for when a server sends no Content-Length. ponytail: update the sizes with the vendor files.
 const FILES = [['../vendor/ocr.js', 10373807], ['../vendor/ort-wasm-simd-threaded.wasm', 14239897], ['../vendor/ort-wasm-simd-threaded.mjs', 24381],
   ['../models/ch_PP-OCRv4_det_infer.onnx', 4745517], ['../models/ch_PP-OCRv4_rec_infer.onnx', 10822323], ['../models/ppocr_keys_v1.txt', 26249]].map(([p, n]) => [new URL(p, import.meta.url).href, n]);
@@ -44,7 +46,7 @@ export function loadOcr() {
   loading ||= (async () => {
     await prefetch();
     worker = new Worker(new URL('./ocr-worker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = ({ data }) => { const p = pending.get(data.id); if (!p) return; pending.delete(data.id); data.error ? p.reject(new Error(data.error)) : p.resolve(data); };
+    worker.onmessage = ({ data }) => { const p = pending.get(data.id); if (!p) return; if (data.stage) return p.stage(data.stage); pending.delete(data.id); data.error ? p.reject(new Error(data.error)) : p.resolve(data); };
     worker.onerror = e => { e.preventDefault?.(); const err = new Error(e.message || 'The receipt reader failed to start.'); for (const p of pending.values()) p.reject(err); pending.clear(); reset(); };
     await call(null); // warm up: loads the models
     ready = true;
@@ -95,14 +97,17 @@ function rows(boxes) {
  * Photo → {receipt, text, photo, ms, turns, angle}. receipt is parseReceipt's result, with item.flag set when the item is
  * worth a second look (low OCR confidence, no name, or a zero price).
  * photo is a re-encoded JPEG (max 1200 px): smaller, and the location data in the original is dropped.
+ * onStage: 'prep', 'read', then 'turn' / 'straighten' when the photo needs another pass.
  */
-export async function readReceipt(file) {
+export async function readReceipt(file, onStage = () => {}) {
   const t0 = performance.now();
   const bmp = await bitmap(file);
   await loadOcr();
+  onStage('prep');
   const c = draw(bmp, 2000);
   const { data, width, height } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
-    const aligned = await call({ data, width, height }); // the worker aligns (js/align.js) and reads
+  onStage('read');
+  const aligned = await call({ data, width, height }, onStage); // the worker aligns (js/align.js) and reads
   const lines = rows(aligned.texts);
   const text = lines.map(l => l.text).join('\n');
   const receipt = parseReceipt(text);
