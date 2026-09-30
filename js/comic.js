@@ -39,8 +39,8 @@ export function bookState({ ym, filled, today }) {
 }
 /** The cast's names over their lines, in each language. */
 export const WHO = {
-  aina: { en: 'Aina', ms: 'Aina', zh: 'Aina', 'zh-Hant': 'Aina', ja: 'アイナ' },
-  wei: { en: 'Wei', ms: 'Wei', zh: '伟', 'zh-Hant': '偉', ja: 'ウェイ' },
-  raju: { en: 'Uncle Raju', ms: 'Pak Cik Raju', zh: 'Raju 叔叔', 'zh-Hant': 'Raju 叔叔', ja: 'ラジュおじさん' },
-  duit: { en: 'Duit', ms: 'Duit', zh: 'Duit', 'zh-Hant': 'Duit', ja: 'ドゥイット' },
+  aina: { en: 'Aina', ms: 'Aina', zh: 'Aina', 'zh-Hant': 'Aina', ja: 'アイナ', ta: 'அய்னா' },
+  wei: { en: 'Wei', ms: 'Wei', zh: '伟', 'zh-Hant': '偉', ja: 'ウェイ', ta: 'வெய்' },
+  raju: { en: 'Uncle Raju', ms: 'Pak Cik Raju', zh: 'Raju 叔叔', 'zh-Hant': 'Raju 叔叔', ja: 'ラジュおじさん', ta: 'ராஜு மாமா' },
+  duit: { en: 'Duit', ms: 'Duit', zh: 'Duit', 'zh-Hant': 'Duit', ja: 'ドゥイット', ta: 'துயிட்' },
 };

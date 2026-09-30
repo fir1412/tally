@@ -1,7 +1,8 @@
 // The monthly sticker book: which days count, filling in later, and which panel a day shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filledDays, panelOf, daysIn, bookState, loadBook } from '../js/comic.js';
+import { filledDays, panelOf, daysIn, bookState, loadBook, WHO } from '../js/comic.js';
+import { LANGS } from '../js/i18n.js';
 
 const at = (d, h = 12) => new Date(`${d}T${String(h).padStart(2, '0')}:00:00`).getTime();   // local time, as dayOf reads it
 const tx = (date, made, extra = {}) => ({ id: date + made, date, createdAt: at(made), source: 'quick', ...extra });
@@ -35,4 +36,15 @@ test('a book is complete only with every day in; a month without its own book us
   assert.equal(late.open, false); assert.equal(late.grace, false);
   const book = await loadBook('2026-01');
   assert.equal(book.stickers.length, 31); assert.ok(Array.isArray(book.panels));
+});
+
+test('every book speaks every language: theme, sticker names, lines, tips and names (a gap falls back to English unseen)', async () => {
+  const gaps = (o, where) => LANGS.filter(([l]) => !o?.[l]).map(([l]) => `${where} ${l}`);
+  const miss = Object.entries(WHO).flatMap(([k, o]) => gaps(o, `WHO.${k}`));
+  for (const m of ['10', '11', '12']) {
+    const b = await loadBook(`2026-${m}`);
+    miss.push(...gaps(b.theme, `${m} theme`), ...b.stickers.flatMap(s => gaps(s.name, `${m} ${s.id}`)), ...Object.entries(b.who || {}).flatMap(([k, o]) => gaps(o, `${m} who.${k}`)));
+    b.panels.forEach((p, i) => miss.push(...p.lines.flatMap(l => gaps(l.text, `${m} #${i + 1}`)), ...(p.tip ? gaps(p.tip, `${m} #${i + 1} tip`) : [])));
+  }
+  assert.deepEqual(miss, []);
 });
