@@ -1463,4 +1463,6 @@ export default {
   "Your colours, {0}": "あなたの色（{0}）",
   "Make your own app colours: Settings, App colours, Mine": "自分だけのアプリの色：設定 → アプリの色 → マイ",
   "Faded or far-away receipt photos are read better, and more slips add up on their own": "色あせたレシートや遠くから撮った写真も読みやすくなり、合計が自動で合うレシートが増えました",
+  "Hide your balance with the eye next to it, so no one sees it over your shoulder": "残高の横の目のアイコンで残高を隠せます。のぞき見されても見えません",
+  "Fix an item name Tally misread once, and it reads it right next time": "Tally が読み間違えた品目名を一度直せば、次回から正しく読み取ります",
 };

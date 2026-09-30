@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.5.0': [
+    'Hide your balance with the eye next to it, so no one sees it over your shoulder',
+    'Fix an item name Tally misread once, and it reads it right next time',
+  ],
   '1.4.0': [
     'Make your own app colours: Settings, App colours, Mine',
     'Faded or far-away receipt photos are read better, and more slips add up on their own',

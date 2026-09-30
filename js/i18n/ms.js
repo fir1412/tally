@@ -1464,4 +1464,6 @@ export default {
   "Your colours, {0}": "Warna anda, {0}",
   "Make your own app colours: Settings, App colours, Mine": "Cipta warna aplikasi anda sendiri: Tetapan, Warna aplikasi, Saya",
   "Faded or far-away receipt photos are read better, and more slips add up on their own": "Foto resit yang pudar atau diambil dari jauh dibaca dengan lebih baik, dan lebih banyak resit dijumlahkan dengan betul sendiri",
+  "Hide your balance with the eye next to it, so no one sees it over your shoulder": "Sembunyikan baki anda dengan ikon mata di sebelahnya, supaya tiada orang nampak dari belakang",
+  "Fix an item name Tally misread once, and it reads it right next time": "Betulkan nama item yang tersalah baca sekali, dan Tally akan membacanya dengan betul lain kali",
 };

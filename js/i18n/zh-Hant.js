@@ -1463,4 +1463,6 @@ export default {
   "Your colours, {0}": "你的顏色，{0}",
   "Make your own app colours: Settings, App colours, Mine": "自定義應用顏色：設定 → 應用顏色 → 我的",
   "Faded or far-away receipt photos are read better, and more slips add up on their own": "褪色或远拍的收據照片識別得更好，更多收據能自動對上總額",
+  "Hide your balance with the eye next to it, so no one sees it over your shoulder": "點餘額旁邊的眼睛即可隱藏餘額，不怕別人從旁邊看到",
+  "Fix an item name Tally misread once, and it reads it right next time": "把 Tally 讀錯的項目名稱改一次，下次就會讀對",
 };
