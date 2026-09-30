@@ -1412,4 +1412,9 @@ export default {
   "Cashew backup": "Cashew のバックアップ",
   "This Cashew backup is from a version Tally does not know yet.": "この Cashew のバックアップは、Tally がまだ知らないバージョンのものです。",
   "{0} upcoming entries not paid yet are left out": "まだ支払っていない予定の記録 {0} 件は含めません",
+  "Bring your Cashew backup straight in (the .sql file)": "Cashew のバックアップ（.sql ファイル）をそのまま取り込めます",
+  "Close any card by swiping it down": "カードは下にスワイプすると閉じます",
+  "Imports from other money apps keep your own category names": "他の家計簿アプリから取り込んでも、カテゴリー名はそのまま残ります",
+  "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "どのブラウザからでも Tally をインストールできます（iPhone、Samsung、Firefox 向けの図解手順付き）",
+  "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "取り込みと消去がより安全に：他人のファイルで Tally が固まったり、消去したデータが戻ったりしなくなりました",
 };

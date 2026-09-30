@@ -1413,4 +1413,9 @@ export default {
   "Cashew backup": "Sandaran Cashew",
   "This Cashew backup is from a version Tally does not know yet.": "Sandaran Cashew ini daripada versi yang Tally belum kenal.",
   "{0} upcoming entries not paid yet are left out": "{0} catatan akan datang yang belum dibayar tidak dimasukkan",
+  "Bring your Cashew backup straight in (the .sql file)": "Bawa masuk sandaran Cashew anda terus (fail .sql)",
+  "Close any card by swiping it down": "Tutup mana-mana kad dengan meleretnya ke bawah",
+  "Imports from other money apps keep your own category names": "Import daripada aplikasi wang lain mengekalkan nama kategori anda sendiri",
+  "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "Pasang Tally dari mana-mana pelayar, dengan langkah bergambar untuk iPhone, Samsung dan Firefox",
+  "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "Import dan padam yang lebih selamat: fail daripada orang lain tidak lagi boleh membekukan Tally atau mengembalikan data yang dipadam",
 };

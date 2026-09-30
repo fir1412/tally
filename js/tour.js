@@ -6,6 +6,14 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.1.0': [
+    'Close any card by swiping it down',
+    'Bring your Cashew backup straight in (the .sql file)',
+    'Imports from other money apps keep your own category names',
+    'Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox',
+    'Safer imports and erase: files from others can no longer freeze Tally or bring erased data back',
+    "Ask before updating (Settings): read what's new before a new version installs",
+  ],
   '1.0.0': [
     'Can I afford it? Type a price and Tally checks it against your money, bills and usual spending for the next 30 days',
     'Choose how much Tally does: Simple, Standard or Everything, or switch each feature on and off in Settings → Features',

@@ -1412,4 +1412,9 @@ export default {
   "Cashew backup": "Cashew 備份",
   "This Cashew backup is from a version Tally does not know yet.": "這個 Cashew 備份來自 Tally 還不認識的版本。",
   "{0} upcoming entries not paid yet are left out": "{0} 筆尚未支付的待付記錄未導入",
+  "Bring your Cashew backup straight in (the .sql file)": "直接導入你的 Cashew 備份（.sql 檔案）",
+  "Close any card by swiping it down": "向下滑動即可關閉任何卡片",
+  "Imports from other money apps keep your own category names": "從其他記帳應用導入時保留你自己的分類名稱",
+  "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "可從任何瀏覽器安裝 Tally，並有 iPhone、Samsung 和 Firefox 的圖示步骤",
+  "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "更安全的導入與刪除：他人的檔案不再能讓 Tally 卡住，也不會讓已刪除的資料恢復",
 };
