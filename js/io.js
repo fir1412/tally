@@ -972,7 +972,9 @@ const SETTINGS = {
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),
   appPalette: v => /^([a-z]{1,12}|book-\d{4}-\d{2})$/.test(v), bookPalettes: v => isObj(v) && Object.keys(v).length <= 120 && Object.entries(v).every(([k, p]) => /^\d{4}-\d{2}$/.test(k) && SETTINGS.myPalette(p)), palette: v => /^[a-z]{1,12}$/.test(v),
   myPalette: v => isObj(v) && Object.keys(v).length === 3 && /^#[0-9a-f]{6}$/i.test(v.accent) && ['dark', 'light'].every(m => Array.isArray(v[m]) && v[m].length === 3 && v[m].every(h => /^#[0-9a-f]{6}$/i.test(h))),
-  movedCats: v => isObj(v) && Object.entries(v).every(([k, to]) => CATEGORIES.slice(0, -1).some(c => c.id === k) && typeof to === 'string' && /^[\w-]{1,40}$/.test(to) && !Object.hasOwn(v, to)),   // Tally's categories removed → where they went
+  // Tally's categories removed → where they went: Other, another of Tally's spending categories or one of the user's own
+  // (never an income category, a made-up word or a key like 'constructor', which broke every month's totals).
+  movedCats: v => isObj(v) && Object.entries(v).every(([k, to]) => CATEGORIES.slice(0, -1).some(c => c.id === k) && typeof to === 'string' && (CATEGORIES.some(c => c.id === to) || /^c_[\w-]{1,40}$/.test(to)) && !Object.hasOwn(v, to)),
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
 };
 export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? s : {}).filter(([k, v]) => Object.hasOwn(SETTINGS, k) && SETTINGS[k](v)).map(([k, v]) => [k, k === 'myName' ? cleanText(v, 30) : v]));
