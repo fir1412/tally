@@ -1432,4 +1432,8 @@ export default {
   "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "備份：無法恢復的備份不會再顯示為已儲存，含大量照片的加密備份也能恢復",
   "The lock asks again after a minute away even if the phone's clock is changed": "即使更改了手機時間，離開一分鐘後鎖仍會再次要求解鎖",
   "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "開啟或關閉加密不會再把你鎖在外面，也不會留下未加密的記錄",
+  "Install now": "立即安裝",
+  "It opens like any app, works offline, and keeps your entries safe on this phone.": "它會像普通應用一樣打開，可離線使用，並把你的記錄安全地儲存在這部手機上。",
+  "Last step": "最後一步",
+  "You can install Tally any time in Settings.": "你可以隨時在設定中安裝 Tally。",
 };

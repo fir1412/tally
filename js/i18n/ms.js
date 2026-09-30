@@ -1433,4 +1433,8 @@ export default {
   "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "Sandaran: Tally tidak lagi mengatakan sandaran disimpan jika ia tidak boleh dipulihkan, dan sandaran berkata laluan dengan banyak foto kini boleh dipulihkan",
   "The lock asks again after a minute away even if the phone's clock is changed": "Kunci akan bertanya semula selepas seminit walaupun jam telefon diubah",
   "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "Menghidupkan atau mematikan penyulitan tidak lagi boleh mengunci anda keluar atau meninggalkan catatan tanpa penyulitan",
+  "Install now": "Pasang sekarang",
+  "It opens like any app, works offline, and keeps your entries safe on this phone.": "Ia dibuka seperti aplikasi biasa, berfungsi tanpa internet dan menyimpan catatan anda dengan selamat di telefon ini.",
+  "Last step": "Langkah terakhir",
+  "You can install Tally any time in Settings.": "Anda boleh memasang Tally bila-bila masa di Tetapan.",
 };

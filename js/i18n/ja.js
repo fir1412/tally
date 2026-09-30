@@ -1432,4 +1432,8 @@ export default {
   "Backups: Tally never says a backup is saved when it could not be restored, and protected backups with many photos restore": "バックアップ：復元できないバックアップを保存済みと表示しなくなり、写真の多いパスワード付きバックアップも復元できます",
   "The lock asks again after a minute away even if the phone's clock is changed": "スマホの時計を変えても、1分離れるとロックがもう一度求められます",
   "Turning encryption on or off can no longer lock you out or leave entries unencrypted": "暗号化のオン・オフで締め出されたり、暗号化されない記録が残ったりしなくなりました",
+  "Install now": "今すぐインストール",
+  "It opens like any app, works offline, and keeps your entries safe on this phone.": "普通のアプリのように開き、オフラインでも使え、記録をこのスマホに安全に保存します。",
+  "Last step": "最後のステップ",
+  "You can install Tally any time in Settings.": "Tally はいつでも設定からインストールできます。",
 };

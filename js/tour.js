@@ -80,7 +80,7 @@ export const WHATS_NEW = {
   ],
 };
 // Each tip: the screen, its icon, words, and the control it is about (pulsed while the tip shows).
-const TOUR = [
+const TIPS = [
   ['home', ICON.receipt, () => t('Welcome to Tally'), () => t('Five quick tips, about 30 seconds. Or skip them and start.')],
   ['home', ICON.camera, () => t('Snap a receipt'), () => t('Tap the camera button. Tally reads the receipt on this phone and splits it into items and categories. Check it, then save.')],
   ['activity', ICON.list, () => t('Everything in one list'), () => t('Search, filter by account or category, and tap any entry to fix it. Scanned receipts keep their photo.')],
@@ -88,14 +88,21 @@ const TOUR = [
   ['budgets', ICON.wallet, () => t('Budgets and bills'), () => t('Set a monthly limit and Tally warns you before you pass it. Regular bills can go into your calendar as reminders.')],
   ['settings', ICON.gear, () => t('Your data stays with you'), () => t('Back up to Google Drive or email, bring data from other apps and bank statements, and change the language and text size here.')],
 ];
-const TARGET = [null, '.fab', '.tabs a[href="#/activity"]', '.tabs a[href="#/insights"]', '.tabs a[href="#/budgets"]', '#backup [data-act="backup"]'];
+const TIP_TARGETS = [null, '.fab', '.tabs a[href="#/activity"]', '.tabs a[href="#/insights"]', '.tabs a[href="#/budgets"]', '#backup [data-act="backup"]'];
 const seen = () => setKv('settings', { ...S.kv.settings, tourDone: true, seenVersion: APP_VERSION });
 export const markSeen = seen;
 const skipTour = () => new URLSearchParams(location.search).has('notour');   // automated tests
 
+// The last step while Tally isn't installed yet: install it here (one tap, or this browser's picture steps), and the
+// Settings button that does it later pulses meanwhile.
+const INSTALL = ['settings', ICON.download, () => t('Install Tally on this phone'), () => t('It opens like any app, works offline, and keeps your entries safe on this phone.')];
+const iosTipJustShown = () => Date.now() - (settings().iosTipAt || 0) < 10 * 60e3;   // iPhone: its Home Screen steps came right before the tour
+/** Skipped or put off: where to install it later, with a way there. */
+const installLater = () => { if (canInstall()) toast(t('You can install Tally any time in Settings.'), { undo: () => { go('settings'); setTimeout(() => { const b = document.querySelector('[data-act="install"]'); b?.scrollIntoView({ block: 'center', behavior: 'smooth' }); b?.classList.add('tour-pulse'); setTimeout(() => b?.classList.remove('tour-pulse'), 4000); }, 350); }, undoLabel: t('Show me') }); };
 /** Walk through the tabs. The sheet stays open while the screen behind it changes. */
 export function showTour(start = 0) {
-  let i = start;
+  let i = start, installedNow = false;
+  const offer = canInstall() && !iosTipJustShown(), TOUR = offer ? [...TIPS, INSTALL] : TIPS, TARGET = offer ? [...TIP_TARGETS, '[data-act="install"]'] : TIP_TARGETS;
   hideToast();   // an import's toast shouldn't sit over the tour
   const unpulse = () => document.querySelectorAll('.tour-pulse').forEach(x => x.classList.remove('tour-pulse', 'tour-under'));
   const sheet = openSheet('', { label: t('Quick tour'), onClose: () => { document.body.classList.remove('touring'); unpulse(); if (!settings().tourDone) seen(); } });
@@ -112,13 +119,15 @@ export function showTour(start = 0) {
       const under = () => { const a = target.getBoundingClientRect(), c = sheet.getBoundingClientRect(); target.classList.toggle('tour-under', a.bottom > c.top && a.top < c.bottom); };
       under(); for (const ms of [300, 700, 1200]) setTimeout(under, ms);   // while and after the smooth scroll
     }
-    const last = i === TOUR.length - 1;
+    const last = i === TOUR.length - 1, install = TOUR[i] === INSTALL;
+    // The install step: one tap where the browser offers it, else this browser's own picture steps right here.
+    const how = install && !installEvt ? (([, steps, note]) => `<ol class="iossteps">${steps.map(([ic, w], n) => `<li><span class="iosnum">${n + 1}</span><span class="tour-ic">${ic}</span><b>${esc(w)}</b></li>`).join('')}</ol>${note ? `<p class="fine">${esc(note)}</p>` : ''}`)(installSteps()) : '';
     sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="tour"><div class="tour-ic">${icon}</div>
-      <p class="lbl">${esc(i ? t('Tip {0} of {1}', i, TOUR.length - 1) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>
-      ${i ? `<div class="dots" aria-hidden="true">${TOUR.slice(1).map((_, j) => `<i class="${j + 1 === i ? 'on' : j + 1 < i ? 'done' : ''}"></i>`).join('')}</div>` : ''}
-      ${last && canInstall() ? `<button class="btn ghost wide" data-t="install">${ICON.download}${esc(t('Install Tally on this phone'))}</button>` : ''}
+      <p class="lbl">${esc(i ? (install ? t('Last step') : t('Tip {0} of {1}', i, TIPS.length - 1)) : 'Tally')}</p><h2 class="sh-title">${esc(title())}</h2><p class="sh-body">${esc(body())}</p>${how}
+      ${i && !install ? `<div class="dots" aria-hidden="true">${TIPS.slice(1).map((_, j) => `<i class="${j + 1 === i ? 'on' : j + 1 < i ? 'done' : ''}"></i>`).join('')}</div>` : ''}
+      ${install && installEvt ? `<button class="btn wide" data-t="install">${ICON.download}${esc(t('Install now'))}</button>` : ''}
       ${last ? `<button class="btn ghost wide" data-t="learn">${ICON.sparkles}${esc(t('Then try it: Learn Tally'))}</button>` : ''}
-      <div class="row2"><button class="btn ghost" data-t="${i ? 'back' : 'skip'}">${esc(i ? t('Back') : t('Skip'))}</button><button class="btn" data-t="next">${esc(last ? t('Start using Tally') : i ? t('Next') : t('Show me'))}</button></div>
+      <div class="row2"><button class="btn ghost" data-t="${i ? 'back' : 'skip'}">${esc(i ? t('Back') : t('Skip'))}</button><button class="btn${install && installEvt ? ' ghost' : ''}" data-t="next">${esc(install ? (installEvt ? t('Later') : t('Done')) : last ? t('Start using Tally') : i ? t('Next') : t('Show me'))}</button></div>
       ${i && !last ? `<button class="link tourskip" data-t="skip">${esc(t('Skip the tour'))}</button>` : ''}</div>`;
     setTimeout(() => sheet.querySelector('[data-t="next"]')?.focus({ preventScroll: true }), 40);
     announce(`${title()}. ${body()}`);   // the tip changes in place: said, not only shown
@@ -126,10 +135,11 @@ export function showTour(start = 0) {
   sheet.addEventListener('click', async e => {
     const b = e.target.closest('[data-t]'); if (!b) return;
     const k = b.dataset.t;
-    if (k === 'install') { await promptInstall(); return paint(); }
-    if (k === 'next' && i < TOUR.length - 1) { i++; return paint(); }
-    if (k === 'back') { i--; return paint(); }
+    if (k === 'install') { installedNow = await promptInstall(); if (!installedNow) return paint(); }
+    else if (k === 'next' && i < TOUR.length - 1) { i++; return paint(); }
+    else if (k === 'back') { i--; return paint(); }
     closeSheet();
+    if (!installedNow) setTimeout(installLater, 900);   // skipped, or put off: say where it is for later
     go(k === 'learn' ? 'learn' : 'home');   // through the router: no step of the tour is left behind Home
     if (k !== 'learn') setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 350);   // Home from the top: the balance first (after the last tip's scroll)
   });
