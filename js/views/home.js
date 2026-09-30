@@ -14,6 +14,7 @@ import { filledDays, panelOf, loadBook, bookState, WHO } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
+import { goalsCard, act as goalsAct } from './goals.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
 export function fill([tpl, ...vals]) {
@@ -313,7 +314,7 @@ export const homeView = {
         ${before && diff ? `<p class="delta ${diff > 0 ? 'bad' : 'good'}">${esc(diff > 0 ? t('{0} more than this point in {1}', fmtRM(diff), fmtMonth(lastYm, sd)) : t('{0} less than this point in {1}', fmtRM(-diff), fmtMonth(lastYm, sd)))}</p>` : ''}
         </div></div>
       </section>
-      ${oweCards(hide)}${recap}${find ? findCard(find, tdy) : ''}
+      ${oweCards(hide)}${goalsCard()}${recap}${find ? findCard(find, tdy) : ''}
       ${fresh ? [streakHome(), banner(null, true), backupBanner()].find(Boolean) || '' : [streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null)].join('')}
       ${S.tx.length >= 3 && on('learn') ? learnHome() : ''}
       </div><div class="col">
@@ -437,6 +438,7 @@ export const act = {
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   },
   ...analyticsAct,
+  ...goalsAct,
   'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),
   'owe-back': b => repaySheet('owedme', b.dataset.n),
   'owe-pay': b => repaySheet('iowe', b.dataset.n),   // where people looked for it: under Accounts

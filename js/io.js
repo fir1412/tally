@@ -956,6 +956,9 @@ export function readBackup(text) {
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
     if (isObj(d.kv.catIcons)) kv.catIcons = Object.fromEntries(Object.entries(d.kv.catIcons).slice(0, 100).filter(([k, v]) => cat(k) === k && Object.hasOwn(CAT_ICONS, v)));
+    // Savings goals: at most 20, each rebuilt from its checked fields (no other keys come through); a link only to an account in the file.
+    if (Array.isArray(d.kv.goals)) kv.goals = d.kv.goals.slice(0, 20).filter(g => isObj(g) && okId(g.id) && okAmt(g.target) && g.target > 0)
+      .map(g => ({ id: g.id, name: cleanText(g.name, 30) || 'Goal', target: g.target, ...(validIso(g.by) ? { by: g.by } : {}), ...(ids.has(g.accountId) ? { accountId: g.accountId } : {}), createdAt: okMs(+g.createdAt) }));
   }
   return { accounts, tx, recurring, kv, settings: backupSettings(d.kv?.settings), dropped: (Array.isArray(d.tx) ? d.tx.length : 0) - tx.length, ...(d.kind === 'joint' ? { joint: true, by: cleanText(d.by, 30),
     gone: Object.fromEntries(list(d.gone, 1000).filter(g => Array.isArray(g) && okId(g[0]) && Number.isSafeInteger(g[1]) && g[1] > 0).map(([id, at]) => [id, Math.min(at, Date.now())])) } : {}) };
@@ -1012,6 +1015,7 @@ export function mergeBackup(local, incoming) {
       catIcons: { ...(incoming.kv.catIcons || {}), ...(local.kv.catIcons || {}) },
       budgets: budgets && jb ? { ...budgets, joint: jb } : budgets,
       dismissed: [...new Set([...(local.kv.dismissed || []), ...(incoming.kv.dismissed || [])])].slice(-300),
+      goals: merge(local.kv.goals || [], incoming.kv.goals || []).slice(0, 20),
     },
   };
 }

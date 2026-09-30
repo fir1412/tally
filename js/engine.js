@@ -807,6 +807,17 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
  * tight: money there but less than that, or over budget. no: short; `months` of usual saving (the last 3 full
  * months' money in minus out) would cover it, when there is any saving.
  */
+/**
+ * A savings goal ({target, by?, accountId?}) against its account's balance (`bal`: engine balances().by, in the account's
+ * own money; no account: 0 saved). → {have, left, pct (0–1), reached, overdue, months, perMonth}: with a date, what a
+ * month gets there by it, rounded up to the sen; months counts calendar months from today's to by's, at least 1.
+ */
+export function goalProgress(g, bal, today) {
+  const have = g.accountId ? bal[g.accountId] || 0 : 0, left = Math.max(0, g.target - have), reached = !left;
+  const overdue = !reached && !!g.by && g.by < today, month = d => +d.slice(0, 4) * 12 + +d.slice(5, 7);
+  const months = g.by && !reached && !overdue ? Math.max(1, month(g.by) - month(today)) : null;
+  return { have, left, pct: Math.max(0, Math.min(have, g.target)) / g.target, reached, overdue, months, perMonth: months && Math.ceil(left / months) };
+}
 /** The money "Can I afford it?" counts: everyday accounts only (cash, bank, e-wallet, and cards as they stand). Savings
  *  (ASB, Tabung Haji) are shown apart, never spent on a phone; what friends owe and what I owe stay out. A balance never
  *  given (typed false) is not counted, as on Home. → {balance, savings} in RM sen. */

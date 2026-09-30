@@ -10,6 +10,7 @@ export const MODULES = [
   ['bills', 'Bills', 'Regular payments that remind you and add themselves.'],
   ['afford', 'Can I afford it?', 'Type a price: Tally checks it against your money, bills and usual spending.'],
   ['taxrelief', 'Tax relief (LHDN)', 'Spending that may relate to a tax relief, and its receipts in one download.'],
+  ['goals', 'Savings goals', 'Save towards something and see what a month gets you there.'],
   ['split', 'Split with friends', 'Share a bill by who had what.'],
   ['reminders', 'Return and warranty reminders', 'A nudge before a return window or warranty ends.'],
   ['stickers', 'Sticker book', 'A sticker for each day you log.'],

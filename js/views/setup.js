@@ -14,6 +14,7 @@ import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
 import { badge } from './money.js';
+import { goalsSettings } from './goals.js';
 import { MODULES, PRESETS, on, setModules, presetNow } from '../features.js';
 import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
 import { sampleData } from '../sample.js';
@@ -184,7 +185,7 @@ export const settingsView = {
         <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${[...Array.from({ length: 28 }, (_, i) => [i + 1, String(i + 1)]), [-2, t('Second-last day')], [-1, t('Last day')]].map(([v, l]) => `<option value="${v}"${startDay() === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         <p class="fine">${esc(t('Paid on the 25th? Start your month on payday. Home, Budgets and Insights follow it.'))} ${esc(t('This month: {0}', fmtMonth(thisMonth(), startDay())))}</p></section>
       <section class="card" id="s-accounts"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.filter(a => !owing(a)).map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
-        <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
+        <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button>${goalsSettings()}</section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
         <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your partner as a file. They import it in Tally, and their changes come back the same way.') : t('In a relationship? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your partner.'))}</p>
         ${hasJoint() ? `<button class="btn ghost wide" data-act="joint-share">${ICON.download}${esc(t('Share joint accounts'))}</button>` : ''}
@@ -603,7 +604,7 @@ async function restoreText(text, zip = {}) {
       .addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { res(b.dataset.x); closeSheet(); } });
   }) : 'replace';
   if (choice === 'no') return;
-  const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {} } };
+  const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {}, goals: S.kv.goals } };
   const before = choice === 'merge' ? S.tx : [], had = new Set(before.map(x => x.id));   // a merge keeps these rows as they are, photos too
   if (choice === 'merge') {
     const merged = mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data);
@@ -669,7 +670,7 @@ function askPassword() {
 }
 const warnMissingPhotos = n => { if (n) toast(t('{0} receipt photos could not be included in this backup.', n), { k: 'warn' }); };
 const photoCount = () => new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
-const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
+const backupFile = () => ({ name: `tally-backup-${today()}.json`, text: makeBackup({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats, shopNames: S.kv.shopNames || {}, itemNames: S.kv.itemNames || {}, catColors: S.kv.catColors, catIcons: S.kv.catIcons, goals: S.kv.goals, settings: backupSettings({ monthStart: 1, weekStart: 1, textSize: 100, ...settings() }) } }) });
 // ---- joint accounts: a file for the spouse, and theirs merged in -----------------------------------------------------
 const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.accountId) || j.has(x.toAccountId)); };
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
