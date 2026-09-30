@@ -1493,4 +1493,8 @@ export default {
   "Use these colours": "Guna warna ini",
   "Your reward: the colours of {0}": "Ganjaran anda: warna {0}",
   "{0} of {1} days logged with Tally": "{0} daripada {1} hari dicatat dengan Tally",
+  "A sticker book for every month, with a comic story and money tips: log a day to open its page": "Buku pelekat untuk setiap bulan, dengan cerita komik dan tip wang: catat satu hari untuk membuka halamannya",
+  "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "Resit dibaca dengan lebih baik: jumlah melebihi RM 1,000, foto mengiring dan senget, slip kad dan e-dompet, petrol dan barang yang ditimbang",
+  "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "Tally mengenali kira-kira 3,000 kedai dan rangkaian di Malaysia mengikut nama, dan memfailkannya seperti biasa",
+  "Remove categories you don't use: what was in them moves to the one you pick": "Buang kategori yang anda tidak guna: isinya dipindahkan ke kategori yang anda pilih",
 };

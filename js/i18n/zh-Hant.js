@@ -1492,4 +1492,8 @@ export default {
   "Use these colours": "使用這些顏色",
   "Your reward: the colours of {0}": "你的獎勵：{0} 的顏色",
   "{0} of {1} days logged with Tally": "用 Tally 記下了 {1} 天中的 {0} 天",
+  "A sticker book for every month, with a comic story and money tips: log a day to open its page": "每個月都有一本貼紙簿，附帶漫畫故事和理財小貼士：記下一天就能翻開那一頁",
+  "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "收據讀得更準：超過 RM 1,000 的金額、橫拍或傾斜的照片、刷卡和電子錢包單據、油費和秤重商品",
+  "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "Tally 能按名稱認出約 3,000 家馬來西亞商店和連鎖店，並照常歸類",
+  "Remove categories you don't use: what was in them moves to the one you pick": "刪除不用的類別：裡面的記錄會移到你選的類別",
 };

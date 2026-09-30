@@ -1492,4 +1492,8 @@ export default {
   "Use these colours": "この配色を使う",
   "Your reward: the colours of {0}": "ごほうび：{0}の配色",
   "{0} of {1} days logged with Tally": "Tally で{1}日中{0}日を記録",
+  "A sticker book for every month, with a comic story and money tips: log a day to open its page": "毎月のステッカー帳：漫画の物語とお金のヒント付き。記録した日のページが開きます",
+  "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "レシートの読み取りが向上：RM 1,000 を超える金額、横向きや傾いた写真、カード・電子ウォレットの控え、給油や量り売り",
+  "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "マレーシアの約 3,000 の店やチェーンを名前で認識し、いつものカテゴリに分類します",
+  "Remove categories you don't use: what was in them moves to the one you pick": "使わないカテゴリを削除：中身は選んだカテゴリへ移ります",
 };
