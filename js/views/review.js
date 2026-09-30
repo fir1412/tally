@@ -132,13 +132,17 @@ function toDraft(r) {
   // The shop as read, then as this user renamed it before ("HEXTAR LUCKIN" → what they typed last time).
   const read = (r.merchant || '').slice(0, 80), merchant = (read && S.kv.shopNames?.[itemKey(read)]) || read;
   const meal = c => (r.meal && c === 'groceries' ? 'dining' : c);   // a restaurant bill: its dishes are dining
+  // A shop Tally's own words don't know, but the shop list does (Parkson: shopping): its category for this receipt only,
+  // never saved, and not when the user files things only their own way.
+  const sk = 'SHOP ' + itemKey(merchant);
+  const rules = r.shopCat && !S.kv.settings?.ownCats && !Object.hasOwn(S.kv.rules, sk) && shopCategory(merchant, S.kv.rules) === 'other' ? { ...S.kv.rules, [sk]: r.shopCat } : S.kv.rules;
   // Each item as read, then as this user renamed that same reading before ("WS B121 WET WIPES" → "WS BT21 WET WIPES").
   const items = r.items.map(i => {
     const raw = (i.name || '').slice(0, 80), fixed = raw && S.kv.itemNames?.[itemKey(raw)], name = fixed || raw;
-    return { name, raw, cents: i.cents, category: meal(categorize(name, merchant, S.kv.rules)), flag: !fixed && !!i.flag, ...(i.crop ? { crop: i.crop } : {}) };
+    return { name, raw, cents: i.cents, category: meal(categorize(name, merchant, rules)), flag: !fixed && !!i.flag, ...(i.crop ? { crop: i.crop } : {}) };
   });
   items.forEach((i, n) => { if (i.cents < 0 && n > 0) i.category = items[n - 1].category; });   // money off belongs to the item it sits under
-  const shop = shopCategory(merchant, S.kv.rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
+  const shop = shopCategory(merchant, rules), category = r.meal && ['other', 'groceries'].includes(shop) ? 'dining' : shop;
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, returnDays: r.returnDays, warrantyMonths: r.warrantyMonths, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay, currency: r.currency }), currency: r.currency, category, items,

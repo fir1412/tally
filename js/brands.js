@@ -2,6 +2,7 @@
 // → the name people use. "HEXTAR LUCKIN M SDN BHD" is Luckin Coffee; "GERBANG ALAF RESTAURANTS" is McDonald's.
 // Public brands only, matched loosely because OCR drops spaces and mixes up letters. Pure: no DOM.
 // ponytail: a fixed list; a user's own corrections (review screen) cover every other shop.
+import SHOPS from './shops.js';
 export const BRANDS = [
   // Coffee, tea, desserts
   [/luckin/i, 'Luckin Coffee'], [/starbucks/i, 'Starbucks'], [/\bzus\s*coffee|\bzus\b/i, 'ZUS Coffee'],
@@ -52,3 +53,23 @@ export function brandOf(lines, max = 10) {
   for (const l of lines.slice(0, max)) { const hit = BRANDS.find(([re]) => re.test(l)); if (hit) return hit[1]; }
   return null;
 }
+
+// Every other chain and repeat shop name in Malaysia (shops.js, from OpenStreetMap), with its usual category.
+const CODES = { g: 'groceries', d: 'dining', t: 'transport', h: 'health', p: 'personal', o: 'household', e: 'electronics', s: 'shopping', k: 'kids', u: 'education', f: 'fun' };
+const squash = s => String(s).toUpperCase().replace(/[^\p{L}\p{N}]/gu, '');
+let index = null;   // "MRDIY" → ['MR.DIY', 'household'], built on the first receipt
+const shops = () => index ||= new Map(SHOPS.split('\n').map(l => l.split('|')).map(([n, c]) => [squash(n), [n, CODES[c] || null]]).reverse());   // reversed: the most common spelling wins
+/** A known shop named on the receipt's top lines: {name, category} or null. Whole words only, glued the way OCR glues
+ *  them ("MR D.I.Y." is MRDIY); the longest name on the earliest line wins. */
+export function knownShop(lines, max = 8) {
+  const idx = shops();
+  for (const l of lines.slice(0, max)) {
+    const w = String(l).toUpperCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    let best = '';
+    for (let i = 0; i < w.length; i++) for (let j = i, k = ''; j < Math.min(w.length, i + 6); j++) { k += w[j]; if (k.length >= 5 && k.length > best.length && idx.has(k)) best = k; }
+    if (best) { const [name, category] = idx.get(best); return { name, category }; }
+  }
+  return null;
+}
+/** The usual category of a shop by name ("Mr DIY" → household), or null. */
+export const categoryOf = name => shops().get(squash(name))?.[1] ?? null;

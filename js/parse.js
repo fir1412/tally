@@ -1,6 +1,6 @@
 // Receipt text (from OCR) -> structured receipt. Pure, no DOM. Amounts are integer cents (sen).
 // Tuned for Malaysian receipts: SST, service charge, 5-sen rounding, SR/ZR tax codes, day-first dates.
-import { brandOf } from './brands.js';
+import { brandOf, knownShop, categoryOf } from './brands.js';
 import { calcAmount } from './engine.js';
 
 // "12.90", "12,90", "RM 12.90", "$12.90", "-2.00", "2.00-", then optional trailing tax code or OCR junk
@@ -44,8 +44,7 @@ const monthOf = s => MON.split('|').indexOf(s.slice(0, 3).toLowerCase()) + 1;
 export function joinRows(boxes) {
   const b = boxes.map(({ text, box }) => {
     const ys = box.map(p => p[1]), top = Math.min(...ys), bottom = Math.max(...ys);
-    const xs = box.map(p => p[0]);
-    return { text, x: Math.min(...xs), r: Math.max(...xs), y: (top + bottom) / 2, h: bottom - top };
+    return { text, x: Math.min(...box.map(p => p[0])), y: (top + bottom) / 2, h: bottom - top };
   }).sort((a, c) => a.y - c.y);
   const rows = [];
   for (const w of b) {
@@ -53,12 +52,7 @@ export function joinRows(boxes) {
     if (row && Math.abs(w.y - row.y) < Math.min(w.h, row.h) / 2) row.words.push(w);
     else rows.push({ y: w.y, h: w.h, words: [w] });
   }
-  // Words far past a row's price are something else beside the slip (a keyboard's "PgDn", a till screen's "WELCOME TO"):
-  // their own line, so the price stays at the end of its row. Short codes (Z, SR) stay.
-  return rows.map(r => r.words.sort((a, c) => a.x - c.x).reduce((out, w, i, ws) => {
-    const p = ws[i - 1], away = p && /\d[.,]\d{2}\s*$/.test(p.text) && w.x - p.r > 2.5 * r.h && !/\d[.,]\d{2}/.test(w.text) && (w.text.match(/\p{L}/gu) || []).length >= 3;
-    return (away ? out + '\n' : out ? out + ' ' : '') + w.text;
-  }, '').replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2')).join('\n');   // the same, read into one box
+  return rows.map(r => r.words.sort((a, c) => a.x - c.x).map(w => w.text).join(' ')).join('\n');
 }
 
 export function toCents(m) {
@@ -169,7 +163,7 @@ function joinNameLines(lines) {
 }
 /** "HEXTAR LUCKIN M SDN BHD" → Luckin Coffee (a known brand); "RESTORAN MAJU JAYA SDN.BHD (123-X)" → Restoran Maju Jaya. */
 export function shopName(lines) {
-  const brand = brandOf(lines); if (brand) return brand;
+  const brand = brandOf(lines) || knownShop(lines.slice(0, 10).filter(l => !ADDRESS.test(l) && !/\d[.,]\d{2}/.test(l)))?.name; if (brand) return brand;   // not "Jalan Setia", not "Cheese Burger 4.50"
   const top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, ''))).slice(0, 8);   // a lone "Bhd" is no name
   const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
   if (!co) return null;
@@ -183,6 +177,9 @@ export function parseReceipt(text) {
   const lines = text.split(/\r?\n/).map(l => l.slice(0, 300).replace(/\s+/g, ' ').trim())   // receipt lines are short: a runaway one can't stall the patterns
     .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
     .map(l => l.replace(/\bRM ?O(?=[.,]\d{2}\b)/gi, 'RM0'))   // "RMO.01": OCR's O for the 0 of a sen amount
+    // Words past a row's price are something beside the slip (a keyboard's "PgDn", a till screen's "WELCOME TO"): their
+    // own line, so the price stays at the end of its row. Tax codes (Z, SR) are shorter and stay.
+    .flatMap(l => l.replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2').split('\n'))
     .filter(Boolean)
     // "Jumlah Barang" with its "7.50" on the next line: one money line, not an item named "Jumlah Barang"
     .reduce((out, l, i, a) => {
@@ -198,6 +195,7 @@ export function parseReceipt(text) {
   const below = namesBelow(lines);
 
   r.merchant = shopName(lines);
+  r.shopCat = r.merchant && categoryOf(r.merchant);   // a known shop's usual category (Parkson: shopping)
   r.date = receiptDate(lines);
   for (const line of lines) {
     if (!r.time) r.time = parseTime(line);

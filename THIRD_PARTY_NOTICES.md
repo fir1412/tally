@@ -12,6 +12,7 @@ Tally ships these files unchanged (except bundling) so it can run offline on the
 | Bricolage Grotesque (Mathieu Triay), IBM Plex Sans and IBM Plex Mono (IBM), via Fontsource | `fonts/*.woff2` (Latin subsets) | SIL Open Font License 1.1 |
 | pdf.js (Mozilla) | `vendor/pdf.min.mjs`, `vendor/pdf.worker.min.mjs` (4.10.38) | Apache-2.0 |
 | sql.js (SQLite compiled to WebAssembly) | `vendor/sql-wasm.js`, `vendor/sql-wasm.wasm` | MIT (SQLite is public domain) |
+| Malaysian shop names and their kinds, © OpenStreetMap contributors | `js/shops.js` (built by `tools/shops-build.mjs`) | [ODbL 1.0](https://www.openstreetmap.org/copyright): the list is a database under the ODbL |
 
 `vendor/ocr.js` was built with esbuild from `@gutenye/ocr-browser@1.4.9` aliased to `onnxruntime-web/wasm`.
 Parts of `js/db.js`, `js/ui.js`, `js/io.js`, `js/calendar.js` and `sw.js` are adapted from the author's own "we go gim" (MIT).

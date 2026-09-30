@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, joinRows, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
+import { parseReceipt, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -316,9 +316,15 @@ test('an O read for the 0 of a sen amount ("RMO.01") still counts as the roundin
   assert.equal(r.total, 1915); assert.equal(r.rounding, 1); assert.ok(r.check.ok);
 });
 
-test('joinRows: words past a row\'s price (a keyboard key, a till screen\'s other panel) go on their own line', () => {
-  const at = (text, x0, x1, y) => ({ text, box: [[x0, y], [x1, y], [x1, y + 20], [x0, y + 20]] });
-  assert.equal(joinRows([at('ROSK SENS SKIN CRM 6.90 PgDn', 0, 600, 0)]), 'ROSK SENS SKIN CRM 6.90\nPgDn');   // read as one box
-  assert.equal(joinRows([at('NASI GORENG', 0, 200, 0), at('7.50', 300, 360, 0), at('WELCOME TO', 900, 1200, 0)]), 'NASI GORENG 7.50\nWELCOME TO');
-  assert.equal(joinRows([at('EGGS OMEGA', 0, 200, 0), at('8.00', 300, 360, 0), at('Z', 380, 390, 0)]), 'EGGS OMEGA 8.00 Z');   // a tax code stays
+test('words past a row\'s price (a keyboard key, a till screen\'s other panel) are not part of the item', () => {
+  const r = parseReceipt('SHOP A\n47460 ROSK SENS SKIN CRM 6.90 PgDn\nNASI GORENG 7.50 WELCOME TO\nEGGS OMEGA 8.00 Z\nTOTAL 22.40');
+  assert.deepEqual(r.items.map(i => i.cents), [690, 750, 800]);
+  assert.ok(r.check.ok);
+});
+
+test('a known Malaysian chain from the shop list names the shop and gives its usual category, never from an address or a price line', () => {
+  const r = parseReceipt('PARKSON PLAZA METRO\nKAJANG\nKNIGHT SHOE 149.50\nTotal RM 149.50');
+  assert.equal(r.merchant, 'Parkson'); assert.equal(r.shopCat, 'shopping');
+  assert.notEqual(parseReceipt('KEDAI ABC\nNO.31G, JALAN SETIA INDAH\nCHEESE BURGER 4.50\nTOTAL 4.50').merchant, 'Setia');
+  assert.equal(parseReceipt('CHEESE BURGER 4.50\nTOTAL 4.50').shopCat ?? null, null);   // "Burger" is a word, not a shop
 });
