@@ -929,6 +929,12 @@ const SETTINGS = {
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
 };
 export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? s : {}).filter(([k, v]) => Object.hasOwn(SETTINGS, k) && SETTINGS[k](v)).map(([k, v]) => [k, k === 'myName' ? cleanText(v, 30) : v]));
+/** The receipt photos an import may write: those of the rows it adds or updates, never an id that another row on this
+ *  phone (`before`) already uses. A file can't overwrite a photo it doesn't own. */
+export const photosToWrite = (rows, before) => {
+  const owner = new Map(before.filter(t => t.receiptId).map(t => [t.receiptId, t.id]));
+  return new Set(rows.filter(t => t.receiptId && (owner.get(t.receiptId) ?? t.id) === t.id).map(t => t.receiptId));
+};
 /** Merge restore: keep everything local, add what the backup has that we don't (by id). Local settings win. */
 export function mergeBackup(local, incoming) {
   const merge = (a, b) => { const ids = new Set(a.map(x => x.id)); return [...a, ...b.filter(x => !ids.has(x.id))]; };
@@ -993,9 +999,14 @@ export function mergeJoint(local, incoming) {
   const ourRate = new Map(pairs.filter(p => p.b < p.a).map(p => [p.b, acc.get(p.a)?.rate]));
   const joint = theirsAll.filter(a => !keep.has(a.id)).map(a => (ourRate.has(a.id) ? { ...a, rate: ourRate.get(a.id) } : a)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
   const myGone = local.kv.jointGone || {}, theirGone = incoming.gone || {}, me = local.kv.settings?.myName || '';
+  // A photo id a row here already uses belongs to that row: a file's row pointing at it loses the link (else the next
+  // joint share would send a personal row's photo, and the zip's copy would overwrite it).
+  const photoOf = new Map(local.tx.filter(t => t.receiptId).map(t => [t.receiptId, t.id]));
+  const ownPhoto = t => ((photoOf.get(t.receiptId) ?? t.id) === t.id ? t : (({ receiptId, ...r }) => r)(t));
   const tx = incoming.tx.map(remap).filter(t => ids.has(t.accountId) && (t.type !== 'transfer' || ids.has(t.toAccountId)))
     .filter(t => { const m = txs.get(t.id); return !(m && (personal.has(m.accountId) || personal.has(m.toAccountId))) && newer(m, t) && !((myGone[t.id] || 0) >= (t.updatedAt || 0)); })
-    .map(t => { const m = txs.get(t.id); return m ? { ...t, ...(m.spouse ? { spouse: true } : {}), ...(m.by && !t.by ? { by: m.by } : {}) } : { ...t, ...(me && t.by === me ? {} : { spouse: true }) }; });
+    .map(t => { const m = txs.get(t.id); return m ? { ...t, ...(m.spouse ? { spouse: true } : {}), ...(m.by && !t.by ? { by: m.by } : {}) } : { ...t, ...(me && t.by === me ? {} : { spouse: true }) }; })
+    .map(ownPhoto);
   const jointHere = new Set(local.accounts.filter(a => a.scope === 'joint').map(a => a.id));
   // A delete from the partner removes joint-only rows; one that also uses a personal account here (a transfer in) stays.
   const drop = local.tx.filter(t => (jointHere.has(t.accountId) || jointHere.has(t.toAccountId)) && !personal.has(t.accountId) && !personal.has(t.toAccountId) && (theirGone[t.id] || 0) > (t.updatedAt || 0)).map(t => t.id), dropped = new Set(drop);

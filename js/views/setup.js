@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -584,6 +584,7 @@ async function restoreText(text, zip = {}) {
   }) : 'replace';
   if (choice === 'no') return;
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
+  const before = choice === 'merge' ? S.tx : [], had = new Set(before.map(x => x.id));   // a merge keeps these rows as they are, photos too
   if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
   // Its settings (month start, language, text size…): all of them on a replace, only what this phone hasn't set on a merge.
   const cur = settings(), want = Object.entries(data.settings || {}).filter(([k]) => choice !== 'merge' || cur[k] == null);
@@ -598,8 +599,8 @@ async function restoreText(text, zip = {}) {
   await tickQuietly();   // Learn Tally: what the restored data shows is done
   persistStorage();
   closeSheet(); go('home'); render();
-  // Photos from a photo backup: only ones a restored transaction points at.
-  const wanted = new Set(data.tx.map(x => x.receiptId).filter(Boolean));
+  // Photos from a photo backup: only ones a row it added points at, never a photo a row already here owns.
+  const wanted = photosToWrite(data.tx.filter(x => !had.has(x.id)), before);
   // Re-encoded like any photo from outside: a crafted file in the zip is dropped, not stored.
   const todo = Object.entries(zip).filter(([n]) => n.startsWith('photos/') && wanted.has(n.slice(7, -4)));
   for (const [i, [n, bytes]] of todo.entries()) {
@@ -650,6 +651,7 @@ async function importJoint(data, zip = {}) {
     m.budgetsJoint ? t('Joint budgets are updated.') : '', m.recurring.length ? t('Joint bills: {0}.', m.recurring.length) : '',
     ...m.empty.map(a => (a.moved ? t('Your joint account "{0}" is the same account as theirs: your {1} entries move into it.', a.name, a.moved) : t('Your empty joint account "{0}" is replaced by theirs.', a.name)))].filter(Boolean).join(' ');
   if (!(await confirmSheet({ title: t('Joint accounts from {0}', from), body, ok: t('Add') }))) return;
+  const before = S.tx;   // whose photo is whose, before the joint rows land
   await putAll({ accounts: m.accounts, tx: m.tx, recurring: m.recurring, del: { tx: m.drop, accounts: m.empty.map(a => a.id) }, kv: {
     jointGone: m.gone,
     ...(m.customCats.length ? { customCats: [...S.kv.customCats, ...m.customCats] } : {}),
@@ -658,7 +660,7 @@ async function importJoint(data, zip = {}) {
   await setSetting('onboarded', true);
   if (!settings().tourDone) await markSeen();
   closeSheet(); go('home'); render();
-  const wanted = new Set(m.tx.map(x => x.receiptId).filter(Boolean));
+  const wanted = photosToWrite(m.tx, before);
   for (const [n, bytes] of Object.entries(zip)) { const id = n.slice(7, -4); if (n.startsWith('photos/') && wanted.has(id)) { const jpeg = await reencode(new Blob([bytes])); if (jpeg) await savePhoto(id, jpeg); } }   // same size and pixel limits as a backup
   toast(t('{0} joint entries added or updated from {1}', theirs, from), { k: 'good', icon: 'check' });
 }

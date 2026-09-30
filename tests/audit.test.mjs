@@ -53,3 +53,15 @@ test('Home and the price sparkline never spread a whole-dataset array into Math.
   const big = Array.from({ length: 200_000 }, (_, i) => i + 1);
   assert.throws(() => Math.min(...big), RangeError);   // why: the engine's argument limit, well under the 200,000-row intake cap
 });
+
+test("an imported file cannot write over, or link to, the receipt photo of this phone's own entry", async () => {
+  const IO = await import('../js/io.js');
+  const local = { accounts: [{ id: 'mine', name: 'Maybank', kind: 'bank' }, { id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint' }],
+    tx: [{ id: 'r1', date: '2026-09-01', type: 'expense', amount: 1000, accountId: 'mine', receiptId: 'pOWNER1', updatedAt: 5 }], recurring: [], kv: {} };
+  const file = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kind: 'joint', by: 'Partner', accounts: [{ id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint' }],
+    tx: [{ id: 'n1', date: '2026-09-02', type: 'expense', amount: 100, accountId: 'jt', receiptId: 'pOWNER1', updatedAt: 60 }, { id: 'n2', date: '2026-09-03', type: 'expense', amount: 100, accountId: 'jt', receiptId: 'pNEW2', updatedAt: 60 }] }));
+  const m = IO.mergeJoint(local, file);
+  assert.deepEqual(m.tx.map(t => [t.id, t.receiptId]), [['n1', undefined], ['n2', 'pNEW2']]);   // not linked to r1's photo
+  // Merge restore: photos are written only for rows it added, never under an id a row here already uses.
+  assert.deepEqual([...IO.photosToWrite([{ id: 'z1', receiptId: 'pOWNER1' }, { id: 'z2', receiptId: 'pNEW' }, { id: 'r1', receiptId: 'pOWNER1' }], local.tx)], ['pNEW', 'pOWNER1']);
+});
