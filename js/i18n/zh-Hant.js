@@ -1467,4 +1467,11 @@ export default {
   "Fix an item name Tally misread once, and it reads it right next time": "把 Tally 讀錯的項目名稱改一次，下次就會讀對",
   "The eye hides your balance in Settings and Insights too": "眼睛圖示也會隱藏設定和分析裡的餘額",
   "Receipts photographed sideways are read the right way up": "橫著拍的收據也能正確讀取",
+  "Bring back {0}": "恢復 {0}",
+  "Brought back.": "已恢復。",
+  "Remove category": "刪除類別",
+  "Remove {0}?": "刪除 {0}？",
+  "Removed. What was in it is in {0} now.": "已刪除。裡面的記錄已移到 {0}。",
+  "Removed:": "已刪除：",
+  "What is in it moves to": "裡面的記錄移到",
 };

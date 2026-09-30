@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate } from './engine.js';
+import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate, movedTo } from './engine.js';
 import { CAT_ICONS } from './caticons.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
@@ -436,8 +436,8 @@ export function mapCategory(name, catMap = {}, merchant = '', custom = []) {
   if (Object.hasOwn(catMap, cleanText(name, 60))) return catMap[cleanText(name, 60)];
   const n = catName(cleanText(name, 60)), lo = n.toLowerCase();
   const hit = [...custom, ...ALL_CATS].find(c => c.id === lo || String(c.name).toLowerCase() === lo);
-  if (hit) return hit.id;
-  return CAT_WORDS.find(([, re]) => re.test(n))?.[0] || categorize(n, merchant);
+  if (hit) return movedTo(hit.id);   // not a category the user removed
+  return movedTo(CAT_WORDS.find(([, re]) => re.test(n))?.[0] || categorize(n, merchant));
 }
 const cp = n => (n > 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.fromCodePoint(n) : '');
 const LEAD_EMOJI = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}️‍⃣\s]+/u;
@@ -960,6 +960,7 @@ const SETTINGS = {
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),
   appPalette: v => /^[a-z]{1,12}$/.test(v), palette: v => /^[a-z]{1,12}$/.test(v),
   myPalette: v => isObj(v) && Object.keys(v).length === 3 && /^#[0-9a-f]{6}$/i.test(v.accent) && ['dark', 'light'].every(m => Array.isArray(v[m]) && v[m].length === 3 && v[m].every(h => /^#[0-9a-f]{6}$/i.test(h))),
+  movedCats: v => isObj(v) && Object.entries(v).every(([k, to]) => CATEGORIES.slice(0, -1).some(c => c.id === k) && typeof to === 'string' && /^[\w-]{1,40}$/.test(to) && !Object.hasOwn(v, to)),   // Tally's categories removed → where they went
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
 };
 export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? s : {}).filter(([k, v]) => Object.hasOwn(SETTINGS, k) && SETTINGS[k](v)).map(([k, v]) => [k, k === 'myName' ? cleanText(v, 30) : v]));

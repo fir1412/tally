@@ -1468,4 +1468,11 @@ export default {
   "Fix an item name Tally misread once, and it reads it right next time": "Betulkan nama item yang tersalah baca sekali, dan Tally akan membacanya dengan betul lain kali",
   "The eye hides your balance in Settings and Insights too": "Ikon mata turut menyembunyikan baki anda dalam Tetapan dan Analisis",
   "Receipts photographed sideways are read the right way up": "Resit yang difoto secara mengiring kini dibaca dengan betul",
+  "Bring back {0}": "Kembalikan {0}",
+  "Brought back.": "Sudah dikembalikan.",
+  "Remove category": "Buang kategori",
+  "Remove {0}?": "Buang {0}?",
+  "Removed. What was in it is in {0} now.": "Dibuang. Isinya kini dalam {0}.",
+  "Removed:": "Dibuang:",
+  "What is in it moves to": "Isinya dipindahkan ke",
 };

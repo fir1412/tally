@@ -1,7 +1,7 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
 import { typedShift, CAPS, CAT_CODE, catName, sameCategory, mapCategory } from './io.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames', 'itemNames'];   // every key setKv writes must be here, or it is lost on restart
@@ -19,6 +19,7 @@ export async function load() {
     for (const k of KV_KEYS) if (k !== 'settings') S.kv[k] = await db.getKv(k, null);
   }
   ownCategories(S.kv.settings.ownCats);
+  movedCategories(S.kv.settings.movedCats);
   S.kv.budgets ||= { total: 0, byCat: {} };
   S.kv.rules ||= {};
   S.kv.customCats ||= [];
@@ -121,7 +122,7 @@ export const uid = p => `${p}${Date.now().toString(36)}${Math.random().toString(
 const tint = c => (S.kv.catColors?.[c.id] || S.kv.catIcons?.[c.id] ? { ...c, ...(S.kv.catColors?.[c.id] ? { color: S.kv.catColors[c.id] } : {}), ...(S.kv.catIcons?.[c.id] ? { icon: S.kv.catIcons[c.id] } : {}) } : c);   // and the icon (kv catIcons: {id: key})
 /** A category's icon (a key of caticons.js CAT_ICONS), or its built-in one again. */
 export const setCatIcon = (id, key) => { const m = { ...S.kv.catIcons }; if (key) m[id] = key; else delete m[id]; return setKv('catIcons', m); };
-export const expenseCats = () => [...(S.kv.settings?.ownCats ? [] : CATEGORIES.slice(0, -1)), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
+export const expenseCats = () => [...(S.kv.settings?.ownCats ? [] : CATEGORIES.slice(0, -1).filter(c => !Object.hasOwn(S.kv.settings?.movedCats || {}, c.id))), ...S.kv.customCats.filter(c => c.kind !== 'income'), CATEGORIES.at(-1)].map(tint);
 export const incomeCats = () => [...INCOME_CATEGORIES.slice(0, -1), ...S.kv.customCats.filter(c => c.kind === 'income'), INCOME_CATEGORIES.at(-1)].map(tint);
 export const allCats = () => [...expenseCats(), ...incomeCats()];
 export function setCatColor(id, hex) {
@@ -170,6 +171,13 @@ export async function repairCatNames() {
     const near = c => (c.kind === 'income' ? (/salary|gaji|工资|薪/i.test(c.name) ? 'salary' : 'income') : (n => (INCOME_CATEGORIES.some(x => x.id === n) ? 'other' : n))(mapCategory(c.name)));
     for (const c of [...left].sort((a, b) => (uses.get(b.id) || 0) - (uses.get(a.id) || 0)).slice(CAPS.customCats)) into.set(c.id, near(c));
   }
+  await foldCategories(into, { customCats: S.kv.customCats.flatMap(c => (into.has(c.id) ? [] : [renamed.get(c.id) || c])) });
+  return into.size + renamed.size;
+}
+
+/** Fold categories into others (into: Map id → id): entries, items, bills, budgets, learned rules, colours, icons and
+ *  import mappings move with them, in one write. customCats: the list to keep; moved: settings.movedCats to store. */
+export async function foldCategories(into, { customCats = S.kv.customCats, moved = null, edit = false } = {}) {
   const m = id => into.get(id) || id, hit = id => into.has(id);
   const tx = S.tx.filter(t => hit(t.category) || hit(t.cat) || t.items?.some(i => hit(i.category)))
     .map(t => ({ ...t, category: m(t.category), ...(t.cat ? { cat: m(t.cat) } : {}), ...(t.items ? { items: t.items.map(i => ({ ...i, category: m(i.category) })) } : {}) }));
@@ -182,14 +190,31 @@ export async function repairCatNames() {
   };
   const b = S.kv.budgets, st = S.kv.settings;
   const importMaps = st.importMaps && Object.fromEntries(Object.entries(st.importMaps).map(([k, v]) => [k, v?.catMap ? { ...v, catMap: Object.fromEntries(Object.entries(v.catMap).map(([s, id]) => [s, m(id)])) } : v]));
-  // One write, edit times kept: a repair is not an edit, so a partner's real edit still wins at the next swap.
-  await putAll({ tx, recurring, kv: {
-    customCats: S.kv.customCats.flatMap(c => (into.has(c.id) ? [] : [renamed.get(c.id) || c])),
+  // One write. A repair keeps edit times (not an edit: a partner's real edit still wins at the next swap); a removal is one.
+  await putAll({ tx, recurring, edit, kv: {
+    customCats,
     ...(into.size ? { budgets: { ...byCat(b), ...(b.joint ? { joint: byCat(b.joint) } : {}), ...(b.business ? { business: byCat(b.business) } : {}) },
       rules: Object.fromEntries(Object.entries(S.kv.rules).map(([k, v]) => [k, m(v)])), catColors: moveKeys(S.kv.catColors), catIcons: moveKeys(S.kv.catIcons),
-      ...(importMaps ? { settings: { ...st, importMaps } } : {}) } : {}),
+      } : {}),
+    ...(importMaps || moved ? { settings: { ...st, ...(importMaps ? { importMaps } : {}), ...(moved ? { movedCats: moved } : {}) } } : {}),
   } });
-  return into.size + renamed.size;
+}
+/** Remove a category: the user's own is deleted, one of Tally's is hidden; everything in it moves to `to` (Other by
+ *  default), and Tally's guesses for a hidden one land in `to` from now on. Other itself stays: it is where things fall. */
+export async function removeCategory(id, to = 'other') {
+  const builtIn = CATEGORIES.slice(0, -1).some(c => c.id === id), own = S.kv.customCats.some(c => c.id === id && c.kind !== 'income');
+  if ((!builtIn && !own) || id === to || id === 'other' || !expenseCats().some(c => c.id === to)) throw new Error('This category cannot be removed.');
+  const moved = { ...(S.kv.settings.movedCats || {}) };
+  for (const [k, v] of Object.entries(moved)) if (v === id) moved[k] = to;   // what went into it goes on to `to`
+  if (builtIn) moved[id] = to;
+  await foldCategories(new Map([[id, to]]), { customCats: S.kv.customCats.filter(c => c.id !== id), moved, edit: true });
+  movedCategories(S.kv.settings.movedCats);
+}
+/** One of Tally's removed categories back in the list (its old entries stay where they were moved). */
+export async function bringBackCategory(id) {
+  const moved = { ...(S.kv.settings.movedCats || {}) }; delete moved[id];
+  await setKv('settings', { ...S.kv.settings, movedCats: moved });
+  movedCategories(moved);
 }
 
 // ---- transactions -----------------------------------------------------------------------------------------------

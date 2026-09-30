@@ -198,23 +198,26 @@ const PLACE = /\b(jln|jalan|lorong|lrg|taman|tmn|persiaran|lebuh(raya)?|bandar|k
 export const unplace = once(s => String(s ?? '').replace(PLACE, ' '));
 /** Category for an item: the user's own rule first, then item words, then the shop's usual category. */
 /** "Only my categories" (Settings): Tally's own word lists are off; only what the user taught it (rules) files things. */
-let ownOnly = false;
+let ownOnly = false, moved = {};
 export const ownCategories = on => { ownOnly = !!on; };
+/** Tally's categories the user removed → where their things go now ({kids: 'household'}): no guess lands in one. */
+export const movedCategories = m => { moved = m || {}; };
+export const movedTo = c => (Object.hasOwn(moved, c) ? moved[c] : c);
 export function categorize(name, merchant = '', rules = {}) {
   const k = itemKey(name);
-  if (k && Object.hasOwn(rules, k)) return rules[k];
+  if (k && Object.hasOwn(rules, k)) return movedTo(rules[k]);
   const shop = shopCategory(merchant, rules);
   if (ownOnly) return shop;
   const n = ' ' + unplace(name) + ' ';
-  for (const [c, re] of WORDS) if (re.test(n)) return c === 'groceries' && shop === 'dining' ? 'dining' : c; // teh at a kopitiam is a meal
+  for (const [c, re] of WORDS) if (re.test(n)) return movedTo(c === 'groceries' && shop === 'dining' ? 'dining' : c); // teh at a kopitiam is a meal
   return shop;
 }
 export function shopCategory(merchant = '', rules = {}) {
   const mk = 'SHOP ' + itemKey(merchant);
-  if (Object.hasOwn(rules, mk)) return rules[mk];
+  if (Object.hasOwn(rules, mk)) return movedTo(rules[mk]);
   if (ownOnly) return 'other';
   const m = unplace(merchant);
-  for (const [c, re] of SHOPS) if (re.test(m)) return c;
+  for (const [c, re] of SHOPS) if (re.test(m)) return movedTo(c);
   return 'other';
 }
 

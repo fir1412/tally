@@ -1,5 +1,5 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
@@ -203,6 +203,7 @@ export const settingsView = {
         <button class="btn ghost wide" data-act="export-open">${ICON.download}${esc(t('Export'))}</button></section>
       <section class="card" id="s-cats"><h2>${esc(t('Categories'))}</h2><ul class="chips">${expenseCats().map(c => `<li><button class="chip dotbtn" data-act="cat-edit" data-c="${esc(c.id)}" aria-label="${esc(t('Icon and colour: {0}', t(c.name)))}">${badge(c)}${esc(t(c.name))}</button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="cat-add">${ICON.plus}${esc(t('Add a category'))}</button>
+        ${(gone => (gone.length ? `<p class="fine">${esc(t('Removed:'))}</p><ul class="chips">${gone.map(c => `<li><button class="chip" data-act="cat-back" data-c="${esc(c.id)}" aria-label="${esc(t('Bring back {0}', t(c.name)))}">${ICON.plus}${esc(t(c.name))}</button></li>`).join('')}</ul>` : ''))(settings().ownCats ? [] : CATEGORIES.filter(c => Object.hasOwn(settings().movedCats || {}, c.id)))}
         <label class="toggle"><span class="grow"><b>${esc(t('Only my categories'))}</b><small>${esc(t("Hide Tally's categories and stop its guesses. Things go to Other until you pick a category; Tally then remembers."))}</small></span><input type="checkbox" class="switch" data-input="own-cats"${settings().ownCats ? ' checked' : ''}></label>
         ${rules.length || names.length ? `<button class="btn ghost wide" data-act="rules-clear">${esc(t('Forget everything Tally learned'))}</button>` : ''}
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length + names.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))} ${esc(t('When you fix an item\'s name, Tally reads it that way next time.'))}</p>
@@ -831,17 +832,33 @@ export const act = {
     const icon = () => S.kv.catIcons[c.id] || DEFAULT_ICON[c.id] || c.icon || 'tag';
     const el = openSheet(`<h2 class="sh-title">${badge(cat(c.id))} ${esc(t(c.name))}</h2><p class="fine">${esc(t('Icon'))}</p>
       <div class="icgrid" role="group" aria-label="${esc(t('Icon'))}">${Object.keys(CAT_ICONS).map((k, i) => `<button class="icbtn" data-x="${k}" aria-pressed="${icon() === k}" aria-label="${esc(t('Icon {0}', i + 1))}">${catIcon({ icon: k })}</button>`).join('')}</div>
-      <div class="row2 sheetfoot"><button class="btn ghost" data-x="colour">${esc(t('Change colour'))}</button><button class="btn" data-x="done">${esc(t('Done'))}</button></div>`, { label: t(c.name) });
+      <div class="row2 sheetfoot"><button class="btn ghost" data-x="colour">${esc(t('Change colour'))}</button><button class="btn" data-x="done">${esc(t('Done'))}</button></div>
+      ${c.id === 'other' ? '' : `<button class="btn ghost danger wide" data-x="remove">${esc(t('Remove category'))}</button>`}`, { label: t(c.name) });
     el.addEventListener('click', async e => {
       const x = e.target.closest('[data-x]')?.dataset.x; if (!x) return;
       if (x === 'done') { closeSheet(); render(); return; }
       if (x === 'colour') { closeSheet(); render(); return act['cat-color'](b); }
+      if (x === 'remove') { closeSheet(); return act['cat-remove'](b); }
       const custom = S.kv.customCats.find(y => y.id === c.id);
       await setCatIcon(c.id, x === (DEFAULT_ICON[c.id] || custom?.icon || 'tag') ? null : x);
       for (const btn of el.querySelectorAll('.icbtn')) btn.setAttribute('aria-pressed', btn.dataset.x === x);
       el.querySelector('.sh-title .cbadge')?.replaceWith(Object.assign(document.createElement('span'), { innerHTML: badge(cat(c.id)) }).firstChild);
     });
   },
+  // Remove a category: what is in it (entries, bills, budget, what Tally learned) moves to the one picked, Other at first.
+  'cat-remove': async b => {
+    const c = expenseCats().find(x => x.id === b.dataset.c); if (!c || c.id === 'other') return;
+    const opts = expenseCats().filter(x => x.id !== c.id).map(x => `<option value="${esc(x.id)}"${x.id === 'other' ? ' selected' : ''}>${esc(t(x.name))}</option>`).join('');
+    const to = await new Promise(res => {
+      const el = openSheet(`<h2 class="sh-title">${esc(t('Remove {0}?', t(c.name)))}</h2><label class="field"><span>${esc(t('What is in it moves to'))}</span><select id="cat-to">${opts}</select></label>
+        <div class="row2 sheetfoot"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn danger" data-x="ok">${esc(t('Remove'))}</button></div>`, { label: t('Remove category'), onClose: () => res(null) });
+      el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (!x) return; const v = el.querySelector('#cat-to').value; res(x === 'ok' ? v : null); closeSheet(); });
+    });
+    if (!to) return;
+    try { await removeCategory(c.id, to); } catch (e) { return toast(t(e.message), { k: 'warn' }); }
+    render(); toast(t('Removed. What was in it is in {0} now.', t(expenseCats().find(x => x.id === to)?.name || to)), { icon: 'check' });
+  },
+  'cat-back': async b => { await bringBackCategory(b.dataset.c); render(); toast(t('Brought back.'), { icon: 'check' }); },
   'cat-color': async b => {
     const c = expenseCats().find(x => x.id === b.dataset.c); if (!c) return;
     const base = [...CATEGORIES, ...S.kv.customCats].find(x => x.id === c.id)?.color;

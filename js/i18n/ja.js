@@ -1467,4 +1467,11 @@ export default {
   "Fix an item name Tally misread once, and it reads it right next time": "Tally が読み間違えた品目名を一度直せば、次回から正しく読み取ります",
   "The eye hides your balance in Settings and Insights too": "目のアイコンで、設定と分析の残高も隠れます",
   "Receipts photographed sideways are read the right way up": "横向きに撮ったレシートも正しい向きで読み取ります",
+  "Bring back {0}": "{0} を戻す",
+  "Brought back.": "戻しました。",
+  "Remove category": "カテゴリを削除",
+  "Remove {0}?": "{0} を削除しますか？",
+  "Removed. What was in it is in {0} now.": "削除しました。中身は {0} に移りました。",
+  "Removed:": "削除済み：",
+  "What is in it moves to": "中身の移動先",
 };
