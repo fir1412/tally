@@ -1,25 +1,26 @@
-// English text lives in the code as t('...'); Malay and Chinese are data files (js/i18n/ms.js, zh.js), so a typo
+// English text lives in the code as t('...'); the other languages are data files (js/i18n/ms.js, zh.js…), so a typo
 // in a translation can never break a script. tests/i18n.test.mjs fails if any t('...') string lacks a translation.
 import { cycleSpan } from './engine.js';
-export const LANGS = [['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文'], ['zh-Hant', '繁體中文'], ['ja', '日本語']];
+export const LANGS = [['en', 'English'], ['ms', 'Bahasa Melayu'], ['zh', '简体中文'], ['zh-Hant', '繁體中文'], ['ja', '日本語'], ['ta', 'தமிழ்']];
 /** The language's tag for the page and for dates (Intl). */
 export const langTag = (l = lang) => (l === 'zh' ? 'zh-Hans' : l);
 const CJK = () => lang === 'zh' || lang === 'zh-Hant' || lang === 'ja';
 let dict = null, lang = 'en';
 
-/** Phone language list → 'ms', 'zh', 'zh-Hant', 'ja' or 'en'. */
+/** Phone language list → 'ms', 'zh', 'zh-Hant', 'ja', 'ta' or 'en'. */
 export function pickLang(list) {
   for (const raw of (Array.isArray(list) ? list : [list]).filter(Boolean)) {
     const low = String(raw).toLowerCase(), two = low.slice(0, 2);
     if (/^zh-(hant|tw|hk|mo)/.test(low)) return 'zh-Hant';   // Taiwan, Hong Kong, Macau
     if (two === 'ms' || two === 'zh' || two === 'ja') return two;
     if (two === 'id') return 'ms';   // Indonesian readers (domestic helpers, students) read Malay far better than English
+    if (two === 'ta') return 'ta';
     if (two === 'en') return 'en';
   }
   return 'en';
 }
 // Copy is written for phones; on a tablet or computer "this phone" reads as "this device".
-const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'], 'zh-Hant': [/(這部|此)手機|手機(?=上|丟失)/g, '此裝置'], ja: [/このスマホ/g, 'この端末'] };
+const DEVICE = { en: [/\b(this|the|your) phone\b/g, '$1 device'], ms: [/\btelefon (ini|anda|hilang)\b/g, 'peranti $1'], zh: [/(这部|此)手机|手机(?=上|丢失)/g, '此设备'], 'zh-Hant': [/(這部|此)手機|手機(?=上|丟失)/g, '此裝置'], ja: [/このスマホ/g, 'この端末'], ta: [/(இந்தக் |உங்கள் )கைப்பேசி/g, '$1கருவி'] };
 // Decided once from the browser's own description, so the same phone always gets the same word (a screen size or
 // pointer check flipped with rotation and split screen). Phones say "Mobile"; tablets and computers don't.
 const notPhone = typeof document !== 'undefined' && !/Mobi|iPhone|iPod/i.test(navigator.userAgent || '');
@@ -36,8 +37,9 @@ export async function setLang(want) {
   dict = lang === 'en' ? null : (await import(`./i18n/${lang}.js`)).default;
 }
 export const getLang = () => lang;
-/** Dates for display: "28 Sep" / "28 Sep 2026" / Malay months / 9月28日. */
-const MON = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], ms: ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'] };
+/** Dates for display: "28 Sep" / "28 Sep 2026" / Malay or Tamil months / 9月28日. */
+const MON = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], ms: ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'],
+  ta: ['ஜன.', 'பிப்.', 'மார்.', 'ஏப்.', 'மே', 'ஜூன்', 'ஜூலை', 'ஆக.', 'செப்.', 'அக்.', 'நவ.', 'டிச.'] };
 export function fmtDate(iso, { year = false } = {}) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
