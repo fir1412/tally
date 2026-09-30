@@ -879,6 +879,11 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .sp-new { min-width: 110px; flex: 1; border: 1px dashed var(--line); background: transparent; color: var(--ink); }
 .sp-items .rbtn.on { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
 .sp-sum { margin-top: var(--sp-3); } .sp-sum li { padding: 6px 0; }
+.sp-paid { display: grid; gap: 6px; margin: var(--sp-2) 0; }
+.sp-sum .sp-owed { font-weight: 650; border-bottom: 0; }
+.sp-foot .row2 { margin-bottom: var(--sp-2); }
+.sp-note { display: flex; gap: var(--sp-2); align-items: center; margin: 0; } .sp-note svg { width: 18px; height: 18px; flex: none; }
+.card.owe .list > li:last-child { border-bottom: 0; }
 /* Chinese (Traditional) and Japanese read in their own system fonts first (the same characters are drawn differently). */
 :lang(zh-Hant) { --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
 :lang(ja) { --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; }

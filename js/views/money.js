@@ -1,9 +1,9 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
+import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
+import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -11,7 +11,7 @@ import { on } from '../features.js';
 import { onColor } from '../colorpicker.js';
 import { render, go } from '../app.js';
 
-export const accName = id => S.accounts.find(a => a.id === id)?.name || t('Deleted account');
+export const accName = id => { const a = S.accounts.find(x => x.id === id); return !a ? t('Deleted account') : owing(a) ? t(a.name) : a.name; };   // Owed to you, You owe: in the app's language
 const accOf = id => S.accounts.find(a => a.id === id);
 /** "Amount (RM)", or the account's own currency: "Amount (SGD)". */
 const amtLabel = (id, key = 'Amount ({0})') => { const a = accOf(id); return isFx(a) ? t(key, a.currency) : key === 'Amount ({0})' ? t('Amount (RM)') : t(key, 'RM'); };
@@ -76,7 +76,7 @@ export const activityView = {
       ${scopeSwitch()}<div class="filters">
         <label class="search">${ICON.search}<input id="act-q" type="search" data-input="act-q" value="${esc(F.q)}" placeholder="${esc(t('Search shops, items, notes'))}" aria-label="${esc(t('Search'))}"></label>
         <select id="act-month" data-input="act-f" data-k="month" aria-label="${esc(t('Month'))}"><option value="">${esc(t('Month'))}</option>${[...new Set(months.map(m => m.slice(0, 4)))].map(y => `<option value="y${y}"${F.month === `y${y}` ? ' selected' : ''}>${esc(t('All of {0}', y))}</option>`).join('')}${months.map(m => `<option value="${m}"${F.month === m ? ' selected' : ''}>${esc(fmtMonth(m, sd))}</option>`).join('')}</select>
-        <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
+        <select id="act-acc" data-input="act-f" data-k="acc" aria-label="${esc(t('Account'))}"><option value="">${esc(t('Account'))}</option>${scopedAccounts().map(a => `<option value="${esc(a.id)}"${F.acc === a.id ? ' selected' : ''}>${esc(accName(a.id))}</option>`).join('')}</select>
         <select id="act-cat" data-input="act-f" data-k="cat" aria-label="${esc(t('Category'))}"><option value="">${esc(t('Category'))}</option>${allCats().map(c => `<option value="${esc(c.id)}"${F.cat === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select>
       </div>
       <div class="chips"><button class="chip${F.photo ? ' on' : ''}" data-act="act-photo" aria-pressed="${F.photo}">${ICON.receipt}${esc(t('With receipt photo'))}</button>${F.ids ? `<button class="chip on" data-act="act-ids" aria-label="${esc(t('Show all, not just {0}', F.idsLabel))}">${esc(F.idsLabel)}${ICON.x}</button>` : ''}</div>
@@ -176,10 +176,11 @@ const lastIncomeCat = () => S.tx.reduce((b, x) => (x.type === 'income' && x.cate
 let draft = null; // the transaction being edited; its id is fixed when the sheet opens, so saving twice can't duplicate
 function sheetHtml() {
   const d = draft, isNew = !S.tx.some(x => x.id === d.id);
-  const to = d.toAccountId || S.accounts.find(a => a.id !== d.accountId)?.id, twoCur = d.type === 'transfer' && (accOf(d.accountId)?.currency || 'MYR') !== (accOf(to)?.currency || 'MYR');
+  const to = d.toAccountId || S.accounts.find(a => a.id !== d.accountId && !owing(a))?.id, twoCur = d.type === 'transfer' && (accOf(d.accountId)?.currency || 'MYR') !== (accOf(to)?.currency || 'MYR');
   const cats = d.type === 'income' ? incomeCats() : expenseCats();
   const seg = ['expense', 'income', 'transfer'].map(k => `<button type="button" class="seg${d.type === k ? ' on' : ''}" data-act="tx-type" data-type="${k}" aria-pressed="${d.type === k}">${esc(t({ expense: 'Spent', income: 'Received', transfer: 'Transfer' }[k]))}</button>`).join('');
-  const accOpts = sel => S.accounts.map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
+  // Owed to you and You owe only as the entry's own account (a friend's share, a bill a friend paid): kept, never offered.
+  const accOpts = sel => S.accounts.filter(a => !owing(a) || a.id === sel).map(a => `<option value="${esc(a.id)}"${sel === a.id ? ' selected' : ''}>${esc(accName(a.id))}</option>`).join('');
   // A day other than today (a missed day, a bill's due date) is named in the title, so it can't be missed,
   const day = isNew && d.date !== today() ? `${new Intl.DateTimeFormat(langTag(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d.date}T00:00:00Z`))} ${fmtDate(d.date)}` : '';
   // and its date sits right under the amount, not down where the keyboard and the sum bar cover it.
@@ -189,8 +190,9 @@ function sheetHtml() {
     </div>`;
   return `<h2 class="sh-title">${esc(!isNew ? t('Edit') : day ? t('Add for {0}', day) : t('Add'))}</h2>
     <div class="segs" role="group" aria-label="${esc(t('Type'))}">${seg}</div>
-    <label class="field amount"><span>${esc(amtLabel(d.accountId))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" aria-describedby="tx-err" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
-    ${d.type === 'expense' && !d.items?.length ? `<button class="btn small ghost wide" id="tx-words" data-act="tx-split">${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
+    <label class="field amount"><span>${esc(amtLabel(d.accountId))}</span><input id="tx-amt" data-input="tx-amt" inputmode="decimal" autocomplete="off" aria-describedby="tx-err" value="${d.amount ? (d.amount / 100).toFixed(2) : ''}" ${d.items?.length || d.split ? 'readonly' : isNew ? 'autofocus' : ''} placeholder="0.00"></label>
+    ${d.type === 'expense' && !d.items?.length && !d.split ? `<button class="btn small ghost wide" id="tx-words" data-act="tx-split">${ICON.list}${esc(t('Several items? Split them'))}</button>` : ''}
+    ${d.split ? `<p class="fine sp-note">${ICON.users}<span>${esc(t('Your share of {0} · split with {1}', fmtRM(d.split.total), d.split.with.join(', ')))}${d.owedTo ? ` · ${esc(t('{0} paid', d.owedTo))}` : ''}</span></p>` : ''}
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
     ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}">${badge(c)}${esc(t(c.name))}</button>`).join('')}</div>`}
@@ -243,7 +245,7 @@ let accPicked = false;   // nor an account picked by hand by switching Spent / R
 /** "1340", "13.40", "9:05" → "13:40" / "09:05"; anything else → no time. */
 export const hhmmIn = v => { const m = String(v ?? '').trim().match(/^([01]?\d|2[0-3])[:.\s]?([0-5]\d)$/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined; };
 function readForm() {
-  draft.amount = draft.items?.length ? draft.amount : calcAmount($('#tx-amt')?.value);
+  draft.amount = draft.items?.length || draft.split ? draft.amount : calcAmount($('#tx-amt')?.value);
   draft.accountId = $('#tx-acc')?.value || draft.accountId;
   if (draft.type === 'transfer') draft.toAccountId = $('#tx-to')?.value; else delete draft.toAccountId;
   if ($('#tx-refcat') && draft.category === 'refund') draft.cat = $('#tx-refcat').value; else if (draft.category !== 'refund') delete draft.cat;
@@ -352,7 +354,7 @@ function billSheet(b) {
     <label class="field"><span>${esc(t('Next payment'))}</span><input id="b-date" type="date" min="1990-01-01" value="${esc(next)}"></label>
     <label class="check"><input type="checkbox" id="b-auto"${(b.id ? b.auto : true) ? ' checked' : ''}> ${esc(t('Add it automatically on the day'))}</label>
     <div class="grid2"><label class="field"><span>${esc(t('Category'))}</span><select id="b-cat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(b.category || 'bills') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select></label>
-    <label class="field"><span>${esc(t('Account'))}</span><select id="b-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${b.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
+    <label class="field"><span>${esc(t('Account'))}</span><select id="b-acc">${S.accounts.filter(a => !owing(a)).map(a => `<option value="${esc(a.id)}"${b.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label></div>
     <details class="more"${left || b.until ? ' open' : ''}><summary>${esc(t('Instalments or an end date'))}</summary>
       <div class="grid2"><label class="field"><span>${esc(t('Payments left (instalments)'))}</span><input id="b-count" type="number" inputmode="numeric" min="1" max="600" value="${left}" placeholder="${esc(t('No end'))}"></label>
       <label class="field"><span>${esc(t('Or ends on (optional)'))}</span><input id="b-until" type="date" min="1990-01-01" value="${esc(b.until || '')}"></label></div>
@@ -430,7 +432,7 @@ export const act = {
   'tx-save': async b => {
     readForm();
     const err = m => { $('#tx-err').textContent = m; };
-    if (!draft.amount || draft.amount <= 0) { $('#tx-amt')?.setAttribute('aria-invalid', 'true'); $('#tx-amt')?.focus(); return err(amtErr($('#tx-amt')?.value)); }
+    if (!(draft.amount > 0 || (draft.split && draft.amount === 0))) { $('#tx-amt')?.setAttribute('aria-invalid', 'true'); $('#tx-amt')?.focus(); return err(amtErr($('#tx-amt')?.value)); }
     if (!validIso(draft.date)) return err(t('Pick a date.'));
     if (draft.date > today() && !draft.bill) return err(t("That date hasn't come yet. Pick today or an earlier day."));
     if (draft.type === 'transfer' && (!draft.toAccountId || draft.toAccountId === draft.accountId)) return err(t('Pick two different accounts.'));
@@ -453,11 +455,13 @@ export const act = {
   },
   'tx-again': () => { readForm(); const { type, amount, category, accountId, merchant } = draft; closeSheet(); setTimeout(() => openTxSheet({ type, amount, category, accountId, merchant }), 220); },
   'tx-del': async () => {
-    if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtAcct(accOf(draft.accountId), draft.amount)}`, ok: t('Delete'), danger: true }))) return;
-    const gone = S.tx.find(y => y.id === draft.id), undo = await deleteTx(draft.id);
-    if (gone) await keepToday(gone, -1);   // a back-dated entry moved the starting balance when it came in: move it back
+    // A split bill goes with its friends' shares (what they owe for it), in the same write.
+    const shares = S.tx.filter(y => y.splitOf === draft.id), owed = shares.reduce((s, y) => s + y.amount, 0);
+    if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtAcct(accOf(draft.accountId), draft.amount)}${shares.length ? `. ${t("Your friends' shares ({0} owed to you) are deleted too.", fmtRM(owed))}` : ''}`, ok: t('Delete'), danger: true }))) return;
+    const gone = [S.tx.find(y => y.id === draft.id), ...shares].filter(Boolean), undo = await deleteTxs([draft.id, ...shares.map(y => y.id)]);
+    for (const x of gone) await keepToday(x, -1);   // a back-dated entry moved the starting balance when it came in: move it back
     closeSheet(); render();
-    toast(t('Deleted'), { undo: async () => { await undo(); if (gone) await keepToday(gone); render(); } });
+    toast(t('Deleted'), { undo: async () => { await undo(); for (const x of gone) await keepToday(x); render(); } });
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
   'tx-photo-dl': () => downloadReceipts([{ tx: draft }]),

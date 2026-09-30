@@ -1,12 +1,12 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
-import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
+import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite, saveTx, keepToday, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort, getLang } from '../i18n.js';
-import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
+import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet, closeSheet, landed } from '../ui.js';
+import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, okMs } from '../io.js';
 import { render, go } from '../app.js';
-import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip } from './money.js';
+import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip, accName } from './money.js';
 import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
 import { dayOf, loggedDays } from '../gamify.js';
@@ -220,6 +220,37 @@ const dotFor = c => `<span class="dot" style="background:${esc(CATEGORIES.find(x
 const firstScan = () => `<section class="card firstscan"><div class="rowb"><h2>${esc(t('Scan your first receipt'))}</h2><button class="icon-btn" data-act="dismiss" data-id="first-scan" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>
   ${demoCard()}<p class="fine">${esc(t('Receipts are read on this phone and split into categories automatically.'))}</p>
   <div class="row2"><button class="btn" data-act="scan">${ICON.camera}${esc(t('Take a photo'))}</button><button class="btn ghost" data-act="scan-pick">${ICON.image}${esc(t('From gallery'))}</button></div></section>`;
+/** Split bills still open, per friend (engine openShares): what they owe you, what you owe them. Hidden balance: masked. */
+function oweCards(hide) {
+  const { owedMe, iOwe } = cached(openShares, S.tx);
+  const card = (title, list, act, label) => (list.length ? `<section class="card owe"><h2>${esc(title)}</h2><ul class="list">${list.map(f => `<li class="rowb"><span class="grow">${esc(f.name)}</span>
+    <b class="num">${esc(hide ? MASK : fmtRM(f.sen))}</b><button class="btn small ghost" data-act="${act}" data-n="${esc(f.name)}">${esc(label)}</button></li>`).join('')}</ul></section>` : '');
+  return card(t('Owed to you'), owedMe, 'owe-back', t('Paid back')) + card(t('You owe'), iOwe, 'owe-pay', t('Pay back'));
+}
+/** Paid back (a friend's share came in) or Pay back (mine went to them): a transfer out of Owed to you or into You owe,
+ *  all of it or part. Paid back lands by default where their oldest open share was paid from. */
+function repaySheet(kind, name) {
+  const back = kind === 'owedme', f = openShares(S.tx)[back ? 'owedMe' : 'iOwe'].find(x => x.name === name), box = S.accounts.find(a => a.kind === kind);
+  if (!f || !box) return;
+  const accts = S.accounts.filter(a => !owing(a)), pick = back && accts.some(a => a.id === f.from) ? f.from : defaultAccount('quick'), tdy = today();
+  const el = openSheet(`<h2 class="sh-title">${esc(back ? t('{0} paid you back', name) : t('Pay {0} back', name))}</h2>
+    <label class="field amount"><span>${esc(t('Amount (RM)'))}</span><input id="rp-amt" inputmode="decimal" autocomplete="off" aria-describedby="rp-err" value="${(f.sen / 100).toFixed(2)}"></label>
+    <div class="grid2 keep2"><label class="field"><span>${esc(back ? t('Into account') : t('From'))}</span><select id="rp-acc">${accts.map(a => `<option value="${esc(a.id)}"${a.id === pick ? ' selected' : ''}>${esc(accName(a.id))}</option>`).join('')}</select></label>
+    <label class="field"><span>${esc(t('Date'))}</span><input id="rp-date" type="date" min="1990-01-01" max="${esc(tdy)}" value="${esc(tdy)}"></label></div>
+    <p class="err" id="rp-err" role="alert"></p>
+    <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-x="save">${esc(t('Save'))}</button></div>`, { label: back ? t('Paid back') : t('Pay back') });
+  el.addEventListener('click', async e => {
+    const b = e.target.closest('[data-x="save"]'); if (!b) return;
+    const amount = calcAmount(el.querySelector('#rp-amt').value), date = el.querySelector('#rp-date').value, acc = el.querySelector('#rp-acc').value, err = m => { el.querySelector('#rp-err').textContent = m; };
+    if (!(amount > 0)) return err(t('Enter an amount, for example 12.50.'));
+    if (amount > f.sen) return err(t('At most {0}.', fmtRM(f.sen)));   // more back than is owed would be money from nowhere
+    if (!validIso(date) || date > tdy) return err(t('Pick a date.'));
+    b.disabled = true;
+    const x = { id: uid('t'), type: 'transfer', date, amount, accountId: back ? box.id : acc, toAccountId: back ? acc : box.id, category: 'other', merchant: name, [back ? 'repaidBy' : 'repaidTo']: name, source: 'quick', createdAt: Date.now() };
+    await saveTx(x); await keepToday(x);
+    closeSheet(); landed(x.id); render(); toast(t('Saved'), { icon: 'check' });
+  });
+}
 let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
 export const homeView = {
   title: 'Home',
@@ -254,8 +285,8 @@ export const homeView = {
     const recent = cached(newest, upToday, 8);
     const word = p && (spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'));
     const rg = ring({ budget: B, spent, before, p });
-    const hide = balHidden();
-    drawn = { bal: hide ? null : bal.total, spent, frac: rg?.frac };
+    const hide = balHidden(), own = accts.filter(a => !owing(a));   // Owed to you and You owe count in the total; they show in their own cards
+    drawn ={ bal: hide ? null : bal.total, spent, frac: rg?.frac };
     // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
     const fresh = S.tx.length < NEW, ws = settings().weekStart === 0 ? 0 : 1, rc = !fresh && shown('insight') && cached(weekRecap, upToday, tdy, ws);
     const recap = rc && !dismissed().includes(`wk-${rc.start}`) ? recapCard(rc) : '';
@@ -265,9 +296,9 @@ export const homeView = {
       <section class="hero">
         ${(n => (n ? `<span class="label balrow">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}${eyeBtn(hide)}</span>
         <div class="big num">${esc(hide ? MASK : fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
-        <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
+        <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(own.filter(a => !offTotal(a) && !unset.includes(a)).length)}
         ${shownUnset.length ? `<p class="fine">${esc(t('Balance not set: {0}', shownUnset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(shownUnset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
-        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${accts.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : hide ? MASK : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${!hide && isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${accts.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
+        <details class="accts"><summary>${esc(t('Accounts'))}</summary><ul>${own.map(a => `<li><span class="grow">${esc(a.name)}</span><span class="num">${unset.includes(a) ? esc(t('Not set')) : hide ? MASK : esc(fmtAcct(a, bal.by[a.id] ?? 0))}${!hide && isFx(a) && rateOf(a) ? `<small>≈ ${esc(fmtRM(Math.round((bal.by[a.id] ?? 0) * rateOf(a))))}</small>` : ''}</span></li>`).join('')}</ul>${own.length > 1 ? `<button class="btn small ghost" data-act="move-money">${ICON.transfer || ''}${esc(t('Move money between accounts'))}</button>` : ''}</details>
         ${on('afford') && S.tx.length ? `<button class="btn small ghost afford-btn" data-act="afford">${ICON.wallet}${esc(t('Can I afford it?'))}</button>` : ''}
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
@@ -281,7 +312,7 @@ export const homeView = {
         ${before && diff ? `<p class="delta ${diff > 0 ? 'bad' : 'good'}">${esc(diff > 0 ? t('{0} more than this point in {1}', fmtRM(diff), fmtMonth(lastYm, sd)) : t('{0} less than this point in {1}', fmtRM(-diff), fmtMonth(lastYm, sd)))}</p>` : ''}
         </div></div>
       </section>
-      ${recap}${find ? findCard(find, tdy) : ''}
+      ${oweCards(hide)}${recap}${find ? findCard(find, tdy) : ''}
       ${fresh ? [streakHome(), banner(null, true), backupBanner()].find(Boolean) || '' : [streakHome(), backupBanner(), banner(find?.kind === 'price' ? find.id : null)].join('')}
       ${S.tx.length >= 3 && on('learn') ? learnHome() : ''}
       </div><div class="col">
@@ -405,7 +436,9 @@ export const act = {
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   },
   ...analyticsAct,
-  'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),   // where people looked for it: under Accounts
+  'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),
+  'owe-back': b => repaySheet('owedme', b.dataset.n),
+  'owe-pay': b => repaySheet('iowe', b.dataset.n),   // where people looked for it: under Accounts
   atm: b => { const bank = S.accounts.find(a => a.kind === 'bank') || S.accounts.find(a => a.id !== b.dataset.to); openTxSheet({ type: 'transfer', category: 'other', accountId: bank?.id, toAccountId: b.dataset.to, merchant: t('Cash withdrawal') }); },
   'cash-gift': b => openTxSheet({ type: 'income', category: 'family', accountId: b.dataset.to }),
   'gap-add': b => openTxSheet({ date: b.dataset.d, time: '' }),

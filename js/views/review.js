@@ -4,7 +4,7 @@ import { S, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, learn, 
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames } from '../engine.js';
+import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames, owing } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { on } from '../features.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES, readPct } from '../scan.js';
@@ -232,7 +232,7 @@ export const reviewView = {
       <section class="card">
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
-        <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="+">${esc(t('+ Add an account…'))}</option></select></label></div>
+        <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.filter(a => !owing(a) || a.id === d.accountId).map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="+">${esc(t('+ Add an account…'))}</option></select></label></div>
         ${(() => { const a = S.accounts.find(x => x.id === d.accountId), cur = a?.currency || 'MYR';   // the receipt's money vs the account's: said, never silently mixed
           return d.currency && d.currency !== cur ? `<p class="warnbox">${ICON.alert}<span>${esc(t('This receipt is in {0}, but {1} is in {2}. Pick an account in {0}, or check the amount.', d.currency, a?.name || '', cur === 'MYR' ? 'RM' : cur))}</span></p>` : ''; })()}
         <label class="field big"><span>${esc(isFx(S.accounts.find(x => x.id === d.accountId)) ? t('Total ({0})', S.accounts.find(x => x.id === d.accountId).currency) : t('Total (RM)'))}${d.totalGuessed ? ` <em class="warn">${esc(t('(guessed, check)'))}</em>` : ''}</span><input id="rv-total" inputmode="decimal" aria-describedby="rv-status" value="${d.total != null ? (d.total / 100).toFixed(2) : ''}" data-input="rv-f" data-k="total"></label>

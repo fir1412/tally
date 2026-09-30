@@ -1,7 +1,7 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
 import { typedShift, CAPS, CAT_CODE, catName, sameCategory, mapCategory } from './io.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories } from './engine.js';
+import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories, owing } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames', 'itemNames'];   // every key setKv writes must be here, or it is lost on restart
@@ -106,7 +106,7 @@ const stamp = x => {
 export function defaultAccount(kind = 'quick', o = {}) {
   // A receipt is paid however it was paid, whatever screen is showing (the Business view left on doesn't make a
   // Guardian receipt the stall's): every account and every entry. Typed entries follow the view.
-  const all = kind === 'receipt', accounts = all || !scopedAccounts().length ? S.accounts : scopedAccounts(), txs = all ? rmTx() : scopedTx(), d = today();
+  const all = kind === 'receipt', accounts = (all || !scopedAccounts().length ? S.accounts : scopedAccounts()).filter(a => !owing(a)), txs = all ? rmTx() : scopedTx(), d = today();   // never Owed to you or You owe: those move only through a split
   // Typing several in a row in Singapore dollars (a JB commuter at lunch): the next one is in that money too, for 3 hours.
   if (kind === 'quick' && !o.currency) { const last = S.tx.reduce((m, x) => (x.source === 'quick' && x.type === 'expense' && (!m || x.createdAt > m.createdAt) ? x : m), null), a = last && S.accounts.find(y => y.id === last.accountId); if (a?.currency && a.currency !== 'MYR' && Date.now() - last.createdAt < 3 * 36e5) o = { ...o, currency: a.currency }; }
   return pickAccount({ accounts, txs, bal: balances(accounts, txs.filter(x => x.date <= d)).by, kind, ...o });

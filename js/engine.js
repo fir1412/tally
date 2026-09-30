@@ -37,6 +37,10 @@ export const incomeCategory = s => (/salary|gaji|payroll|paycheck|wage|工资|�
   : /elaun|allowance|ptptn|biasiswa|scholarship|bursary|zakat pendidikan|津贴|津貼|奖学金|獎學金/i.test(s) ? 'allowance'
   : /duit (mak|emak|ibu|ayah|abah|bapa|papa|mama)|(from|dari) (mum|mom|mother|dad|father|parents|family|keluarga|mak|ayah|abah|ibu)|家用|爸|妈|媽/i.test(s) ? 'family' : 'income');
 export const ACCOUNT_KINDS = ['cash', 'bank', 'ewallet', 'card', 'savings'];
+/** A split bill's money lent and owed sits in two accounts of their own, moved there by transfers: never spending or
+ *  income, so no month changes. 'owedme' is a claim (its balance counts), 'iowe' a debt (negative). Made on first use. */
+export const OWING_KINDS = ['owedme', 'iowe'];
+export const owing = a => OWING_KINDS.includes(a?.kind);
 export const MAX_SEN = 100_000_000_00; // RM 100 million: anything bigger is a typo or an attack
 
 // ---- amounts ---------------------------------------------------------------------------
@@ -265,6 +269,25 @@ export function balances(accounts, txs, upTo = null) {
   }
   const total = accounts.filter(a => !offTotal(a)).reduce((s, a) => s + Math.round(by[a.id] * rateOf(a)), 0);
   return { by, total };
+}
+/**
+ * What is still open per friend after split bills: owedMe (their shares, owedBy, less what they paid back, repaidBy) and
+ * iOwe (my shares of bills they paid, owedTo, less what I paid back, repaidTo). → {owedMe, iOwe}: [{name, sen, from}],
+ * `from`: the account that paid their oldest share not yet paid back (paid back first-in, first-out).
+ */
+export function openShares(txs) {
+  const me = new Map(), them = new Map(), got = (m, k) => m.get(k) || m.set(k, { sen: 0, shares: [] }).get(k);
+  for (const x of [...txs].sort((a, b) => byDate(a.date, b.date))) {
+    if (x.type === 'transfer' && x.owedBy) { const f = got(me, x.owedBy); f.sen += x.amount; f.shares.push(x); }
+    else if (x.type === 'transfer' && x.repaidBy) got(me, x.repaidBy).sen -= x.amount;
+    else if (x.type === 'expense' && x.owedTo) got(them, x.owedTo).sen += x.amount;
+    else if (x.type === 'transfer' && x.repaidTo) got(them, x.repaidTo).sen -= x.amount;
+  }
+  const open = m => [...m].filter(([, f]) => f.sen > 0).map(([name, f]) => {
+    let paid = f.shares.reduce((s, x) => s + x.amount, 0) - f.sen;   // what came back, set against the oldest shares first
+    return { name, sen: f.sen, from: f.shares.find(x => (paid -= x.amount) < 0)?.accountId };
+  });
+  return { owedMe: open(me), iOwe: open(them) };
 }
 /** A row in an account of another currency, in RM at `rate`: amount and items converted, the account's own amount kept in `fx`. */
 export function toRM(x, rate) {
@@ -886,7 +909,8 @@ export function taxPaid(txs, year) {
   const out = { sst: 0, service: 0, n: 0 };
   for (const t of txs) {
     if (t.type !== 'expense' || t.date.slice(0, 4) !== String(year) || !(t.tax > 0 || t.service > 0)) continue;
-    out.sst += Math.max(0, t.tax || 0); out.service += Math.max(0, t.service || 0); out.n++;
+    const k = t.split?.total ? t.amount / t.split.total : 1;   // a split bill keeps the receipt's figures: my part of them
+    out.sst += Math.round(Math.max(0, t.tax || 0) * k); out.service += Math.round(Math.max(0, t.service || 0) * k); out.n++;
   }
   return out;
 }

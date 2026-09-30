@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate, movedTo } from './engine.js';
+import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate, movedTo, ACCOUNT_KINDS, OWING_KINDS } from './engine.js';
 import { CAT_ICONS } from './caticons.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
@@ -917,14 +917,23 @@ export function readBackup(text) {
   const customIds = new Set(customCats.map(c => c.id));
   const cat = c => (ALL_CATS.some(x => x.id === c) || customIds.has(c) ? c : 'other');
   const accounts = list(d.accounts, 200).filter(a => isObj(a) && okId(a.id))
-    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: ['cash', 'bank', 'ewallet', 'card', 'savings'].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: okMs(+a.createdAt), ...(a.scope === 'joint' || a.scope === 'business' ? { scope: a.scope } : {}),
+    .map(a => ({ id: a.id, name: cleanText(a.name, 60) || 'Account', kind: [...ACCOUNT_KINDS, ...OWING_KINDS].includes(a.kind) ? a.kind : 'cash', opening: okSigned(a.opening) ? a.opening : 0, createdAt: okMs(+a.createdAt), ...((a.scope === 'joint' || a.scope === 'business') && !OWING_KINDS.includes(a.kind) ? { scope: a.scope } : {}),   // what friends owe is never joint
       ...(/^[A-Z]{3}$/.test(a.currency) && a.currency !== 'MYR' ? { currency: a.currency, ...(+a.rate > 0 && +a.rate < 1e5 ? { rate: +a.rate } : {}) } : {}), ...(a.outside === true ? { outside: true } : {}), ...(a.typed === true ? { typed: true } : {}), ...upd(a.updatedAt) }));
   const ids = new Set(accounts.map(a => a.id));
-  const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && t.amount > 0 && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
+  // A friend's name (a split bill): as the split sheet takes it, and never a key that reaches an object's prototype.
+  const friend = v => { const s = typeof v === 'string' ? cleanText(v, 20) : ''; return s && !RESERVED.has(s) ? s : ''; };
+  const cleanItems = arr => arr.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) }));
+  // A split bill: what was really paid, with whom, who had what ('' = me), the receipt's items and the account that paid
+  // when a friend did. My share can be nothing (amount 0).
+  const split = s => (isObj(s) && okAmt(s.total) && s.total > 0 ? { total: s.total, with: list(s.with, 8).map(friend).filter(Boolean),
+    who: list(s.who, 500).map(w => list(w, 8).filter(p => p === '' || friend(p)).map(p => p && friend(p))), ...(Array.isArray(s.items) ? { items: cleanItems(s.items) } : {}), ...(ids.has(s.acc) ? { acc: s.acc } : {}) } : null);
+  const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && (t.amount > 0 || (t.type === 'expense' && !!split(t.split))) && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId, ...(okAmt(t.toAmount) && t.toAmount > 0 ? { toAmount: t.toAmount } : {}) } : {}), ...(+t.rate > 0 && +t.rate < 1e5 ? { rate: +t.rate } : {}),
       category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: okMs(+t.createdAt),
-      ...(Array.isArray(t.items) ? { items: t.items.filter(i => isObj(i) && okSigned(i.cents)).slice(0, 500).map(i => ({ name: cleanText(i.name, 80), raw: cleanText(i.raw, 80), cents: i.cents, category: cat(i.category), ...(Number.isInteger(i.qty) && i.qty > 1 && i.qty < 10000 && okSigned(i.unit) ? { qty: i.qty, unit: i.unit } : {}) })) } : {}),
+      ...(Array.isArray(t.items) ? { items: cleanItems(t.items) } : {}),
+      ...(t.type === 'expense' && split(t.split) ? { split: split(t.split) } : {}), ...(okId(t.splitOf) ? { splitOf: t.splitOf } : {}),
+      ...['owedBy', 'owedTo', 'repaidBy', 'repaidTo'].reduce((o, k) => (friend(t[k]) ? { ...o, [k]: friend(t[k]) } : o), {}),
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
       ...(okId(t.refundOf) ? { refundOf: t.refundOf } : {}), ...(validIso(t.warranty) ? { warranty: t.warranty } : {}), ...(validIso(t.returnBy) ? { returnBy: t.returnBy } : {}),

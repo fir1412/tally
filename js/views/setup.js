@@ -3,7 +3,7 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, de
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
+import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory, owing } from '../engine.js';
 import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, backupFits, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
@@ -183,7 +183,7 @@ export const settingsView = {
       <section class="card"><h2>${esc(t('Budget month'))}</h2>
         <label class="field"><span>${esc(t('My month starts on day'))}</span><select data-input="month-start">${[...Array.from({ length: 28 }, (_, i) => [i + 1, String(i + 1)]), [-2, t('Second-last day')], [-1, t('Last day')]].map(([v, l]) => `<option value="${v}"${startDay() === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         <p class="fine">${esc(t('Paid on the 25th? Start your month on payday. Home, Budgets and Insights follow it.'))} ${esc(t('This month: {0}', fmtMonth(thisMonth(), startDay())))}</p></section>
-      <section class="card" id="s-accounts"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
+      <section class="card" id="s-accounts"><h2>${esc(t('Accounts'))}</h2><ul class="list">${S.accounts.filter(a => !owing(a)).map(a => `<li><button class="txrow" data-act="acc-edit" data-id="${esc(a.id)}"><span class="grow"><b>${esc(a.name)}</b><small>${esc(accSub(a, bal))}</small></span><span class="fine">${esc(t('Edit'))}</span></button></li>`).join('')}</ul>
         <button class="btn ghost wide" data-act="acc-edit">${ICON.plus}${esc(t('Add an account'))}</button></section>
       <section class="card" id="joint"><h2>${esc(t('Joint account'))}</h2>
         <p class="fine">${esc(hasJoint() ? t('Send your joint accounts to your partner as a file. They import it in Tally, and their changes come back the same way.') : t('In a relationship? Mark an account as Joint (tap it above) to keep shared money apart from your own and share it with your partner.'))}</p>
@@ -416,7 +416,7 @@ function showMapping() {
   // What the import will add, before it's added: dates, money in and out, and dates that can't be right yet.
   const dates = fresh.map(x => x.date).sort(), sum = k => fresh.filter(x => x.type === k).reduce((s, x) => s + x.amount, 0);
   const choices = catChoices(), cats = [...expenseCats(), ...INCOME_CATEGORIES], tabs = IMP.tabs;
-  const intoAcc = `<label class="field"><span>${esc(map.account != null ? t('Rows without an account go into') : t('Into account'))}</span><select data-input="imp-acc">${S.accounts.map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('A new account'))}</option></select></label>
+  const intoAcc = `<label class="field"><span>${esc(map.account != null ? t('Rows without an account go into') : t('Into account'))}</span><select data-input="imp-acc">${S.accounts.filter(a => !owing(a)).map(a => `<option value="${esc(a.id)}"${IMP.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="new"${IMP.accountId === 'new' ? ' selected' : ''}>${esc(t('A new account'))}</option></select></label>
     ${IMP.accountId === 'new' ? `<label class="field"><span>${esc(t('Name of the new account'))}</span><input data-input="imp-accname" maxlength="40" value="${esc(newAccName())}"></label>
       <label class="check"><input type="checkbox" data-input="imp-joint"${IMP.joint ? ' checked' : ''}> ${esc(t('Joint (shared with my partner)'))}</label>
       ${opening != null ? `<p class="fine">${esc(t('Opening balance {0}, worked out from the Balance column so the account matches your statement.', fmtRM(opening)))}</p>` : ''}` : ''}`;
@@ -561,7 +561,7 @@ async function importStatement(buf, password) {
     <p class="fine">${esc(t('{0} transactions', st.rows.length))} · ${esc(`${st.rows[0].date} → ${st.rows.at(-1).date}`)}</p>
     <p class="${st.reconciled ? 'okbox' : 'warnbox'}">${esc(st.reconciled ? t('The rows add up from the opening to the closing balance. Check a few before importing.') : t('The balances on this statement could not be checked. Look over the rows before importing.'))}</p>
     ${reloads ? `<p class="fine">${esc(t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads))}</p>` : ''}
-    <label class="field"><span>${esc(t('Into account'))}</span><select id="st-acc">${existing ? '' : `<option value="new">${esc(t('New account: {0}', name))}</option>`}${S.accounts.map(a => `<option value="${esc(a.id)}"${existing?.id === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>${esc(t('Into account'))}</span><select id="st-acc">${existing ? '' : `<option value="new">${esc(t('New account: {0}', name))}</option>`}${S.accounts.filter(a => !owing(a)).map(a => `<option value="${esc(a.id)}"${existing?.id === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
     <ul class="list preview">${st.rows.slice(0, 6).map(r => `<li class="rowb"><span>${esc(r.date)}</span><span class="grow">${esc(cleanDesc(r.desc))}</span><span class="amt ${r.amount > 0 ? 'income' : 'expense'}">${r.amount > 0 ? '+' : '−'}${esc(fmtRM(Math.abs(r.amount)))}</span></li>`).join('')}</ul>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="st-go">${esc(t('Import {0}', st.rows.length))}</button></div>`, { label: t('Import') });
 }
