@@ -1,50 +1,16 @@
 // October: Pasar malam. Aina, Wei, Uncle Raju and Duit go to the Thursday night market all month,
 // learn to carry a set amount, compare, share and save, and end by giving Uncle Raju a Deepavali gift.
-import { aina, wei, raju, duit, scene, it, priceTag } from './cast.js';
+import { castKit, it, priceTag } from './cast.js';
+
+const K = castKit('b10-');
+const { aina, wei, raju, duit, scene } = K;
 
 const T = (en, ms, zh, zht, ja) => ({ en, ms, zh, 'zh-Hant': zht, ja });
 const L = (who, ...t) => ({ who, text: T(...t) });
-const stk = (id, en, ms, zh, zht, ja) => ({ id, name: T(en, ms, zh, zht, ja), svg: it(id, 32, 32, 1.2) });
-const apamStall = (behind, items = '') => scene('stall', { sign: 'APAM BALIK', behind, items: it('apambalik', 262, 114, 0.6) + it('apambalik', 58, 114, 0.6) + items });
+const stk = (id, en, ms, zh, zht, ja, item = id) => ({ id, name: T(en, ms, zh, zht, ja), svg: K.sticker(item) });
+const apamStall = (behind, items = '') => scene('stall', { sign: 'APAM BALIK', steam: 112, behind, items: it('apambalik', 262, 114, 0.6) + it('apambalik', 58, 114, 0.6) + items });
 
-export default {
-  id: '10',
-  theme: T('Pasar malam', 'Pasar malam', '夜市', '夜市', 'ナイトマーケット'),
-  colours: { dark: ['#12132A', '#1A1C38', '#232646'], light: ['#FBF4EC', '#FFFFFF', '#F3E4D4'], accent: '#C2410C' },
-  stickers: [
-    stk('apambalik', 'Apam balik', 'Apam balik', '曼煎糕', '曼煎糕', 'アパム・バリック'),
-    stk('burger', 'Street burger', 'Burger tepi jalan', '路边汉堡', '路邊漢堡', '屋台バーガー'),
-    stk('airtebu', 'Sugarcane juice', 'Air tebu', '甘蔗水', '甘蔗水', 'サトウキビジュース'),
-    stk('lekor', 'Keropok lekor', 'Keropok lekor', '鱼饼条', '魚餅條', '魚のすり身スティック'),
-    stk('sotong', 'Grilled squid', 'Sotong bakar', '烤苏东', '烤蘇東', 'イカ焼き'),
-    stk('cucur', 'Cucur udang', 'Cucur udang', '虾饼', '蝦餅', 'エビのかき揚げ'),
-    stk('pisanggoreng', 'Banana fritters', 'Pisang goreng', '炸香蕉', '炸香蕉', '揚げバナナ'),
-    stk('loklok', 'Lok lok', 'Lok lok', '碌碌', '碌碌', 'ロックロック串'),
-    stk('murtabak', 'Murtabak', 'Murtabak', '夹馅煎饼', '夾餡煎餅', 'ムルタバ'),
-    stk('ckt', 'Char kuey teow', 'Char kuey teow', '炒粿条', '炒粿條', 'チャー・クイティオ'),
-    stk('putupiring', 'Putu piring', 'Putu piring', '椰糖蒸米糕', '椰糖蒸米糕', 'プトゥ・ピリン'),
-    stk('kuihlapis', 'Kuih lapis', 'Kuih lapis', '九层糕', '九層糕', 'クエ・ラピス'),
-    stk('rojak', 'Rojak', 'Rojak', '啰惹', '囉惹', 'ロジャック'),
-    stk('cendol', 'Cendol', 'Cendol', '煎蕊', '煎蕊', 'チェンドル'),
-    stk('balloon', 'Balloons', 'Belon', '气球', '氣球', '風船'),
-    stk('lantern', 'Lantern', 'Tanglung', '灯笼', '燈籠', 'ちょうちん'),
-    stk('coins', 'Coins', 'Syiling', '硬币', '硬幣', '小銭'),
-    stk('envelope', 'Cash envelope', 'Sampul duit', '现金信封', '現金信封', '現金の封筒'),
-    stk('jar', 'Savings jar', 'Balang simpanan', '储蓄罐', '儲蓄罐', '貯金びん'),
-    stk('receipt', 'Receipt', 'Resit', '收据', '收據', 'レシート'),
-    stk('tote', 'Own bag', 'Beg sendiri', '环保袋', '環保袋', 'マイバッグ'),
-    stk('popiah', 'Popiah', 'Popiah', '薄饼', '薄餅', 'ポピア'),
-    stk('buahpotong', 'Cut fruit', 'Buah potong', '切片水果', '切片水果', 'カットフルーツ'),
-    stk('jagung', 'Corn cup', 'Jagung cawan', '杯装玉米', '杯裝玉米', 'カップコーン'),
-    stk('airbungkus', 'Drink in a bag', 'Air bungkus', '袋装饮料', '袋裝飲料', '袋ドリンク'),
-    stk('selipar', 'Flip-flops', 'Selipar', '拖鞋', '拖鞋', 'ビーチサンダル'),
-    stk('timbang', 'Fruit scale', 'Penimbang', '水果秤', '水果秤', 'はかり'),
-    stk('price', 'Price tag', 'Tanda harga', '价钱牌', '價錢牌', '値札'),
-    stk('otakotak', 'Otak-otak', 'Otak-otak', '乌达', '烏達', 'オタオタ'),
-    stk('diya', 'Diya lamp', 'Pelita', '油灯', '油燈', 'ディヤ（灯明）'),
-    stk('kolam', 'Kolam', 'Kolam', '彩米画', '彩米畫', 'コーラム'),
-  ],
-  panels: [
+const panels = [
     { // 1
       art: scene('home') + aina({ x: 118, face: 'happy', pose: 'wave' }) + wei({ x: 214, face: 'laugh', pose: 'hold', item: 'phone', flip: true }) + duit({ x: 166, y: 190, face: 'happy' }),
       lines: [
@@ -69,7 +35,7 @@ export default {
       ],
     },
     { // 4
-      art: apamStall(raju({ x: 176, y: 156, face: 'laugh', pose: 'wave', s: 0.85 })) + aina({ x: 84, face: 'surprised', pose: 'point' }),
+      art: apamStall(raju({ x: 176, y: 164, face: 'laugh', pose: 'wave', s: 0.85 })) + aina({ x: 84, face: 'surprised', pose: 'point' }),
       lines: [
         L('raju', 'Apam balik! Crispy or soft, adik?', 'Apam balik! Nak rangup ke lembut, adik?', '曼煎糕！要脆的还是软的，妹妹？', '曼煎糕！要脆的還是軟的，妹妹？', 'アパム・バリックだよ！カリカリ？ふんわり？'),
         L('aina', 'Uncle Raju? You sell here too?', 'Uncle Raju? Uncle meniaga kat sini juga?', 'Raju叔叔？你也在这里摆摊？', 'Raju叔叔？你也在這裡擺攤？', 'ラジュおじさん？ここでもお店を？'),
@@ -95,7 +61,8 @@ export default {
       tip: T('Walk the row once before buying. Prices differ stall to stall.', 'Jalan satu pusingan dulu sebelum beli. Harga lain-lain ikut gerai.', '买之前先走一圈。每档价钱都不一样。', '買之前先走一圈。每檔價錢都不一樣。', '買う前に一周しよう。値段は店ごとに違う。'),
     },
     { // 7
-      art: scene('home') + aina({ x: 124, face: 'happy', pose: 'hold', item: 'coins' }) + wei({ x: 216, face: 'worried', flip: true }) + duit({ x: 268, y: 190, face: 'think', flip: true }),
+      art: scene('home') + wei({ x: 224, y: 140, s: 0.95, face: 'worried', pose: 'hug' }) + aina({ x: 108, y: 178, s: 0.92, face: 'happy', pose: 'kneel' }) + K.coffeeTable()
+        + it('envelope', 76, 141, 0.42) + it('coins', 112, 139, 0.34) + it('receipt', 148, 140, 0.3) + duit({ x: 262, y: 194, pose: 'sleep' }),
       lines: [
         L('aina', 'RM30 out, RM8 back. Not bad!', 'Keluar RM30, balik RM8. Boleh tahan!', '带出去RM30，剩下RM8。还不错！', '帶出去RM30，剩下RM8。還不錯！', 'RM30持って出て、RM8残った。上出来！'),
         L('wei', 'I spent RM35… and I can’t remember on what.', 'Aku habis RM35… dan tak ingat beli apa.', '我花了RM35……可是想不起买了什么。', '我花了RM35……可是想不起買了什麼。', '私はRM35使った…何に使ったか覚えてない。'),
@@ -119,7 +86,7 @@ export default {
       ],
     },
     { // 10
-      art: apamStall(raju({ x: 190, y: 156, face: 'happy', pose: 'hold', item: 'apambalik', s: 0.85, flip: true })) + aina({ x: 96, face: 'happy', pose: 'hold', item: 'tote', is: 0.65 }),
+      art: apamStall(raju({ x: 190, y: 164, face: 'happy', pose: 'hold', item: 'apambalik', s: 0.85, flip: true })) + aina({ x: 96, face: 'happy', pose: 'hold', item: 'tote', is: 0.65 }),
       lines: [
         L('raju', 'Plastic bag, adik?', 'Nak plastik, adik?', '要塑料袋吗，妹妹？', '要塑膠袋嗎，妹妹？', '袋いるかい？'),
         L('aina', 'No need, Uncle. I brought my own!', 'Tak apa, Uncle. Saya bawa beg sendiri!', '不用了叔叔，我自己带了袋子！', '不用了叔叔，我自己帶了袋子！', '大丈夫、おじさん。マイバッグ持ってきた！'),
@@ -135,7 +102,7 @@ export default {
       tip: T('Share a big buy. Half the price, and nothing goes to waste.', 'Kongsi belian besar. Separuh harga, tiada yang membazir.', '大份的一起分。一半价钱，也不浪费。', '大份的一起分。一半價錢，也不浪費。', '大きいものはシェアしよう。半額で、無駄も出ない。'),
     },
     { // 12
-      art: apamStall(raju({ x: 196, y: 156, face: 'surprised', pose: 'hold', item: 'note', s: 0.85, flip: true })) + aina({ x: 100, face: 'think', pose: 'point' }),
+      art: apamStall(raju({ x: 196, y: 164, face: 'surprised', pose: 'hold', item: 'note', s: 0.85, flip: true })) + aina({ x: 100, face: 'think', pose: 'point' }),
       lines: [
         L('aina', 'Uncle, I gave RM20. Change should be RM12, not RM2.', 'Uncle, saya bagi RM20. Baki patut RM12, bukan RM2.', '叔叔，我给了RM20。应该找RM12，不是RM2。', '叔叔，我給了RM20。應該找RM12，不是RM2。', 'おじさん、RM20渡したよ。おつりはRM2じゃなくてRM12。'),
         L('raju', 'Aiyo, sorry! My mistake. Here, RM12.', 'Alamak, maaf! Silap uncle. Nah, RM12.', '哎哟，对不起！我算错了。来，RM12。', '哎喲，對不起！我算錯了。來，RM12。', 'あいや、ごめん！計算違いだ。はい、RM12。'),
@@ -220,7 +187,7 @@ export default {
       ],
     },
     { // 23
-      art: apamStall(raju({ x: 170, y: 156, face: 'happy', pose: 'point', s: 0.85, flip: true })) + wei({ x: 84, face: 'surprised' }) + it('kuihlapis', 250, 114, 0.6),
+      art: apamStall(raju({ x: 170, y: 164, face: 'happy', pose: 'point', s: 0.85, flip: true })) + wei({ x: 84, face: 'surprised' }) + it('kuihlapis', 250, 114, 0.6),
       lines: [
         L('raju', 'Come near closing time. Some stalls sell off the kuih cheaper.', 'Datang dekat waktu tutup. Ada gerai jual murah kuih yang tinggal.', '快收摊的时候来。有些档口会便宜卖剩下的糕点。', '快收攤的時候來。有些檔口會便宜賣剩下的糕點。', '閉店間際においで。残りのお菓子を安くする店もある。'),
         L('wei', 'Uncle, you’re a genius.', 'Uncle, uncle memang genius.', '叔叔，你真是天才。', '叔叔，你真是天才。', 'おじさん、天才だね。'),
@@ -281,7 +248,7 @@ export default {
       ],
     },
     { // 31: the ending
-      art: apamStall(raju({ x: 160, y: 156, face: 'laugh', pose: 'hold', item: 'apron', is: 0.7, s: 0.85 }), it('diya', 250, 114, 0.5) + it('jarfull', 222, 112, 0.5))
+      art: apamStall(raju({ x: 160, y: 164, face: 'laugh', pose: 'hold', item: 'apron', is: 0.7, s: 0.85 }), it('diya', 250, 114, 0.5) + it('jarfull', 222, 112, 0.5))
         + aina({ x: 66, face: 'laugh', pose: 'cheer' }) + wei({ x: 266, face: 'laugh', pose: 'wave', flip: true }) + duit({ x: 116, y: 192, face: 'laugh' }),
       lines: [
         L('aina', 'Happy early Deepavali, Uncle Raju!', 'Selamat Hari Deepavali awal-awal, Uncle Raju!', '提前祝你屠妖节快乐，Raju叔叔！', '提前祝你屠妖節快樂，Raju叔叔！', 'ちょっと早いけど、ディーパバリおめでとう、ラジュおじさん！'),
@@ -290,5 +257,45 @@ export default {
       ],
       tip: T('A budget isn’t saying no. It’s saying yes to what matters.', 'Bajet bukan tentang berkata tidak. Ia berkata ya kepada yang penting.', '预算不是说“不”，而是对重要的事说“好”。', '預算不是說「不」，而是對重要的事說「好」。', '予算は「ダメ」と言うことじゃない。大切なことに「いいよ」と言うこと。'),
     },
+];
+
+export default {
+  id: '10',
+  theme: T('Pasar malam', 'Pasar malam', '夜市', '夜市', 'ナイトマーケット'),
+  colours: { dark: ['#1C1A2B', '#252236', '#2F2B42'], light: ['#F7F0E4', '#FFFCF6', '#EFE3D0'], accent: '#B5533A' },
+  stickers: [
+    stk('apambalik', 'Apam balik', 'Apam balik', '曼煎糕', '曼煎糕', 'アパム・バリック'),
+    stk('burger', 'Street burger', 'Burger tepi jalan', '路边汉堡', '路邊漢堡', '屋台バーガー'),
+    stk('airtebu', 'Sugarcane juice', 'Air tebu', '甘蔗水', '甘蔗水', 'サトウキビジュース'),
+    stk('lekor', 'Keropok lekor', 'Keropok lekor', '鱼饼条', '魚餅條', '魚のすり身スティック'),
+    stk('sotong', 'Grilled squid', 'Sotong bakar', '烤苏东', '烤蘇東', 'イカ焼き'),
+    stk('cucur', 'Cucur udang', 'Cucur udang', '虾饼', '蝦餅', 'エビのかき揚げ'),
+    stk('pisanggoreng', 'Banana fritters', 'Pisang goreng', '炸香蕉', '炸香蕉', '揚げバナナ'),
+    stk('loklok', 'Lok lok', 'Lok lok', '碌碌', '碌碌', 'ロックロック串'),
+    stk('murtabak', 'Murtabak', 'Murtabak', '夹馅煎饼', '夾餡煎餅', 'ムルタバ'),
+    stk('ckt', 'Char kuey teow', 'Char kuey teow', '炒粿条', '炒粿條', 'チャー・クイティオ'),
+    stk('putupiring', 'Putu piring', 'Putu piring', '椰糖蒸米糕', '椰糖蒸米糕', 'プトゥ・ピリン'),
+    stk('kuihlapis', 'Kuih lapis', 'Kuih lapis', '九层糕', '九層糕', 'クエ・ラピス'),
+    stk('rojak', 'Rojak', 'Rojak', '啰惹', '囉惹', 'ロジャック'),
+    stk('cendolcup', 'Cendol', 'Cendol', '煎蕊', '煎蕊', 'チェンドル', 'cendol'),
+    stk('balloon', 'Balloons', 'Belon', '气球', '氣球', '風船'),
+    stk('lantern', 'Lantern', 'Tanglung', '灯笼', '燈籠', 'ちょうちん'),
+    stk('coins', 'Coins', 'Syiling', '硬币', '硬幣', '小銭'),
+    stk('envelope', 'Cash envelope', 'Sampul duit', '现金信封', '現金信封', '現金の封筒'),
+    stk('jar', 'Savings jar', 'Balang simpanan', '储蓄罐', '儲蓄罐', '貯金びん'),
+    stk('receipt', 'Receipt', 'Resit', '收据', '收據', 'レシート'),
+    stk('tote', 'Own bag', 'Beg sendiri', '环保袋', '環保袋', 'マイバッグ'),
+    stk('popiah', 'Popiah', 'Popiah', '薄饼', '薄餅', 'ポピア'),
+    stk('buahpotong', 'Cut fruit', 'Buah potong', '切片水果', '切片水果', 'カットフルーツ'),
+    stk('jagung', 'Corn cup', 'Jagung cawan', '杯装玉米', '杯裝玉米', 'カップコーン'),
+    stk('airbungkus', 'Drink in a bag', 'Air bungkus', '袋装饮料', '袋裝飲料', '袋ドリンク'),
+    stk('selipar', 'Flip-flops', 'Selipar', '拖鞋', '拖鞋', 'ビーチサンダル'),
+    stk('timbang', 'Fruit scale', 'Penimbang', '水果秤', '水果秤', 'はかり'),
+    stk('price', 'Price tag', 'Tanda harga', '价钱牌', '價錢牌', '値札'),
+    stk('otakotak', 'Otak-otak', 'Otak-otak', '乌达', '烏達', 'オタオタ'),
+    stk('diya', 'Diya lamp', 'Pelita', '油灯', '油燈', 'ディヤ（灯明）'),
+    stk('kolam', 'Kolam', 'Kolam', '彩米画', '彩米畫', 'コーラム'),
   ],
+  panels: panels.map(p => ({ ...p, art: p.art + K.grain() })),
+  defs: K.defs(),
 };

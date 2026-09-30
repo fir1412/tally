@@ -88,7 +88,9 @@ function bookHtml(book, ym, filled, tdy) {
   };
   const first = began() < Infinity ? dayOf(began()).slice(0, 7) : ym, past = [];
   for (let m = addMonths(tdy.slice(0, 7), -1); m >= first && past.length < 24; m = addMonths(m, -1)) past.push(m);
-  return `<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
+  // The book's shared drawings (cast, scenes, paint grain), once for all its panels. Not display:none: gradients and
+  // filters inside a hidden-by-display svg stop painting in some browsers.
+  return `${book.defs ? `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${book.defs}</defs></svg>` : ''}<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
     <p class="sh-body">${esc(st.complete ? t('Every day of {0} is in. The whole story is yours.', fmtMonth(ym)) : st.open ? t('{0} of {1} days. One for each day you log; fill in a missed day any time this month.', st.got, st.n) : t('{0} of {1} days.', st.got, st.n))}</p>
     <ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
     ${book.panels.length ? `<h3 class="comic-h">${esc(t('The story'))}</h3><ol class="comic">${days.map(panel).join('')}</ol>` : ''}
