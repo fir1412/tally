@@ -83,7 +83,7 @@ function bookHtml(book, ym, filled, tdy) {
       return `<li class="panel locked"><span class="pday">${esc(t('Day {0}', d))}</span><span>${esc(why)}</span></li>`;
     }
     return `<li class="panel"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${p.art}</svg>
-      ${p.lines.map(l => `<p class="say">${l.who === 'narrator' ? '' : `<b>${esc(say(WHO[l.who] || l.who))}</b> `}${esc(say(l.text))}</p>`).join('')}
+      ${p.lines.map(l => `<p class="say">${l.who === 'narrator' ? '' : `<b>${esc(say(book.who?.[l.who] || WHO[l.who] || l.who))}</b> `}${esc(say(l.text))}</p>`).join('')}
       ${p.tip ? `<p class="tip">${ICON.sparkles || ''}${esc(say(p.tip))}</p>` : ''}</li>`;
   };
   const first = began() < Infinity ? dayOf(began()).slice(0, 7) : ym, past = [];
