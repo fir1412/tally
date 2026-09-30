@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { typedShift, CAPS, catName, sameCategory } from './io.js';
+import { typedShift, CAPS, CAT_CODE, catName, sameCategory } from './io.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
@@ -151,26 +151,34 @@ export async function addCategory(name, color = nextColor(S.kv.customCats.map(x 
  * moved with it, or else just renamed. Runs at start; a no-op once nothing has the codes. → how many were fixed.
  */
 export async function repairCatNames() {
-  const bad = new Set(S.kv.customCats.filter(c => /&#x?[0-9a-f]+;/i.test(c.name)).map(c => c.id));
-  if (!bad.size) return 0;
-  const into = new Map(), fixed = [];
-  for (const c of S.kv.customCats) {
-    if (!bad.has(c.id)) { fixed.push(c); continue; }
-    const name = catName(c.name).slice(0, 40), to = sameCategory(name, fixed, c.kind === 'income');
-    if (to) into.set(c.id, to); else fixed.push({ ...c, name });
+  const bad = S.kv.customCats.filter(c => CAT_CODE.test(c.name));
+  if (!bad.length) return 0;
+  // Fold targets: every category without codes (wherever it sits in the list), then the renamed ones as they come.
+  const into = new Map(), renamed = new Map(), keep = S.kv.customCats.filter(c => !bad.includes(c));
+  for (const c of bad) {
+    const name = catName(c.name).slice(0, 40), to = sameCategory(name, [...keep, ...renamed.values()], c.kind === 'income');
+    if (to) into.set(c.id, to); else renamed.set(c.id, { ...c, name });
   }
-  const m = id => into.get(id) || id, moves = t => into.has(t.category) || t.items?.some(i => into.has(i.category));
-  const rows = S.tx.filter(moves).map(t => ({ ...t, category: m(t.category), ...(t.items ? { items: t.items.map(i => ({ ...i, category: m(i.category) })) } : {}) }));
-  if (rows.length) await saveTxs(rows);
-  for (const r of S.recurring.filter(r => into.has(r.category))) await saveBill({ ...r, category: m(r.category) });
+  const m = id => into.get(id) || id, hit = id => into.has(id);
+  const tx = S.tx.filter(t => hit(t.category) || hit(t.cat) || t.items?.some(i => hit(i.category)))
+    .map(t => ({ ...t, category: m(t.category), ...(t.cat ? { cat: m(t.cat) } : {}), ...(t.items ? { items: t.items.map(i => ({ ...i, category: m(i.category) })) } : {}) }));
+  const recurring = S.recurring.filter(r => hit(r.category)).map(r => ({ ...r, category: m(r.category) }));
   const byCat = b => (b?.byCat ? { ...b, byCat: Object.entries(b.byCat).reduce((o, [k, v]) => ({ ...o, [m(k)]: (o[m(k)] || 0) + v }), {}) } : b);
-  const b = S.kv.budgets;
-  if (into.size) {
-    await setKv('budgets', { ...byCat(b), ...(b.joint ? { joint: byCat(b.joint) } : {}), ...(b.business ? { business: byCat(b.business) } : {}) });
-    await setKv('rules', Object.fromEntries(Object.entries(S.kv.rules).map(([k, v]) => [k, m(v)])));
-  }
-  await setKv('customCats', fixed);
-  return bad.size;
+  const moveKeys = o => {   // a folded one's colour/icon only where the category it joins has none
+    const e = Object.entries(o || {}), r = Object.fromEntries(e.filter(([k]) => !hit(k)));
+    for (const [k, v] of e) if (hit(k) && !(m(k) in r)) r[m(k)] = v;
+    return r;
+  };
+  const b = S.kv.budgets, st = S.kv.settings;
+  const importMaps = st.importMaps && Object.fromEntries(Object.entries(st.importMaps).map(([k, v]) => [k, v?.catMap ? { ...v, catMap: Object.fromEntries(Object.entries(v.catMap).map(([s, id]) => [s, m(id)])) } : v]));
+  // One write, edit times kept: a repair is not an edit, so a partner's real edit still wins at the next swap.
+  await putAll({ tx, recurring, kv: {
+    customCats: S.kv.customCats.flatMap(c => (into.has(c.id) ? [] : [renamed.get(c.id) || c])),
+    ...(into.size ? { budgets: { ...byCat(b), ...(b.joint ? { joint: byCat(b.joint) } : {}), ...(b.business ? { business: byCat(b.business) } : {}) },
+      rules: Object.fromEntries(Object.entries(S.kv.rules).map(([k, v]) => [k, m(v)])), catColors: moveKeys(S.kv.catColors), catIcons: moveKeys(S.kv.catIcons),
+      ...(importMaps ? { settings: { ...st, importMaps } } : {}) } : {}),
+  } });
+  return bad.length;
 }
 
 // ---- transactions -----------------------------------------------------------------------------------------------

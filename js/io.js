@@ -443,6 +443,8 @@ const cp = n => (n > 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.f
 const LEAD_EMOJI = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}️‍⃣\s]+/u;
 /** Another app's category name as a person reads it: HTML codes decoded (Money Manager by Realbyte stores "🍜 Food" as
  *  "&#x1f35c; Food") and a leading emoji dropped (Tally shows its own icons), so it matches the category of that name. */
+/** The HTML codes catName decodes (and what repairCatNames looks for: the same, so a name it can't decode is left alone). */
+export const CAT_CODE = /&#(x[0-9a-f]{1,6}|\d{1,7});/i;
 export function catName(s) {
   const d = String(s ?? '').replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => cp(parseInt(h, 16))).replace(/&#(\d{1,7});/g, (m, n) => cp(+n))
     .replace(/&(amp|lt|gt|quot|apos);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[k]).trim();

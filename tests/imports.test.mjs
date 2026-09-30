@@ -160,14 +160,19 @@ test('an older import\'s coded names are repaired at start: folded into the cate
   const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
   const A = await shim.tab(); await A.S.load();
   await A.S.saveAccount({ id: 'a1', name: 'Maybank', kind: 'bank', opening: 0, createdAt: 1 });
-  await A.S.setKv('customCats', [{ id: 'c_food', name: 'Food', color: '#111111' }, { id: 'c_rb1', name: '&#x1f35c; Food', color: '#222222' }, { id: 'c_rb2', name: '&#x1f381; Gift', color: '#333333' }, { id: 'c_rb3', name: '&#x1f696; Transport', color: '#444444' }]);
+  // The coded Food comes first in the list: it still folds into the user's own Food after it.
+  await A.S.setKv('customCats', [{ id: 'c_rb1', name: '&#x1f35c; Food', color: '#222222' }, { id: 'c_food', name: 'Food', color: '#111111' }, { id: 'c_rb2', name: '&#x1f381; Gift', color: '#333333' }, { id: 'c_rb3', name: '&#x1f696; Transport', color: '#444444' }, { id: 'c_odd', name: 'A&#ab;B', color: '#555555' }]);
   await A.S.setKv('budgets', { total: 0, byCat: { c_food: 100, c_rb1: 50 } });
-  const row = (id, category) => ({ id, accountId: 'a1', type: 'expense', amount: 100, date: '2026-08-02', merchant: id, category, createdAt: 1 });
-  await A.S.saveTxs([row('t1', 'c_rb1'), row('t2', 'c_rb2'), row('t3', 'c_rb3'), row('t4', 'c_food')]);
-  assert.equal(await A.S.repairCatNames(), 3);
-  assert.deepEqual(A.S.S.kv.customCats.map(c => [c.id, c.name]), [['c_food', 'Food'], ['c_rb2', 'Gift']]);
-  assert.deepEqual(A.S.S.tx.map(t => [t.id, t.category]).sort(), [['t1', 'c_food'], ['t2', 'c_rb2'], ['t3', 'transport'], ['t4', 'c_food']]);
-  assert.deepEqual(A.S.S.kv.budgets.byCat, { c_food: 150 });
+  await A.S.setKv('catColors', { c_rb1: '#ff0000', c_food: '#00ff00', c_rb3: '#0000ff' });
+  await A.S.setSetting('importMaps', { sig: { map: {}, catMap: { '&#x1f35c; Food': 'c_rb1', Kopi: 'c_food' } } });
+  const row = (id, category, more) => ({ id, accountId: 'a1', type: 'expense', amount: 100, date: '2026-08-02', merchant: id, category, createdAt: 1, ...more });
+  await A.S.putAll({ tx: [row('t1', 'c_rb1', { updatedAt: 7 }), row('t2', 'c_rb2'), row('t3', 'c_rb3'), row('t4', 'c_food'), row('r1', 'refund', { type: 'income', cat: 'c_rb1' })] });
+  assert.equal(await A.S.repairCatNames(), 3);   // "A&#ab;B" is not a code catName decodes: left as it is
+  assert.deepEqual(A.S.S.kv.customCats.map(c => [c.id, c.name]), [['c_food', 'Food'], ['c_rb2', 'Gift'], ['c_odd', 'A&#ab;B']]);
+  assert.deepEqual(A.S.S.tx.map(t => [t.id, t.category, t.cat]).sort(), [['r1', 'refund', 'c_food'], ['t1', 'c_food', undefined], ['t2', 'c_rb2', undefined], ['t3', 'transport', undefined], ['t4', 'c_food', undefined]]);
+  assert.equal(A.S.S.tx.find(t => t.id === 't1').updatedAt, 7);   // a repair is not an edit: a partner's real edit still wins
+  assert.deepEqual([A.S.S.kv.budgets.byCat, A.S.S.kv.catColors], [{ c_food: 150 }, { c_food: '#00ff00', transport: '#0000ff' }]);
+  assert.deepEqual(A.S.S.kv.settings.importMaps.sig.catMap, { '&#x1f35c; Food': 'c_food', Kopi: 'c_food' });
   assert.equal(await A.S.repairCatNames(), 0);   // once
 });
 
