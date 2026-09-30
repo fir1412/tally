@@ -1050,9 +1050,15 @@ export function mergeJoint(local, incoming) {
   const [older, newest] = jb && newer(mine, jb) ? [mine, jb] : [jb, mine];
   const budgetsJoint = jb && { ...newest, byCat: { ...(older?.byCat || {}), ...(newest?.byCat || {}) } };
   const bills = new Map((local.recurring || []).map(r => [r.id, r]));
+  // Joint bills and accounts delete like joint entries: one deleted here after its last edit doesn't come back, and one
+  // the partner deleted after its last edit here goes (an account only once nothing uses it).
+  const alive = x => !(Object.hasOwn(myGone, x.id) && myGone[x.id] >= (x.updatedAt || 0)), goneThere = x => (theirGone[x.id] || 0) > (x.updatedAt || 0);
+  const dropBills = (local.recurring || []).filter(r => jointHere.has(r.accountId) && goneThere(r)).map(r => r.id);
+  const uses = id => t => t.accountId === id || t.toAccountId === id;
+  const dropAccounts = local.accounts.filter(a => jointHere.has(a.id) && goneThere(a) && !into.has(a.id) && !local.tx.some(t => !dropped.has(t.id) && uses(a.id)(t)) && !tx.some(uses(a.id))).map(a => a.id);
   return {
-    accounts: joint.filter(a => newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty,
-    recurring: [...(incoming.recurring || []).map(remap).filter(r => ids.has(r.accountId) && !personal.has(bills.get(r.id)?.accountId) && newer(bills.get(r.id), r)), ...movedBills],   // a personal bill is never overwritten
+    accounts: joint.filter(a => alive(a) && newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty, dropBills, dropAccounts,
+    recurring: [...(incoming.recurring || []).map(remap).filter(r => alive(r) && ids.has(r.accountId) && !personal.has(bills.get(r.id)?.accountId) && newer(bills.get(r.id), r)), ...movedBills],   // a personal bill is never overwritten
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(budgetsJoint && JSON.stringify(budgetsJoint) !== JSON.stringify(mine) ? { budgetsJoint } : {}),
   };

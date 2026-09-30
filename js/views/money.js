@@ -373,7 +373,8 @@ const billEv = x => {
 export async function postBills() {
   const tdy = today();
   if (!S.accounts.length) return 0;
-  const txs = dueBillTxs(S.recurring, tdy, S.tx).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: defaultAccount('bill') }));
+  const gone = S.kv.jointGone || {};   // a joint payment deleted here is never posted again
+  const txs = dueBillTxs(S.recurring, tdy, S.tx).filter(x => !gone[x.id]).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: defaultAccount('bill') }));
   if (txs.length) await saveTxs(txs);
   for (const r of S.recurring) if (r.auto && !(r.last >= tdy)) await saveBill({ ...r, last: tdy }, { edited: false });
   if (txs.length) toast(txs.length === 1 ? t('Added {0} {1}', txs[0].merchant, fmtRM(txs[0].amount)) : t('Added {0} regular payments: {1}', txs.length, [...new Set(txs.map(x => x.merchant))].join(', ')), { icon: 'check', undo: async () => { await deleteTxs(txs.map(x => x.id)); render(); } });

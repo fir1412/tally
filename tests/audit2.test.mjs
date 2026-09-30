@@ -167,6 +167,28 @@ test("Tally never writes, or reports as saved, a backup its own restore refuses"
   for (const f of ['importJoint', 'restoreText', 'commitImport', 'sealedBackup']) assert.match(fn(f), /overCap/, `${f} must check the totals`);
 });
 
+test("a deleted joint bill or joint account stays deleted on both phones (the partner's next file brought it back)", async () => {
+  const IO = await import('../js/io.js'), { readFileSync } = await import('node:fs');
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  const T0 = Date.now() - 86400_000, jt = { id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 }, jold = { id: 'jold', name: 'Old joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 2 };
+  const bill = { id: 'b1', name: 'Rent', amount: 150000, accountId: 'jt', day: 1, auto: true, start: '2026-06-01', last: '2026-06-02', updatedAt: T0 };
+  for (const a of [{ id: 'mine', name: 'Maybank', kind: 'bank', opening: 0, createdAt: 0 }, jt, jold]) await A.S.saveAccount(a);
+  await A.S.saveBill(bill, { edited: false });
+  const partner = { accounts: [{ ...jt, updatedAt: T0 }, { ...jold, updatedAt: T0 }], tx: [], recurring: [bill], kv: {} };   // the partner's phone still has both
+  await A.S.deleteBill('b1'); await A.S.deleteAccount('jold');
+  // A merges the partner's next file: neither comes back.
+  const m = IO.mergeJoint({ accounts: A.S.S.accounts, tx: A.S.S.tx, recurring: A.S.S.recurring, kv: A.S.S.kv }, IO.readBackup(IO.makeJointShare(partner, 'Partner')));
+  assert.deepEqual([m.recurring.map(r => r.id), m.accounts.map(a => a.id)], [[], []]);
+  // The partner merges A's file: the deletes travel there too.
+  const p = IO.mergeJoint(partner, IO.readBackup(IO.makeJointShare({ accounts: A.S.S.accounts, tx: A.S.S.tx, recurring: A.S.S.recurring, kv: A.S.S.kv }, 'A')));
+  assert.deepEqual([p.dropBills, p.dropAccounts], [['b1'], ['jold']]);
+  // A payment id deleted here is never posted again by a bill that comes back.
+  const money = readFileSync(new URL('../js/views/money.js', import.meta.url), 'utf8').match(/export async function postBills[\s\S]*?\n}\n/)[0];
+  assert.match(money, /jointGone/);
+  assert.match(readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8').match(/async function importJoint[\s\S]*?\n}\n/)[0], /dropBills[\s\S]*dropAccounts|dropAccounts[\s\S]*dropBills/);
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

@@ -173,9 +173,11 @@ export async function deleteTxs(ids) {
   S.tx = S.tx.filter(t => !set.has(t.id));
   // A deleted joint row stays deleted on the spouse's phone too (the share file carries these markers).
   const joint = old.filter(t => j.has(t.accountId) || j.has(t.toAccountId));
-  if (joint.length) await setKv('jointGone', Object.fromEntries([...Object.entries(S.kv.jointGone || {}), ...joint.map(t => [t.id, Date.now()])].slice(-1000)));
+  await markGone(joint.map(t => t.id));
   return async () => saveTxs(old);
 }
+/** Joint records deleted here (entries, bills, accounts): the share file carries these markers, so they stay deleted there. */
+const markGone = ids => (ids.length ? setKv('jointGone', Object.fromEntries([...Object.entries(S.kv.jointGone || {}), ...ids.map(id => [id, Date.now()])].slice(-1000))) : undefined);
 /** Remember the user's category for an item (and optionally for the shop). */
 export async function learn(itemName, category, merchant = null) {
   const k = itemKey(itemName);
@@ -201,8 +203,10 @@ export async function saveAccount(a) {
 }
 export async function deleteAccount(id) {
   if (S.tx.some(t => t.accountId === id || t.toAccountId === id)) throw new Error('in use');
+  const joint = S.accounts.find(a => a.id === id)?.scope === 'joint';
   await db.del('accounts', id);
   S.accounts = S.accounts.filter(a => a.id !== id);
+  if (joint) await markGone([id]);
 }
 export async function saveBill(b, { edited = true } = {}) {
   if (edited) b = { ...b, updatedAt: Date.now() };   // a spouse's copy of a joint bill merges by newest edit
@@ -210,7 +214,11 @@ export async function saveBill(b, { edited = true } = {}) {
   const i = S.recurring.findIndex(x => x.id === b.id);
   if (i >= 0) S.recurring[i] = b; else S.recurring.push(b);
 }
-export async function deleteBill(id) { await db.del('recurring', id); S.recurring = S.recurring.filter(b => b.id !== id); }
+export async function deleteBill(id) {
+  const joint = jointIds().has(S.recurring.find(b => b.id === id)?.accountId);
+  await db.del('recurring', id); S.recurring = S.recurring.filter(b => b.id !== id);
+  if (joint) await markGone([id]);
+}
 /** true when saved. Photos are nice-to-have, so a failure doesn't stop the caller; the user still sees it (onSaveFailed). */
 // The localStorage fallback (no IndexedDB: some private windows) can't hold a photo's bytes: say so, don't store {}.
 export const savePhoto = (id, blob) => (db.storageMode() === 'localstorage' && blob instanceof Blob ? Promise.resolve(false) : db.put('receipts', { id, blob }).then(() => true, () => false));
