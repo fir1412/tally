@@ -122,6 +122,7 @@ function tx(store, mode, fn) {
   return new Promise((resolve, reject) => {
     let t, result;
     try {
+      if (mode === 'readwrite') alive();   // a write begun before an erase (its seal can outlast it) must not land in the database the erase reopens
       t = idb.transaction(store, mode);
       Promise.resolve(fn(t.objectStore(store))).then(r => { result = r; }, () => {});
     } catch (e) { if (mode === 'readwrite') failHandler(e); try { t?.abort(); } catch {} return reject(e); } // closed database, a value that can't be stored…
@@ -252,6 +253,7 @@ export async function writeAtomic({ clear = [], del = {}, put = {} }) {
   await new Promise((resolve, reject) => {
     let t;
     try {
+      alive();   // the seal above can outlast an erase on this page
       t = idb.transaction(stores, 'readwrite');
       for (const s of clear) t.objectStore(s).clear();
       for (const [s, keys] of Object.entries(del)) for (const k of keys) t.objectStore(s).delete(k);

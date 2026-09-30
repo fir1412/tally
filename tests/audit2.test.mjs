@@ -94,6 +94,33 @@ test("erasing at the old address tells every open tab, so another tab's next sav
   } finally { done(); }
 });
 
+/** An encrypted Tally with dummy data in tab A. */
+async function encryptedTab() {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(), ENC = { key: 'DUMMY-WRAPPED', salt: 'x', iter: 1, iv: 'x' };
+  const dek = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  await A.S.load(); A.db.setKey(dek, ENC.key); A.db.expectSealed(true);
+  await A.S.setKv('settings', { lock: { kind: 'pin', len: 4, enc: ENC } });
+  await A.S.saveAccount({ id: 'a1', name: 'Dummy Bank', kind: 'bank', opening: 0, createdAt: 1 });
+  return { shim, A, dek };
+}
+
+test('a sealed save still being encrypted when the erase runs cannot land in the fresh database (Tally was locked at every start)', async () => {
+  const { shim, A } = await encryptedTab(), P = Object.getPrototypeOf(crypto.subtle), enc = P.encrypt;
+  let release, first = true;
+  const held = new Promise(r => { release = r; });
+  P.encrypt = async function (...a) { if (first) { first = false; await held; } return enc.apply(this, a); };   // the seal outlasts the erase
+  try {
+    const save = A.S.setKv('reviewDraft', { draft: { merchant: 'DUMMY PRE-ERASE' } }).then(() => 'landed', () => 'refused');
+    await A.S.eraseAll();   // deletes the database and opens a fresh one on this page
+    release();
+    assert.equal(await save, 'refused');
+  } finally { P.encrypt = enc; }
+  const C = await shim.tab();
+  await C.S.load();   // threw 'Tally is locked': a record sealed with the erased key
+  assert.deepEqual([C.S.S.kv.reviewDraft ?? null, shim.rows('kv').filter(r => r.ct).length], [null, 0]);
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];
