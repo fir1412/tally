@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { typedShift, CAPS, CAT_CODE, catName, sameCategory } from './io.js';
+import { typedShift, CAPS, CAT_CODE, catName, sameCategory, mapCategory } from './io.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
@@ -152,12 +152,23 @@ export async function addCategory(name, color = nextColor(S.kv.customCats.map(x 
  */
 export async function repairCatNames() {
   const bad = S.kv.customCats.filter(c => CAT_CODE.test(c.name));
-  if (!bad.length) return 0;
+  if (!bad.length && S.kv.customCats.length <= CAPS.customCats) return 0;
   // Fold targets: every category without codes (wherever it sits in the list), then the renamed ones as they come.
   const into = new Map(), renamed = new Map(), keep = S.kv.customCats.filter(c => !bad.includes(c));
   for (const c of bad) {
     const name = catName(c.name).slice(0, 40), to = sameCategory(name, [...keep, ...renamed.values()], c.kind === 'income');
     if (to) into.set(c.id, to); else renamed.set(c.id, { ...c, name });
+  }
+  // Over 50 own categories (kept from before the cap: backups and imports refuse more): the least used past 50 fold into
+  // Tally's nearest category, so the phone can back up again.
+  const left = S.kv.customCats.filter(c => !into.has(c.id)).map(c => renamed.get(c.id) || c);
+  if (left.length > CAPS.customCats) {
+    const uses = new Map();
+    const count = id => { if (id) uses.set(id, (uses.get(id) || 0) + 1); };
+    for (const t of S.tx) { count(t.category); for (const i of t.items || []) count(i.category); }
+    for (const r of S.recurring) count(r.category);
+    const near = c => (c.kind === 'income' ? (/salary|gaji|工资|薪/i.test(c.name) ? 'salary' : 'income') : (n => (INCOME_CATEGORIES.some(x => x.id === n) ? 'other' : n))(mapCategory(c.name)));
+    for (const c of [...left].sort((a, b) => (uses.get(b.id) || 0) - (uses.get(a.id) || 0)).slice(CAPS.customCats)) into.set(c.id, near(c));
   }
   const m = id => into.get(id) || id, hit = id => into.has(id);
   const tx = S.tx.filter(t => hit(t.category) || hit(t.cat) || t.items?.some(i => hit(i.category)))
@@ -178,7 +189,7 @@ export async function repairCatNames() {
       rules: Object.fromEntries(Object.entries(S.kv.rules).map(([k, v]) => [k, m(v)])), catColors: moveKeys(S.kv.catColors), catIcons: moveKeys(S.kv.catIcons),
       ...(importMaps ? { settings: { ...st, importMaps } } : {}) } : {}),
   } });
-  return bad.length;
+  return into.size + renamed.size;
 }
 
 // ---- transactions -----------------------------------------------------------------------------------------------

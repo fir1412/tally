@@ -197,7 +197,8 @@ test('backup: reserved ids and keys dropped, only valid custom categories count,
     const backup = { app: 'tally', v: 1, [key]: Array.from({ length: max + 1 }, () => ({})) };
     assert.throws(() => IO.readBackup(JSON.stringify(backup)), /Nothing was restored/);
   }
-  assert.throws(() => IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kv: { customCats: Array.from({ length: 51 }, () => ({})) } })), /Nothing was restored/);
+  // A backup from before the 50-category cap restores (the first 50 kept) rather than being refused whole.
+  assert.ok(IO.readBackup(JSON.stringify({ app: 'tally', v: 1, kv: { customCats: Array.from({ length: 51 }, (_, i) => ({ id: `c_${i}`, name: `C${i}` })) } })).kv.customCats.length <= 50);
   assert.throws(() => IO.readBackup(' '.repeat(IO.LIMITS.backupJson + 1)), /too big/);
 });
 

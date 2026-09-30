@@ -892,7 +892,8 @@ export const overCap = r => Object.keys(CAPS).find(k => (r[k] || []).length > CA
 /** overCap of `local` after adding `add` (by id, replacing) and deleting `del` ({accounts, tx, recurring}: ids). */
 export function overCapAfter(local, add, del = {}) {
   const join = k => { const m = new Map((local[k] || []).map(x => [x.id, x])); for (const x of add[k] || []) m.set(x.id, x); for (const id of del[k] || []) m.delete(id); return [...m.values()]; };
-  return overCap(Object.fromEntries(Object.keys(CAPS).map(k => [k, join(k)])));
+  // Over a cap and growing: a phone already over one (from before the caps) can still take what doesn't add to it.
+  return Object.keys(CAPS).find(k => { const n = join(k).length; return n > CAPS[k] && n > (local[k] || []).length; }) || '';
 }
 /** Would restore read all of this backup? The file, the JSON inside a zip, and the zip's entries (JSON + photos) each have
  *  restore's limit: a photo backup over any of them was refused whole, or lost photos, after being reported as saved. */
@@ -910,7 +911,7 @@ export function readBackup(text) {
     const max = CAPS[key];
     if (Array.isArray(d[key]) && d[key].length > max) throw new Error(`This backup has more than ${max} ${key === 'tx' ? 'transactions' : key === 'recurring' ? 'bills' : key}. Nothing was restored.`);
   }
-  if (Array.isArray(d.kv?.customCats) && d.kv.customCats.length > CAPS.customCats) throw new Error('This backup has more than 50 custom categories. Nothing was restored.');
+  // Over 50 own categories (a backup from before the cap): the first 50 are kept below, rows in the rest become Other.
   // Custom categories first: only the ones that pass are category ids anywhere else in the backup.
   const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B', ...(c.kind === 'income' ? { kind: 'income' } : {}) }));
   const customIds = new Set(customCats.map(c => c.id));

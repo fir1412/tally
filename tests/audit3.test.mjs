@@ -36,6 +36,28 @@ test('a photo backup is refused, not reported as saved, when its data or photo c
   assert.match(src.match(/async function sealedBackup[\s\S]*?\n}\n/)[0], /backupFits\(/);
 });
 
+test('a phone with more than 50 own categories from before the cap gets back under it, and can back up and import again', async () => {
+  const cats = n => Array.from({ length: n }, (_, i) => ({ id: `c_old${i}`, name: i === 50 ? 'Groceries run' : `Old ${i}`, color: '#123456' }));
+  // An import that adds nothing to an over-cap list isn't refused; one that grows it still is.
+  const local = { accounts: [{ id: 'a1' }], tx: [{ id: 't1' }], recurring: [], customCats: cats(51) };
+  assert.equal(IO.overCapAfter(local, { tx: [{ id: 't2' }] }), '');
+  assert.equal(IO.overCapAfter(local, { customCats: [{ id: 'c_new' }] }), 'customCats');
+  // A backup made before the cap restores: the first 50 are kept, rows in the rest become Other.
+  const b = IO.readBackup(JSON.stringify({ app: 'tally', v: 1, accounts: [{ id: 'a1', name: 'Bank', kind: 'bank' }], tx: [{ id: 't1', date: '2026-09-01', type: 'expense', amount: 100, accountId: 'a1', category: 'c_old50' }], kv: { customCats: cats(51) } }));
+  assert.deepEqual([b.kv.customCats.length, b.tx[0].category], [50, 'other']);
+  // At start the least-used past 50 fold into Tally's nearest category, their rows moved with them.
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  await A.S.saveAccount({ id: 'a1', name: 'Bank', kind: 'bank', opening: 0, createdAt: 1 });
+  await A.S.setKv('customCats', cats(52));
+  const row = (id, category) => ({ id, accountId: 'a1', type: 'expense', amount: 100, date: '2026-09-01', merchant: id, category, createdAt: 1 });
+  await A.S.putAll({ tx: [...cats(50).map((c, i) => row(`u${i}`, c.id)), row('g1', 'c_old50')] });   // c_old50 used once, c_old51 never
+  await A.S.repairCatNames();
+  assert.equal(A.S.S.kv.customCats.length, 50);
+  assert.ok(!A.S.S.kv.customCats.some(c => c.id === 'c_old51'), 'the unused one folds first');
+  assert.ok(A.S.S.tx.every(t => A.S.S.kv.customCats.some(c => c.id === t.category) || !t.category.startsWith('c_')));
+});
+
 test("a joint account deleted on either phone takes its bills with it: none is left to post into a personal account", () => {
   const T = Date.now(), me = { id: 'pmine', name: 'Maybank', kind: 'bank' };
   const bill = (id, accountId, updatedAt) => ({ id, name: 'Rent', amount: 150000, accountId, day: 1, auto: true, start: '2026-06-01', updatedAt });
