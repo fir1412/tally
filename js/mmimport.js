@@ -136,6 +136,7 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
     const cols = t => new Set(rows(`select name from pragma_table_xinfo('${t}') where hidden <= 1`).map(c => c.name));
     const has = t => rows(`select name from sqlite_master where type='table' and name='${t}' and upper(coalesce(sql, '')) not like 'CREATE VIRTUAL%'`).length > 0 && rows(`select count(*) as n from pragma_table_xinfo('${t}') where hidden > 1`)[0].n === 0;
     if (!['INOUTCOME', 'ASSETS'].every(has)) {
+      if (['wallets', 'transactions', 'categories'].every(has)) return readCashew({ rows, cols, now });   // Cashew's backup is SQLite too (.sql)
       if (has('ZINOUTCOME')) throw new Error('This is an iPhone Money Manager backup. Export to Excel in the app instead, and import that file.');
       throw new Error('This Money Manager backup is from a version Tally does not know yet.');
     }
@@ -182,6 +183,50 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
     });
     return { accounts: accounts.map(keepCurrency), tx, customCats, photos: [], skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped: 0, transfers, app: 'realbyte' };
   } finally { db.close(); }
+}
+// Cashew (github.com/jameskokoska/Cashew, Drift/SQLite, backup "*.sql"): wallets, categories (income 0/1, "0" is its
+// Balance Correction), transactions (amount signed: spending negative; date_created in seconds; paid 0 = an upcoming
+// or planned one, not happened yet; a transfer is two rows linked by paired_transaction_fk). Ids match the ones a
+// converted Cashew backup got, so importing both never doubles anything.
+function readCashew({ rows, cols, now }) {
+  const need = (t, list) => { const c = cols(t); return list.every(x => c.has(x)); };
+  if (!need('transactions', ['transaction_pk', 'amount', 'category_fk', 'wallet_fk', 'date_created']) || !need('wallets', ['wallet_pk', 'name']) || !need('categories', ['category_pk', 'name']))
+    throw new Error('This Cashew backup is from a version Tally does not know yet.');
+  const cw = pk => `cw_${hash(pk)}`, tc = cols('transactions'), opt = c => (tc.has(c) ? c : `null as ${c}`);
+  const customCats = [], catMap = Object.create(null);
+  for (const c of rows(`select category_pk, name, ${cols('categories').has('income') ? 'income' : '0 as income'} from categories limit 2000`))
+    if (String(c.category_pk) !== '0') catMap[String(c.category_pk)] = keepName(cleanText(c.name, 40) || 'Category', c.income === 1, customCats, `c_cw_${hash(c.category_pk)}`, nextColor(customCats.map(x => x.color)));
+  const wc = cols('wallets'), wallets = rows(`select wallet_pk, name${wc.has('currency') ? ', currency' : ''}${wc.has('date_created') ? ', date_created' : ''} from wallets${wc.has('archived') ? ' where coalesce(archived, 0) = 0' : ''} limit 200`);
+  const accId = new Map(wallets.map(w => [String(w.wallet_pk), cw(w.wallet_pk)]));
+  const all = rows(`select transaction_pk, ${opt('paired_transaction_fk')}, ${opt('name')}, ${opt('note')}, amount, category_fk, wallet_fk, date_created, ${opt('paid')} from transactions limit 200000`);
+  const byPk = new Map(all.map(t => [String(t.transaction_pk), t])), tx = [], opening = new Map(), done = new Set();
+  let skipped = 0, adjustments = 0, transfers = 0, planned = 0;
+  const when = s => { const n = Number(s), d = new Date(n > 1e11 ? n : n * 1000); return isNaN(d) || n <= 0 ? null : { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }; };
+  for (const t of all) {
+    const pk = String(t.transaction_pk), acc = accId.get(String(t.wallet_fk)), w = when(t.date_created), amt = Math.round(Math.abs(Number(t.amount)) * 100);
+    if (done.has(pk)) continue;
+    if (t.paid === 0) { planned++; continue; }
+    if (!acc || !w || !validIso(w.date) || !Number.isInteger(amt) || amt > MAX_SEN) { skipped++; continue; }
+    if (!amt) continue;
+    const other = t.paired_transaction_fk != null && byPk.get(String(t.paired_transaction_fk)), otherAcc = other && accId.get(String(other.wallet_fk));
+    if (otherAcc && otherAcc !== acc && other.paid !== 0) {   // a transfer: once, from the side money left
+      done.add(String(other.transaction_pk));
+      const [from, to] = Number(t.amount) < 0 ? [acc, otherAcc] : [otherAcc, acc];
+      tx.push({ id: cw(pk), ...w, type: 'transfer', amount: amt, accountId: from, toAccountId: to, category: 'other', merchant: cleanText(t.name, 80), note: cleanText(t.note, 200), source: 'import', createdAt: now });
+      transfers++; continue;
+    }
+    if (String(t.category_fk) === '0') { opening.set(acc, (opening.get(acc) || 0) + (Number(t.amount) < 0 ? -amt : amt)); adjustments++; continue; }   // Balance Correction: not spending
+    const type = Number(t.amount) > 0 ? 'income' : 'expense';
+    let category = catMap[String(t.category_fk)] || (type === 'income' ? 'income' : 'other');
+    if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category) && !customCats.some(c => c.id === category && c.kind === 'income')) category = 'income';
+    if (type === 'expense' && (INCOME_CATEGORIES.some(c => c.id === category) || customCats.some(c => c.id === category && c.kind === 'income'))) category = 'other';
+    tx.push({ id: cw(pk), ...w, type, amount: amt, accountId: acc, category, merchant: cleanText(t.name, 80), note: cleanText(t.note, 200), source: 'import', createdAt: now });
+  }
+  const accounts = wallets.map((a, n) => {
+    const id = accId.get(String(a.wallet_pk)), bal = opening.get(id) || 0, made = Number(a.date_created) * 1000;
+    return { id, name: cleanText(a.name, 60) || 'Wallet', kind: guessKind(String(a.name || '')), opening: okSigned(bal) ? bal : 0, createdAt: made > Date.UTC(2000, 0, 1) && made <= now + 864e5 ? made : now + n, currency: String(a.currency || 'MYR').toUpperCase() };
+  });
+  return { accounts: accounts.map(keepCurrency), tx, customCats, photos: [], skipped, adjustments, planned, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped: 0, transfers, app: 'cashew' };
 }
 /** An account in another currency keeps it (left out of the RM total, shown with its code); an RM one has none. */
 const keepCurrency = ({ currency, ...a }) => (/^[A-Z]{3}$/.test(currency) && currency !== 'MYR' ? { ...a, currency } : a);

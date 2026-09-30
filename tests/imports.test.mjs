@@ -137,6 +137,24 @@ test("another app's categories keep their names: Tally's only when the name is e
   assert.equal(IO.sameCategory('Transit'), null);
 });
 
+test('Cashew backup (.sql): read as Cashew, not Money Manager; corrections open balances, pairs are transfers, unpaid ones left out', async () => {
+  const s = d => Date.UTC(2026, 8, d, 4) / 1000;
+  const db = sqlite(`create table wallets(wallet_pk, name, currency, date_created, archived);
+    create table categories(category_pk, name, income);
+    create table transactions(transaction_pk, paired_transaction_fk, name, amount, note, category_fk, wallet_fk, date_created, paid);
+    insert into wallets values ('0', 'Maybank', 'myr', ${s(1)}, 0), ('w2', 'Cash', 'myr', ${s(1)}, 0);
+    insert into categories values ('0', 'Balance Correction', 0), ('1', 'Dining', 0), ('2', 'Transit', 0), ('11', 'Income', 1);
+    insert into transactions values ('c1', null, 'Balance', 500, '', '0', '0', ${s(1)}, 1), ('e1', null, 'Kopi', -12.5, 'pagi', '1', '0', ${s(2)}, 1),
+      ('e2', null, 'LRT', -3, '', '2', 'w2', ${s(2)}, 1), ('t1', 't2', 'ATM', -100, '', '0', '0', ${s(3)}, 1), ('t2', 't1', 'ATM', 100, '', '0', 'w2', ${s(3)}, 1),
+      ('i1', null, 'Pay', 3000, '', '11', '0', ${s(5)}, 1), ('u1', null, 'Rent', -900, '', '1', '0', ${s(28)}, 0);`);
+  const mm = await readRealbyte(db, SQL);
+  const name = id => mm.customCats.find(c => c.id === id)?.name || id, by = m => mm.tx.find(t => t.merchant === m);
+  assert.deepEqual([mm.app, mm.adjustments, mm.transfers, mm.planned, mm.tx.length], ['cashew', 1, 1, 1, 4]);
+  assert.deepEqual([by('Kopi').type, by('Kopi').amount, name(by('Kopi').category), name(by('LRT').category), by('Pay').type, name(by('Pay').category)], ['expense', 1250, 'dining', 'Transit', 'income', 'Income']);
+  assert.deepEqual([by('ATM').type, by('ATM').amount, by('ATM').accountId === mm.accounts[0].id, by('ATM').toAccountId === mm.accounts[1].id], ['transfer', 10000, true, true]);
+  assert.deepEqual(Object.values(E.balances(mm.accounts, mm.tx).by), [50000 - 1250 - 10000 + 300000, 10000 - 300]);   // what Cashew shows
+});
+
 test('Money Manager (Innim): transfers come in when the backup names both accounts (link rows or columns); balances still match', async () => {
   const base = `create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
     create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);

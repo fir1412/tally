@@ -1408,4 +1408,8 @@ export default {
   "Tap the menu ≡ at the bottom": "下のメニュー ≡ をタップ",
   "Tap ⋮ or ⋯ at the top": "上の ⋮ か ⋯ をタップ",
   "Then tap Install Tally again": "それからもう一度「Tally をインストール」をタップ",
+  "Balances will match what Cashew shows today.": "残高は今日 Cashew に表示されているものと一致します。",
+  "Cashew backup": "Cashew のバックアップ",
+  "This Cashew backup is from a version Tally does not know yet.": "この Cashew のバックアップは、Tally がまだ知らないバージョンのものです。",
+  "{0} upcoming entries not paid yet are left out": "まだ支払っていない予定の記録 {0} 件は含めません",
 };

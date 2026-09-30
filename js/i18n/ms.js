@@ -1409,4 +1409,8 @@ export default {
   "Tap the menu ≡ at the bottom": "Ketik menu ≡ di bawah",
   "Tap ⋮ or ⋯ at the top": "Ketik ⋮ atau ⋯ di atas",
   "Then tap Install Tally again": "Kemudian ketik Pasang Tally sekali lagi",
+  "Balances will match what Cashew shows today.": "Baki akan sama dengan yang Cashew tunjukkan hari ini.",
+  "Cashew backup": "Sandaran Cashew",
+  "This Cashew backup is from a version Tally does not know yet.": "Sandaran Cashew ini daripada versi yang Tally belum kenal.",
+  "{0} upcoming entries not paid yet are left out": "{0} catatan akan datang yang belum dibayar tidak dimasukkan",
 };

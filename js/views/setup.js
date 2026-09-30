@@ -501,15 +501,17 @@ async function importMoneyManager(buf, app) {
   const SQL = await loadSqlJs();
   const mm = app === 'realbyte' ? await readRealbyte(buf, SQL) : await readMoneyManager(buf, SQL).catch(e => (/MyFinance.db is missing/.test(e.message) ? readRealbyte(buf, SQL) : Promise.reject(e)));
   IMP = { mm, buf };
-  openSheet(`<h2 class="sh-title">${esc(mm.app === 'realbyte' ? t('Money Manager (Realbyte) backup') : t('Money Manager backup'))}</h2>
+  const appName = mm.app === 'cashew' ? 'Cashew' : 'Money Manager';
+  openSheet(`<h2 class="sh-title">${esc(mm.app === 'cashew' ? t('Cashew backup') : mm.app === 'realbyte' ? t('Money Manager (Realbyte) backup') : t('Money Manager backup'))}</h2>
     <ul class="list"><li>${esc(t('{0} transactions', mm.tx.length))}</li><li>${esc(t('{0} accounts: {1}', mm.accounts.length, mm.accounts.map(a => a.name).join(', ')))}</li>
     <li>${esc(t('{0} of your categories kept as they are', mm.customCats.length))}</li>${mm.skipped ? `<li class="warn">${esc(t('{0} could not be read and will be skipped', mm.skipped))}</li>` : ''}
     ${mm.adjustments ? `<li>${esc(t('{0} balance corrections folded into opening balances (not counted as spending)', mm.adjustments))}</li>` : ''}
     ${mm.transfers ? `<li>${esc(t('{0} transfers between your accounts', mm.transfers))}</li>` : ''}
+    ${mm.planned ? `<li>${esc(t('{0} upcoming entries not paid yet are left out', mm.planned))}</li>` : ''}
     ${mm.transfersSkipped ? `<li class="warn">${esc(t('{0} transfers between accounts were not imported', mm.transfersSkipped))}</li>` : ''}
     ${mm.otherCurrency.length ? `<li class="warn">${esc(t('Not in RM: {0}. Kept in their own currency and counted in RM at a rate you can change in Settings.', mm.otherCurrency.join(', ')))}</li>` : ''}</ul>
     ${mm.photos.length ? `<label class="check"><input type="checkbox" id="mm-photos" checked> ${esc(mm.photos.length === 1 ? t('Also import 1 receipt photo (up to {0} MB on this phone)', Math.round(buf.byteLength / 1048576)) : t('Also import {0} receipt photos (up to {1} MB on this phone)', mm.photos.length, Math.round(buf.byteLength / 1048576)))}</label>` : ''}
-    <p class="fine">${esc(t('Balances will match what Money Manager shows today.'))}</p>
+    <p class="fine">${esc(appName === 'Cashew' ? t('Balances will match what Cashew shows today.') : t('Balances will match what Money Manager shows today.'))}</p>
     <div class="row2"><button class="btn ghost" data-act="sheet-close">${esc(t('Cancel'))}</button><button class="btn" data-act="mm-go">${esc(t('Import'))}</button></div>`, { label: t('Import') });
 }
 
@@ -922,7 +924,7 @@ export const act = {
     const accounts = mm.accounts.filter(a => used.has(a.id) && !S.accounts.some(x => x.id === a.id));
     const have = new Set(S.kv.customCats.map(c => c.id));
     const cats = mm.customCats.filter(c => !have.has(c.id) && fresh.some(x => x.category === c.id || x.items?.some(i => i.category === c.id)));
-    await commitImport(mm.tx, mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { accounts, newAccounts: accounts.map(a => a.id), kv: cats.length ? { customCats: [...S.kv.customCats, ...cats] } : {}, before: async fresh => {
+    await commitImport(mm.tx, mm.app === 'cashew' ? 'Cashew' : mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { accounts, newAccounts: accounts.map(a => a.id), kv: cats.length ? { customCats: [...S.kv.customCats, ...cats] } : {}, before: async fresh => {
       if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
       const want = new Map(fresh.map(x => [x.id, x]));

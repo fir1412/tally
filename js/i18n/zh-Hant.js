@@ -1408,4 +1408,8 @@ export default {
   "Tap the menu ≡ at the bottom": "點底部的選單 ≡",
   "Tap ⋮ or ⋯ at the top": "點頂部的 ⋮ 或 ⋯",
   "Then tap Install Tally again": "然後再點一次「安裝 Tally」",
+  "Balances will match what Cashew shows today.": "餘額會與 Cashew 今天顯示的一致。",
+  "Cashew backup": "Cashew 備份",
+  "This Cashew backup is from a version Tally does not know yet.": "這個 Cashew 備份來自 Tally 還不認識的版本。",
+  "{0} upcoming entries not paid yet are left out": "{0} 筆尚未支付的待付記錄未導入",
 };
