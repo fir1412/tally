@@ -1475,4 +1475,5 @@ export default {
   "Removed. What was in it is in {0} now.": "已删除。里面的记录已移到 {0}。",
   "Removed:": "已删除：",
   "What is in it moves to": "里面的记录移到",
+  "Custom": "自定义",
 };

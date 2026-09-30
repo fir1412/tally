@@ -1474,4 +1474,5 @@ export default {
   "Removed. What was in it is in {0} now.": "削除しました。中身は {0} に移りました。",
   "Removed:": "削除済み：",
   "What is in it moves to": "中身の移動先",
+  "Custom": "カスタム",
 };

@@ -1475,4 +1475,5 @@ export default {
   "Removed. What was in it is in {0} now.": "Dibuang. Isinya kini dalam {0}.",
   "Removed:": "Dibuang:",
   "What is in it moves to": "Isinya dipindahkan ke",
+  "Custom": "Tersuai",
 };

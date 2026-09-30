@@ -32,13 +32,16 @@ const setSize = async n => { await setSetting('textSize', n); document.documentE
 // ---- Appearance & personal: few words, the controls show what they do ------------------------------------------------
 const seg = (act, v, on, label, icon = '') => `<button class="seg${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"${icon ? ` aria-label="${esc(label)}" title="${esc(label)}"` : ''}>${icon || esc(label)}</button>`;
 const HOME_CARDS = () => [['gap', t('Missed days'), ICON.clock], ['nudge', t('Habit nudges'), ICON.clock], ['bills', t('Bills due'), ICON.bell], ['insight', t('Insights'), ICON.chart], ['learn', t('Learn Tally'), ICON.sparkles], ['stickers', t('Sticker book'), ICON.award]];
-/** Tally in modules: a preset (Simple · Standard · Everything) or each feature on its own. Off hides; nothing is deleted. */
+/** Tally in modules: a preset (Simple · Standard · Everything) or each feature on its own. Off hides; nothing is deleted.
+ *  Folded to one line (the mode now) until opened; it stays open while Settings redraws after each change. */
+let featOpen = false;
 function featuresCard() {
   const now = presetNow(), preset = (id, label, sub) => `<button class="pal preset${now === id ? ' on' : ''}" data-act="set-preset" data-v="${id}" aria-pressed="${now === id}"><b>${esc(label)}</b><small>${esc(sub)}</small></button>`;
-  return `<section class="card" id="s-features"><h2>${esc(t('Features'))}</h2><p class="fine">${esc(t("Turn off what you don't use. Nothing is deleted: turn it back on and it is all there."))}</p>
+  const mode = { simple: t('Simple'), standard: t('Standard'), everything: t('Everything') }[now] || t('Custom');
+  return `<details class="card acard" id="s-features"${featOpen ? ' open' : ''}><summary data-act="features-open"><span class="grow"><span class="lbl">${esc(t('Features'))}</span><b>${esc(mode)}</b></span><span class="chev" aria-hidden="true"></span></summary><p class="fine">${esc(t("Turn off what you don't use. Nothing is deleted: turn it back on and it is all there."))}</p>
     <div class="palettes" role="group" aria-label="${esc(t('Features'))}">${preset('simple', t('Simple'), t('Type it, see the list and totals'))}${preset('standard', t('Standard'), t('Receipts, budgets, insights'))}${preset('everything', t('Everything'), t('All of it, streaks too'))}</div>
     ${now === 'custom' ? `<p class="fine">${esc(t('Custom: your own mix.'))}</p>` : ''}
-    <details class="more-cats"${now === 'custom' ? ' open' : ''}><summary>${esc(t('Choose features one by one'))}</summary>${MODULES.map(([k, name, sub]) => `<label class="toggle"><span class="grow"><b>${esc(t(name))}</b><small>${esc(t(sub))}</small></span><input type="checkbox" class="switch" role="switch" data-input="module" data-k="${k}"${on(k) ? ' checked' : ''}></label>`).join('')}</details></section>`;
+    <details class="more-cats"><summary>${esc(t('Choose features one by one'))}</summary>${MODULES.map(([k, name, sub]) => `<label class="toggle"><span class="grow"><b>${esc(t(name))}</b><small>${esc(t(sub))}</small></span><input type="checkbox" class="switch" role="switch" data-input="module" data-k="${k}"${on(k) ? ' checked' : ''}></label>`).join('')}</details></details>`;
 }
 function lookCard() {
   const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || baseAccent(), hide = s.homeHide || [];
@@ -813,6 +816,7 @@ export const act = {
     if (!(await confirmSheet({ title: t('Delete this account?'), ok: t('Delete'), danger: true }))) return;
     try { await deleteAccount(b.dataset.id); render(); toast(t('Deleted')); } catch { toast(t('This account has transactions. Move or delete them first.'), { k: 'warn' }); }
   },
+  'features-open': b => { const d = b.parentElement; d.open = featOpen = !d.open; },   // taps are handled here, not by the browser
   'cat-add': () => catAddSheet(),
   'cat-add-color': async b => { const name = $('#cat-name').value; catAddSheet(name, (await pickColor({ value: b.dataset.v })) || b.dataset.v); },
   'cat-save': async () => {
