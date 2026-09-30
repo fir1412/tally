@@ -1040,8 +1040,12 @@ export function mergeJoint(local, incoming) {
   const ours = id => keep.get(id) || id, remap = x => (keep.has(x.accountId) || keep.has(x.toAccountId) ? { ...x, accountId: ours(x.accountId), ...(x.toAccountId ? { toAccountId: ours(x.toAccountId) } : {}) } : x);
   // An account this phone merges into keeps this phone's exchange rate: the file can't set what its RM worth is.
   const ourRate = new Map(pairs.filter(p => p.b < p.a).map(p => [p.b, acc.get(p.a)?.rate]));
-  const joint = theirsAll.filter(a => !keep.has(a.id)).map(a => (ourRate.has(a.id) ? { ...a, rate: ourRate.get(a.id) } : a)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
   const myGone = local.kv.jointGone || {}, theirGone = incoming.gone || {}, me = local.kv.settings?.myName || '';
+  // Joint bills and accounts delete like joint entries: one deleted here after its last edit doesn't come back, and one
+  // the partner deleted after its last edit here goes. A joint account deleted here takes the file's rows and bills on it
+  // with it (they are not written onto a missing account, where a bill's payments would fall to a personal one).
+  const alive = x => !(Object.hasOwn(myGone, x.id) && myGone[x.id] >= (x.updatedAt || 0)), goneThere = x => (theirGone[x.id] || 0) > (x.updatedAt || 0);
+  const joint = theirsAll.filter(a => !keep.has(a.id) && alive(a)).map(a => (ourRate.has(a.id) ? { ...a, rate: ourRate.get(a.id) } : a)), ids = new Set([...joint.map(a => a.id), ...keep.values()]);
   // A photo id a row here already uses belongs to that row: a file's row pointing at it loses the link (else the next
   // joint share would send a personal row's photo, and the zip's copy would overwrite it).
   // A row keeps the link it already has here (shared or not); photosToWrite then decides whether the file's copy is written.
@@ -1067,15 +1071,13 @@ export function mergeJoint(local, incoming) {
   const [older, newest] = jb && newer(mine, jb) ? [mine, jb] : [jb, mine];
   const budgetsJoint = jb && { ...newest, byCat: { ...(older?.byCat || {}), ...(newest?.byCat || {}) } };
   const bills = new Map((local.recurring || []).map(r => [r.id, r]));
-  // Joint bills and accounts delete like joint entries: one deleted here after its last edit doesn't come back, and one
-  // the partner deleted after its last edit here goes (an account only once nothing uses it).
-  const alive = x => !(Object.hasOwn(myGone, x.id) && myGone[x.id] >= (x.updatedAt || 0)), goneThere = x => (theirGone[x.id] || 0) > (x.updatedAt || 0);
-  const dropBills = (local.recurring || []).filter(r => jointHere.has(r.accountId) && goneThere(r)).map(r => r.id);
+  const recurring = [...(incoming.recurring || []).map(remap).filter(r => alive(r) && ids.has(r.accountId) && !personal.has(bills.get(r.id)?.accountId) && newer(bills.get(r.id), r)), ...movedBills];   // a personal bill is never overwritten
+  // A joint account the partner deleted goes once no row or bill from the file uses it, and its bills here go with it.
   const uses = id => t => t.accountId === id || t.toAccountId === id;
-  const dropAccounts = local.accounts.filter(a => jointHere.has(a.id) && goneThere(a) && !into.has(a.id) && !local.tx.some(t => !dropped.has(t.id) && uses(a.id)(t)) && !tx.some(uses(a.id))).map(a => a.id);
+  const dropAccounts = local.accounts.filter(a => jointHere.has(a.id) && goneThere(a) && !into.has(a.id) && !local.tx.some(t => !dropped.has(t.id) && uses(a.id)(t)) && !tx.some(uses(a.id)) && !recurring.some(uses(a.id))).map(a => a.id);
+  const dropBills = (local.recurring || []).filter(r => jointHere.has(r.accountId) && (goneThere(r) || dropAccounts.includes(r.accountId))).map(r => r.id);
   return {
-    accounts: joint.filter(a => alive(a) && newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty, dropBills, dropAccounts,
-    recurring: [...(incoming.recurring || []).map(remap).filter(r => alive(r) && ids.has(r.accountId) && !personal.has(bills.get(r.id)?.accountId) && newer(bills.get(r.id), r)), ...movedBills],   // a personal bill is never overwritten
+    accounts: joint.filter(a => newer(acc.get(a.id), a)), tx: [...tx, ...moved], drop, gone, empty, dropBills, dropAccounts, recurring,
     customCats: (incoming.kv.customCats || []).filter(c => !have.has(c.id)),
     ...(budgetsJoint && JSON.stringify(budgetsJoint) !== JSON.stringify(mine) ? { budgetsJoint } : {}),
   };
