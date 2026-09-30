@@ -1466,4 +1466,6 @@ export default {
   "Faded or far-away receipt photos are read better, and more slips add up on their own": "褪色或远拍的收据照片识别得更好，更多收据能自动对上总额",
   "Hide your balance with the eye next to it, so no one sees it over your shoulder": "点余额旁边的眼睛即可隐藏余额，不怕别人从旁边看到",
   "Fix an item name Tally misread once, and it reads it right next time": "把 Tally 读错的项目名称改一次，下次就会读对",
+  "The eye hides your balance in Settings and Insights too": "眼睛图标也会隐藏设置和分析里的余额",
+  "Receipts photographed sideways are read the right way up": "横着拍的收据也能正确读取",
 };

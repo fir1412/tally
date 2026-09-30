@@ -1465,4 +1465,6 @@ export default {
   "Faded or far-away receipt photos are read better, and more slips add up on their own": "色あせたレシートや遠くから撮った写真も読みやすくなり、合計が自動で合うレシートが増えました",
   "Hide your balance with the eye next to it, so no one sees it over your shoulder": "残高の横の目のアイコンで残高を隠せます。のぞき見されても見えません",
   "Fix an item name Tally misread once, and it reads it right next time": "Tally が読み間違えた品目名を一度直せば、次回から正しく読み取ります",
+  "The eye hides your balance in Settings and Insights too": "目のアイコンで、設定と分析の残高も隠れます",
+  "Receipts photographed sideways are read the right way up": "横向きに撮ったレシートも正しい向きで読み取ります",
 };

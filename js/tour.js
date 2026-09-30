@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.5.1': [
+    'The eye hides your balance in Settings and Insights too',
+    'Receipts photographed sideways are read the right way up',
+  ],
   '1.5.0': [
     'Hide your balance with the eye next to it, so no one sees it over your shoulder',
     'Fix an item name Tally misread once, and it reads it right next time',
