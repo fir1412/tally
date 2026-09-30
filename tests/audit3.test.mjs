@@ -73,6 +73,17 @@ test("undoing a big import on a joint account doesn't push out the markers of en
   assert.match(undo, /mark: false/, "the Undo removes the import's own rows without delete markers");
 });
 
+test('a write that deletes and puts back the same joint entry leaves it alive: no delete marker next to it', async () => {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  await A.S.saveAccount({ id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 });
+  const p = { id: 'p1', accountId: 'jt', type: 'expense', amount: 1000, date: '2026-03-10', merchant: 'Transfer to TNG', category: 'other', createdAt: 1, by: 'Partner' };
+  await A.S.putAll({ tx: [p] });
+  await A.S.putAll({ tx: [p], del: { tx: ['p1'] }, edit: true });   // an Undo restoring the entry an import turned into a transfer (same id)
+  assert.equal(A.S.S.kv.jointGone?.p1, undefined);
+  assert.ok(A.S.S.tx.some(t => t.id === 'p1'));
+});
+
 test("a joint account deleted on either phone takes its bills with it: none is left to post into a personal account", () => {
   const T = Date.now(), me = { id: 'pmine', name: 'Maybank', kind: 'bank' };
   const bill = (id, accountId, updatedAt) => ({ id, name: 'Rent', amount: 150000, accountId, day: 1, auto: true, start: '2026-06-01', updatedAt });

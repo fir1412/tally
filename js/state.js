@@ -303,7 +303,9 @@ export async function addAll({ accounts, tx, recurring, kv }) {
  *  (an import and its Undo), stamped and with joint delete markers like saveTxs and deleteTxs, in the same write. */
 export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {}, edit = false, mark = true }) {
   if (edit) {
-    const j = jointIds(), dead = new Set(del.tx || []), joint = mark ? S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId))) : [];
+    // Only rows this write deletes and doesn't put back: a row put back next to its own marker was deleted by the next swap.
+    const j = jointIds(), back = new Set(tx.map(t => t.id)), dead = new Set((del.tx || []).filter(id => !back.has(id)));
+    const joint = mark ? S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId))) : [];
     tx = tx.map(stamp);
     if (joint.length) kv = { ...kv, jointGone: withGone(joint.map(t => t.id)) };
   }
