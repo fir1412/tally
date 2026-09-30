@@ -501,6 +501,9 @@ input.switch:checked::before { transform: translateX(20px); background: var(--bt
 .cam-view.off video { display: none; }
 .cam-guide { position: absolute; inset: 9% 12% 12%; border: 2px dashed rgba(255,255,255,.7); border-radius: 14px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.28); pointer-events: none; }
 .cam-view.off .cam-guide { display: none; }
+.cam-guide { transition: border-color .25s; }
+.cam-guide.warn { border-color: #fbbf24; }   /* a hint to fix first */
+.cam-guide.ok { border: 3px solid #22c55e; }   /* readable: snap */
 .cam-msg { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 6px 12px; border-radius: 99px; background: rgba(0,0,0,.6); font-size: var(--fs-sm); text-align: center; }
 .cam-view.off .cam-msg { top: 40%; bottom: auto; border-radius: 12px; white-space: normal; }
 .cam-top { position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px; right: 8px; display: flex; justify-content: space-between; }

@@ -1,6 +1,7 @@
 // Snap receipts inside Tally: a live camera with a shutter, several photos in a row, the light, and the gallery.
 import { t } from './i18n.js';
 import { esc, ICON, openSheet, closeSheet, $ } from './ui.js';
+import { toGray, measure, hint } from './camcheck.js';
 
 const pickPhotos = () => $('#scan-input').click();
 
@@ -23,7 +24,7 @@ export function startScan(onFiles) {
   navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } }).then(s => {
     if (closed) return s.getTracks().forEach(tr => tr.stop());
     stream = s; video.srcObject = s;
-    video.addEventListener('loadedmetadata', () => { q('snap').disabled = false; q('snap').focus(); }, { once: true });   // a tap before the first frame would take nothing
+    video.addEventListener('loadedmetadata', () => { q('snap').disabled = false; q('snap').focus(); watchFrame(); }, { once: true });   // a tap before the first frame would take nothing
     if (s.getVideoTracks()[0].getCapabilities?.().torch) q('torch').hidden = false;
   }).catch(() => {
     msg.textContent = t("Tally can't use the camera. Allow the camera for Tally in your phone's or browser's settings, or pick photos from the gallery.");
@@ -31,6 +32,32 @@ export function startScan(onFiles) {
     q('snap').hidden = q('done').hidden = true;   // no shutter to tap in vain: the gallery becomes the one big button
     q('gallery').classList.add('main');
   });
+
+  // Live hints: what is inside the frame, a few times a second. A hint shows once it holds for two looks (no flicker, and
+  // a screen reader isn't read every change); the frame turns green when the receipt looks readable.
+  const guide = el.querySelector('.cam-guide'), view = el.querySelector('.cam-view'), cv = document.createElement('canvas'), W = 480;
+  const say = { dark: () => (q('torch').hidden ? t('Too dark. Find more light') : t('Too dark. Tap the light')), glare: () => t('Glare. Tilt the phone a little'), far: () => t('Move closer'),
+    close: () => t('Move back to fit the whole receipt'), blurry: () => t('Blurry. Hold still'), ok: () => t('Looks good. Tap to snap') };
+  let shown = null, seen = null, quiet = 0;
+  const look = () => {
+    // The part of the video inside the frame: the video fills the view (object-fit: cover), cropped at the edges.
+    const v = view.getBoundingClientRect(), g = guide.getBoundingClientRect(), s = Math.max(v.width / video.videoWidth, v.height / video.videoHeight);
+    const ox = (v.width - video.videoWidth * s) / 2, oy = (v.height - video.videoHeight * s) / 2;
+    const sx = Math.max(0, (g.left - v.left - ox) / s), sy = Math.max(0, (g.top - v.top - oy) / s), sw = Math.min(video.videoWidth - sx, g.width / s), sh = Math.min(video.videoHeight - sy, g.height / s);
+    if (!(sw > 0 && sh > 0)) return null;
+    cv.width = W; cv.height = Math.min(900, Math.round(sh * W / sw));
+    const x = cv.getContext('2d', { willReadFrequently: true });
+    x.drawImage(video, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    return hint(measure(toGray(x.getImageData(0, 0, cv.width, cv.height).data), cv.width, cv.height));
+  };
+  const watchFrame = () => {
+    if (closed) return;
+    let h = null;
+    try { if (video.videoWidth && Date.now() > quiet) h = look(); } catch {}
+    if (h && h === seen && h !== shown) { shown = h; msg.textContent = say[h](); guide.classList.toggle('ok', h === 'ok'); guide.classList.toggle('warn', h !== 'ok'); }
+    seen = h;
+    setTimeout(watchFrame, 350);
+  };
 
   el.addEventListener('click', async e => {
     const b = e.target.closest('[data-c]'); if (!b || b.disabled) return;
@@ -54,6 +81,7 @@ export function startScan(onFiles) {
       el.querySelector('.cam-n').textContent = shots.length;
       q('done').disabled = false;
       msg.textContent = t('{0} taken. Snap the next receipt, or tap Done.', shots.length);
+      quiet = Date.now() + 2000; shown = null;   // let that be read before the hints come back
     }
   });
 }

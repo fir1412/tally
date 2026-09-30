@@ -1420,4 +1420,11 @@ export default {
   "Adding this would make Tally's data more than a backup can restore, so nothing was added.": "追加すると Tally のデータがバックアップで復元できる量を超えるため、何も追加しませんでした。",
   "This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.": "バックアップで復元できる量を超えています。写真を含めないか、先に記録や請求をいくつか削除してください。",
   "You have 50 categories of your own, the most a backup can hold.": "自分のカテゴリーが 50 個あり、バックアップに保存できる上限です。",
+  "Blurry. Hold still": "ぼやけています。動かさないで",
+  "Glare. Tilt the phone a little": "光が反射しています。スマホを少し傾けて",
+  "Looks good. Tap to snap": "くっきり写っています。タップして撮影",
+  "Move back to fit the whole receipt": "少し離して、レシート全体を枠に入れて",
+  "Move closer": "もっと近づけて",
+  "Too dark. Find more light": "暗すぎます。明るい場所へ",
+  "Too dark. Tap the light": "暗すぎます。ライトをタップ",
 };

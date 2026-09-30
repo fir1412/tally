@@ -1421,4 +1421,11 @@ export default {
   "Adding this would make Tally's data more than a backup can restore, so nothing was added.": "添加后 Tally 的数据将超过备份可恢复的上限，因此未添加任何内容。",
   "This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.": "这超出了备份可恢复的上限。请不包含照片，或先删除一些记录或账单。",
   "You have 50 categories of your own, the most a backup can hold.": "你已有 50 个自定义分类，这是备份可容纳的上限。",
+  "Blurry. Hold still": "模糊。请拿稳",
+  "Glare. Tilt the phone a little": "有反光。稍微倾斜手机",
+  "Looks good. Tap to snap": "很清晰。点按拍照",
+  "Move back to fit the whole receipt": "往后移，让整张收据入框",
+  "Move closer": "再靠近一点",
+  "Too dark. Find more light": "太暗了。换个亮一点的地方",
+  "Too dark. Tap the light": "太暗了。点按补光灯",
 };
