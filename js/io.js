@@ -938,6 +938,16 @@ export const photosToWrite = (rows, before) => {
   const users = photoUsers(before);   // every row using a photo: one photo can be shared (Money Manager links one to many entries)
   return new Set(rows.filter(t => t.receiptId && [...(users.get(t.receiptId) || [t.id])].every(id => id === t.id)).map(t => t.receiptId));
 };
+/** An import's own categories that fit: those of `fileCats` the imported rows (`used`) need, up to 50 of the user's own in
+ *  all (a backup with more won't restore). Rows and items in `rows` using one that doesn't fit get Tally's nearest. */
+export function fitCats(have, fileCats, used, rows) {
+  const ids = new Set(have.map(c => c.id)), needs = c => used.some(x => x.category === c.id || x.items?.some(i => i.category === c.id));
+  const want = fileCats.filter(c => !ids.has(c.id) && needs(c)), cats = want.slice(0, Math.max(0, 50 - have.length));
+  const out = new Map(want.slice(cats.length).map(c => [c.id, c]));
+  const near = (id, income) => { const c = out.get(id); if (!c) return id; if (income) return /salary|gaji|工资|薪/i.test(c.name) ? 'salary' : 'income'; const n = mapCategory(c.name); return INCOME_CATEGORIES.some(x => x.id === n) ? 'other' : n; };
+  if (out.size) for (const x of rows) { x.category = near(x.category, x.type === 'income'); for (const i of x.items || []) i.category = near(i.category, false); }
+  return cats;
+}
 const photoUsers = rows => { const m = new Map(); for (const t of rows) if (t.receiptId) (m.get(t.receiptId) || m.set(t.receiptId, new Set()).get(t.receiptId)).add(t.id); return m; };
 /** Merge restore: keep everything local, add what the backup has that we don't (by id). Local settings win. */
 export function mergeBackup(local, incoming) {

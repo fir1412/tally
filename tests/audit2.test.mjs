@@ -134,6 +134,20 @@ test("a partner's file can't replace the photo a personal entry shares with a jo
   assert.deepEqual([...IO.photosToWrite([{ id: 'mm_9zz', receiptId: 'pJ' }], [...local.tx, { id: 'mm_9zz', receiptId: 'pJ' }])], ['pJ']);   // a photo only it uses: still written
 });
 
+test("a Money Manager import keeps the user's own categories at 50 in all (past that every backup was refused on restore)", async () => {
+  const IO = await import('../js/io.js'), { readFileSync } = await import('node:fs');
+  const have = Array.from({ length: 30 }, (_, i) => ({ id: `c_mine${i}`, name: `Mine ${i}`, color: '#123456' }));
+  const file = Array.from({ length: 25 }, (_, i) => ({ id: `c_mm${i}`, name: i === 24 ? 'Gaji Bulanan' : `Their ${i}`, color: '#654321', ...(i === 24 ? { kind: 'income' } : {}) }));
+  const rows = file.map((c, i) => ({ id: `x${i}`, type: c.kind === 'income' ? 'income' : 'expense', category: c.id, items: i === 3 ? [{ name: 'a', category: 'c_mm22' }] : undefined }));
+  const cats = IO.fitCats(have, file, rows, rows);
+  assert.equal(have.length + cats.length, 50);
+  const kept = new Set([...have, ...cats].map(c => c.id)), own = id => String(id).startsWith('c_');
+  for (const x of rows) for (const id of [x.category, ...(x.items || []).map(i => i.category)]) assert.ok(!own(id) || kept.has(id), `${x.id} still uses ${id}`);
+  assert.equal(rows[24].category, 'salary');   // money in stays money in
+  const go = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8').match(/'mm-go': async[\s\S]*?\n  },\n/)[0];
+  assert.match(go, /fitCats\(/, 'the Money Manager import must use it');
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

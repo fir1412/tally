@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, fitCats, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -922,8 +922,7 @@ export const act = {
     const mm = { ...IMP.mm, tx: IMP.mm.tx.map(x => ({ ...x, accountId: same(x.accountId), ...(x.toAccountId ? { toAccountId: same(x.toAccountId) } : {}) })) };
     const fresh = splitDups(S.tx, mm.tx, Object.fromEntries([...S.accounts, ...mm.accounts].map(a => [a.id, a.name]))).fresh, used = new Set(fresh.flatMap(x => [x.accountId, x.toAccountId]).filter(Boolean));
     const accounts = mm.accounts.filter(a => used.has(a.id) && !S.accounts.some(x => x.id === a.id));
-    const have = new Set(S.kv.customCats.map(c => c.id));
-    const cats = mm.customCats.filter(c => !have.has(c.id) && fresh.some(x => x.category === c.id || x.items?.some(i => i.category === c.id)));
+    const cats = fitCats(S.kv.customCats, mm.customCats, fresh, mm.tx);   // 50 of the user's own at most, counting those already here
     await commitImport(mm.tx, mm.app === 'cashew' ? 'Cashew' : mm.app === 'realbyte' ? 'Money Manager (Realbyte)' : 'Money Manager', { accounts, newAccounts: accounts.map(a => a.id), kv: cats.length ? { customCats: [...S.kv.customCats, ...cats] } : {}, before: async fresh => {
       if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
