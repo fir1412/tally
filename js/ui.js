@@ -296,6 +296,11 @@ if (typeof document !== 'undefined') {
 
 // ---- icons (24px line icons; decorative, controls carry their own labels) ------------------------------
 const I = d => `<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+// Hidden balance (the eye next to it on Home and Insights): every balance shows MASK until the eye is tapped again, so a
+// glance over the shoulder sees nothing. It stays hidden on the next open.
+export const MASK = 'RM ••••';
+export const balHidden = () => !!settings().hideBal;
+export const eyeBtn = hide => `<button class="icon-btn eyebtn" data-act="bal-hide" aria-pressed="${hide}" aria-label="${esc(hide ? t('Show balance') : t('Hide balance'))}">${hide ? ICON.eyeOff : ICON.eye}</button>`;
 export const ICON = {
   home: I('<path d="M3 11l9-7 9 7v9H3z"/>'),
   list: I('<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'),

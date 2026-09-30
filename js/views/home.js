@@ -1,7 +1,7 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
 import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
-import { esc, ICON, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
+import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, okMs } from '../io.js';
@@ -183,9 +183,6 @@ const firstScan = () => `<section class="card firstscan"><div class="rowb"><h2>$
   ${demoCard()}<p class="fine">${esc(t('Receipts are read on this phone and split into categories automatically.'))}</p>
   <div class="row2"><button class="btn" data-act="scan">${ICON.camera}${esc(t('Take a photo'))}</button><button class="btn ghost" data-act="scan-pick">${ICON.image}${esc(t('From gallery'))}</button></div></section>`;
 let onScreen = null, drawn = null;   // the totals Home showed last, and the ones just drawn: a save counts from one to the other
-// Hidden balance (the eye next to it): the total and every account show this until tapped again, so a glance over the
-// shoulder sees nothing. It stays hidden on the next open.
-const MASK = 'RM ••••';
 export const homeView = {
   title: 'Home',
   /** A save just made lands here: its row flashes, the balance and month count to their new values, the ring moves. */
@@ -219,7 +216,7 @@ export const homeView = {
     const recent = cached(newest, upToday, 8);
     const word = p && (spent > B ? t('Over budget') : p.over ? t('Heading over') : t('On track'));
     const rg = ring({ budget: B, spent, before, p });
-    const hide = !!settings().hideBal;
+    const hide = balHidden();
     drawn = { bal: hide ? null : bal.total, spent, frac: rg?.frac };
     // Last week on the first days of a new one, else now and then a nice find (one delight card at a time).
     const fresh = S.tx.length < NEW, ws = settings().weekStart === 0 ? 0 : 1, rc = !fresh && shown('insight') && cached(weekRecap, upToday, tdy, ws);
@@ -228,7 +225,7 @@ export const homeView = {
     return `<header class="top"><h1 class="sr">${esc(t('Home'))}</h1><span class="grow">${greeting() ? `<b class="hi">${esc(greeting())}</b>` : ''}<small>${esc(fmtDate(tdy, { year: true }))}</small>${scopeChip()}</span><button class="btn ghost small setbtn" data-act="go" data-to="settings">${ICON.gear}<span>${esc(t('Settings'))}</span></button></header>
       ${OLD_HOME ? movedCard() : ''}${scopeSwitch()}${settings().sample ? `<section class="card sample"><p><b>${esc(t('You are looking at sample data.'))}</b> ${esc(t('Nothing here is yours. Try anything.'))}</p><button class="btn small" data-act="sample-end">${esc(t('Start for real'))}</button><button class="link" data-act="net-check">${esc(t('Check what Tally contacted'))}</button></section>` : ''}<div class="cols"><div class="col">
       <section class="hero">
-        ${(n => (n ? `<span class="label balrow">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}<button class="icon-btn eyebtn" data-act="bal-hide" aria-pressed="${hide}" aria-label="${esc(hide ? t('Show balance') : t('Hide balance'))}">${hide ? ICON.eyeOff : ICON.eye}</button></span>
+        ${(n => (n ? `<span class="label balrow">${esc(t('Current balance'))} · ${esc(n === 1 ? t('1 account') : t('{0} accounts', n))}${eyeBtn(hide)}</span>
         <div class="big num">${esc(hide ? MASK : fmtRM(bal.total))}</div>` : `<span class="label">${esc(t('Spent this week'))}</span>
         <div class="big num">${esc(fmtRM(weekSpent(upToday, tdy)))}</div>`))(accts.filter(a => !offTotal(a) && !unset.includes(a)).length)}
         ${shownUnset.length ? `<p class="fine">${esc(t('Balance not set: {0}', shownUnset.map(a => a.name).join(', ')))} <button class="link" data-act="acc-edit" data-id="${esc(shownUnset[0].id)}">${esc(t('Set it'))}</button></p>` : ''}
@@ -316,7 +313,7 @@ export const insightsView = {
       <section class="card"><h2>${esc(t('Money in and out'))}</h2><p class="legendrow"><span class="key good"></span>${esc(t('Received'))} <span class="key bad"></span>${esc(t('Spent'))}</p>
         ${pairBars(flow, { names: [t('Received'), t('Spent')], label: t('Money in and out, last 6 months') })}
         <div class="sr"><table><caption>${esc(t('Money in and out'))}</caption><thead><tr><th scope="col">${esc(t('Month'))}</th><th scope="col">${esc(t('Received'))}</th><th scope="col">${esc(t('Spent'))}</th></tr></thead>${flowRaw.map(f => `<tr><th scope="row">${esc(fmtMonth(f.ym, sd))}</th><td>${esc(fmtRM(f.income))}</td><td>${esc(fmtRM(f.expense))}</td></tr>`).join('')}</table></div></section>
-      <section class="card"><h2>${esc(t('Balance'))}</h2>${lineChart(trend, { label: t('Balance over the last 6 months') })}</section>
+      <section class="card"><h2 class="balrow">${esc(t('Balance'))}${eyeBtn(balHidden())}</h2>${balHidden() ? `<p class="big num">${esc(MASK)}</p>` : lineChart(trend, { label: t('Balance over the last 6 months') })}</section>
       ${topItems.length ? `<section class="card"><h2>${esc(t('What you bought most'))}</h2><ul class="list">${topItems.map(i => `<li class="rowb"><span class="grow">${esc(i.name)}</span><span class="fine">${i.n}×</span><span class="num">${esc(fmtRM(i.v))}</span></li>`).join('')}</ul></section>` : ''}
       <section class="card"><h2>${esc(t('Your spending habits'))}</h2>
         ${hs.length ? `<ul class="list">${hs.map((h, n) => `<li class="rowb">${dot(h.category)}<span class="grow">${esc(habitText(h))}<small>${esc(t('{0} times in the last 4 weeks · usually {1}', h.count, fmtRM(h.amount)))}</small></span><button class="btn small ghost" data-act="habit-cal" data-n="${n}">${ICON.bell}${esc(t('Remind me'))}</button></li>`).join('')}</ul>

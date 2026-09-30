@@ -1,7 +1,7 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, deleteTxs, addCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
-import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
+import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
 import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, backupFits, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
@@ -153,7 +153,7 @@ function accountSheet(a = {}) {
 function accSub(a, by) {
   const kind = t(KIND[a.kind] || 'Bank account');
   const n = a.name.trim().toLowerCase(), k = kind.toLowerCase();
-  return [a.scope === 'joint' && t('Joint'), a.scope === 'business' && t('Business'), !(k.startsWith(n) || n.startsWith(k)) && kind, (a.typed === false ? t('Not set') : fmtAcct(a, by[a.id] || 0))].filter(Boolean).join(' · ');
+  return [a.scope === 'joint' && t('Joint'), a.scope === 'business' && t('Business'), !(k.startsWith(n) || n.startsWith(k)) && kind, (a.typed === false ? t('Not set') : balHidden() ? MASK : fmtAcct(a, by[a.id] || 0))].filter(Boolean).join(' · ');
 }
 // ---- Settings -----------------------------------------------------------------------------------------------------------
 const catName = id => t(([...expenseCats(), ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES.at(-1)).name);
