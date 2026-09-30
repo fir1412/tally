@@ -19,3 +19,11 @@ test('the tax-relief card stays fast on a huge imported history (no search per m
   assert.ok(ms(() => { out = E.taxRelief(tx, 2026); }) < 1000, 'taxRelief took over a second on 64k rows');
   assert.equal(out.find(l => l.entries.length)?.entries.length, 64_000);   // still one entry per payment
 });
+
+test('bills that add themselves post only the last ~13 months, however old their start (an imported file can set 1990)', () => {
+  const bills = Array.from({ length: 10 }, (_, i) => ({ id: `x${i}`, name: `Svc${i}`, amount: 1, accountId: 'j', freq: 'weekly', auto: true, start: '1990-01-01' }));
+  let got;
+  assert.ok(ms(() => { got = E.dueBillTxs(bills, '2026-09-30', []); }) < 1000, 'posting took over a second');
+  for (const b of bills) assert.ok(got.filter(t => t.bill === b.id).length <= 60, `bill ${b.id} posted ${got.filter(t => t.bill === b.id).length} payments`);
+  assert.ok(got.every(t => t.date >= E.addDays('2026-09-30', -400)));
+});

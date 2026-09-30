@@ -560,13 +560,17 @@ export function billStatus(r, today, txs) {
  * date, skipping a period already paid. The id is the bill's id and the date, so adding twice never duplicates.
  */
 export function dueBillTxs(rules, today, txs, now = Date.now()) {
-  const out = [];
+  // ponytail: 400 days back at most. A bill imported with a 1990 start (up to 500 per file) would otherwise add
+  // decades of payments before the first screen shows; raise it if long offline gaps ever need more.
+  const out = [], from = addDays(today, -400);
   for (const r of rules) {
     if (!r.auto) continue;
+    const mine = [];   // this bill's new payments: only these can pay its later dates (all bills' was quadratic)
     for (const d of billDates(r, today)) {
-      if ((r.last && d <= r.last) || billPaid(r, d, txs) || billPaid(r, d, out)) continue;
-      out.push({ id: `rec-${r.id}-${d}`, date: d, type: 'expense', amount: r.amount, accountId: r.accountId, category: r.category || 'bills', merchant: r.name, note: '', source: 'recurring', bill: r.id, createdAt: now });
+      if (d < from || (r.last && d <= r.last) || billPaid(r, d, txs) || billPaid(r, d, mine)) continue;
+      mine.push({ id: `rec-${r.id}-${d}`, date: d, type: 'expense', amount: r.amount, accountId: r.accountId, category: r.category || 'bills', merchant: r.name, note: '', source: 'recurring', bill: r.id, createdAt: now });
     }
+    out.push(...mine);
   }
   return out;
 }
