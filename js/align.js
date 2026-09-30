@@ -48,6 +48,9 @@ export const verticalShare = boxes => (boxes.length ? boxes.filter(b => {
   const xs = b.box.map(p => p[0]), ys = b.box.map(p => p[1]);
   return Math.max(...ys) - Math.min(...ys) > 1.3 * (Math.max(...xs) - Math.min(...xs)); // bounding box: detector boxes are axis-aligned
 }).length / boxes.length : 0);
+/** A sideways slip on a wide photo: the detector merges its columns into a few big blocks (55-250 characters a box on
+ *  the owner's photos) instead of lines (upright slips: 23 at most). */
+export const blocky = boxes => boxes.length > 0 && boxes.reduce((s, b) => s + (String(b.text).match(/[\p{L}\p{N}]/gu) || []).length, 0) / boxes.length > 40;
 /** How well a reading went: confident characters that look like receipt text. */
 export const readScore = boxes => boxes.reduce((s, b) => s + (b.mean ?? 0) * (String(b.text).match(/[\p{L}\p{N}]/gu) || []).length, 0);
 const meanConf = boxes => (boxes.length ? boxes.reduce((s, b) => s + (b.mean ?? 0), 0) / boxes.length : 0);
@@ -112,13 +115,15 @@ export async function readAligned(detect, raw, onStage = () => {}) {
   best.score = readScore(best.texts);
   // Each try is a whole detect + read. Tall boxes: a quarter turn either way. Level boxes that read badly: only
   // upside down is left (a quarter turn would stand the lines on end). Too few boxes to tell: every turn.
-  const few = best.texts.length < 4, sideways = verticalShare(best.texts) > 0.5, poor = few || meanConf(best.texts) < 0.8;
+  // Blocks: sideways too, even though each block reads about as well as its lines would; a turn that gives lines wins
+  // unless it reads much worse.
+  const few = best.texts.length < 4, blocks = blocky(best.texts), sideways = blocks || verticalShare(best.texts) > 0.5, poor = few || meanConf(best.texts) < 0.8;
   if (sideways || poor) {
     onStage('turn');
     for (const turns of sideways ? [1, 3] : few ? [2, 1, 3] : [2]) {
       const r = rotate90(raw, turns), texts = (await detect(r)).texts, score = readScore(texts);
       tries++;
-      if (score > best.score * 1.15) best = { raw: r, turns, texts, score };
+      if (score > best.score * 1.15 || (blocky(best.texts) && !blocky(texts) && score > best.score * 0.8)) best = { raw: r, turns, texts, score };
     }
   }
   const angle = skewAngle(best.texts);

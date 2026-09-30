@@ -310,3 +310,8 @@ test('phone-photo receipts: tax after the payment, OCR misreads, a label above i
   const e = parseReceipt('Red Bean Bun ea 3.20\nSpicy Chicken 5.90\n1ea@5.90\nTOTAL 9.10\nVisa -9.10');
   assert.deepEqual([e.items.length, e.check.ok], [2, true]);
 });
+
+test('an O read for the 0 of a sen amount ("RMO.01") still counts as the rounding', () => {
+  const r = parseReceipt('SHOP A\n12345 SHOWER GEL 11.50\n27159 HAND WASH 7.64\nSUBTOTAL (QTY 2) RM19.14\nROUNDING RMO.01\nSUBTOTAL (QTY 2) RM19.15\nCASH RM20.00');
+  assert.equal(r.total, 1915); assert.equal(r.rounding, 1); assert.ok(r.check.ok);
+});

@@ -176,6 +176,7 @@ export function parseReceipt(text) {
   text = String(text ?? '').normalize('NFKC');   // the Chinese model returns full-width digits: "27/09/２0２6"
   const lines = text.split(/\r?\n/).map(l => l.slice(0, 300).replace(/\s+/g, ' ').trim())   // receipt lines are short: a runaway one can't stall the patterns
     .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
+    .map(l => l.replace(/\bRM ?O(?=[.,]\d{2}\b)/gi, 'RM0'))   // "RMO.01": OCR's O for the 0 of a sen amount
     .filter(Boolean)
     // "Jumlah Barang" with its "7.50" on the next line: one money line, not an item named "Jumlah Barang"
     .reduce((out, l, i, a) => {
@@ -216,7 +217,8 @@ export function parseReceipt(text) {
     const off = DISCOUNT.test(key) && !!cents && r.total === null && !/^\W*(sub\s*-?\s*)?t[o0]tal\b/i.test(key);
     if (off && r.subtotal === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });
     else if (off) billOff += Math.abs(cents);
-    else if (SUBTOTAL.test(key) && !adj) r.subtotal = cents;
+    // Watsons: "SUBTOTAL 19.14, ROUNDING 0.01, SUBTOTAL 19.15": the second one, rounded, is what was paid.
+    else if (SUBTOTAL.test(key) && !adj) { if (r.total === null && r.rounding && r.subtotal !== null && cents === r.subtotal + r.rounding) r.total = cents; else r.subtotal = cents; }
     else if (SUBTOTAL.test(key)) r[adj] = (r[adj] ?? 0) + cents;   // "Shipping Subtotal 4.90" is a charge, not the items' subtotal
     else if (TOTAL.test(key) && NOT_TOTAL.test(key)) { /* a count or group total: skip */ }
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise

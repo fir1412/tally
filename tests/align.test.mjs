@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rotate90, rotateBy, skewAngle, verticalShare, readAligned } from '../js/align.js';
+import { rotate90, rotateBy, skewAngle, verticalShare, readAligned, blocky } from '../js/align.js';
 
 // 3x2 image; each pixel's red channel holds its index so moves are easy to follow.
 const img = () => ({ width: 3, height: 2, data: Uint8ClampedArray.from({ length: 24 }, (_, i) => (i % 4 === 0 ? i / 4 + 1 : 255)) });
@@ -77,4 +77,21 @@ test('a second look at a far-away, faded receipt: the paper cut out, made bigger
   assert.ok(lo < 20 && hi > 235, `faded 150-200 stretched to ${lo}-${hi}`);
   const big = zoomPaper({ data: new Uint8ClampedArray(3000 * 2000 * 4).fill(128), width: 3000, height: 2000 });
   assert.ok(big.width * big.height <= 4.5e6 + 1e4, 'never more than about 1.5x a normal read');
+});
+
+test('blocky: a sideways slip read as a few big blocks, not upright lines', () => {
+  const box = text => ({ text, mean: 0.95, box: [[0, 0], [10, 0], [10, 10], [0, 10]] });
+  assert.equal(blocky([box('Purchases may be exchanged or returned within 7 days product exclusion applies Any vouchers')]), true);
+  assert.equal(blocky(['WS SHWR GEL STRWBR 11.50', 'Total RM 518.60', 'Purchases may be exchanged or returned'].map(box)), false);
+  assert.equal(blocky([]), false);
+});
+
+test('readAligned keeps the turn that gives lines when the photo read as blocks, even if its score is a little lower', async () => {
+  const raw = { width: 4, height: 2, data: new Uint8ClampedArray(32).fill(255) };
+  const line = text => ({ text, mean: 0.9, box: [[0, 0], [40, 0], [40, 8], [0, 8]] });
+  const blocks = [line('A'.repeat(60)), line('B'.repeat(60))], lines = Array.from({ length: 10 }, (_, i) => line(`SOAP BAR ${i} 11.50`));
+  let n = 0;
+  const detect = async () => ({ texts: [blocks, [], lines][n++] });   // as is: blocks; a turn one way: nothing; the other: lines
+  const r = await readAligned(detect, raw);
+  assert.equal(r.turns, 3); assert.equal(r.texts.length, 10);
 });
