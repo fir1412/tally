@@ -60,3 +60,23 @@ test('an entry moved off the joint account (a split bill a friend paid) goes fro
   const again = IO.mergeJoint({ ...partner, tx: theirs }, IO.readBackup(IO.makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, 'Aina')));
   assert.ok(again.tx.some(t => t.id === 'e1'));
 });
+
+test('restoring a backup while sample data is shown ends the sample first, so "Start for real" later never clears what was restored', () => {
+  const src = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8');
+  const restore = src.match(/async function restoreText[\s\S]*?\n}\n/)[0];
+  assert.match(restore, /settings\(\)\.sample[\s\S]*?await endSample\(\)[\s\S]*?const choice/, 'endSample runs before the merge/replace choice');
+});
+
+test('with the sample ended first, a restore keeps its budgets and no-spend days', async () => {
+  const { startSample, endSample } = await import('../js/sample.js');
+  disk.clear(); await St.load();
+  assert.ok(await startSample('2026-10-01', 'Cash'));
+  await endSample();   // what restoreText now does first
+  const data = IO.readBackup(IO.makeBackup({ accounts: [{ id: 'real', name: 'Maybank', kind: 'bank', opening: 0, createdAt: 1 }], tx: [], recurring: [],
+    kv: { budgets: { total: 150000, byCat: { dining: 50000 } }, settings: IO.backupSettings({ noSpend: ['2026-09-02'] }) } }));
+  await St.replaceAll(data);
+  await St.setKv('settings', { ...S.kv.settings, ...data.settings });
+  assert.equal(S.kv.settings.sample, false, 'no sample card over real data');
+  assert.equal(S.kv.budgets.total, 150000);
+  assert.deepEqual(S.kv.settings.noSpend, ['2026-09-02']);
+});

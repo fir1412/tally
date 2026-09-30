@@ -603,6 +603,12 @@ async function restoreText(text, zip = {}) {
   let data;
   try { data = readBackup(text); } catch (e) { return impErr(t(e.message)); }
   if (data.joint) return importJoint(data, zip);
+  // Real data in: the sample goes first (as "Start for real"). Left on, its budgets won a merge, and its card's "Start
+  // for real" later zeroed the restored budgets and dropped the restored no-spend days and friends.
+  if (settings().sample) {
+    if (sampleRows().tx.some(x => !x.sample) && !(await confirmSheet({ title: t('Remove the sample data?'), body: t('Entries you added to the sample accounts go too.'), ok: t('Remove') }))) return;
+    await endSample();
+  }
   const choice = S.tx.length || S.accounts.length ? await new Promise(res => {
     openSheet(`<h2 class="sh-title">${esc(t('Restore backup'))}</h2><p class="sh-body">${esc(t('The backup has {0} transactions. This phone has {1}.', data.tx.length, S.tx.length))}</p>
       <button class="btn wide" data-x="merge">${esc(t('Merge (keep both, recommended)'))}</button><button class="btn ghost danger wide" data-x="replace">${esc(t("Replace Tally's data on this phone"))}</button><button class="btn ghost wide" data-x="no">${esc(t('Cancel'))}</button>`, { label: t('Restore backup'), onClose: () => res('no') })
