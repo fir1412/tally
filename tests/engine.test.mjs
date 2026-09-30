@@ -415,3 +415,11 @@ test('everyday Malaysian items land where people expect (checked against 796 Pri
   assert.equal(c('UBAT GIGI COLGATE'), 'personal'); assert.equal(c('KACANG BOTOL'), 'groceries');   // not Health, not Transport ("tol")
   assert.equal(c('PETPET DAY NIGHT PANTS'), 'kids'); assert.equal(c('SANTAN KARA 200ML'), 'groceries'); assert.equal(c('DEODORAN NIVEA'), 'personal');
 });
+
+test('can I afford it counts everyday money only: RM 10,000 in ASB doesn\'t buy a RM 3,000 phone', () => {
+  const accounts = [{ id: 'b', kind: 'bank', opening: 80000 }, { id: 's', kind: 'savings', opening: 1000000 }, { id: 'o', kind: 'owedme', opening: 50000 }, { id: 'c', kind: 'card', opening: -20000 }, { id: 'u', kind: 'cash', opening: 99999, typed: false }];
+  const m = E.affordMoney(accounts, []);
+  assert.deepEqual(m, { balance: 60000, savings: 1000000 }, 'bank and card (what it owes); savings apart; owed and never-set left out');
+  assert.notEqual(E.affordCheck({ price: 300000, balance: E.affordMoney(accounts.slice(0, 2), []).balance, txs: [], today: '2026-10-01' }).verdict, 'yes');
+  assert.equal(E.affordCheck({ price: 300000, balance: E.balances(accounts.slice(0, 2), []).total, txs: [], today: '2026-10-01' }).verdict, 'yes', 'what it said before');
+});

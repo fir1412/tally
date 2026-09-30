@@ -1517,4 +1517,5 @@ export default {
   "paid": "bayar",
   "{0} paid": "{0} yang bayar",
   "{0} paid you back": "{0} bayar balik kepada anda",
+  "Savings, not counted: {0}": "Simpanan, tidak dikira: {0}",
 };

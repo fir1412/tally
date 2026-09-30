@@ -1516,4 +1516,5 @@ export default {
   "paid": "支払い",
   "{0} paid": "{0}さんが支払い",
   "{0} paid you back": "{0}さんから返してもらう",
+  "Savings, not counted: {0}": "貯金（計算に含めない）：{0}",
 };

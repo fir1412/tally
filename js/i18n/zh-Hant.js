@@ -1516,4 +1516,5 @@ export default {
   "paid": "付款",
   "{0} paid": "{0}付的款",
   "{0} paid you back": "{0}還你錢",
+  "Savings, not counted: {0}": "儲蓄，未計入：{0}",
 };

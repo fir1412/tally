@@ -807,6 +807,13 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
  * tight: money there but less than that, or over budget. no: short; `months` of usual saving (the last 3 full
  * months' money in minus out) would cover it, when there is any saving.
  */
+/** The money "Can I afford it?" counts: everyday accounts only (cash, bank, e-wallet, and cards as they stand). Savings
+ *  (ASB, Tabung Haji) are shown apart, never spent on a phone; what friends owe and what I owe stay out. A balance never
+ *  given (typed false) is not counted, as on Home. → {balance, savings} in RM sen. */
+export function affordMoney(accounts, txs) {
+  const known = accounts.filter(a => a.typed !== false), of = kinds => balances(known.filter(a => kinds.includes(a.kind || 'bank')), txs).total;
+  return { balance: of(['cash', 'bank', 'ewallet', 'card']), savings: of(['savings']) };
+}
 export function affordCheck({ price, balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
   const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30);
   const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d > today && !billPaid(r, d, txs)).length * r.amount, 0);

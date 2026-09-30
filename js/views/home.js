@@ -2,7 +2,7 @@
 import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite, saveTx, keepToday, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort, getLang } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet, closeSheet, landed } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso } from '../engine.js';
+import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso, affordMoney } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, okMs } from '../io.js';
 import { render, go } from '../app.js';
@@ -51,6 +51,7 @@ function affordHtml(r) {
     : t('You usually spend what you earn, so saving for it means spending less first.');
   return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
     <ul class="slegend">${rows.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}</span></li>`).join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${r.left < 0 ? '−' : ''}${esc(fmtRM(Math.abs(r.left)))}</b></li></ul>
+    ${r.savings ? `<p class="fine">${esc(t('Savings, not counted: {0}', balHidden() ? MASK : fmtRM(r.savings)))}</p>` : ''}
     <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))}</p>`;
 }
 /** When this person started with Tally: their first entry made here, else their first account. */
@@ -456,17 +457,17 @@ export const act = {
     await wipeSite(); location.replace(NEW_HOME);
   },
   'afford': () => {
-    const accts = scopedAccounts(), counted = accts.filter(a => a.typed !== false);
+    const accts = scopedAccounts(), counted = accts.filter(a => a.typed !== false && !owing(a) && a.kind !== 'savings');   // everyday money: engine affordMoney
     const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Can I afford it?'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
       <label class="field"><span>${esc(t('Price (RM)'))}</span><input id="af-amt" inputmode="decimal" placeholder="0.00" autocomplete="off" autofocus></label>
       <div id="af-out" aria-live="polite">${counted.length ? '' : `<p class="warnbox">${esc(t('Set how much is in your accounts first: Tally needs a starting point.'))}</p>`}</div>`, { label: t('Can I afford it?') });
     if (!counted.length) return;
-    const balance = balances(counted, booked()).total, known = S.recurring.filter(b => inScope(b));
+    const { balance, savings } = affordMoney(accts, booked()), known = S.recurring.filter(b => inScope(b));
     const bills = [...known, ...cached(recurringCandidates, booked(), known.map(b => b.key)).map(c => ({ id: `c-${c.key}`, name: c.merchant, amount: c.amount, freq: 'monthly', day: c.day, start: `${monthOf(today())}-01` }))];   // spotted bills: monthly, on their usual day
     el.querySelector('#af-amt').addEventListener('input', e => {
       const price = calcAmount(e.target.value), out = el.querySelector('#af-out');
       if (!(price > 0)) return (out.innerHTML = '');
-      out.innerHTML = affordHtml(affordCheck({ price, balance, txs: booked(), today: today(), startDay: startDay(), bills, budget: on('budgets') ? budgetsFor().total : 0 }));
+      out.innerHTML = affordHtml({ ...affordCheck({ price, balance, txs: booked(), today: today(), startDay: startDay(), bills, budget: on('budgets') ? budgetsFor().total : 0 }), savings });
     });
   },
   'stickers-off': async () => { await setModules({ stickers: false }); render(); toast(t('Stickers are off. Turn them back on in Settings → Features.')); },
