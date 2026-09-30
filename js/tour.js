@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.6.1': [
+    "Open your sticker book any time from Home, even before you log today",
+  ],
   '1.6.0': [
     "A sticker book for every month, with a comic story and money tips: log a day to open its page",
     "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items",

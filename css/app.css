@@ -838,6 +838,8 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .stk.pop { animation: stkpop .6s cubic-bezier(.3, 1.6, .5, 1) both; }
 @keyframes stkpop { from { transform: scale(.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .stk.pop { animation: none; } }
+.stk-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: var(--fs-sm); }
+.stk-link svg { width: 18px; height: 18px; }
 .stkgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--sp-3); text-align: center; }
 .stkgrid li { display: grid; justify-items: center; gap: 4px; font-size: var(--fs-sm); }
 .stkgrid .stk { width: 64px; height: 64px; }

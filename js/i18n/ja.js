@@ -1496,4 +1496,6 @@ export default {
   "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "レシートの読み取りが向上：RM 1,000 を超える金額、横向きや傾いた写真、カード・電子ウォレットの控え、給油や量り売り",
   "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "マレーシアの約 3,000 の店やチェーンを名前で認識し、いつものカテゴリに分類します",
   "Remove categories you don't use: what was in them moves to the one you pick": "使わないカテゴリを削除：中身は選んだカテゴリへ移ります",
+  "Sticker book · {0} of {1}": "ステッカー帳 · {1}枚中{0}枚",
+  "Open your sticker book any time from Home, even before you log today": "今日の記録前でも、ホームからいつでもステッカー帳を開けます",
 };

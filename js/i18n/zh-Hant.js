@@ -1496,4 +1496,6 @@ export default {
   "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "收據讀得更準：超過 RM 1,000 的金額、橫拍或傾斜的照片、刷卡和電子錢包單據、油費和秤重商品",
   "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "Tally 能按名稱認出約 3,000 家馬來西亞商店和連鎖店，並照常歸類",
   "Remove categories you don't use: what was in them moves to the one you pick": "刪除不用的類別：裡面的記錄會移到你選的類別",
+  "Sticker book · {0} of {1}": "貼紙簿 · {1} 張中的 {0} 張",
+  "Open your sticker book any time from Home, even before you log today": "隨時從首頁打開貼紙簿，今天還沒記帳也可以",
 };

@@ -1497,4 +1497,6 @@ export default {
   "Receipts read better: amounts over RM 1,000, sideways and tilted photos, card and e-wallet slips, petrol and weighed items": "Resit dibaca dengan lebih baik: jumlah melebihi RM 1,000, foto mengiring dan senget, slip kad dan e-dompet, petrol dan barang yang ditimbang",
   "Tally knows about 3,000 Malaysian shops and chains by name, and files them the usual way": "Tally mengenali kira-kira 3,000 kedai dan rangkaian di Malaysia mengikut nama, dan memfailkannya seperti biasa",
   "Remove categories you don't use: what was in them moves to the one you pick": "Buang kategori yang anda tidak guna: isinya dipindahkan ke kategori yang anda pilih",
+  "Sticker book · {0} of {1}": "Buku pelekat · {0} daripada {1}",
+  "Open your sticker book any time from Home, even before you log today": "Buka buku pelekat anda bila-bila masa dari Utama, walaupun sebelum mencatat hari ini",
 };

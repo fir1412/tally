@@ -73,6 +73,12 @@ function stickerCard(tdy) {
     <small>${esc(book.panels.length ? t("{0} of {1} this month, and today's page of the story.", st.got, st.n) : t('{0} of {1} this month. One for each day you log.', st.got, st.n))}</small></span></button>
     <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
 }
+/** The way into the book on days without today's card (nothing logged yet, or the card dismissed): one small line. */
+function stickerLink(tdy) {
+  if (settings().sample || !shown('stickers')) return '';
+  const ym = tdy.slice(0, 7), st = bookState({ ym, filled: filledIn(ym), today: tdy });
+  return `<button class="link stk-link" data-act="stickers-open">${ICON.award}${esc(t('Sticker book · {0} of {1}', st.got, st.n))}</button>`;
+}
 /** A month's book: its stickers, the story so far (a locked page says how to open it), and the shelf of past months. */
 function bookHtml(book, ym, filled, tdy) {
   const st = bookState({ ym, filled, today: tdy }), days = Array.from({ length: st.n }, (_, i) => i + 1);
@@ -266,7 +272,7 @@ export const homeView = {
         ${accts.some(offTotal) ? `<p class="fine">${esc(t('Not counted in this total: {0}', accts.filter(offTotal).map(a => a.name).join(', ')))}</p>` : ''}
       </section>
       <div class="addrow${on('receipts') ? '' : ' one'}"><button class="btn" data-act="tx-new">${ICON.plus}${esc(t('Type an amount'))}</button>${on('receipts') ? `<button class="btn ghost" data-act="scan">${ICON.camera}${esc(t('Scan a receipt'))}</button>` : ''}</div>
-      ${stickerCard(tdy)}
+      ${stickerCard(tdy) || stickerLink(tdy)}
       ${!on('receipts') || S.tx.some(x => x.receiptId) || S.tx.length >= 3 || dismissed().includes('first-scan') ? '' : firstScan()}
       <section class="card month">
         <div class="rowb"><span>${esc(t('Spent in {0}', fmtMonth(ym, sd)))}</span>${p ? `<span class="pill ${rg.tone}">${esc(word)}</span>` : on('budgets') ? `<button class="link" data-act="go" data-to="budgets">${esc(t('Set a budget'))}</button>` : ''}</div>
