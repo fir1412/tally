@@ -100,3 +100,27 @@ test("a joint account deleted on either phone takes its bills with it: none is l
   const c = IO.mergeJoint(local, { accounts: [], recurring: [bill('b3', 'jt', T)], tx: [], gone: { jt: T }, kv: {} });
   assert.deepEqual([c.recurring, c.dropAccounts, c.dropBills], [[], ['jt'], ['b1']]);
 });
+
+test("encryption's catch-up pass never writes back a stale copy: a delete or an edit made meanwhile wins", async () => {
+  const shim = await import('./fixtures/idbshim.mjs');
+  const P = Object.getPrototypeOf(crypto.subtle), encrypt = P.encrypt;
+  const row = (id, amount) => ({ id, accountId: 'j1', type: 'expense', amount, date: '2026-09-02', merchant: 'Dummy', category: 'dining', createdAt: 2 });
+  const open = async () => { const T = await shim.tab(), L = await T.lock(); await T.S.load(); const e = T.S.S.kv.settings.lock.enc; T.db.setKey(await L.unwrapDek('2468', e), e.key); await T.S.load(); return { T, L }; };
+  async function race(act) {
+    shim.reset();
+    const A = await shim.tab(), B = await shim.tab(), LA = await A.lock();
+    await A.S.load();
+    await A.S.saveAccount({ id: 'j1', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 });
+    await A.S.setSetting('lock', await LA.makeLock('2468'));
+    await B.S.load();
+    await LA.encryptOn('2468');
+    await B.S.saveTxs([row('x2', 700)]);   // another tab, not told yet: saved in the clear
+    const { T: C, L: LC } = await open();
+    let fired = false, p = null;
+    P.encrypt = function (alg, key, data) { if (!fired && new TextDecoder().decode(data).includes('"x2"')) { fired = true; p = act(C); } return encrypt.call(this, alg, key, data); };   // while x2's copy is being sealed
+    try { await LC.sealPhotos(); await p; } finally { P.encrypt = encrypt; }
+    return (await open()).T.S.S.tx.find(t => t.id === 'x2');
+  }
+  assert.equal(await race(C => C.S.deleteTxs(['x2'])), undefined, 'a delete during the pass stays deleted');
+  assert.equal((await race(C => C.S.saveTxs([row('x2', 999)])))?.amount, 999, 'an edit during the pass is kept');
+});

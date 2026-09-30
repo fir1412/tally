@@ -176,6 +176,34 @@ function writeRecs(store, recs) {
     t.onerror = t.onabort = () => { const e = t.error || new Error('Tally is locked'); failHandler(e); reject(e); };
   });
 }
+const sameRec = (a, b) => { const { blob: x, ...ra } = a, { blob: y, ...rb } = b; return JSON.stringify(ra) === JSON.stringify(rb) && (x === y || (x instanceof Blob && y instanceof Blob && x.size === y.size && x.type === y.type)); };   // ponytail: a photo compared by size and type; add a stamp if photos are ever replaced in place
+/** Encryption on: every record of `store` still in the clear is sealed in place, one at a time, and only while it is
+ *  still that same plain record (a newer save, sealed by its writer, or a delete wins). Never the settings. */
+export async function sealStore(store) {
+  if (!idb) return;
+  let n = 0;
+  for (const id of await plainKeys(store)) {
+    if (plainRec(store, { key: id })) continue;
+    const r = await tx(store, 'readonly', os => reqP(os.get(id)));
+    if (!r || r.ct) continue;
+    const sealed = await seal(store, r);
+    if (!sealed?.ct) continue;
+    await new Promise((resolve, reject) => {
+      let t;
+      try { alive(); t = idb.transaction([...new Set([store, 'kv'])], 'readwrite'); } catch (e) { failHandler(e); return reject(e); }
+      const g = t.objectStore('kv').get('settings');
+      g.onsuccess = () => {
+        if (!wrapsMine(g.result)) { setKey(null); return t.abort(); }
+        const c = t.objectStore(store).get(id);
+        c.onsuccess = () => { if (c.result && !c.result.ct && sameRec(c.result, r)) t.objectStore(store).put(sealed); };
+      };
+      t.oncomplete = () => resolve();
+      t.onerror = t.onabort = () => { const e = t.error || new Error('Tally is locked'); failHandler(e); reject(e); };
+    });
+    n++;
+  }
+  if (n) notify(store);
+}
 /** Turning encryption off: every record of `store` still sealed is rewritten in the clear with `key`, one at a time
  *  (photos are big), and only while it is still that same sealed record (a newer save wins). */
 export async function unsealStore(store, key) {

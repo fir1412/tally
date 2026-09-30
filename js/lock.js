@@ -39,7 +39,6 @@ export async function wrapDek(dek, code) {
 /** The data key, or a rejection when the PIN or password is wrong (AES-GCM checks it). */
 export const unwrapDek = async (code, enc) => crypto.subtle.unwrapKey('raw', unb64(enc.key), await kekOf(code, enc.salt, enc.iter), { name: 'AES-GCM', iv: unb64(enc.iv) }, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 export const encOn = () => !!settings().lock?.enc;
-const chunks = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 /** Encrypt everything on this phone with the current PIN or password (checked first). Photos go a few at a time.
  *  Throws when nothing changed; false when it is on but some photos are still to do (sealPhotos, at the next unlock). */
 const encLock = ({ hash, salt, iter, ...rest }, enc) => ({ ...rest, enc });   // the fast PIN hash goes: the unwrap checks
@@ -59,8 +58,7 @@ export async function encryptOn(code) {
  *  closed), and what another open tab saved while it was being turned on (it had no key yet). Not the settings. */
 export async function sealPhotos() {
   if (!encOn() || !db.getKey()) return;
-  for (const s of ['accounts', 'tx', 'recurring', 'kv', 'receipts'])
-    for (const ids of chunks((await db.plainKeys(s)).filter(k => !(s === 'kv' && k === 'settings')), 20)) await db.putMany(s, (await Promise.all(ids.map(id => db.get(s, id)))).filter(Boolean));
+  for (const s of ['accounts', 'tx', 'recurring', 'kv', 'receipts']) await db.sealStore(s);   // in place: a save or delete meanwhile wins
 }
 /** Back to plain storage with the current PIN or password (it gets its hash back). What is stored is opened in place, not
  *  a snapshot (a save meanwhile, here or in another tab, is opened too), and the settings lose the key only in the
