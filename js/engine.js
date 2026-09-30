@@ -580,6 +580,9 @@ export function billStatus(r, today, txs) {
  * Payments to add for bills set to add themselves: each date after the bill's last run up to today, dated on the due
  * date, skipping a period already paid. The id is the bill's id and the date, so adding twice never duplicates.
  */
+/** Due payments less the joint ones deleted here or by the partner (`gone`: jointGone ids). A marker never stops a payment
+ *  into an account that isn't joint: the partner's file may name any id, a personal bill's included. */
+export const unmarkedPayments = (txs, gone, joint) => txs.filter(x => !(joint.has(x.accountId) && gone[x.id]));
 export function dueBillTxs(rules, today, txs, now = Date.now()) {
   // ponytail: 400 days back at most. A bill imported with a 1990 start (up to 500 per file) would otherwise add
   // decades of payments before the first screen shows; raise it if long offline gaps ever need more.

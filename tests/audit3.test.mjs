@@ -17,6 +17,15 @@ test('a category name decoded from HTML codes is cleaned again: no bidi, hidden 
   assert.doesNotMatch(A.S.S.kv.customCats[0].name, HIDDEN);
 });
 
+test("a partner's delete markers stop only joint bills' payments, never a personal bill's", async () => {
+  const E = await import('../js/engine.js'), { readFileSync } = await import('node:fs');
+  const due = [{ id: 'rec-b9-2026-09-01', accountId: 'pmine' }, { id: 'rec-bj-2026-09-01', accountId: 'jt' }, { id: 'rec-bk-2026-09-01', accountId: 'jt' }];
+  const gone = { 'rec-b9-2026-09-01': 1, 'rec-bj-2026-09-01': 1 };   // from the partner's file: one for a personal bill
+  assert.deepEqual(E.unmarkedPayments(due, gone, new Set(['jt'])).map(x => x.id), ['rec-b9-2026-09-01', 'rec-bk-2026-09-01']);
+  const post = readFileSync(new URL('../js/views/money.js', import.meta.url), 'utf8').match(/export async function postBills[\s\S]*?\n}\n/)[0];
+  assert.match(post, /unmarkedPayments\(/);
+});
+
 test("a joint account deleted on either phone takes its bills with it: none is left to post into a personal account", () => {
   const T = Date.now(), me = { id: 'pmine', name: 'Maybank', kind: 'bank' };
   const bill = (id, accountId, updatedAt) => ({ id, name: 'Rent', amount: 150000, accountId, day: 1, auto: true, start: '2026-06-01', updatedAt });

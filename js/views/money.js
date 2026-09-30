@@ -1,9 +1,9 @@
 // Activity (every transaction, searchable), the add/edit sheet, and Budgets (limits, pace, bills).
-import { S, saveTx, keepToday, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
+import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, deleteTx, cat, expenseCats, allCats, today, nowTime, uid, setKv, saveBill, deleteBill, getPhoto, learn, booked, scope, hasJoint, scopedTx, scopedAccounts, inScope, budgetsFor, setSetting, defaultAccount, saveTxs, deleteTxs, startDay, thisMonth, cached , scopes } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
+import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -373,8 +373,8 @@ const billEv = x => {
 export async function postBills() {
   const tdy = today();
   if (!S.accounts.length) return 0;
-  const gone = S.kv.jointGone || {};   // a joint payment deleted here is never posted again
-  const txs = dueBillTxs(S.recurring, tdy, S.tx).filter(x => !gone[x.id]).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: defaultAccount('bill') }));
+  // A joint payment deleted here (or by the partner) is never posted again; a personal bill's always is.
+  const txs = unmarkedPayments(dueBillTxs(S.recurring, tdy, S.tx), S.kv.jointGone || {}, jointIds()).map(x => (S.accounts.some(a => a.id === x.accountId) ? x : { ...x, accountId: defaultAccount('bill') }));
   if (txs.length) await saveTxs(txs);
   for (const r of S.recurring) if (r.auto && !(r.last >= tdy)) await saveBill({ ...r, last: tdy }, { edited: false });
   if (txs.length) toast(txs.length === 1 ? t('Added {0} {1}', txs[0].merchant, fmtRM(txs[0].amount)) : t('Added {0} regular payments: {1}', txs.length, [...new Set(txs.map(x => x.merchant))].join(', ')), { icon: 'check', undo: async () => { await deleteTxs(txs.map(x => x.id)); render(); } });
