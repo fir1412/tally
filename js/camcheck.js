@@ -1,5 +1,5 @@
 // Live hints while framing a receipt: is it dark, glary, blurry, too far or cut off? Pixels only, on the phone, no OCR.
-// Measured on a small grey copy of what is inside the camera's frame, a few times a second.
+// Measured on a small grey copy of the camera's picture (all of it: what the shutter keeps), a few times a second.
 
 /** RGBA pixels → grey (0–255). */
 export function toGray(rgba) {

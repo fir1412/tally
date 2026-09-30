@@ -33,21 +33,18 @@ export function startScan(onFiles) {
     q('gallery').classList.add('main');
   });
 
-  // Live hints: what is inside the frame, a few times a second. A hint shows once it holds for two looks (no flicker, and
+  // Live hints: what the camera sees, a few times a second. A hint shows once it holds for two looks (no flicker, and
   // a screen reader isn't read every change); the frame turns green when the receipt looks readable.
-  const guide = el.querySelector('.cam-guide'), view = el.querySelector('.cam-view'), cv = document.createElement('canvas'), W = 480;
+  const guide = el.querySelector('.cam-guide'), cv = document.createElement('canvas'), W = 480;
   const say = { dark: () => (q('torch').hidden ? t('Too dark. Find more light') : t('Too dark. Tap the light')), glare: () => t('Glare. Tilt the phone a little'), far: () => t('Move closer'),
     close: () => t('Move back to fit the whole receipt'), blurry: () => t('Blurry. Hold still'), ok: () => t('Looks good. Tap to snap') };
   let shown = null, seen = null, quiet = 0;
   const look = () => {
-    // The part of the video inside the frame: the video fills the view (object-fit: cover), cropped at the edges.
-    const v = view.getBoundingClientRect(), g = guide.getBoundingClientRect(), s = Math.max(v.width / video.videoWidth, v.height / video.videoHeight);
-    const ox = (v.width - video.videoWidth * s) / 2, oy = (v.height - video.videoHeight * s) / 2;
-    const sx = Math.max(0, (g.left - v.left - ox) / s), sy = Math.max(0, (g.top - v.top - oy) / s), sw = Math.min(video.videoWidth - sx, g.width / s), sh = Math.min(video.videoHeight - sy, g.height / s);
-    if (!(sw > 0 && sh > 0)) return null;
+    // The whole picture the shutter keeps (not just the dashed frame: a receipt reaching past it still reads fine).
+    const sw = video.videoWidth, sh = video.videoHeight;
     cv.width = W; cv.height = Math.min(900, Math.round(sh * W / sw));
     const x = cv.getContext('2d', { willReadFrequently: true });
-    x.drawImage(video, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    x.drawImage(video, 0, 0, sw, sh, 0, 0, cv.width, cv.height);
     return hint(measure(toGray(x.getImageData(0, 0, cv.width, cv.height).data), cv.width, cv.height));
   };
   const watchFrame = () => {
