@@ -81,3 +81,25 @@ test('a Money Manager photo shared by many entries is read once, not once per en
   assert.equal(mm.tx.length, N);
   assert.deepEqual(mm.photos.map(p => [p.path, p.txIds.length]), [['photos/one.jpg', N]]);   // one copy, shared by all
 });
+
+// Encrypted dummy data in tab A, and B: the same phone's other tab, unlocked with the same key.
+async function twoTabs() {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(), B = await shim.tab(), ENC = { key: 'DUMMY-WRAPPED', salt: 'x', iter: 1, iv: 'x' };
+  const dek = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  await A.S.load(); A.db.setKey(dek, ENC.key); A.db.expectSealed(true);
+  await A.S.setKv('settings', { lock: { kind: 'pin', len: 4, enc: ENC } });
+  await A.S.saveAccount({ id: 'a1', name: 'Dummy Bank', kind: 'bank', opening: 0, createdAt: 1 });
+  await A.S.saveTxs([{ id: 't1', accountId: 'a1', type: 'expense', amount: 100, date: '2026-09-01', merchant: 'DUMMY ONE', category: 'dining', createdAt: 1 }]);
+  B.db.setKey(dek, ENC.key); await B.S.load();
+  return { shim, A, B };
+}
+
+test('erase is one step: another open tab writing right after it cannot leave a sealed row that locks every start', async () => {
+  const { shim, A, B } = await twoTabs();
+  await A.S.eraseAll();
+  await B.S.saveTx({ id: 'tB', accountId: 'a1', type: 'expense', amount: 5, date: '2026-09-02', merchant: 'DUMMY B', category: 'dining', createdAt: 2 }).catch(() => {});   // before B hears of it
+  const C = await shim.tab();
+  await C.S.load();   // threw 'Tally is locked' before: a sealed row with no key left to open it
+  assert.deepEqual([C.S.S.tx.length, C.S.S.accounts.length, shim.rows('tx').length], [0, 0, 0]);
+});

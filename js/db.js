@@ -100,6 +100,7 @@ let mode = null;
 export const storageMode = () => mode;
 
 export async function init() {
+  if (idb) return mode;   // one connection per page (load() runs on every change notice): extra ones held up an erase
   try { idb = await open(); } catch (e) {
     // Only a browser that can't store in IndexedDB at all (some private windows) falls back to localStorage.
     // Any other failure stops at the recovery screen: an empty fallback store would hide the user's real data.
@@ -203,6 +204,12 @@ export async function destroy() {
   try { idb?.close(); } catch {}
   idb = null;
   await new Promise(res => { try { const r = indexedDB.deleteDatabase(NAME); r.onsuccess = r.onerror = r.onblocked = () => res(); } catch { res(); } });
+}
+/** Erase: the whole database in one step. Every other tab's connection gets versionchange, closes and reloads (open()),
+ *  so a write it had pending fails instead of landing in a half-cleared store. The fallback clears every store at once. */
+export async function wipe() {
+  if (!idb) return mem && writeAtomic({ clear: STORES });
+  await destroy();
 }
 /** Delete many keys in one transaction with one change notice (undo of a big import). */
 export async function delMany(store, keys) {

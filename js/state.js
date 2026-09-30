@@ -257,8 +257,8 @@ export async function wipeSite() {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (new URL(r.scope).pathname.startsWith('/tally/')) await r.unregister(); } catch {}
 }
 export async function eraseAll() {
-  for (const s of db.STORES) await db.clear(s);
-  db.setKey(null); db.expectSealed(false);   // nothing encrypted left, and no key for a fresh start
+  db.setKey(null); db.expectSealed(false);   // first: nothing written from here on is sealed with the old key
+  await db.wipe();   // one step every tab sees: store-by-store left a window where another tab's sealed write survived
   await load();
 }
 export const storageMode = db.storageMode;
