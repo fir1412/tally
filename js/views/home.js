@@ -1,6 +1,6 @@
 // Home (balance, month, one banner, recent) and Insights (charts, habits, the insight feed).
 import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite } from '../state.js';
-import { t, fmtDate, fmtMonth, monShort, cycleShort } from '../i18n.js';
+import { t, fmtDate, fmtMonth, monShort, cycleShort, getLang } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet } from '../ui.js';
 import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
@@ -10,7 +10,7 @@ import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip } from './mon
 import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
 import { dayOf, loggedDays } from '../gamify.js';
-import { STICKERS, BOOK, stickerSvg, stickerState } from '../stickers.js';
+import { filledDays, panelOf, loadBook, bookState, WHO } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
@@ -56,15 +56,44 @@ function affordHtml(r) {
 /** When this person started with Tally: their first entry made here, else their first account. */
 // A loop, not Math.min(...all): spreading 125k+ values throws. okMs: a bad time stored before the intake check.
 const began = () => { const least = list => list.reduce((m, x) => { const v = okMs(x.createdAt); return v && v < m ? v : m; }, Infinity), m = least(S.tx); return m < Infinity ? m : least(S.accounts); };
-const madeDays = () => new Set([...S.tx.filter(x => byUser(x, settings().myName || '') && x.createdAt).map(x => dayOf(x.createdAt)), ...(settings().noSpend || [])]);
-const stickerDays = tdy => [...madeDays()].filter(d => d <= tdy).length;
-/** Today's sticker, once something is logged today, until dismissed: a small reward for the day, never a score to keep up. */
+// This month's sticker book (comic.js): loaded once, then drawn from memory; Home redraws when it arrives.
+const books = new Map();
+const bookOf = ym => { if (!books.has(ym)) { books.set(ym, null); loadBook(ym).then(b => { books.set(ym, b); render(); }).catch(console.error); } return books.get(ym); };
+const filledIn = ym => filledDays({ tx: S.tx, noSpend: settings().noSpend || [], me: settings().myName || '', ym, today: today() });
+const say = o => (typeof o === 'string' ? t(o) : o?.[getLang()] ?? o?.en ?? '');   // a book's own words, in the app's language
+const stkSvg = (s, on = true, cls = 'stk') => `<svg class="${cls}${on ? '' : ' off'}" viewBox="0 0 64 64" aria-hidden="true">${s.svg}</svg>`;
+/** Today's sticker (and page of the story), once something is logged today, until dismissed: a small reward for the
+ *  day, never a score to keep up. */
 function stickerCard(tdy) {
-  if (settings().sample || !shown('stickers') || dismissed().includes(`stk-${tdy}`) || !madeDays().has(tdy)) return '';
-  const st = stickerState(stickerDays(tdy));
-  return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stickerSvg(st.latest, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", t(st.latest[1])))}</b>
-    <small>${esc(t('{0} of {1} in your book. One for each day you log; a missed day never takes one away.', st.got, BOOK))}</small></span></button>
+  const ym = tdy.slice(0, 7), day = +tdy.slice(8, 10), filled = filledIn(ym);
+  if (settings().sample || !shown('stickers') || dismissed().includes(`stk-${tdy}`) || !filled.has(day)) return '';
+  const book = bookOf(ym); if (!book) return '';
+  const st = bookState({ ym, filled, today: tdy }), s = book.stickers[panelOf(day, st.n)];
+  return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stkSvg(s, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", say(s.name)))}</b>
+    <small>${esc(book.panels.length ? t("{0} of {1} this month, and today's page of the story.", st.got, st.n) : t('{0} of {1} this month. One for each day you log.', st.got, st.n))}</small></span></button>
     <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
+}
+/** A month's book: its stickers, the story so far (a locked page says how to open it), and the shelf of past months. */
+function bookHtml(book, ym, filled, tdy) {
+  const st = bookState({ ym, filled, today: tdy }), days = Array.from({ length: st.n }, (_, i) => i + 1);
+  const panel = d => {
+    const p = book.panels[panelOf(d, st.n)], end = d === st.n;
+    if (!filled.has(d) || (end && !st.complete)) {
+      const why = end ? t('Fill in every day to see how it ends.') : d > +tdy.slice(8, 10) && st.open ? t('Opens on day {0}.', d) : st.open ? t('Log something for day {0} to open it.', d) : t('Missed. Next month is a new story.');
+      return `<li class="panel locked"><span class="pday">${esc(t('Day {0}', d))}</span><span>${esc(why)}</span></li>`;
+    }
+    return `<li class="panel"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${p.art}</svg>
+      ${p.lines.map(l => `<p class="say">${l.who === 'narrator' ? '' : `<b>${esc(say(WHO[l.who] || l.who))}</b> `}${esc(say(l.text))}</p>`).join('')}
+      ${p.tip ? `<p class="tip">${ICON.sparkles || ''}${esc(say(p.tip))}</p>` : ''}</li>`;
+  };
+  const first = began() < Infinity ? dayOf(began()).slice(0, 7) : ym, past = [];
+  for (let m = addMonths(tdy.slice(0, 7), -1); m >= first && past.length < 24; m = addMonths(m, -1)) past.push(m);
+  return `<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
+    <p class="sh-body">${esc(st.complete ? t('Every day of {0} is in. The whole story is yours.', fmtMonth(ym)) : st.open ? t('{0} of {1} days. One for each day you log; fill in a missed day any time this month.', st.got, st.n) : t('{0} of {1} days.', st.got, st.n))}</p>
+    <ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
+    ${book.panels.length ? `<h3 class="comic-h">${esc(t('The story'))}</h3><ol class="comic">${days.map(panel).join('')}</ol>` : ''}
+    ${past.length ? `<h3 class="comic-h">${esc(t('Past months'))}</h3><div class="chips">${past.map(m => `<button class="chip" data-act="stickers-open" data-ym="${m}">${esc(fmtMonth(m))} · ${filledIn(m).size}</button>`).join('')}</div>` : ''}
+    <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Close'))}</button></div>`;
 }
 const greeting = () => {
   const n = settings().myName, h = +nowTime().slice(0, 2);
@@ -331,11 +360,9 @@ const weekSpent = (txs, tdy) => {
 const addDaysIso = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const act = {
   'bal-hide': async () => { await setSetting('hideBal', !settings().hideBal); render(); $('.eyebtn')?.focus(); },
-  'stickers-open': () => {
-    const st = stickerState(stickerDays(today()));
-    openSheet(`<h2 class="sh-title">${esc(st.book > 1 ? t('Sticker book {0}', st.book) : t('Sticker book'))}</h2><p class="sh-body">${esc(t('One for each day you log. Missed days never take one away.'))}</p>
-      <ul class="stkgrid">${STICKERS.map((k, i) => `<li>${stickerSvg(k, i < st.got)}<span>${esc(i < st.got ? t(k[1]) : '?')}</span></li>`).join('')}</ul>
-      <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Close'))}</button></div>`, { label: t('Sticker book') });
+  'stickers-open': async b => {
+    const ym = b?.dataset?.ym || today().slice(0, 7), book = bookOf(ym) || await loadBook(ym);
+    openSheet(bookHtml(book, ym, filledIn(ym), today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
   },
   ...analyticsAct,
   'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),   // where people looked for it: under Accounts

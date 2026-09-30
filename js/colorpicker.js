@@ -71,8 +71,10 @@ export const okMine = p => !!p && typeof p === 'object' && Object.keys(p).length
   && ['dark', 'light'].every(m => Array.isArray(p[m]) && p[m].length === 3 && p[m].every(h => /^#[0-9a-f]{6}$/i.test(h)));
 /** A background and a card colour → the three surfaces: the raised one a step from the cards (lighter on dark, darker on light). */
 export const surfacesFrom = (bg, card) => [bg, card, mix(card, luminance(bg) < 0.2 ? '#FFFFFF' : '#000000', 0.07)];
-/** The app colours the settings pick: one of APP_PALETTES, or your own. */
-export const paletteFor = s => (s?.appPalette === 'mine' && okMine(s.myPalette) ? { name: 'Mine', ...s.myPalette } : APP_PALETTES[Object.hasOwn(APP_PALETTES, s?.appPalette) ? s.appPalette : 'tally']);
+/** A finished sticker book's colours (settings.bookPalettes[YYYY-MM], picked as "book-YYYY-MM"), or null. */
+export const bookPalette = s => { const ym = /^book-(\d{4}-\d{2})$/.exec(s?.appPalette || '')?.[1], p = ym && s.bookPalettes?.[ym]; return okMine(p) ? p : null; };
+/** The app colours the settings pick: one of APP_PALETTES, a finished book's, or your own. */
+export const paletteFor = s => (s?.appPalette === 'mine' && okMine(s.myPalette) ? { name: 'Mine', ...s.myPalette } : bookPalette(s) ? { name: 'Book', ...bookPalette(s) } : APP_PALETTES[Object.hasOwn(APP_PALETTES, s?.appPalette) ? s.appPalette : 'tally']);
 const surfaceVars = (m, s) => { const ink = m === 'dark' ? '#EEF2FA' : '#0F172A';
   return `--bg:${s[0]};--panel:${s[1]};--panel2:${s[2]};--ink:${readable(ink, s, 7)};--mute:${readable(mix(ink, s[0], 0.42), s)};--line:${m === 'dark' ? 'rgba(255,255,255,.1)' : mix(s[2], '#000000', 0.1)};`; };
 const paletteCss = p => `:root{${surfaceVars('dark', p.dark)}}:root[data-theme="light"]{${surfaceVars('light', p.light)}}@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${surfaceVars('light', p.light)}}}`;
@@ -85,7 +87,7 @@ const LOOK = 'tally-look';   // a copy in localStorage, so the look is right bef
 /** Apply settings {theme, accent, compact} to the page. Called before the first paint and on every render. */
 export function applyLook(s = {}) {
   const html = document.documentElement, theme = ['light', 'dark'].includes(s.theme) ? s.theme : '';
-  const pal = paletteFor(s), pid = pal.name === 'Mine' ? 'mine' : Object.hasOwn(APP_PALETTES, s.appPalette) ? s.appPalette : 'tally';
+  const pal = paletteFor(s), pid = pal.name === 'Mine' ? 'mine' : pal.name === 'Book' ? s.appPalette : Object.hasOwn(APP_PALETTES, s.appPalette) ? s.appPalette : 'tally';
   SURFACES.dark = pal.dark; SURFACES.light = pal.light;   // accents are made readable on the palette's own surfaces
   const a = (s.accent && parseHex(s.accent)) || (pid !== 'tally' ? pal.accent : null);
   if (theme) html.dataset.theme = theme; else delete html.dataset.theme;
@@ -93,7 +95,7 @@ export function applyLook(s = {}) {
   for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = SURFACES[theme || (/light/.test(m.media) ? 'light' : 'dark')][0];
   styleTag('palette-css', pid === 'tally' ? null : paletteCss(pal));
   styleTag('accent-css', a ? accentCss(a) : null);   // after the palette, so it wins
-  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: s.accent || '', appPalette: pid, ...(pid === 'mine' ? { myPalette: s.myPalette } : {}), compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
+  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: s.accent || '', appPalette: pid, ...(pid === 'mine' ? { myPalette: s.myPalette } : {}), ...(pal.name === 'Book' ? { bookPalettes: { [pid.slice(5)]: bookPalette(s) } } : {}), compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
 }
 export function applySavedLook() { try { applyLook(JSON.parse(localStorage.getItem(LOOK)) || {}); } catch { /* none saved */ } }
 

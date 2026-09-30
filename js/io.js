@@ -958,7 +958,7 @@ const SETTINGS = {
   compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', hideBal: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),
-  appPalette: v => /^[a-z]{1,12}$/.test(v), palette: v => /^[a-z]{1,12}$/.test(v),
+  appPalette: v => /^([a-z]{1,12}|book-\d{4}-\d{2})$/.test(v), bookPalettes: v => isObj(v) && Object.keys(v).length <= 120 && Object.entries(v).every(([k, p]) => /^\d{4}-\d{2}$/.test(k) && SETTINGS.myPalette(p)), palette: v => /^[a-z]{1,12}$/.test(v),
   myPalette: v => isObj(v) && Object.keys(v).length === 3 && /^#[0-9a-f]{6}$/i.test(v.accent) && ['dark', 'light'].every(m => Array.isArray(v[m]) && v[m].length === 3 && v[m].every(h => /^#[0-9a-f]{6}$/i.test(h))),
   movedCats: v => isObj(v) && Object.entries(v).every(([k, to]) => CATEGORIES.slice(0, -1).some(c => c.id === k) && typeof to === 'string' && /^[\w-]{1,40}$/.test(to) && !Object.hasOwn(v, to)),   // Tally's categories removed → where they went
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
