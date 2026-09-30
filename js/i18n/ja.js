@@ -1536,4 +1536,7 @@ export default {
   "{0} a month gets you there by {1}": "毎月{0}で{1}までに届きます",
   "{0} to go": "あと{0}",
   "{0}% saved": "{0}%達成",
+  "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe": "割り勘で自分の分だけを支出に。ホームに貸し・借りを表示",
+  "Savings goals: a target, a date and the account it grows in, with how much a month gets you there": "貯金目標：金額・期日・貯める口座と、毎月いくら貯めればよいか",
+  "\"Can I afford it?\" now counts your everyday money, not your savings": "「買っても大丈夫？」は貯金を除いた普段のお金で判断します",
 };

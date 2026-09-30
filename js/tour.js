@@ -6,6 +6,11 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.7.0': [
+    "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe",
+    "Savings goals: a target, a date and the account it grows in, with how much a month gets you there",
+    "\"Can I afford it?\" now counts your everyday money, not your savings",
+  ],
   '1.6.2': [
     "A month's missed stickers can be filled in until the 7th of the next month",
   ],

@@ -1536,4 +1536,7 @@ export default {
   "{0} a month gets you there by {1}": "每月 {0}，{1} 前達成",
   "{0} to go": "還差 {0}",
   "{0}% saved": "已存 {0}%",
+  "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe": "分帳後只把自己那份算作開銷；首頁顯示誰欠你、你欠誰",
+  "Savings goals: a target, a date and the account it grows in, with how much a month gets you there": "儲蓄目標：目標金額、日期和存錢的帳戶，並告訴你每月要存多少",
+  "\"Can I afford it?\" now counts your everyday money, not your savings": "「我買得起嗎？」現在只算日常用的錢，不算儲蓄",
 };
