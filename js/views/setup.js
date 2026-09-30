@@ -926,16 +926,17 @@ export const act = {
       if (!withPhotos) return [];
       const { readPhotos } = await import('../mmimport.js');
       const want = new Map(fresh.map(x => [x.id, x]));
-      const todo = mm.photos.filter(p => want.has(p.txId)), ids = [];
-      for (const [n, p] of todo.entries()) {
+      const todo = mm.photos.map(p => ({ ...p, txIds: p.txIds.filter(id => want.has(id)) })).filter(p => p.txIds.length), ids = [];
+      const files = todo.length ? await readPhotos(buf, todo.map(p => p.path)) : {};   // one unzip: its entry and byte caps cover every photo
+      for (const [n, p] of todo.entries()) {   // each file decoded and stored once, however many entries link it
         if (n % 25 === 0) toast(t('Copying photos… {0} of {1}', n, todo.length));
-        const bytes = (await readPhotos(buf, [p.path]))[p.path];
+        const bytes = files[p.path];
         const jpeg = bytes && await reencode(new Blob([bytes], { type: 'image/jpeg' }));
         if (!jpeg) continue;
         const id = uid('p');
         if (!(await savePhoto(id, jpeg))) continue;
         ids.push(id);
-        want.get(p.txId).receiptId = id;
+        for (const txId of p.txIds) want.get(txId).receiptId = id;   // a shared receiptId is safe: a photo is deleted only when no row uses it
       }
       return ids;
     }, undoMore: async () => {

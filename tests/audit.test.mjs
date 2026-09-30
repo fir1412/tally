@@ -65,3 +65,19 @@ test("an imported file cannot write over, or link to, the receipt photo of this 
   // Merge restore: photos are written only for rows it added, never under an id a row here already uses.
   assert.deepEqual([...IO.photosToWrite([{ id: 'z1', receiptId: 'pOWNER1' }, { id: 'z2', receiptId: 'pNEW' }, { id: 'r1', receiptId: 'pOWNER1' }], local.tx)], ['pNEW', 'pOWNER1']);
 });
+
+test('a Money Manager photo shared by many entries is read once, not once per entry (200,000 links, one file)', async () => {
+  const { sqlJs } = await import('./fixtures/make.mjs'), IO = await import('../js/io.js'), { readMoneyManager } = await import('../js/mmimport.js');
+  const SQL = await sqlJs(), db = new SQL.Database(), N = 2000;
+  db.exec(`create table "transaction"(uid, type, amountInAccountCurrency, date, comment, created, isRemoved);
+    create table account(uid, title, currencyCode, created, isRemoved); create table account_balance(uid, value);
+    create table category(uid, title, type, color, isRemoved); create table sync_link(entityUid, entityType, otherType, otherUid, isRemoved);
+    create table sync_file(uid, localPath, isRemoved);
+    insert into account values ('A', 'Cash', 'MYR', '2026-01-01', 0); insert into account_balance values ('A', 0); insert into sync_file values ('F1', '/x/one.jpg', 0);`);
+  for (let i = 0; i < N; i++) db.exec(`insert into "transaction" values ('t${i}', 'Expense', 500, '2026-09-10', 'Nasi', '', 0);
+    insert into sync_link values ('t${i}', 'Transaction', 'Account', 'A', 0), ('t${i}', 'Transaction', 'Photo', 'F1', 0);`);
+  const buf = new Uint8Array(await IO.zipStore([{ name: 'MyFinance.db', data: db.export() }, { name: 'photos/one.jpg', data: new Uint8Array(100) }]).arrayBuffer());
+  const mm = await readMoneyManager(buf, SQL);
+  assert.equal(mm.tx.length, N);
+  assert.deepEqual(mm.photos.map(p => [p.path, p.txIds.length]), [['photos/one.jpg', N]]);   // one copy, shared by all
+});

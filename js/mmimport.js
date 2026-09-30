@@ -32,7 +32,8 @@ const pad = n => String(n).padStart(2, '0');
 const localTime = iso => { const d = new Date(iso); return isNaN(d) ? undefined : `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
 /**
- * .mmbackup bytes → {accounts, tx, customCats, photos: [{txId, path}], skipped, otherCurrency, transfersSkipped}.
+ * .mmbackup bytes → {accounts, tx, customCats, photos: [{path, txIds}], skipped, otherCurrency, transfersSkipped}.
+ * One photos entry per photo file, with every entry that links it: a file linked 200,000 times is still one copy.
  * Their categories map onto Tally's where the name matches (Food → Dining…); the rest become custom categories
  * with the user's own names and colours. Nothing is saved here.
  */
@@ -64,7 +65,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
 
     const accRows = rows(`select a.uid, a.title, a.currencyCode, a.created, b.value as balance from account a left join account_balance b on b.uid = a.uid where a.isRemoved = 0 limit 200`);
     const accIds = new Set(accRows.map(a => a.uid));
-    const tx = [], photos = [];
+    const tx = [], photos = new Map();   // path → ids of the entries that link it
     let skipped = 0, adjustments = 0;
     for (const t of rows(`select uid, type, amountInAccountCurrency as amt, date, comment, created from "transaction" where isRemoved = 0 limit 200000`)) {
       const l = link.get(t.uid) || {};
@@ -78,7 +79,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       if (type === 'income' && !INCOME_CATEGORIES.some(c => c.id === category) && !customCats.some(c => c.id === category && c.kind === 'income')) category = 'income';
       const id = mmId(t.uid);
       tx.push({ id, date: t.date, time: localTime(t.created), type, amount: amt, accountId: mmId(l.Account), category, merchant: cleanText(t.comment, 80), note: '', source: 'import', createdAt: now });
-      if (photoPath.has(l.Photo)) photos.push({ txId: id, path: photoPath.get(l.Photo) });
+      if (photoPath.has(l.Photo)) { const p = photoPath.get(l.Photo); (photos.get(p) || photos.set(p, []).get(p)).push(id); }
     }
 
     // Transfers (ATM withdrawals, e-wallet reloads). No public source says where a transfer's two accounts are: on the row
@@ -106,7 +107,7 @@ export async function readMoneyManager(buf, SQL, { now = Date.now() } = {}) {
       const title = String(a.title || '');
       return { id, name: cleanText(title, 60) || 'Account', kind: guessKind(title), opening: okSigned(bal - net) ? bal - net : 0, createdAt: Date.parse(a.created) || now, currency: a.currencyCode || 'MYR' };
     });
-    return { accounts: accounts.map(keepCurrency), tx, customCats, photos, skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped };
+    return { accounts: accounts.map(keepCurrency), tx, customCats, photos: [...photos].map(([path, txIds]) => ({ path, txIds })), skipped, adjustments, otherCurrency: accounts.map(keepCurrency).filter(a => a.currency).map(a => a.name), transfersSkipped };
   } finally { db.close(); }
 }
 
