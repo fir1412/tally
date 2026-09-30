@@ -1453,4 +1453,11 @@ export default {
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共同帳戶與備份：更多修複，刪除的記錄保持刪除，每個備份都能恢復",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally 為什麼免費？熱爱之作，開源：见歡迎頁或設定",
   "Looking closer at the small print…": "正在放大查看小字…",
+  "Background": "背景",
+  "Cards": "卡片",
+  "Mine": "我的",
+  "Switch the theme above to set the other one. Text colours adjust to stay readable.": "切換上方的主題來設定另一套。文字顏色會自動調整，保持清晰易讀。",
+  "Your colours, {0}": "你的顏色，{0}",
+  "Make your own app colours: Settings, App colours, Mine": "自定義應用顏色：設定 → 應用顏色 → 我的",
+  "Faded or far-away receipt photos are read better, and more slips add up on their own": "褪色或远拍的收據照片識別得更好，更多收據能自動對上總額",
 };

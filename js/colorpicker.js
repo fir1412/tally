@@ -66,6 +66,13 @@ export const APP_PALETTES = {
   bunga: { name: 'Hibiscus', dark: ['#1C1016', '#281820', '#34202B'], light: ['#FBF1F4', '#FFFFFF', '#F2DFE6'], accent: '#BE185D' },
   arang: { name: 'Charcoal', dark: ['#111111', '#1B1B1B', '#262626'], light: ['#F4F4F5', '#FFFFFF', '#E6E6E9'], accent: '#52525B' },
 };
+/** Your own app colours ("Mine"): {dark: [bg, cards, raised], light: [...], accent}, every one "#RRGGBB". */
+export const okMine = p => !!p && typeof p === 'object' && Object.keys(p).length === 3 && /^#[0-9a-f]{6}$/i.test(p.accent)
+  && ['dark', 'light'].every(m => Array.isArray(p[m]) && p[m].length === 3 && p[m].every(h => /^#[0-9a-f]{6}$/i.test(h)));
+/** A background and a card colour → the three surfaces: the raised one a step from the cards (lighter on dark, darker on light). */
+export const surfacesFrom = (bg, card) => [bg, card, mix(card, luminance(bg) < 0.2 ? '#FFFFFF' : '#000000', 0.07)];
+/** The app colours the settings pick: one of APP_PALETTES, or your own. */
+export const paletteFor = s => (s?.appPalette === 'mine' && okMine(s.myPalette) ? { name: 'Mine', ...s.myPalette } : APP_PALETTES[Object.hasOwn(APP_PALETTES, s?.appPalette) ? s.appPalette : 'tally']);
 const surfaceVars = (m, s) => { const ink = m === 'dark' ? '#EEF2FA' : '#0F172A';
   return `--bg:${s[0]};--panel:${s[1]};--panel2:${s[2]};--ink:${readable(ink, s, 7)};--mute:${readable(mix(ink, s[0], 0.42), s)};--line:${m === 'dark' ? 'rgba(255,255,255,.1)' : mix(s[2], '#000000', 0.1)};`; };
 const paletteCss = p => `:root{${surfaceVars('dark', p.dark)}}:root[data-theme="light"]{${surfaceVars('light', p.light)}}@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){${surfaceVars('light', p.light)}}}`;
@@ -78,7 +85,7 @@ const LOOK = 'tally-look';   // a copy in localStorage, so the look is right bef
 /** Apply settings {theme, accent, compact} to the page. Called before the first paint and on every render. */
 export function applyLook(s = {}) {
   const html = document.documentElement, theme = ['light', 'dark'].includes(s.theme) ? s.theme : '';
-  const pid = Object.hasOwn(APP_PALETTES, s.appPalette) ? s.appPalette : 'tally', pal = APP_PALETTES[pid];
+  const pal = paletteFor(s), pid = pal.name === 'Mine' ? 'mine' : Object.hasOwn(APP_PALETTES, s.appPalette) ? s.appPalette : 'tally';
   SURFACES.dark = pal.dark; SURFACES.light = pal.light;   // accents are made readable on the palette's own surfaces
   const a = (s.accent && parseHex(s.accent)) || (pid !== 'tally' ? pal.accent : null);
   if (theme) html.dataset.theme = theme; else delete html.dataset.theme;
@@ -86,7 +93,7 @@ export function applyLook(s = {}) {
   for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = SURFACES[theme || (/light/.test(m.media) ? 'light' : 'dark')][0];
   styleTag('palette-css', pid === 'tally' ? null : paletteCss(pal));
   styleTag('accent-css', a ? accentCss(a) : null);   // after the palette, so it wins
-  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: s.accent || '', appPalette: pid, compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
+  try { localStorage.setItem(LOOK, JSON.stringify({ theme, accent: s.accent || '', appPalette: pid, ...(pid === 'mine' ? { myPalette: s.myPalette } : {}), compact: s.compact === true })); } catch { /* private window: the database copy still applies */ }
 }
 export function applySavedLook() { try { applyLook(JSON.parse(localStorage.getItem(LOOK)) || {}); } catch { /* none saved */ } }
 
@@ -112,7 +119,7 @@ export function neighbour(cells, i, key) {
 }
 
 /** Pick a colour. Resolves the chosen "#RRGGBB", or null if closed. reset: a default colour offered as a button. */
-export function pickColor({ value = '#1E40AF', title = t('Colour'), reset = null } = {}) {
+export function pickColor({ value = '#1E40AF', title = t('Colour'), reset = null, warn = true } = {}) {
   return new Promise(resolve => {
     let cur = parseHex(value) || '#1E40AF', done = false;
     const at = h => CELLS.findIndex(c => c.hex === h);
@@ -137,7 +144,7 @@ export function pickColor({ value = '#1E40AF', title = t('Colour'), reset = null
       polys.forEach((p, j) => { p.setAttribute('aria-checked', String(j === i)); if (i >= 0) p.tabIndex = j === i ? 0 : -1; });
       mark.style.display = i >= 0 ? '' : 'none';
       if (i >= 0) mark.setAttribute('transform', polys[i].getAttribute('transform'));
-      const low = contrast(h, SURFACES[themeNow()][0]) < 3;
+      const low = warn && contrast(h, SURFACES[themeNow()][0]) < 3;   // a colour for things on the background, not the background itself
       msg.innerHTML = low ? `${ICON.alert}<span>${esc(t('Hard to see on this background. Text on it stays readable.'))}</span>` : '';
       msg.className = `fine cp-msg${low ? ' warn' : ''}`;
       ok.disabled = false;

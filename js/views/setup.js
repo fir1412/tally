@@ -17,7 +17,7 @@ import { badge } from './money.js';
 import { MODULES, PRESETS, on, setModules, presetNow } from '../features.js';
 import { CAT_ICONS, DEFAULT_ICON, catIcon } from '../caticons.js';
 import { sampleData } from '../sample.js';
-import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow } from '../colorpicker.js';
+import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow, okMine, surfacesFrom, paletteFor } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
 // Short native names so five languages fit one row on a 360px phone; the full name is what a screen reader says.
@@ -43,12 +43,15 @@ function featuresCard() {
 function lookCard() {
   const s = settings(), theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'system', acc = parseHex(s.accent) || baseAccent(), hide = s.homeHide || [];
   const themes = [['system', t('Same as phone'), ICON.phone], ['light', t('Light theme'), ICON.sun], ['dark', t('Dark theme'), ICON.moon]];
+  const mine = okMine(s.myPalette) ? s.myPalette : null, onMine = !!mine && s.appPalette === 'mine', mode = themeNow();
+  const mineColours = [['bg', t('Background'), mine?.[mode][0]], ['card', t('Cards'), mine?.[mode][1]], ['accent', t('Accent colour'), mine?.accent]];
   const sw = (hex, label) => `<li><button class="sw" style="--c:${hex};--on:${onColor(hex)}" data-act="set-accent" data-v="${hex}" aria-pressed="${acc === hex}" aria-label="${esc(label)}" title="${esc(label)}">${acc === hex ? ICON.check : ''}</button></li>`;
   return `<section class="card" id="look"><h2>${esc(t('Appearance & personal'))}</h2>${langButtons()}
     <div class="lookrow"><span>${ICON.sun}${esc(t('Theme'))} · ${esc(themes.find(x => x[0] === theme)[1])}</span><div class="segs icons" role="group" aria-label="${esc(t('Theme'))}">${themes.map(([v, l, i]) => seg('set-theme', v, theme === v, l, i)).join('')}</div></div>
-    <div class="lookrow"><span>${ICON.palette}${esc(t('App colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('App colours'))}">${Object.entries(APP_PALETTES).map(([id, p]) => { const on = (s.appPalette || 'tally') === id, sf = p[themeNow()]; return `<button class="pal apal${on ? ' on' : ''}" data-act="set-app-palette" data-v="${id}" aria-pressed="${on}"><span class="apv" aria-hidden="true" style="background:${sf[0]}"><i style="background:${sf[2]}"></i><b style="background:${p.accent}"></b></span>${esc(t(p.name))}</button>`; }).join('')}</div></div>
-    <div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(baseAccent(), `${colourName(baseAccent())} (${t('Default')})`)}${ACCENTS.filter(h => h !== baseAccent()).map(h => sw(h, colourName(h))).join('')}${[baseAccent(), ...ACCENTS].includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
-      <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>
+    <div class="lookrow"><span>${ICON.palette}${esc(t('App colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('App colours'))}">${Object.entries(APP_PALETTES).map(([id, p]) => { const on = (s.appPalette || 'tally') === id, sf = p[themeNow()]; return `<button class="pal apal${on ? ' on' : ''}" data-act="set-app-palette" data-v="${id}" aria-pressed="${on}"><span class="apv" aria-hidden="true" style="background:${sf[0]}"><i style="background:${sf[2]}"></i><b style="background:${p.accent}"></b></span>${esc(t(p.name))}</button>`; }).join('')}<button class="pal apal${onMine ? ' on' : ''}" data-act="set-app-palette" data-v="mine" aria-pressed="${onMine}">${mine ? `<span class="apv" aria-hidden="true" style="background:${mine[mode][0]}"><i style="background:${mine[mode][2]}"></i><b style="background:${mine.accent}"></b></span>` : `<span class="apv apv-new" aria-hidden="true">${ICON.plus}</span>`}${esc(t('Mine'))}</button></div></div>
+    ${onMine ? `<div class="lookrow"><span>${ICON.palette}${esc(t('Your colours, {0}', mode === 'dark' ? t('Dark theme') : t('Light theme')))}</span><ul class="swatches mine">${mineColours.map(([k, l, h]) => `<li><button class="sw" style="--c:${h};--on:${onColor(h)}" data-act="mine-colour" data-k="${k}" aria-label="${esc(`${l}: ${colourName(h)} ${h}`)}"></button><small aria-hidden="true">${esc(l)}</small></li>`).join('')}</ul><p class="fine">${esc(t('Switch the theme above to set the other one. Text colours adjust to stay readable.'))}</p></div>` : ''}
+    ${onMine ? '' : `<div class="lookrow"><span>${ICON.palette}${esc(t('Accent colour'))}</span><ul class="swatches">${sw(baseAccent(), `${colourName(baseAccent())} (${t('Default')})`)}${ACCENTS.filter(h => h !== baseAccent()).map(h => sw(h, colourName(h))).join('')}${[baseAccent(), ...ACCENTS].includes(acc) ? '' : sw(acc, `${colourName(acc)} ${acc}`)}
+      <li><button class="sw more" data-act="accent-custom" aria-label="${esc(t('Custom colour'))}" title="${esc(t('Custom colour'))}">${ICON.plus}</button></li></ul></div>`}
     <div class="lookrow"><span>${ICON.palette}${esc(t('Category colours'))}</span><div class="palettes" role="group" aria-label="${esc(t('Category colours'))}">${PALETTES.map(([id, name, cols]) => { const on = (s.palette || 'tally') === id; return `<button class="pal${on ? ' on' : ''}" data-act="set-palette" data-v="${id}" aria-pressed="${on}"${id === 'tally' ? ` title="${esc(t('Colour-blind safe'))}"` : ''}><span class="pdots" aria-hidden="true">${(cols || CATEGORIES.map(c => c.color)).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('')}</span>${esc(t(name))}</button>`; }).join('')}</div></div>
     <label class="field"><span>${esc(t('Text size'))}</span><select data-input="text-size">${[100, 115, 130].map(n => `<option value="${n}"${(s.textSize || 100) === n ? ' selected' : ''}>${n}%</option>`).join('')}</select></label>
     <label class="field"><span>${esc(t('Your name'))}</span><input data-input="my-name" maxlength="30" value="${esc(s.myName || '')}" placeholder="${esc(t('e.g. Aisyah'))}" autocomplete="given-name"></label>
@@ -65,7 +68,7 @@ const PALETTES = [['tally', 'Tally'],
   ['vivid', 'Vivid', ['#D62828', '#E07000', '#1F8A7D', '#2F6FE0', '#8338EC', '#E0005F', '#06875F', '#B35C00', '#1D3557', '#9D0208']],
   ['earth', 'Earth', ['#6B705C', '#BC6C25', '#588157', '#7F5539', '#8A7152', '#3A5A40', '#9C6644', '#936F4E', '#606C38', '#283618']]];
 /** The accent that comes with the app colours (the design blue for Tally's own). */
-const baseAccent = () => APP_PALETTES[settings().appPalette]?.accent || ACCENTS[0];
+const baseAccent = () => paletteFor(settings()).accent || ACCENTS[0];
 const pickAccent = async () => {
   const h = await pickColor({ value: parseHex(settings().accent) || baseAccent(), title: t('Accent colour'), reset: baseAccent() });
   if (!h) return;
@@ -850,6 +853,16 @@ export const act = {
   'set-theme': async b => { await setSetting('theme', b.dataset.v === 'system' ? null : b.dataset.v); render(); $(`[data-act="set-theme"][data-v="${b.dataset.v}"]`)?.focus(); },
   'set-accent': async b => { await setSetting('accent', b.dataset.v === baseAccent() ? null : parseHex(b.dataset.v)); render(); $(`[data-act="set-accent"][data-v="${b.dataset.v}"]`)?.focus(); },
   'accent-custom': () => pickAccent(),
+  // Your own palette: the background, the cards and the accent of the theme on screen (the other theme keeps its own).
+  'mine-colour': async b => {
+    const k = b.dataset.k, m = themeNow(), p = structuredClone(settings().myPalette), dflt = APP_PALETTES.tally;
+    if (!okMine(p)) return;
+    const i = k === 'bg' ? 0 : 1, now = k === 'accent' ? p.accent : p[m][i];
+    const h = await pickColor({ value: now, title: { bg: t('Background'), card: t('Cards'), accent: t('Accent colour') }[k], reset: k === 'accent' ? dflt.accent : dflt[m][i], warn: k === 'accent' });
+    if (!h) return;
+    if (k === 'accent') p.accent = h; else p[m] = k === 'bg' ? surfacesFrom(h, p[m][1]) : surfacesFrom(p[m][0], h);
+    await setSetting('myPalette', p); await setSetting('accent', null); render(); $(`[data-act="mine-colour"][data-k="${k}"]`)?.focus();
+  },
   'set-preset': async b => { const p = PRESETS[b.dataset.v]; if (!p) return; await setModules(p); render(); $(`[data-act="set-preset"][data-v="${b.dataset.v}"]`)?.focus(); toast(t('Features set: {0}', t({ simple: 'Simple', standard: 'Standard', everything: 'Everything' }[b.dataset.v]))); },
   'sf-mode': b => { for (const x of document.querySelectorAll('[data-act="sf-mode"]')) { const o = x === b; x.classList.toggle('on', o); x.setAttribute('aria-pressed', o); } },
   // Only on this tap does Tally go online for a rate: the European Central Bank's, via frankfurter.dev (nothing about the
@@ -865,7 +878,10 @@ export const act = {
     } catch { out.textContent = t('Could not get the rate (offline?). Type the rate from your bank app.'); }
   },
   // The whole app's colours; a palette brings its own accent, so a hand-picked one is cleared (it can be picked again after).
-  'set-app-palette': async b => { await setSetting('appPalette', b.dataset.v === 'tally' ? null : b.dataset.v); await setSetting('accent', null); render(); $(`[data-act="set-app-palette"][data-v="${b.dataset.v}"]`)?.focus(); },
+  'set-app-palette': async b => {
+    const s = settings();   // "Mine" starts as a copy of the colours on screen now
+    if (b.dataset.v === 'mine' && !okMine(s.myPalette)) { const p = paletteFor(s); await setSetting('myPalette', { dark: [...p.dark], light: [...p.light], accent: parseHex(s.accent) || p.accent }); }
+    await setSetting('appPalette', b.dataset.v === 'tally' ? null : b.dataset.v); await setSetting('accent', null); render(); $(`[data-act="set-app-palette"][data-v="${b.dataset.v}"]`)?.focus(); },
   // A palette colours every category at once (one picked by hand later still wins for that category); Undo puts back the old ones.
   'set-palette': async b => {
     const p = PALETTES.find(x => x[0] === b.dataset.v); if (!p) return;

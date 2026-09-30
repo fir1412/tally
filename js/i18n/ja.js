@@ -1453,4 +1453,11 @@ export default {
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "共有口座とバックアップ：削除した記録が戻らず、どのバックアップも復元できるよう、さらに修正しました",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Tally が無料なのはなぜ？情熱のプロジェクトでオープンソース：ようこそ画面か設定をご覧ください",
   "Looking closer at the small print…": "小さな文字を拡大して読んでいます…",
+  "Background": "背景",
+  "Cards": "カード",
+  "Mine": "マイ",
+  "Switch the theme above to set the other one. Text colours adjust to stay readable.": "上のテーマを切り替えると、もう一方も設定できます。文字の色は読みやすいよう自動で調整されます。",
+  "Your colours, {0}": "あなたの色（{0}）",
+  "Make your own app colours: Settings, App colours, Mine": "自分だけのアプリの色：設定 → アプリの色 → マイ",
+  "Faded or far-away receipt photos are read better, and more slips add up on their own": "色あせたレシートや遠くから撮った写真も読みやすくなり、合計が自動で合うレシートが増えました",
 };

@@ -1454,4 +1454,11 @@ export default {
   "Joint accounts and backups: more fixes so deleted entries stay deleted and every backup restores": "Akaun bersama dan sandaran: lebih banyak pembaikan supaya catatan yang dipadam kekal dipadam dan setiap sandaran boleh dipulihkan",
   "Why is Tally free? A passion project, open source: see Welcome or Settings": "Kenapa Tally percuma? Projek minat, sumber terbuka: lihat Selamat datang atau Tetapan",
   "Looking closer at the small print…": "Melihat tulisan kecil dengan lebih dekat…",
+  "Background": "Latar belakang",
+  "Cards": "Kad",
+  "Mine": "Saya",
+  "Switch the theme above to set the other one. Text colours adjust to stay readable.": "Tukar tema di atas untuk menetapkan yang satu lagi. Warna teks menyesuaikan supaya kekal mudah dibaca.",
+  "Your colours, {0}": "Warna anda, {0}",
+  "Make your own app colours: Settings, App colours, Mine": "Cipta warna aplikasi anda sendiri: Tetapan, Warna aplikasi, Saya",
+  "Faded or far-away receipt photos are read better, and more slips add up on their own": "Foto resit yang pudar atau diambil dari jauh dibaca dengan lebih baik, dan lebih banyak resit dijumlahkan dengan betul sendiri",
 };

@@ -80,3 +80,18 @@ test('streak: rest days count over any 7 days, whatever day the week starts on',
   const d2 = new Set(['2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-29']);
   assert.equal(streak(d2, '2026-09-29').streak, 6);
 });
+
+test('your own app colours: kept, applied and carried in backups only when every colour is a real one', async () => {
+  const mine = { dark: ['#101820', '#18222C', '#222C36'], light: ['#FFF5EE', '#FFFFFF', '#F2E8E0'], accent: '#C2410C' };
+  assert.ok(C.okMine(mine));
+  for (const bad of [null, { ...mine, accent: 'red' }, { ...mine, dark: ['#101820', '#18222C'] }, { ...mine, light: ['#FFF', '#FFFFFF', '#F2E8E0'] }, { ...mine, extra: 1 }]) assert.ok(!C.okMine(bad), JSON.stringify(bad));
+  assert.equal(C.paletteFor({ appPalette: 'mine', myPalette: mine }).accent, '#C2410C');
+  assert.equal(C.paletteFor({ appPalette: 'mine', myPalette: { dark: [] } }).name, 'Tally', 'a broken one falls back to Tally, never a blank screen');
+  assert.equal(C.paletteFor({ appPalette: 'kopi' }).name, 'Kopi');
+  // The raised surface is a step from the cards: lighter on a dark background, darker on a light one.
+  const [, , dRaised] = C.surfacesFrom('#101820', '#18222C'), [, , lRaised] = C.surfacesFrom('#FFF5EE', '#FFFFFF');
+  assert.ok(C.luminance(dRaised) > C.luminance('#18222C') && C.luminance(lRaised) < C.luminance('#FFFFFF'));
+  const IO = await import('../js/io.js');
+  assert.deepEqual(IO.backupSettings({ appPalette: 'mine', myPalette: mine }).myPalette, mine);
+  assert.equal(IO.backupSettings({ myPalette: { ...mine, accent: 'javascript:1' } }).myPalette, undefined);
+});

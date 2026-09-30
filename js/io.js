@@ -958,6 +958,7 @@ const SETTINGS = {
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),
   appPalette: v => /^[a-z]{1,12}$/.test(v), palette: v => /^[a-z]{1,12}$/.test(v),
+  myPalette: v => isObj(v) && Object.keys(v).length === 3 && /^#[0-9a-f]{6}$/i.test(v.accent) && ['dark', 'light'].every(m => Array.isArray(v[m]) && v[m].length === 3 && v[m].every(h => /^#[0-9a-f]{6}$/i.test(h))),
   homeHide: v => Array.isArray(v) && v.length <= 20 && v.every(x => /^[\w-]{1,20}$/.test(x)), noSpend: v => Array.isArray(v) && v.length <= 400 && v.every(validIso),
 };
 export const backupSettings = s => Object.fromEntries(Object.entries(isObj(s) ? s : {}).filter(([k, v]) => Object.hasOwn(SETTINGS, k) && SETTINGS[k](v)).map(([k, v]) => [k, k === 'myName' ? cleanText(v, 30) : v]));

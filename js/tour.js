@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.4.0': [
+    'Make your own app colours: Settings, App colours, Mine',
+    'Faded or far-away receipt photos are read better, and more slips add up on their own',
+  ],
   '1.3.0': [
     'Reading a receipt shows what Tally is doing, with a bar that keeps moving',
     'A pile of receipts goes faster: the next one is read while you check this one, and reading uses more of the phone',
