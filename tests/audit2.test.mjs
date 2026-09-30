@@ -209,6 +209,27 @@ test("an import's changes to joint entries sync like any edit: stamped, and its 
   assert.equal((commit.match(/edit: true/g) || []).length, 2, 'the import and its Undo both write as edits');
 });
 
+test('turning encryption on leaves nothing in the clear that another tab saved meanwhile', async () => {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(), B = await shim.tab(), LA = await A.lock();
+  await A.S.load();
+  await A.S.saveAccount({ id: 'a1', name: 'Dummy Bank', kind: 'bank', opening: 0, createdAt: 1 });
+  await A.S.saveTxs([{ id: 't1', accountId: 'a1', type: 'expense', amount: 100, date: '2026-09-01', merchant: 'DUMMY ONE', category: 'dining', createdAt: 1 }]);
+  await A.S.setSetting('lock', await LA.makeLock('1234'));
+  await B.S.load();
+  const on = LA.encryptOn('1234');
+  while (!A.db.getKey()) await new Promise(r => setTimeout(r, 1));   // A has read what it will encrypt
+  await B.S.saveTx({ id: 'tPlain', accountId: 'a1', type: 'expense', amount: 4000, date: '2026-09-02', merchant: 'DUMMY PRIVATE CLINIC', category: 'health', createdAt: 2 });   // B hasn't heard yet
+  await on;
+  const C = await shim.tab(), LC = await C.lock();   // the next start, unlocked with the PIN
+  await C.S.load();
+  const enc = C.S.S.kv.settings.lock.enc;
+  C.db.setKey(await LC.unwrapDek('1234', enc), enc.key); await C.S.load(); await LC.sealPhotos();
+  const plain = ['accounts', 'tx', 'recurring', 'kv'].flatMap(s => shim.rows(s).filter(r => !r.ct && r.key !== 'settings').map(r => `${s}:${r.id ?? r.key}`));
+  assert.deepEqual(plain, []);
+  assert.ok(C.S.S.tx.some(t => t.id === 'tPlain'), 'still readable once unlocked');
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

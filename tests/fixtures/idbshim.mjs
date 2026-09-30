@@ -21,6 +21,16 @@ function makeTx(data, conn) {
       get: k => op(() => structuredClone(st.map.get(k))),
       getAll: () => op(() => [...st.map.values()].map(v => structuredClone(v))),
       getAllKeys: () => op(() => [...st.map.keys()]),
+      openCursor: () => {   // walks a copy of the store; continue() moves to the next record
+        const r = {};
+        t.ops.push(() => {
+          const all = [...st.map.entries()];
+          let i = 0;
+          const step = () => { r.result = i < all.length ? { key: all[i][0], value: structuredClone(all[i][1]), continue: () => { i++; step(); } } : null; r.onsuccess?.({ target: r }); };
+          step();
+        });
+        return r;
+      },
     };
   };
   t.abort = () => { t.aborted = true; };
@@ -61,12 +71,13 @@ globalThis.indexedDB = indexedDB;
 export const rows = (store, name = 'tally') => [...(dbs[name]?.[store]?.map.values() || [])];
 export const reset = () => { for (const k in dbs) delete dbs[k]; for (const k in conns) delete conns[k]; };
 
-const JS = fileURLToPath(new URL('../../js/', import.meta.url)), FILES = ['state.js', 'db.js', 'io.js', 'engine.js', 'caticons.js'];
+const JS = fileURLToPath(new URL('../../js/', import.meta.url)), FILES = ['state.js', 'db.js', 'io.js', 'engine.js', 'caticons.js', 'lock.js', 'ui.js', 'i18n.js'];
 let n = 0;
 /** Another tab (or a restart): its own state.js and db.js, sharing the database and change notices. */
 export async function tab() {
   const dir = join(mkdtempSync(join(tmpdir(), 'tally-tab-')), `t${n++}`);
   mkdirSync(dir);
   for (const f of FILES) copyFileSync(join(JS, f), join(dir, f));
-  return { S: await import(pathToFileURL(join(dir, 'state.js')).href), db: await import(pathToFileURL(join(dir, 'db.js')).href) };
+  const at = f => import(pathToFileURL(join(dir, f)).href);
+  return { S: await at('state.js'), db: await at('db.js'), lock: () => at('lock.js') };   // the lock screen's code, on this tab's state
 }

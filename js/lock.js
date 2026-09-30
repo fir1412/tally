@@ -55,10 +55,12 @@ export async function encryptOn(code) {
   S.kv.settings = next;
   try { await sealPhotos(); return true; } catch { return false; }   // on from here; photos left over are sealed at the next unlock
 }
-/** Encrypt the photos still stored in the clear (turning encryption on was cut short: full disk, app closed). */
+/** Encrypt everything still stored in the clear: photos left over (turning encryption on was cut short: full disk, app
+ *  closed), and what another open tab saved while it was being turned on (it had no key yet). Not the settings. */
 export async function sealPhotos() {
   if (!encOn() || !db.getKey()) return;
-  for (const ids of chunks(await db.plainKeys('receipts'), 20)) await db.putMany('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
+  for (const s of ['accounts', 'tx', 'recurring', 'kv', 'receipts'])
+    for (const ids of chunks((await db.plainKeys(s)).filter(k => !(s === 'kv' && k === 'settings')), 20)) await db.putMany(s, (await Promise.all(ids.map(id => db.get(s, id)))).filter(Boolean));
 }
 /** Back to plain storage with the current PIN or password (it gets its hash back). Photos first, while the key is here. */
 export async function encryptOff(code) {
