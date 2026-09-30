@@ -1,7 +1,7 @@
 // Synthetic receipts only. Never paste real receipts here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
+import { parseReceipt, rowsOf, parseDate, parseItemLines, cleanName, dropSummaryLines } from '../js/parse.js';
 
 test('restaurant: service charge + SST added, rounding, payment lines ignored', () => {
   const r = parseReceipt(`
@@ -349,4 +349,11 @@ test('found by the synthetic bench: bank/wallet slips name the shop they paid, F
   assert.equal(x.total, 34090);
   const kg = parseReceipt('GROCER\nCARROT AUSTRALIA\n1.438 KG X 6.90/KG 9.92\nTOTAL 9.92');
   assert.deepEqual(kg.items.map(i => [i.name, i.cents]), [['CARROT AUSTRALIA', 992]]);
+});
+
+test('rowsOf: on a photo tilted 3°, a price at the far right stays on its own row, not the next item', () => {
+  const t = Math.tan(3 * Math.PI / 180);
+  const quad = (text, x, y, w, h = 20) => ({ text, mean: 0.9, box: [[x, y + t * x], [x + w, y + t * (x + w)], [x + w, y + h + t * (x + w)], [x, y + h + t * x]] });
+  const rows = rowsOf([quad('NASI LEMAK AYAM', 0, 100, 300), quad('12.90', 560, 100, 80), quad('TEH TARIK', 0, 128, 200), quad('3.20', 560, 128, 70), quad('TOTAL', 0, 156, 120), quad('16.10', 560, 156, 80)]);
+  assert.deepEqual(rows.map(r => r.text), ['NASI LEMAK AYAM 12.90', 'TEH TARIK 3.20', 'TOTAL 16.10']);
 });

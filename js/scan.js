@@ -1,6 +1,6 @@
 // Reading a receipt photo on the phone: PaddleOCR (vendored, ~40 MB, loaded on first scan and cached offline),
 // then the Malaysian receipt parser. Nothing is uploaded.
-import { parseReceipt } from './parse.js';
+import { parseReceipt, rowsOf } from './parse.js';
 import { imageInfo, LIMITS } from './io.js';
 
 // OCR runs in a worker (js/ocr-worker.js): the screen stays responsive, and the page keeps a strict CSP.
@@ -79,19 +79,8 @@ function straightened(src, turns, angle) {
   return c;
 }
 const shrink = (src, maxSide) => { const s = Math.min(1, maxSide / Math.max(src.width, src.height)), c = document.createElement('canvas'); c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c; };
-/** OCR boxes → rows with the lowest confidence of the boxes in each row (same joining as joinRows). */
-function rows(boxes) {
-  const b = boxes.map(({ text, box, mean }) => {
-    const ys = box.map(p => p[1]), top = Math.min(...ys), bottom = Math.max(...ys);
-    return { text, mean, x: Math.min(...box.map(p => p[0])), y: (top + bottom) / 2, h: bottom - top };
-  }).sort((a, c) => a.y - c.y);
-  const out = [];
-  for (const w of b) {
-    const r = out.at(-1);
-    if (r && Math.abs(w.y - r.y) < Math.min(w.h, r.h) / 2) r.words.push(w); else out.push({ y: w.y, h: w.h, words: [w] });
-  }
-  return out.map(r => { const ws = r.words.sort((a, c) => a.x - c.x); return { text: ws.map(w => w.text).join(' '), conf: Math.min(...ws.map(w => w.mean ?? 1)), y: r.y, h: Math.max(...ws.map(w => w.h)) }; });
-}
+/** OCR boxes → rows with the lowest confidence of the boxes in each row: parse.js's own, so the benches read like the app. */
+const rows = rowsOf;
 
 /**
  * Photo → {receipt, text, photo, ms, turns, angle, tries}. receipt is parseReceipt's result, with item.flag set when the item is

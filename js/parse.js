@@ -40,20 +40,28 @@ const DATE_WORDS = new RegExp(String.raw`(?<!\d)(\d{1,2})\s*[-/ ]?\s*(${MON})[a-
 const monthOf = s => MON.split('|').indexOf(s.slice(0, 3).toLowerCase()) + 1;
 
 // OCR boxes [{text, box: [[x,y] x4]}] -> text with one receipt row per line.
-// Boxes whose vertical centres are within half a line height join left-to-right ("Nasi Lemak" + "12.90").
-export function joinRows(boxes) {
-  const b = boxes.map(({ text, box }) => {
-    const ys = box.map(p => p[1]), top = Math.min(...ys), bottom = Math.max(...ys);
-    return { text, x: Math.min(...box.map(p => p[0])), y: (top + bottom) / 2, h: bottom - top };
-  }).sort((a, c) => a.y - c.y);
+// Boxes whose vertical centres are within half a line height join left-to-right ("Nasi Lemak" + "12.90"). On a slightly
+// tilted photo the rows slope, so centres are measured along the text's own slope (the median of the wide boxes): a
+// price at the far right then stays on its item's row instead of the next one (synthetic bench: 2-3° tilts lost half
+// their items). Under half a degree, nothing changes.
+/** OCR boxes → rows, top to bottom: {text, conf (the row's least sure word), y, h}. The app's scan and joinRows share it. */
+export function rowsOf(boxes) {
+  const run = q => ({ w: Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]), h: Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]) });
+  const slopes = boxes.map(b => b.box).filter(q => { const e = run(q); return e.w > 2.5 * e.h && e.w > 40; }).map(q => (q[1][1] - q[0][1]) / ((q[1][0] - q[0][0]) || 1)).sort((a, c) => a - c);
+  const med = slopes.length >= 3 ? slopes[slopes.length >> 1] : 0, slope = Math.abs(med) > 0.0087 ? med : 0;
+  const b = boxes.map(({ text, box, mean }) => {
+    const ys = box.map(p => p[1]), xs = box.map(p => p[0]), top = Math.min(...ys), bottom = Math.max(...ys), x = Math.min(...xs), y = (top + bottom) / 2;
+    return { text, mean, x, y, v: y - slope * (x + Math.max(...xs)) / 2, h: bottom - top };
+  }).sort((a, c) => a.v - c.v);
   const rows = [];
   for (const w of b) {
     const row = rows.at(-1);
-    if (row && Math.abs(w.y - row.y) < Math.min(w.h, row.h) / 2) row.words.push(w);
-    else rows.push({ y: w.y, h: w.h, words: [w] });
+    if (row && Math.abs(w.v - row.v) < Math.min(w.h, row.h) / 2) row.words.push(w);
+    else rows.push({ v: w.v, h: w.h, words: [w] });
   }
-  return rows.map(r => r.words.sort((a, c) => a.x - c.x).map(w => w.text).join(' ')).join('\n');
+  return rows.map(r => { const ws = r.words.sort((a, c) => a.x - c.x); return { text: ws.map(w => w.text).join(' '), conf: Math.min(...ws.map(w => w.mean ?? 1)), y: ws.reduce((s, w) => s + w.y, 0) / ws.length, h: Math.max(...ws.map(w => w.h)) }; });
 }
+export const joinRows = boxes => rowsOf(boxes).map(r => r.text).join('\n');
 
 export function toCents(m) {
   const cents = parseInt(m[2], 10) * 100 + parseInt(m[3], 10);
