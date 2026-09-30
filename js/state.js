@@ -222,17 +222,29 @@ export async function bringBackCategory(id) {
 // Records are written to the database first and only then shown: a failed save never leaves the screen ahead of the data.
 /** Save a transaction. Saving the same id twice replaces it, so a double tap can never add it twice. */
 export async function saveTx(tx) {
+  const left = leftJoint([tx]);
   tx = stamp(tx);
   await db.put('tx', tx);
+  await markGone(left);
   const i = S.tx.findIndex(t => t.id === tx.id);
   S.tx = i >= 0 ? S.tx.map((t, k) => (k === i ? tx : t)) : [...S.tx, tx];   // a new array: results kept for the old one (cached) are dropped
   return tx;
 }
 export async function saveTxs(list) {
+  const left = leftJoint(list);
   list = list.map(stamp);
   await db.putMany('tx', list);
   const ids = new Set(list.map(t => t.id));
   S.tx = [...S.tx.filter(t => !ids.has(t.id)), ...list];
+  await markGone(left);
+}
+/** Rows a save moves off every joint account (to a personal one, or a split bill a friend paid into You owe): the
+ *  partner's copy must go as if deleted, or it stays on their joint account for good. → their ids. */
+function leftJoint(list) {
+  const j = jointIds(), on = t => j.has(t.accountId) || j.has(t.toAccountId);
+  if (!j.size) return [];
+  const was = new Map(S.tx.map(t => [t.id, t]));
+  return list.filter(t => !on(t) && was.has(t.id) && on(was.get(t.id))).map(t => t.id);
 }
 /** Delete, returning an undo function. */
 export async function deleteTx(id) {
@@ -331,9 +343,9 @@ export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, 
   if (edit) {
     // Only rows this write deletes and doesn't put back: a row put back next to its own marker was deleted by the next swap.
     const j = jointIds(), back = new Set(tx.map(t => t.id)), dead = new Set((del.tx || []).filter(id => !back.has(id)));
-    const joint = mark ? S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId))) : [];
+    const joint = mark ? [...S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId))).map(t => t.id), ...leftJoint(tx)] : [];
     tx = tx.map(stamp);
-    if (joint.length) kv = { ...kv, jointGone: withGone(joint.map(t => t.id)) };
+    if (joint.length) kv = { ...kv, jointGone: withGone(joint) };
   }
   await db.writeAtomic({ del, put: { accounts, tx, recurring, kv: kvRows(kv) } });
   await load();

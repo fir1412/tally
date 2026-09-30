@@ -41,3 +41,22 @@ test("a friend's debt comes from a file only on the row that moves it through Ow
   const open = E.openShares(back.tx), who = l => l.map(f => `${f.name}:${f.sen}`);
   assert.deepEqual([who(open.owedMe), who(open.iOwe)], [['Ali:500'], ['Siti:500']]);
 });
+
+test('an entry moved off the joint account (a split bill a friend paid) goes from the partner\'s phone too', async () => {
+  const jt = { id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint', opening: 100000, createdAt: 1 };
+  disk.clear(); await St.load();
+  await St.replaceAll({ accounts: [jt, { id: 'mine', name: 'Mine', kind: 'bank', opening: 0, createdAt: 1 }], tx: [], recurring: [], kv: { settings: { myName: 'Aina', onboarded: true } } });
+  await St.saveTx({ id: 'bill', type: 'expense', date: '2026-09-15', accountId: 'jt', category: 'dining', merchant: 'Kedai', amount: 9000, source: 'quick', createdAt: 1 });
+  await St.saveTx({ id: 'e1', type: 'expense', date: '2026-09-16', accountId: 'jt', category: 'dining', amount: 500, source: 'quick', createdAt: 1 });
+  const partner = { accounts: [jt], tx: S.tx.map(t => ({ ...t, spouse: true })), recurring: [], kv: { settings: { myName: 'Wei' } } };
+  await saveSplit({ tx: S.tx.find(x => x.id === 'bill'), people: [ME, 'Ali'], who: [[]], paidBy: 'Ali', today: '2026-10-01' });
+  await St.saveTx({ ...S.tx.find(x => x.id === 'e1'), accountId: 'mine' });   // and an ordinary edit to a personal account
+  const m = IO.mergeJoint(partner, IO.readBackup(IO.makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, 'Aina')));
+  assert.deepEqual(m.drop.sort(), ['bill', 'e1']);
+  const theirs = partner.tx.filter(t => !m.drop.includes(t.id)).concat(m.tx);
+  assert.equal(E.balances(partner.accounts, theirs).by.jt, E.balances(S.accounts, S.tx).by.jt, 'both phones show the same joint balance');
+  // Put back on the joint account later, it goes to the partner again.
+  await St.saveTx({ ...S.tx.find(x => x.id === 'e1'), accountId: 'jt' });
+  const again = IO.mergeJoint({ ...partner, tx: theirs }, IO.readBackup(IO.makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, 'Aina')));
+  assert.ok(again.tx.some(t => t.id === 'e1'));
+});
