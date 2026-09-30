@@ -177,7 +177,8 @@ export async function deleteTxs(ids) {
   return async () => saveTxs(old);
 }
 /** Joint records deleted here (entries, bills, accounts): the share file carries these markers, so they stay deleted there. */
-const markGone = ids => (ids.length ? setKv('jointGone', Object.fromEntries([...Object.entries(S.kv.jointGone || {}), ...ids.map(id => [id, Date.now()])].slice(-1000))) : undefined);
+const withGone = ids => Object.fromEntries([...Object.entries(S.kv.jointGone || {}), ...ids.map(id => [id, Date.now()])].slice(-1000));
+const markGone = ids => (ids.length ? setKv('jointGone', withGone(ids)) : undefined);
 /** Remember the user's category for an item (and optionally for the shop). */
 export async function learn(itemName, category, merchant = null) {
   const k = itemKey(itemName);
@@ -251,8 +252,14 @@ export async function addAll({ accounts, tx, recurring, kv }) {
   } });
   await load();
 }
-/** Write records as given, overwriting (a spouse's newer joint edits), all or nothing. */
-export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {} }) {
+/** Write records as given, overwriting (a spouse's newer joint edits), all or nothing. `edit`: the user's own change
+ *  (an import and its Undo), stamped and with joint delete markers like saveTxs and deleteTxs, in the same write. */
+export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {}, edit = false }) {
+  if (edit) {
+    const j = jointIds(), dead = new Set(del.tx || []), joint = S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId)));
+    tx = tx.map(stamp);
+    if (joint.length) kv = { ...kv, jointGone: withGone(joint.map(t => t.id)) };
+  }
   await db.writeAtomic({ del, put: { accounts, tx, recurring, kv: kvRows(kv) } });
   await load();
 }

@@ -471,13 +471,13 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   if (overCapAfter({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, customCats: S.kv.customCats }, { accounts: stagedAccounts, tx: save, customCats: stagedKv.customCats }, { tx: gone, accounts: empty.map(a => a.id) })) {
     await deletePhotos(photoIds); throw new Error(t("Adding this would make Tally's data more than a backup can restore, so nothing was added."));
   }
-  try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone, accounts: empty.map(a => a.id) }, kv: stagedKv }); }
+  try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone, accounts: empty.map(a => a.id) }, kv: stagedKv, edit: true }); }   // joint rows sync like any edit
   catch (e) { await deletePhotos(photoIds); throw e; }
   if (first && !tourLater) afterSetup();
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length + relink.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length + relink.length)}` : '')
     + (reloads.length ? ` · ${t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads.length)}` : ''), { undo: !save.length ? null : async () => {
-    await putAll({ accounts: [...shifted, ...empty], tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) } });
+    await putAll({ accounts: [...shifted, ...empty], tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) }, edit: true });
     await deletePhotos(photoIds);
     await undoMore(); render();
   } });

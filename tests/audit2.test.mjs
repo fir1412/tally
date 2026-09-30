@@ -189,6 +189,26 @@ test("a deleted joint bill or joint account stays deleted on both phones (the pa
   assert.match(readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8').match(/async function importJoint[\s\S]*?\n}\n/)[0], /dropBills[\s\S]*dropAccounts|dropAccounts[\s\S]*dropBills/);
 });
 
+test("an import's changes to joint entries sync like any edit: stamped, and its deletes marked", async () => {
+  const IO = await import('../js/io.js'), { readFileSync } = await import('node:fs');
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  for (const a of [{ id: 'pA', name: 'Maybank', kind: 'bank', opening: 0, createdAt: 0 }, { id: 'jx', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 }]) await A.S.saveAccount(a);
+  const pj1 = { id: 'pj1', date: '2026-03-10', type: 'income', amount: 30000, accountId: 'jx', category: 'income', merchant: 'Dummy deposit', updatedAt: 5, spouse: true };
+  await A.S.putAll({ tx: [pj1] });   // came from the partner's file earlier
+  // The import pairs a bank line with that joint income (a transfer), and adds a row to the joint account.
+  await A.S.putAll({ tx: [{ id: 'i_x1', date: '2026-03-10', type: 'transfer', amount: 30000, accountId: 'pA', toAccountId: 'jx', merchant: 'Transfer TO Dummy' }, { id: 'i_g1', date: '2026-03-12', type: 'expense', amount: 4200, accountId: 'jx', merchant: 'DUMMY GROCER' }], del: { tx: ['pj1'] }, edit: true });
+  assert.ok(A.S.S.kv.jointGone?.pj1, 'the deleted joint income has a marker');
+  assert.ok(A.S.S.tx.every(t => t.updatedAt > 0), 'every row the import wrote is stamped');
+  // The partner's unchanged file no longer brings pj1 back, and the partner takes the imported joint row.
+  const partner = { accounts: [{ id: 'jx', name: 'Joint', kind: 'bank', scope: 'joint' }], tx: [pj1], recurring: [], kv: {} };
+  assert.deepEqual(IO.mergeJoint({ accounts: A.S.S.accounts, tx: A.S.S.tx, recurring: [], kv: A.S.S.kv }, IO.readBackup(IO.makeJointShare(partner, 'P'))).tx.map(t => t.id), []);
+  const there = IO.mergeJoint(partner, IO.readBackup(IO.makeJointShare({ accounts: A.S.S.accounts, tx: A.S.S.tx, recurring: [], kv: A.S.S.kv }, 'A')));
+  assert.deepEqual([there.tx.map(t => t.id).sort(), there.drop], [['i_g1', 'i_x1'], ['pj1']]);
+  const commit = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8').match(/async function commitImport[\s\S]*?\n}\n/)[0];
+  assert.equal((commit.match(/edit: true/g) || []).length, 2, 'the import and its Undo both write as edits');
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];
