@@ -357,3 +357,8 @@ test('rowsOf: on a photo tilted 3°, a price at the far right stays on its own r
   const rows = rowsOf([quad('NASI LEMAK AYAM', 0, 100, 300), quad('12.90', 560, 100, 80), quad('TEH TARIK', 0, 128, 200), quad('3.20', 560, 128, 70), quad('TOTAL', 0, 156, 120), quad('16.10', 560, 156, 80)]);
   assert.deepEqual(rows.map(r => r.text), ['NASI LEMAK AYAM 12.90', 'TEH TARIK 3.20', 'TOTAL 16.10']);
 });
+
+test('a petrol line: the litres and price per litre are the quantity, the fuel above is the name', () => {
+  const r = parseReceipt('CALTEX IOI\nPump:12\nRON95 TECHRON\n26.615L@ RM2.05/L 54.56\nWINDSCREEN WASHER 7.30\nTOTAL RM 61.86');
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['RON95 TECHRON', 5456], ['WINDSCREEN WASHER', 730]]);
+});

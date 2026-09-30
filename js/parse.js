@@ -9,7 +9,7 @@ import { calcAmount } from './engine.js';
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
 const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
 const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;   // "2 x 10.90", "1ea@5.90"
-const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit))?\s*/i;   // and weighed: "1.438 KG X 6.90/KG"
+const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g|l|ltrs?|litres?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit|l|ltr|litre))?\s*/i;   // weighed "1.438 KG X 6.90/KG", pumped "26.615L@ RM2.05/L"
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
 const TOTAL = /[o0]ta[l1i]?(?![a-z])|t[o0]t[ai][l1](?![a-z])|t[o0]ta[l1](?=with|incl|[il1]ncl|amt|amount|sales|rm|myr)|jumlah|amount\s*due|\bnett?\b|grand/i;
