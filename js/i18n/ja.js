@@ -1388,4 +1388,6 @@ export default {
   "Your Tally data is kept only in this browser's storage on this phone. Uninstalling Tally or clearing the browser's data for Tally deletes it; a backup file keeps it safe.": "Tally のデータは、このスマホのこのブラウザのストレージにだけ保存されています。Tally をアンインストールするか、ブラウザの Tally のデータを消去すると消えます。バックアップファイルがあれば安心です。",
   "Made in Malaysia by {0}, one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell.": "マレーシアの個人開発者 {0} がつくっています。サーバー代がかからないので無料です。Tally はお金のデータを集めないので、売るものもありません。",
   "Or email the developer ({0}):": "または開発者（{0}）にメール：",
+  "Your entries are encrypted. Some photos are not yet: Tally finishes them the next time it opens.": "記録は暗号化されました。一部の写真はまだです。次に Tally を開いたときに仕上げます。",
+  "{0} rows are for accounts after the first 20 and were left out. Import them from a file with fewer accounts.": "{0} 行は最初の 20 口座より後の口座のもので、取り込みませんでした。口座の少ないファイルから取り込んでください。",
 };

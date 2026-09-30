@@ -2,7 +2,7 @@
 // Layouts differ by bank, but every statement line has a date, a description, an amount and usually a running
 // balance. The change in balance says whether money came in or went out, which works for any column layout;
 // explicit markers (trailing "-", DR/CR, +/−) and words ("SALARY", "REFUND") cover lines without a balance.
-import { validIso, categorize, incomeCategory } from './engine.js';
+import { validIso, categorize, incomeCategory, MAX_SEN } from './engine.js';
 import { cleanDesc } from './io.js';
 
 // Banks and e-wallets, matched on the statement text. Order matters: specific names before generic ones.
@@ -159,7 +159,7 @@ export function parseStatement(lines) {
     let y = r.dt.y ?? end?.y ?? new Date().getFullYear();
     if (r.dt.y == null && end && r.dt.m > end.m) y -= 1;
     const date = `${y}-${String(r.dt.m).padStart(2, '0')}-${String(r.dt.d).padStart(2, '0')}`;
-    if (validIso(date)) out.push({ date, ...(r.time ? { time: r.time } : {}), desc: r.desc.replace(/\s+/g, ' ').slice(0, 120), amount: sign * mv.sen, ...(balance != null ? { balance } : {}) });
+    if (validIso(date) && mv.sen <= MAX_SEN) out.push({ date, ...(r.time ? { time: r.time } : {}), desc: r.desc.replace(/\s+/g, ' ').slice(0, 120), amount: sign * mv.sen, ...(balance != null ? { balance } : {}) });
   }
   if (closing == null && out.at(-1)?.balance != null) closing = out.at(-1).balance;
   if (opening == null && out[0]?.balance != null) opening = out[0].balance - out[0].amount;

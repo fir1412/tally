@@ -40,7 +40,8 @@ export async function wrapDek(dek, code) {
 export const unwrapDek = async (code, enc) => crypto.subtle.unwrapKey('raw', unb64(enc.key), await kekOf(code, enc.salt, enc.iter), { name: 'AES-GCM', iv: unb64(enc.iv) }, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 export const encOn = () => !!settings().lock?.enc;
 const chunks = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
-/** Encrypt everything on this phone with the current PIN or password (checked first). Photos go a few at a time. */
+/** Encrypt everything on this phone with the current PIN or password (checked first). Photos go a few at a time.
+ *  Throws when nothing changed; false when it is on but some photos are still to do (sealPhotos, at the next unlock). */
 const encLock = ({ hash, salt, iter, ...rest }, enc) => ({ ...rest, enc });   // the fast PIN hash goes: the unwrap checks
 export async function encryptOn(code) {
   const lock = settings().lock;
@@ -48,11 +49,16 @@ export async function encryptOn(code) {
   const dek = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']), enc = await wrapDek(dek, code);
   const [accounts, tx, recurring, kv] = await Promise.all(['accounts', 'tx', 'recurring', 'kv'].map(s => db.all(s)));
   const next = { ...settings(), lock: encLock(lock, enc) };
-  db.setKey(dek); db.expectSealed(true);
+  db.setKey(dek, enc.key); db.expectSealed(true);
   try { await db.writeAtomic({ put: { accounts, tx, recurring, kv: [...kv.filter(r => r.key !== 'settings'), { key: 'settings', value: next }] } }); }
   catch (e) { db.setKey(null); db.expectSealed(false); throw e; }
   S.kv.settings = next;
-  for (const ids of chunks(await db.keys('receipts'), 20)) await db.putMany('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
+  try { await sealPhotos(); return true; } catch { return false; }   // on from here; photos left over are sealed at the next unlock
+}
+/** Encrypt the photos still stored in the clear (turning encryption on was cut short: full disk, app closed). */
+export async function sealPhotos() {
+  if (!encOn() || !db.getKey()) return;
+  for (const ids of chunks(await db.plainKeys('receipts'), 20)) await db.putMany('receipts', (await Promise.all(ids.map(id => db.get('receipts', id)))).filter(Boolean));
 }
 /** Back to plain storage with the current PIN or password (it gets its hash back). Photos first, while the key is here. */
 export async function encryptOff(code) {
@@ -63,7 +69,7 @@ export async function encryptOff(code) {
   const next = { ...settings(), lock: await makeLock(code, old.cred, old.kind) };
   db.setKey(null); db.expectSealed(false);
   try { await db.writeAtomic({ put: { accounts, tx, recurring, kv: [...kv.filter(r => r.key !== 'settings'), { key: 'settings', value: next }] } }); }
-  catch (e) { db.setKey(key); db.expectSealed(true); throw e; }
+  catch (e) { db.setKey(key, old.enc.key); db.expectSealed(true); throw e; }
   S.kv.settings = next;
 }
 /** Is this the PIN or password? Encrypted: only if it unwraps the data key (kept for the lock screen: `opened`). */
@@ -171,12 +177,15 @@ export function gate() {
         <button class="btn ${confirm ? 'danger' : 'ghost danger'} wide" data-l="${confirm ? 'erase-yes' : 'erase'}">${esc(t("Erase Tally's data"))}</button>
         <button class="btn ghost wide" data-l="back">${esc(t('Back'))}</button></div>`;
     };
-    const guard = pinGuard(pin => checkPin(pin, lock), st);
+    const guard = pinGuard(pin => checkPin(pin, settings().lock), st);
     const tryPin = async () => {
+      const [f, left] = tries.get();   // another tab's wrong tries count here too: a second tab can't reset the wait
+      if (f > st.fails) { st.fails = f; st.until = Math.max(st.until, performance.now() + Math.min(left, 300_000)); }
       const code = el.querySelector('#lock-pin').value, r = await guard(code);
       if (r === 'ok') {
-        if (!lock.enc) return done();
-        db.setKey(opened); opened = null; return done();
+        const now = settings().lock;
+        if (!now?.enc) return done();
+        db.setKey(opened, now.enc.key); opened = null; return done();
       }
       if (r === 'wait') { const s = Math.ceil((st.until - performance.now()) / 1000); return err(s === 1 ? t('Too many tries. Wait 1 second.') : t('Too many tries. Wait {0} seconds.', s)); }
       if (r !== 'wrong') return;
@@ -237,6 +246,7 @@ export async function lockSheet(after) {
     if (encOn() && !key) return err(t('Could not unlock the data. Close Tally, open it again and retry.'));
     const made = await makeLock(p1, cred, kind), next = encOn() ? encLock(made, await wrapDek(key, p1)) : made;
     await setSetting('lock', next);
+    if (next.enc) db.setKey(key, next.enc.key);   // same data key, wrapped anew
     closeSheet(); after?.();
     const pw = kind === 'pass';
     toast(el.querySelector('#pin-bio')?.checked && !cred ? (pw ? t('Password lock on. Fingerprint or face could not be set up; use the password.') : t('PIN lock on. Fingerprint or face could not be set up; use the PIN.')) : pw ? t('Tally is locked with your password') : t('Tally is locked with your PIN'), { k: 'good', icon: 'check' });

@@ -13,10 +13,12 @@ let mem = null; // fallback: {store: {id: obj}}
 // {id or key, iv, ct}: AES-GCM of the record under a random data key that exists only in memory after unlocking.
 // Receipt photos are sealed too (their bytes after a JSON header). Old plain records still read, so turning it on or
 // off can move the photos a few at a time. IndexedDB only: the localStorage fallback can't hold the bytes.
-let dek = null, sealed = false;
-/** The data key for this session (null: none). */
-export const setKey = k => { dek = k; };
+let dek = null, sealed = false, dekFor = null;
+/** The data key for this session (null: none), and the wrapped key (settings.lock.enc.key) it was unwrapped from. */
+export const setKey = (k, wrapped = null) => { dek = k; dekFor = k ? wrapped : null; };
 export const getKey = () => dek;
+/** Is the key in memory the one these settings wrap? Another tab may have turned encryption off, or on with a new key. */
+export const keyMatches = enc => !!dek && !!enc && dekFor === enc.key;
 /** Whether records must be sealed: then a write without the key is refused rather than stored in the clear. */
 export const expectSealed = v => { sealed = !!v; };
 const plainRec = (store, obj) => store === 'kv' && obj?.key === 'settings';
@@ -180,6 +182,15 @@ export async function kvKeys(prefix) {
 export async function get(store, key) {
   if (!idb) return mem[store][key] ?? null;
   return (await unseal(await tx(store, 'readonly', os => reqP(os.get(key))))) ?? null;
+}
+/** Keys of the records stored in the clear (a cursor: the photos are read one at a time). */
+export async function plainKeys(store) {
+  if (!idb) return [];
+  return tx(store, 'readonly', os => new Promise((res, rej) => {
+    const out = [], r = os.openCursor();
+    r.onsuccess = () => { const c = r.result; if (!c) return res(out); if (!c.value?.ct) out.push(c.key); c.continue(); };
+    r.onerror = () => rej(r.error);
+  }));
 }
 /** Write records exactly as given (turning encryption on or off moves them a few at a time). */
 export async function putRaw(store, recs) {

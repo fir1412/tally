@@ -153,11 +153,17 @@ export function sheetRows(xml, shared = [], { dates = new Set(), base1904 = fals
     rows.push(Array.from(row, x => x ?? ''));
     return rows.length < LIMITS.rows;
   });
-  // A date merged down over several purchases: each row under it gets the date.
+  // A date merged down over several purchases: each row under it gets the date. At most 1000 merges, each ref once
+  // (a crafted file repeating one tall merge would otherwise walk every row thousands of times).
+  const at = new Map(nums.map((v, i) => [v, i])), done = new Set();
   eachTag(xml, 'mergeCell', a => {
-    const m = a.match(/ref="([A-Z]{1,3})(\d+):([A-Z]{1,3})(\d+)"/); if (!m || m[1] !== m[3]) return;
-    const c = colIndex(m[1]), top = nums.indexOf(+m[2]); if (top < 0) return;
-    for (let i = top + 1; i < rows.length && nums[i] <= +m[4]; i++) if (!String(rows[i][c] ?? '').trim()) rows[i][c] = rows[top][c];
+    const m = a.match(/ref="([A-Z]{1,3})(\d+):([A-Z]{1,3})(\d+)"/);
+    if (m && m[1] === m[3] && !done.has(m[0])) {
+      done.add(m[0]);
+      const c = colIndex(m[1]), top = at.get(+m[2]);
+      if (top != null) for (let i = top + 1; i < rows.length && nums[i] <= +m[4]; i++) if (!String(rows[i][c] ?? '').trim()) rows[i][c] = rows[top][c];
+    }
+    return done.size < 1000;
   });
   return rows.filter(r => r.some(x => String(x).trim() !== ''));
 }
@@ -195,8 +201,8 @@ export async function xlsxToRows(buf) {
   const all = (await xlsxSheets(buf)).map(s => ({ ...s, rows: reshape(s.rows, s.name) }));
   const ledger = rows => { const h = headerRow(rows), m = guessMapping((rows[h] || []).map(x => cleanText(x, 40))); return m.date != null && (m.amount ?? m.debit ?? m.credit) != null ? { h, m } : null; };
   const sig = s => { const l = ledger(s.rows); if (!l) return null; const k = l.m.amount ?? l.m.debit ?? l.m.credit; return s.rows.slice(l.h + 1).map(r => `${fileDate(r[l.m.date]) || r[l.m.date]}|${fileAmount(r[k]) ?? ''}|${fileAmount(r[l.m.credit]) ?? ''}`).filter(x => !/^\|/.test(x)); };
-  const sigs = all.map(sig);
-  const sheets = all.filter((s, i) => !sigs[i] || !sigs[i].length || !sigs.some((o, j) => j !== i && o && o.length > sigs[i].length && sigs[i].every(x => o.includes(x))));
+  const sigs = all.map(sig), sets = sigs.map(s => s && new Set(s));   // Sets: tabs of thousands of rows compare at once
+  const sheets = all.filter((s, i) => !sigs[i] || !sigs[i].length || !sigs.some((o, j) => j !== i && o && o.length > sigs[i].length && sigs[i].every(x => sets[j].has(x))));
   if (!sheets.length) throw new Error('no sheet');
   const headOf = rows => { const h = headerRow(rows); return Object.keys(guessMapping(rows[h] || [])).length >= 2 ? h : -1; };
   const first = sheets.find(s => ledger(s.rows)) || sheets.find(s => headOf(s.rows) >= 0) || sheets.find(s => s.rows.length);
@@ -441,6 +447,8 @@ const CAT_WORDS = [
 ];
 /** Excel stores computed cells as long doubles ("12.720000000000001"): round those to sen, read the rest as typed. */
 export const fileAmount = v => { const s = cleanText(v, 40).replace(/^(-?) ?(MYR|\$) ?/i, '$1'); return /^-?\d+\.\d{3,}$/.test(s) ? Math.round(parseFloat(s) * 100) : parseAmount(s); };
+/** o[k] only when o has k itself: a name from a file ("constructor") never reaches Object's own properties. */
+export const ownKey = (o, k) => (o && Object.hasOwn(o, k) ? o[k] : undefined);
 /** Short stable hash (FNV-1a) → base36. */
 export const hash = str => { let h = 0x811c9dc5; for (const ch of String(str)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
 /**
@@ -448,12 +456,15 @@ export const hash = str => { let h = 0x811c9dc5; for (const ch of String(str)) {
  * importing the same file twice adds nothing, and two identical purchases on one day both stay.
  */
 export function importIds(txs, prefix) {
-  const seen = new Map();
+  const seen = new Map(), used = new Set();
   for (const t of txs) {
     const key = `${t.date}|${t.type}|${t.amount}|${t.merchant || ''}|${t.accountId}`;
-    const n = (seen.get(key) || 0) + 1;
+    let n = (seen.get(key) || 0) + 1;
+    // 64 bits (two FNV-1a runs): 32 alone collide by chance in big files. Never the same id twice in one file.
+    while (used.has(`${prefix}_${hash(key)}${hash(`#${key}`)}_${n}`)) n++;
     seen.set(key, n);
-    t.id = `${prefix}_${hash(key)}_${n}`;
+    t.id = `${prefix}_${hash(key)}${hash(`#${key}`)}_${n}`;
+    used.add(t.id);
   }
   return txs;
 }
@@ -493,7 +504,8 @@ export function balanceSigns(rows, map, amtOf) {
  * whose other side isn't in the file, kept as money in or out), adjustments, opening}.
  */
 export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, customCats = [], source = 'import', idPrefix = 'i', now = Date.now(), preset = null, header = [] } = {}) {
-  const txs = [], skipped = [], legs = [], opening = {}, adjAt = {}, firstAt = {};
+  // Keyed by account names from the file: no prototype, so "constructor" or "__proto__" is just a name.
+  const txs = [], skipped = [], legs = [], opening = Object.create(null), adjAt = Object.create(null), firstAt = Object.create(null);
   let adjustments = 0;
   if (rows.length > LIMITS.rows) throw new Error(`This file has more than ${LIMITS.rows} rows. Split it into smaller files and import each one.`);
   // An app that signs its amounts: a file with only money in (a refund, a salary) is still income, not spending.
@@ -541,13 +553,15 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     { const k = accName.toLowerCase(); if (!firstAt[k] || date < firstAt[k]) firstAt[k] = date; }
     const fromMerchant = map.merchant != null && !!cleanText(get('merchant'));   // an empty Payee falls back to the note
     const merchant = cleanDesc(fromMerchant ? get('merchant') : get('note')).slice(0, 80).trim(), note = fromMerchant ? cleanText(get('note'), 200) : '';
-    const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accounts[accName.toLowerCase()] || accountId;
-    if (/^(opening balance|balance b\/?f|brought forward|b\/f\b|baki (awal|dibawa|b\/?b|b\/?f|permulaan|mula)|期初|上期结余|上期結餘)/i.test(label)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + sign * amt; (adjAt[k] ||= []).push(''); adjustments++; return; }
+    const time = z?.time || timeOf(get('date')) || timeOf(get('time'), true), acc = accName && Object.keys(accounts).length ? ownKey(accounts, accName.toLowerCase()) : accountId;
+    if (!acc) return skipped.push({ row: n + 2, why: 'account' });   // an account past the ones planned (20): never merged into another
+    // An opening row is money held: its own sign (a plain 500.00 is +500), not the direction spending goes.
+    if (/^(opening balance|balance b\/?f|brought forward|b\/f\b|baki (awal|dibawa|b\/?b|b\/?f|permulaan|mula)|期初|上期结余|上期結餘)/i.test(label)) { const k = accName.toLowerCase(); opening[k] = (opening[k] || 0) + (dc ? sign : (fileAmount(get('amount')) ?? 0) < 0 ? -1 : 1) * amt; (adjAt[k] ||= []).push(''); adjustments++; return; }
     // A Type column that says Transfer: the words say which way ("to TNG" out, "from Maybank" in), and the other half pairs up.
-    const typedTr = !preset && TRANSFER_WORD.test(tword) && (() => { const txt = `${get('merchant')} ${get('note')}`.slice(0, 300), other = txt.match(/\b(?:to|ke|kepada|from|dari|daripada)\s+(.+)$/i)?.[1]; return { dir: sign < 0 && (dc || signed) ? 'out' : /\b(from|dari|daripada|received|terima)\b/i.test(txt) ? 'in' : 'out', to: other && accounts[cleanText(other, 40).toLowerCase()] ? cleanText(other, 40) : null }; })();
+    const typedTr = !preset && TRANSFER_WORD.test(tword) && (() => { const txt = `${get('merchant')} ${get('note')}`.slice(0, 300), other = txt.match(/\b(?:to|ke|kepada|from|dari|daripada)\s+(.+)$/i)?.[1]; return { dir: sign < 0 && (dc || signed) ? 'out' : /\b(from|dari|daripada|received|terima)\b/i.test(txt) ? 'in' : 'out', to: other && ownKey(accounts, cleanText(other, 40).toLowerCase()) ? cleanText(other, 40) : null }; })();
     const tr = preset?.transfer?.(cx) || typedTr;
-    if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? accounts[cleanText(tr.to, 40).toLowerCase()] : null, merchant, note }); return; }
-    const rawCat = preset?.category ? preset.category(cx) : get('category'), pc = preset?.cats?.[cleanText(rawCat, 60).toLowerCase()];
+    if (tr) { legs.push({ n, date, time, amt, acc, dir: tr.dir || (sign < 0 ? 'out' : 'in'), to: tr.to ? ownKey(accounts, cleanText(tr.to, 40).toLowerCase()) : null, merchant, note }); return; }
+    const rawCat = preset?.category ? preset.category(cx) : get('category'), pc = ownKey(preset?.cats, cleanText(rawCat, 60).toLowerCase());
     let category = rawCat ? (!Object.hasOwn(catMap, cleanText(rawCat, 60)) && pc) || mapCategory(rawCat, catMap, merchant, customCats) : categorize(merchant, merchant);
     // "Food" in another app at KFC or a mamak is a meal, not groceries (a category actually named Groceries stays).
     if (category === 'groceries' && !CAT_WORDS.find(([c]) => c === 'groceries')[1].test(rawCat || '') && shopCategory(merchant) === 'dining') category = 'dining';
@@ -875,7 +889,7 @@ export function readBackup(text) {
       ...(okId(t.bill) ? { bill: t.bill } : {}),
     }));
   const recurring = list(d.recurring, 500).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))
-    .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(31, Math.max(1, +r.day || 1)), key: cleanText(r.key, 60),
+    .map(r => ({ id: r.id, name: cleanText(r.name, 60) || 'Bill', amount: r.amount, category: cat(r.category), accountId: ids.has(r.accountId) ? r.accountId : accounts[0]?.id, day: Math.min(31, Math.max(1, Math.trunc(+r.day) || 1)), key: cleanText(r.key, 60),
       // Bills that add themselves (0.4.0): how often, from when, how many or until when, and the last day they ran.
       ...(['weekly', 'yearly'].includes(r.freq) ? { freq: r.freq } : {}), auto: r.auto === true, ...(Number.isInteger(r.count) && r.count > 0 && r.count <= 600 ? { count: r.count } : {}),
       ...['start', 'until', 'last'].reduce((o, k) => (validIso(r[k]) ? { ...o, [k]: r[k] } : o), {}), ...upd(r.updatedAt) }));

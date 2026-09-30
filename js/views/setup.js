@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories } from '../engine.js';
-import { fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -330,7 +330,7 @@ export async function importFile(f) {
       if (names.length && !names.some(n => n.startsWith('xl/'))) { kind = 'Money Manager'; return await importMoneyManager(buf, 'realbyte'); }   // a renamed .mmbak
     }
     if (new TextDecoder().decode(buf.slice(0, 5)) === '%PDF-') return await importStatement(buf);
-    startMapping(await fileToRows(f.name, buf), f.name);
+    await startMapping(await fileToRows(f.name, buf), f.name);
   } catch (e) { console.error(e); impErr(kind === 'Money Manager' ? t('This looks like a Money Manager backup, but it could not be read: {0}', t(e.message)) : t(e.message)); }
 }
 /** `sheet`: pasted cells or a Google Sheets link. Its new account is named "Google Sheet" (or by its Account column),
@@ -349,29 +349,29 @@ async function startMapping(rows, name, { sheet = false } = {}) {
   const preset = detectPreset(header, name);
   const saved = settings().importMaps?.[sig], okMap = saved?.map && (saved.preset || null) === (preset?.id || null) && Object.values(saved.map).every(i => Number.isInteger(i) && i >= 0 && i < header.length);
   const have = new Set([...expenseCats(), ...INCOME_CATEGORIES].map(c => c.id));
-  const catMap = Object.fromEntries(Object.entries(saved?.catMap || {}).filter(([, v]) => have.has(v)));
-  const sourceKey = hash(JSON.stringify([name, rows])), remembered = settings().importSources?.[sourceKey];
+  const catMap = Object.assign(Object.create(null), Object.fromEntries(Object.entries(saved?.catMap || {}).filter(([, v]) => have.has(v))));   // keyed by the file's names
+  const sourceKey = hash(JSON.stringify(rows)), remembered = settings().importSources?.[sourceKey] ?? settings().importSources?.[hash(JSON.stringify([name, rows]))];   // by content: "file (1).csv" is the same file (the old key held the name too)
   const existing = S.accounts.find(a => a.id === remembered) || (sheet && S.accounts.find(a => a.id === settings().sheetAccount)) || (prov && findAccount(prov[1], kind))
     || (!preset && /bank|statement|penyata|结单|對賬/i.test(name) && S.accounts.filter(a => a.kind === 'bank').length === 1 && S.accounts.find(a => a.kind === 'bank'));   // "bank_statement_sep.csv" and one bank account: that one
   // Another app's history or a bank's statement is its own account by default (Round 2: imports landed in Cash).
-  IMP = { rows: rows.slice(h + 1), header, sig, sourceKey, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || (sheet ? t('Google Sheet') : ''), kind, catMap, accIds: {}, name, sheet, skipFuture: true, tabs: rows.tabs };
+  IMP = { rows: rows.slice(h + 1), header, sig, sourceKey, map: okMap ? { ...saved.map } : preset ? { ...preset.map } : guessMapping(header), preset, accountId: existing?.id || 'new', newId: uid('a'), accName: prov?.[1] || (sheet ? t('Google Sheet') : ''), kind, catMap, accIds: Object.create(null), name, sheet, skipFuture: true, tabs: rows.tabs };
   showMapping();
 }
 /** Their categories, each with its Tally category: chosen, remembered, matched by name, or a new one named after it. */
 function catChoices() {
-  const { rows, map } = IMP, out = {};
+  const { rows, map } = IMP, out = Object.create(null);
   if (map.category == null) return out;
   const ctx = { preset: IMP.preset, header: IMP.header };
   for (const s of new Set(rows.filter(r => isMoneyRow(r, map, ctx)).map(r => cleanText(rowCategory(r, map, ctx), 60)).filter(Boolean))) {
     if (Object.keys(out).length >= 60) break;
-    const guess = IMP.preset?.cats?.[s.toLowerCase()] || mapCategory(s, {}, '', S.kv.customCats);
+    const guess = ownKey(IMP.preset?.cats, s.toLowerCase()) || mapCategory(s, {}, '', S.kv.customCats);
     out[s] = IMP.catMap[s] || (guess === 'other' && !/^(other|others|misc|lain|lain-lain|lain2|其他|其它)$/i.test(s) ? `new:${s}` : guess);
   }
   return out;
 }
 /** An Account column ("Paid by": Cash / TNG / Card): one account per value, an existing one when the name matches. */
 function accPlan() {
-  const { rows, map } = IMP, values = [], lookup = {}, { names, blanks } = accountNames(rows, map, { preset: IMP.preset, header: IMP.header });
+  const { rows, map } = IMP, values = [], lookup = Object.create(null), { names, blanks } = accountNames(rows, map, { preset: IMP.preset, header: IMP.header });
   for (const v of names) {
     if (values.length >= 20) break;
     const kind = guessKind(v), a = findAccount(v, kind);
@@ -416,7 +416,8 @@ function showMapping() {
     ${fresh.length || !dups.length ? `<p class="${fresh.length ? 'okbox' : 'warnbox'}">${esc(t('{0} ready to import', fresh.length))}${dups.length ? ` · ${esc(t('{0} already in Tally, will be skipped', dups.length))}` : ''}${(k => (k.length ? ` · ${esc(k.length === 1 ? t('1 row skipped (no date or amount)') : t('{0} rows skipped (no date or amount)', k.length))}` : ''))(skipped.filter(x => !['currency', 'unpaid'].includes(x.why)))}</p>
     ${(k => (k ? `<p class="warnbox">${ICON.alert}<span>${esc(t('{0} rows are in another currency (SGD…) and were left out. Add an account in that currency (Settings → Accounts), then import them into it.', k))}</span></p>` : ''))(skipped.filter(x => x.why === 'currency').length)}
     ${(k => (k ? `<p class="fine">${esc(t('{0} unpaid rows (Paid? not ticked) left out.', k))}</p>` : ''))(skipped.filter(x => x.why === 'unpaid').length)}
-    ${!fresh.length && !dups.length && !skipped.some(x => ['currency', 'unpaid', 'failed'].includes(x.why)) ? `<p class="fine">${esc(IMP.map.date == null ? t('No date column found. Pick it above, or open the tab with your transactions.') : (IMP.map.amount ?? IMP.map.debit ?? IMP.map.credit) == null ? t('No amount column found. Pick it above.') : t('This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.'))}</p>` : ''}`
+    ${(k => (k ? `<p class="warnbox">${ICON.alert}<span>${esc(t('{0} rows are for accounts after the first 20 and were left out. Import them from a file with fewer accounts.', k))}</span></p>` : ''))(skipped.filter(x => x.why === 'account').length)}
+    ${!fresh.length && !dups.length && !skipped.some(x => ['currency', 'unpaid', 'failed', 'account'].includes(x.why)) ? `<p class="fine">${esc(IMP.map.date == null ? t('No date column found. Pick it above, or open the tab with your transactions.') : (IMP.map.amount ?? IMP.map.debit ?? IMP.map.credit) == null ? t('No amount column found. Pick it above.') : t('This looks like a summary or budget, not a list of transactions. Open the tab with your transactions, or pick the columns above.'))}</p>` : ''}`
       : `<p class="warnbox">${esc(t('All {0} rows are already in Tally. Nothing new to import.', dups.length))}</p>`}
     ${fresh.length ? `<p class="fine">${esc(t('{0} to {1}', fmtDate(dates[0]), fmtDate(dates.at(-1))))} · ${esc(t('{0} spent', fmtRM(sum('expense'))))} · ${esc(t('{0} received', fmtRM(sum('income'))))}</p>` : ''}
     ${moved || loose || adjustments ? `<p class="fine">${[moved && (moved === 1 ? t('1 transfer between your accounts') : t('{0} transfers between your accounts', moved)), loose && (loose === 1 ? t("1 transfer to another wallet: import that wallet's file next and it will be matched.") : t("{0} transfers to another wallet: import that wallet's file next and they'll be matched.", loose)), adjustments && t('{0} balance corrections folded into opening balances (not counted as spending)', adjustments)].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
@@ -697,8 +698,9 @@ export const act = {
     if (!(await confirmSheet({ title: t('Encrypt data on this phone?'), body: t('Your entries and receipt photos will be stored encrypted with your PIN or password, so no one can read them without it, even from a copy of the phone. Fingerprint or face can no longer open Tally. If you forget the PIN or password, the data cannot be recovered: keep a backup.'), ok: t('Continue') }))) return;
     const code = await askCode(t('Encrypt data on this phone')); if (!code) return;
     toast(t('Encrypting…'));
-    try { await encryptOn(code); } catch { return toast(t('Could not encrypt. Nothing was changed.'), { k: 'bad' }); }
-    render(); toast(t('Your data on this phone is encrypted.'), { k: 'good', icon: 'check' });
+    let all;
+    try { all = await encryptOn(code); } catch { return toast(t('Could not encrypt. Nothing was changed.'), { k: 'bad' }); }
+    render(); toast(all ? t('Your data on this phone is encrypted.') : t('Your entries are encrypted. Some photos are not yet: Tally finishes them the next time it opens.'), { k: all ? 'good' : 'warn', icon: all ? 'check' : null });
   },
   'enc-off': async () => {
     const code = await askCode(t('Stop encrypting data?')); if (!code) return;
@@ -847,7 +849,7 @@ export const act = {
   'set-week': async b => { await setSetting('weekStart', +b.dataset.v === 0 ? 0 : 1); render(); },
   'rule-del': async b => { const r = { ...S.kv.rules }; delete r[b.dataset.k]; await setKv('rules', r); render(); },
   'import-open': () => importSheet(),
-  'imp-paste': () => { const v = $('#imp-paste').value; if (!v.trim()) return impErr(t('Paste some cells first.')); startMapping(parseCSV(v, v.includes('\t') ? '\t' : undefined), t('Pasted cells'), { sheet: true }); },
+  'imp-paste': () => { const v = $('#imp-paste').value; if (!v.trim()) return impErr(t('Paste some cells first.')); startMapping(parseCSV(v, v.includes('\t') ? '\t' : undefined), t('Pasted cells'), { sheet: true }).catch(e => { console.error(e); impErr(t(e.message)); }); },
   'imp-link': async () => {
     const url = sheetCsvUrl($('#imp-link').value);
     if (!url) return impErr(t('That is not a Google Sheets link. It should start with https://docs.google.com/spreadsheets/d/'));

@@ -1389,4 +1389,6 @@ export default {
   "Your Tally data is kept only in this browser's storage on this phone. Uninstalling Tally or clearing the browser's data for Tally deletes it; a backup file keeps it safe.": "你的 Tally 数据只保存在这台手机上这个浏览器的存储里。卸载 Tally 或清除浏览器中 Tally 的数据会删除它；备份文件可以保住它。",
   "Made in Malaysia by {0}, one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell.": "由马来西亚的独立开发者 {0} 制作。不需要支付服务器费用，所以免费。Tally 不收集你的财务数据，所以没有东西可卖。",
   "Or email the developer ({0}):": "或发邮件给开发者（{0}）：",
+  "Your entries are encrypted. Some photos are not yet: Tally finishes them the next time it opens.": "你的记录已加密。部分照片还没有：Tally 下次打开时会完成。",
+  "{0} rows are for accounts after the first 20 and were left out. Import them from a file with fewer accounts.": "{0} 行属于前 20 个之后的账户，没有导入。请用账户较少的文件导入这些行。",
 };

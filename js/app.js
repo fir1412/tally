@@ -1,6 +1,6 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos, OLD_HOME, NEW_HOME, wipeSite } from './state.js';
-import { gate, watch } from './lock.js';
+import { S, load, locked, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos, OLD_HOME, NEW_HOME, wipeSite } from './state.js';
+import { gate, watch, sealPhotos } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own , settling } from './ui.js';
 import * as home from './views/home.js';
@@ -192,8 +192,8 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     await setLang(settings().lang || pickLang(navigator.languages || [navigator.language]));
     document.documentElement.style.fontSize = `${settings().textSize || 100}%`;
     await gate();   // app lock: nothing is shown before the PIN
-    if (settings().lock?.enc) await load();   // encrypted: the data could only be read once the PIN unlocked its key
-    onRemoteChange(async () => { await load(); refresh(); });
+    if (settings().lock?.enc) { await load(); sealPhotos().catch(() => {}); }   // encrypted: the data could only be read once the PIN unlocked its key
+    onRemoteChange(async () => { await load(); if (locked()) { await gate(); await load(); } refresh(); });   // encrypted or re-keyed in another tab: ask here too
     setTimeout(() => sweepPhotos().catch(() => {}), 8000);   // photos of entries deleted before this start (after their Undo was over)
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);

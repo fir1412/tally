@@ -10,12 +10,15 @@ const ymd = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`
 const hm = time => { const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time ?? '')); return m ? [+m[1], +m[2]] : [9, 0]; };
 const clock = mins => `${pad(Math.floor(mins / 60) % 24)}${pad(mins % 60)}00`;
 
-/** A bill due on `day` (1–28) each month at 09:00, reminding a day before. Floating local time. */
+/** A bill due on `day` (1–31; in a shorter month, its last day) each month at 09:00, reminding a day before. Floating local time. */
 export function billEvent(bill, now = new Date()) {
-  const day = Math.min(28, Math.max(1, +bill.day || 1));
-  let d = new Date(now.getFullYear(), now.getMonth(), day);
-  if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = new Date(now.getFullYear(), now.getMonth() + 1, day);
-  return { uid: `tally-bill-${safeId(bill.id)}`, title: bill.title, details: bill.details || '', start: `${ymd(d)}T090000`, end: `${ymd(d)}T093000`, rrule: `FREQ=MONTHLY;BYMONTHDAY=${day}`, alarm: '-P1D' };
+  const day = Math.min(31, Math.max(1, Math.trunc(+bill.day) || 1));
+  const on = (y, m) => new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
+  let d = on(now.getFullYear(), now.getMonth());
+  if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = on(now.getFullYear(), now.getMonth() + 1);
+  // 29th–31st: the latest of those days the month has (31st: the last day), so February still gets its reminder.
+  const by = day === 31 ? 'BYMONTHDAY=-1' : day > 28 ? `BYMONTHDAY=${Array.from({ length: day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1` : `BYMONTHDAY=${day}`;
+  return { uid: `tally-bill-${safeId(bill.id)}`, title: bill.title, details: bill.details || '', start: `${ymd(d)}T090000`, end: `${ymd(d)}T093000`, rrule: `FREQ=MONTHLY;${by}`, alarm: '-P1D' };
 }
 /** A habit ("Dining on weekdays around 12:45"): a nudge 45 minutes after the usual time, on the matching days. */
 export function habitEvent(h, now = new Date()) {

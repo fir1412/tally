@@ -11,6 +11,7 @@ export const locked = () => !!S.kv.settings?.lock?.enc && !db.getKey();
 export async function load() {
   const mode = await db.init();
   S.kv.settings = (await db.getKv('settings', null)) || {};
+  if (db.getKey() && !db.keyMatches(S.kv.settings.lock?.enc)) db.setKey(null);   // changed in another tab: lock again, never write with an old key
   db.expectSealed(!!S.kv.settings.lock?.enc);
   if (locked()) { [S.accounts, S.tx, S.recurring] = [[], [], []]; for (const k of KV_KEYS) if (k !== 'settings') S.kv[k] = null; }
   else {
@@ -135,6 +136,9 @@ export const cat = id => {
 };
 /** A category of the user's own: spending, or with kind 'income' a kind of money in (a side business, rental). */
 export async function addCategory(name, color = nextColor(S.kv.customCats.map(x => x.color)), kind = 'expense') {
+  // The same name again (Enter pressed twice, or typed twice) is that category, not a second one.
+  const same = S.kv.customCats.find(x => x.name.trim().toLowerCase() === String(name).slice(0, 40).trim().toLowerCase() && (x.kind || 'expense') === kind);
+  if (same) return same;
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color, ...(kind === 'income' ? { kind } : {}) };
   await setKv('customCats', [...S.kv.customCats, c]);
   return c;
@@ -182,10 +186,11 @@ export async function learn(itemName, category, merchant = null) {
 
 // ---- accounts, bills, photos ----------------------------------------------------------------------------------
 /** A new entry dated before the day an account's balance was typed (an old receipt scanned today): that balance is
- *  today's, so the money was already out of it. The starting balance moves instead, and today's stays as it was set. */
-export async function keepToday(tx) {
+ *  today's, so the money was already out of it. The starting balance moves instead, and today's stays as it was set.
+ *  dir -1: that entry was deleted (or is being replaced by an edit), so the move is undone. */
+export async function keepToday(tx, dir = 1) {
   const shift = typedShift(S.accounts.filter(a => a.typed), S.tx.filter(x => x.id !== tx.id), [tx], today());
-  for (const [id, d] of Object.entries(shift)) { const a = S.accounts.find(x => x.id === id); if (a) await saveAccount({ ...a, opening: (a.opening || 0) + d }); }
+  for (const [id, d] of Object.entries(shift)) { const a = S.accounts.find(x => x.id === id); if (a) await saveAccount({ ...a, opening: (a.opening || 0) + dir * d }); }
 }
 export async function saveAccount(a) {
   a = { ...a, updatedAt: Date.now() };
@@ -206,9 +211,11 @@ export async function saveBill(b, { edited = true } = {}) {
 }
 export async function deleteBill(id) { await db.del('recurring', id); S.recurring = S.recurring.filter(b => b.id !== id); }
 /** true when saved. Photos are nice-to-have, so a failure doesn't stop the caller; the user still sees it (onSaveFailed). */
-export const savePhoto = (id, blob) => db.put('receipts', { id, blob }).then(() => true, () => false);
+// The localStorage fallback (no IndexedDB: some private windows) can't hold a photo's bytes: say so, don't store {}.
+export const savePhoto = (id, blob) => (db.storageMode() === 'localstorage' && blob instanceof Blob ? Promise.resolve(false) : db.put('receipts', { id, blob }).then(() => true, () => false));
 export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
-export const getPhoto = id => db.get('receipts', id).then(r => r?.blob || null).catch(() => null);
+// A photo that went through JSON (saved by the fallback before it refused them) comes back as {}: that is no photo.
+export const getPhoto = id => db.get('receipts', id).then(r => (r?.blob && Object.getPrototypeOf(r.blob) !== Object.prototype ? r.blob : null)).catch(() => null);
 /** A deleted entry's receipt photo stays for its Undo; the next start removes photos nothing uses any more (no entry,
  *  no receipt being checked, no photo waiting to be read). Deleting an entry then deletes its photo from the phone. */
 export async function sweepPhotos() {

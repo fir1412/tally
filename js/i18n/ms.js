@@ -1389,4 +1389,6 @@ export default {
   "Your Tally data is kept only in this browser's storage on this phone. Uninstalling Tally or clearing the browser's data for Tally deletes it; a backup file keeps it safe.": "Data Tally anda hanya disimpan dalam storan pelayar ini pada telefon ini. Menyahpasang Tally atau mengosongkan data pelayar untuk Tally akan memadamnya; fail sandaran memastikannya selamat.",
   "Made in Malaysia by {0}, one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell.": "Dibuat di Malaysia oleh {0}, seorang pembangun bebas. Percuma kerana tiada pelayan yang perlu dibayar. Tally tidak mengumpul data kewangan anda, jadi tiada apa-apa untuk dijual.",
   "Or email the developer ({0}):": "Atau e-mel pembangun ({0}):",
+  "Your entries are encrypted. Some photos are not yet: Tally finishes them the next time it opens.": "Catatan anda telah disulitkan. Sesetengah gambar belum lagi: Tally akan menyiapkannya apabila dibuka nanti.",
+  "{0} rows are for accounts after the first 20 and were left out. Import them from a file with fewer accounts.": "{0} baris adalah untuk akaun selepas 20 yang pertama dan tidak diimport. Import baris itu daripada fail yang mempunyai lebih sedikit akaun.",
 };

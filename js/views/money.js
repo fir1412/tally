@@ -440,9 +440,10 @@ export const act = {
       if (dup && !(await confirmSheet({ title: t('Already added?'), body: t('{0} for {1} on {2} is already here.', dup.merchant || catLabel(dup.category), fmtRM(dup.amount), fmtDate(dup.date)), ok: t('Add anyway') }))) return;
     }
     b.disabled = true;
-    const x = { ...draft, createdAt: draft.createdAt || Date.now() };
+    const x = { ...draft, createdAt: draft.createdAt || Date.now() }, was = S.tx.find(y => y.id === x.id);
     await saveTx(x);
-    if (isNew) await keepToday(x);   // an old receipt doesn't change the balance typed today
+    if (was) await keepToday(was, -1);   // an edit: the old version's move out, the new one's in
+    await keepToday(x);   // an old receipt doesn't change the balance typed today
     await rateFrom(x);
     if (x.merchant && x.type === 'expense' && !x.items?.length) await learn(x.merchant, x.category);
     closeSheet(); landed(x.id); render();
@@ -452,9 +453,10 @@ export const act = {
   'tx-again': () => { readForm(); const { type, amount, category, accountId, merchant } = draft; closeSheet(); setTimeout(() => openTxSheet({ type, amount, category, accountId, merchant }), 220); },
   'tx-del': async () => {
     if (!(await confirmSheet({ title: t('Delete this?'), body: `${draft.merchant || catLabel(draft.category)} · ${fmtAcct(accOf(draft.accountId), draft.amount)}`, ok: t('Delete'), danger: true }))) return;
-    const undo = await deleteTx(draft.id);
+    const gone = S.tx.find(y => y.id === draft.id), undo = await deleteTx(draft.id);
+    if (gone) await keepToday(gone, -1);   // a back-dated entry moved the starting balance when it came in: move it back
     closeSheet(); render();
-    toast(t('Deleted'), { undo: async () => { await undo(); render(); } });
+    toast(t('Deleted'), { undo: async () => { await undo(); if (gone) await keepToday(gone); render(); } });
   },
   'bill-edit': b => billSheet(S.recurring.find(x => x.id === b.dataset.id) || { accountId: defaultAccount('bill'), category: 'bills' }),
   'tx-photo-dl': () => downloadReceipts([{ tx: draft }]),
@@ -474,8 +476,10 @@ export const act = {
     if (!validIso(start)) return err(t('Pick a date.'));
     if (until && !(validIso(until) && until >= start)) return err(t('The end date must be after the next payment.'));
     const old = S.recurring.find(x => x.id === b.dataset.id) || {};
+    // Due on the 31st, shown as the 30th in a shorter month: the month's last day keeps the day it was set to.
+    const picked = +start.slice(8), day = picked === new Date(+start.slice(0, 4), +start.slice(5, 7), 0).getDate() && old.day > picked ? old.day : picked;
     // Saving re-bases the bill on its next payment: dates and "payments left" count from there.
-    await saveBill({ ...old, id: old.id || uid('b'), name, amount, day: +start.slice(8), start, freq: $('#b-freq').value, count, until, auto: $('#b-auto').checked, category: $('#b-cat').value, accountId: $('#b-acc').value, key: b.dataset.key || billKey(name) });
+    await saveBill({ ...old, id: old.id || uid('b'), name, amount, day, start, freq: $('#b-freq').value, count, until, auto: $('#b-auto').checked, category: $('#b-cat').value, accountId: $('#b-acc').value, key: b.dataset.key || billKey(name) });
     closeSheet(); render(); toast(t('Saved'));
   },
   'bill-del': async b => { await deleteBill(b.dataset.id); closeSheet(); render(); toast(t('Deleted')); },

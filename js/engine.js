@@ -544,7 +544,7 @@ const billPeriod = (r, date) => (r.freq === 'weekly' ? [addDays(date, -3), addDa
 /** Paid for the period of the payment due on `date`: an expense with the bill's name, whatever the amount (utility bills vary), or one tagged with the bill. */
 export function billPaid(r, date, txs) {
   const name = String(r.name || '').trim().toLowerCase(), [a, b] = billPeriod(r, date);
-  return txs.some(t => t.type === 'expense' && t.date >= a && t.date <= b && (t.bill === r.id || String(t.id).startsWith(`rec-${r.id}-`) || (!!name && String(t.merchant || '').trim().toLowerCase() === name)));
+  return txs.some(t => t.type === 'expense' && t.date >= a && t.date <= b && (t.bill === r.id || String(t.id).startsWith(`rec-${r.id}-`) || (!!name && !t.bill && !String(t.id).startsWith('rec-') && String(t.merchant || '').trim().toLowerCase() === name)));
 }
 /**
  * Where a bill stands today. date: the payment due in the next 3 days, else the latest one due (so an unpaid one
