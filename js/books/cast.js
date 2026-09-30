@@ -101,6 +101,17 @@ function arjunBody(pose) {
     + d('M-7.6-75Q-8.4-84.6 0-84.8Q8.4-84.6 7.6-75Q6-79.5 1-80Q-5-80-7.6-75Z', AJ.hair) + ln('M1-84.5Q2.5-87.5 4.5-86.5', AJ.hair, 1.4)
     + (pose === 'hold' ? '' : hands(k.hands, AJ.skin));
 }
+const GR = { skin: '#D6A078', top: '#B5433A', arm: '#A33B33', pants: '#8A7456', hair: '#221C1E', shoe: '#EFE6D3' };
+/** Grace, the girls' friend from Sabah, who hosts a Christmas open house: long hair, glasses (drawn with her face). */
+function graceBody(pose) {
+  const k = arms(12.5, -98, pose);
+  return shadowE + foot(GR.shoe, -6, 6) + d('M-10.5-64L-10-4H-2L0-50L2-4H10L10.5-64Z', GR.pants) + shade('M3-64H10.5L10-4H6Z')
+    + d('M-10-117Q-11-131.5 0-131.5Q11-131.5 10-117L11.5-90Q6-88 4-93H-4Q-6-88-11.5-90Z', GR.hair) + R(-2.6, -110, 5.2, 10, GR.skin)
+    + d('M-12-101Q-14-84-13.5-60Q0-57 13.5-60Q14-84 12-101Q0-104.5-12-101Z', GR.top) + shade('M4-103Q9-102 12-101Q14-84 13.5-60Q9-58.5 6-58.5Q8-84 4-103Z') + ln('M-3-101L0-96L3-101', '#EFE6D3', 1.2)
+    + ln(k.d, GR.arm, 5.2) + e(0, -117, 7.2, 9.2, GR.skin) + d('M-8.2-117Q-8.5-130 1-129.8Q9-129.4 8.4-119Q3-126-8.2-117Z', GR.hair)
+    + (pose === 'hold' ? '' : hands(k.hands, GR.skin));
+}
+const GLASSES = ln('M-5.2 0a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0-4.8 0M.4 0a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0-4.8 0M-.4-.3Q0-.8.4-.3', INK, 0.6);
 const MOUSTACHE = d('M-4.8 5Q-2.4 2.4 0 3.8Q2.4 2.4 4.8 5Q2.4 6.2 0 5.3Q-2.4 6.2-4.8 5Z', '#DAD3C8');
 const G = { fur: '#D98A3D', dark: '#B86E2A', cream: '#F1E3C8', collar: '#B5533A' };
 const DUIT = {
@@ -219,6 +230,41 @@ const ITEMS = {
   kandil: C(0, -2, 22, '#E3A24A', ' opacity=".22"') + ln('M0-24V-20', '#6E4533', 1.4) + d('M' + Array.from({ length: 10 }, (_, i) => { const a = (i * 36 - 90) * Math.PI / 180, r = i % 2 ? 7.5 : 17; return `${f1(r * Math.cos(a))} ${f1(r * Math.sin(a) - 2)}`; }).join('L') + 'Z', '#C44A36')
     + d('M' + Array.from({ length: 10 }, (_, i) => { const a = (i * 36 - 90) * Math.PI / 180, r = i % 2 ? 4 : 9; return `${f1(r * Math.cos(a))} ${f1(r * Math.sin(a) - 2)}`; }).join('L') + 'Z', '#E3A24A') + ln('M-4 12V24M0 11V25M4 12V24', '#D9A441', 1.4) + ln('M-2 12V22M2 12V22', '#C44A36', 1.2),
   tinopen: d('M-18-6V14Q0 21 18 14V-6Z', '#C44A36') + e(0, -6, 18, 4.5, '#9E3A2A') + e(0, -6, 15.5, 3.4, '#4A1C1C') + R(-18, 3, 36, 4, '#D9A441') + shade('M6-4H18V14Q12 17 6 18Z', 0.15),
+  // December: year end
+  wreath: C(0, 0, 15, 'none', ' stroke="#3F6B4A" stroke-width="8"') + C(0, 0, 15, 'none', ' stroke="#5E8B4A" stroke-width="3" stroke-dasharray="3 4"') + ln('M-10-10h0M12-6h0M-13 6h0M6 13h0M14 6h0', '#C44A36', 3.6)
+    + d('M0 14L-7 20L-6 12ZM0 14L7 20L6 12Z', '#C44A36') + C(0, 14, 2.6, '#9E3A2A'),
+  giftexchange: RR(-16, -6, 28, 24, 2, '#2F6B66') + RR(-18, -12, 32, 7, 2, '#3E8A83') + R(-4.5, -12, 5, 30, '#D9A441') + d('M-2-12C-11-23-16-14-2-12C12-14 8-23-2-12Z', '#D9A441')
+    + ln('M12-2L17 2', '#8A8378', 0.8) + `<g transform="translate(17 8) rotate(20)">${RR(-7, -5, 14, 10, 2, '#E3B54A')}${txt(0, 2.6, 'RM30', 5.5, '#5A2E12')}</g>`,
+  salesign: ln('M-12-22L0-14L12-22', '#8A8378', 1) + RR(-20, -14, 40, 26, 3, '#C44A36') + txt(0, 4, 'SALE', 12, '#F4EEE2') + R(-20, 8, 40, 4, SH, ' opacity=".15"'),
+  hourglass: R(-13, -21, 26, 4, '#8A5A3C') + R(-13, 17, 26, 4, '#8A5A3C') + d('M-10-17H10Q10-6 2 0Q10 6 10 17H-10Q-10 6-2 0Q-10-6-10-17Z', '#DCE7E4') + d('M-6-9H6Q4-4 0-1Q-4-4-6-9Z', '#E3B54A') + d('M-8 16Q0 6 8 16Z', '#E3B54A') + ln('M0 0V14', '#E3B54A', 0.8),
+  kite: d('M0-22L14-4L0 14L-14-4Z', '#C4607A') + d('M0-22L14-4H0Z', '#E3B54A') + d('M0 14L-14-4H0Z', '#4F7A9A') + ln('M0-22V14M-14-4H14', '#6E4533', 0.8) + ln('M0 14Q-6 18 0 22Q6 26 2 30', '#8A8378', 0.8) + d('M-3 19L0 17L3 19L0 21Z', '#C44A36'),
+  picnic: d('M-18-4H18L15 18H-15Z', '#B99A68') + ln('M-17 3H17M-16 10H16M-8-4L-7 18M0-4V18M8-4L7 18', '#9C7A48', 1) + ln('M-12-4Q0-22 12-4', '#8A6A3A', 2.4) + d('M-16-6H16L12 0H-12Z', '#C44A36') + ln('M-10-3h0M-2-3h0M6-3h0', '#EFE6D3', 2.4),
+  books: RR(-18, 8, 36, 9, 1.5, '#2F6B66') + RR(-15, -1, 32, 9, 1.5, '#C44A36') + RR(-17, -10, 30, 9, 1.5, '#D9A441') + ln('M-14 12.5H14M-11 3.5H13M-13-5.5H9', '#EFE6D3', 1.4, ' opacity=".6"') + shade('M8 8H18V17H8Z', 0.12),
+  umbrella: d('M-20 0Q-20-20 0-20Q20-20 20 0Q15-4 10 0Q5-4 0 0Q-5-4-10 0Q-15-4-20 0Z', '#2F6B66') + d('M0-20Q-6-10-10 0Q-5-4 0 0Q5-4 10 0Q6-10 0-20Z', '#3E8A83') + ln('M0-20V14Q0 19 5 19', '#6E4533', 2) + ln('M-16 8l-2 5M-6 12l-2 5M14 6l-2 5', '#8FB9C9', 1.6),
+  friedrice: e(0, 8, 21, 9, '#EDE3D2') + e(0, 5, 15, 7, '#D9A860') + ln('M-8 4h0M-3 8h0M4 3h0M9 7h0M-6 9h0M2 10h0', '#B8763A', 1.6) + ln('M-5 2h0M6 6h0M0 7h0', '#7FA35A', 2) + e(6, 0, 7, 4, '#F4EEE2') + C(7, 0, 2.6, '#E3B54A'),
+  bonus: RR(-15, -20, 30, 40, 2, '#F4EEE2') + R(-15, -20, 30, 8, '#2F6B66') + ln('M-9-6H9M-9 0H5M-9 6H7', '#B6AFA2', 2) + C(6, 13, 6, '#5E8B4A') + ln('M6 10V16M3 13H9', '#F4EEE2', 1.8),
+  split: C(0, 0, 18, '#5E8B4A') + d('M0 0V-18A18 18 0 0 1 17.1 5.6Z', '#D9A441') + d('M0 0L17.1 5.6A18 18 0 0 1 5.6 17.1Z', '#C4607A') + C(0, 0, 18, 'none', ' stroke="#F4EEE2" stroke-width="1"') + ln('M0 0V-18M0 0L17.1 5.6M0 0L5.6 17.1', '#F4EEE2', 1),
+  mug: RR(-13, -10, 22, 26, 4, '#C44A36') + ln('M9-4Q18-2 16 6Q14 12 9 11', '#C44A36', 3) + e(-2, -10, 11, 2.6, '#7A4424') + ln('M-6-14q-2-3 0-5t0-5M1-14q-2-3 0-5t0-5', '#D9D0C0', 1.6) + shade('M2-10H9V16H2Z', 0.15),
+  ricecooker: RR(-16, -8, 32, 24, 7, '#EFE6D3') + d('M-15-6Q-15-16 0-16Q15-16 15-6Z', '#D9D0C0') + R(-4, -19, 8, 3, '#8A8378') + R(-10, 4, 20, 6, '#2F6B66') + C(7, 7, 1.4, '#E3B54A') + ln('M-3-21q-2-3 0-5t0-5M4-21q-2-3 0-5t0-5', '#D9D0C0', 1.4) + shade('M6-14Q15-14 15-6V14Q13 16 8 16Z', 0.1),
+  bicycle: C(-12, 8, 10, 'none', ' stroke="#8A8378" stroke-width="2.6"') + C(12, 8, 10, 'none', ' stroke="#8A8378" stroke-width="2.6"') + ln('M-12 8L-4-6H8L12 8M-4-6L2 8L8-6M2 8H-12M8-6L6-12H10M-4-6L-6-11H-1', '#C44A36', 2) + C(2, 8, 2, '#8A8378'),
+  giftwrap: `<g transform="rotate(-20)">${RR(-20, -6, 36, 12, 3, '#C4607A')}${ln('M-16-6V6M-8-6V6M0-6V6M8-6V6', '#E3B54A', 1.4)}${e(16, 0, 3, 6, '#9E4A5E')}</g>` + C(8, 14, 6, '#D9A441') + C(8, 14, 2, '#8A6A2A'),
+  xmaslights: ln('M-22-8Q-10 8 0-2Q10-12 22 4', '#3F6B4A', 1.2) + [[-18, -2, '#C44A36'], [-10, 3, '#E3B54A'], [-2, 1, '#2F6B66'], [6, -4, '#C4607A'], [14, -2, '#E3B54A'], [21, 5, '#4F7A9A']].map(([x, y, c]) => e(x, y + 5, 3, 4.4, c) + R(x - 1.8, y, 3.6, 2.4, '#6B6A78')).join(''),
+  librarycard: RR(-20, -13, 40, 26, 3, '#F4EEE2') + R(-20, -13, 40, 7, '#4F6D8F') + R(-15, -2, 11, 11, '#D9C4A0') + C(-9.5, 1, 2.6, '#A87050') + d('M-14 9Q-9.5 3-5 9Z', '#A87050') + ln('M0 0H14M0 5H10', '#B6AFA2', 1.8),
+  boardgame: `<g transform="rotate(-12 -8 2)">${RR(-18, -8, 18, 18, 3, '#F4EEE2')}${ln('M-13-3h0M-9 1h0M-5 5h0', '#3B2723', 2.6)}</g><g transform="rotate(14 10 -2)">${RR(2, -12, 18, 18, 3, '#C44A36')}${ln('M6-8h0M16-8h0M6 2h0M16 2h0', '#F4EEE2', 2.6)}</g>` + shade('M-2 10H20V14H-2Z', 0.1),
+  cookies: e(0, 10, 21, 6, '#EDE3D2') + [[-9, 2, -8], [8, 0, 12], [0, -9, 0]].map(([x, y, r]) => `<g transform="translate(${x} ${y}) rotate(${r})">${d('M0-9L2.6-3.4L8.8-2.8L4.2 1.4L5.4 7.6L0 4.4L-5.4 7.6L-4.2 1.4L-8.8-2.8L-2.6-3.4Z', '#D69A45')}${ln('M0-5V2M-3-1H3', '#F4EEE2', 1)}</g>`).join(''),
+  xmastree: d('M0-22L10-8H-10Z', '#3F6B4A') + d('M0-14L13 2H-13Z', '#3F6B4A') + d('M0-5L16 14H-16Z', '#37603F') + shade('M0-22L10-8H0ZM0-14L13 2H0ZM0-5L16 14H0Z', 0.1) + R(-3, 14, 6, 6, '#6E4533')
+    + ln('M-5-6h0M5-1h0M-7 8h0M8 10h0M0 4h0', '#C44A36', 3.2) + d('M0-27L1.6-23H5.6L2.4-20.6L3.6-16.6L0-19L-3.6-16.6L-2.4-20.6L-5.6-23H-1.6Z', '#E3B54A'),
+  card: d('M-18-14L0-18V18L-18 14Z', '#E3CBA6') + d('M0-18L18-14V14L0 18Z', '#F4EEE2') + d('M9 0C9-5 3-5 3-1C3-5-3-5-3 0C-3 4 3 7 3 9C3 7 9 4 9 0Z', '#C44A36', ' transform="translate(3 -1) scale(.9)"') + ln('M-14-6L-4-8M-14 0L-4-2M-14 6L-6 4', '#B6AFA2', 1.4),
+  bauble: ln('M0-24Q4-28 6-24', '#8A8378', 1) + R(-4, -22, 8, 5, '#D9A441') + C(0, 0, 17, '#C44A36') + ln('M-16-3Q0 6 16-3', '#D9A441', 2.4) + ln('M-12-8h0M-4-5h0M4-5h0M12-8h0', '#F4EEE2', 1.6) + e(-6, -8, 4, 2.6, '#FFFFFF', ' opacity=".45"') + shade('M6-15A17 17 0 0 1 6 15Q14 0 6-15Z', 0.12),
+  raincloud: C(-8, -6, 9, '#9AABB4') + C(4, -10, 11, '#AEBDC4') + C(14, -3, 7, '#9AABB4') + R(-17, -4, 38, 9, '#9AABB4') + ln('M-10 10l-2 6M-2 12l-2 6M6 10l-2 6M14 12l-2 6', '#4F7A9A', 2),
+  xmasstar: C(0, 0, 20, '#E3A24A', ' opacity=".2"') + d('M0-19L4.5-6.2H18L7.2 1.8L11.2 15.4L0 7.4L-11.2 15.4L-7.2 1.8L-18-6.2H-4.5Z', '#E3B54A') + d('M0-19L4.5-6.2H18L7.2 1.8L0 0Z', '#F0CB6A'),
+  roastchicken: e(0, 9, 22, 8, '#EDE3D2') + e(0, 3, 15, 10, '#C98A45') + e(-4, 0, 8, 5, '#DDA35C') + ln('M12 4L20-4', '#EFE6D3', 3.4) + ln('M-12 4L-20-4', '#EFE6D3', 3.4) + ln('M-8 13h0M8 13h0M0 15h0', '#7FA35A', 3),
+  yearchart: R(-20, 16, 40, 2, '#6B6570') + RR(-17, 4, 7, 12, 1, '#9AABB4') + RR(-7, -3, 7, 19, 1, '#4F7A9A') + RR(3, -8, 7, 24, 1, '#2F6B66') + RR(13, -16, 7, 32, 1, '#5E8B4A') + ln('M-14-4L-4-10L6-14L17-22', '#C44A36', 1.6) + d('M17-22L11-21L15-17Z', '#C44A36'),
+  goal: C(0, 0, 19, '#C44A36') + C(0, 0, 14, '#F4EEE2') + C(0, 0, 9, '#C44A36') + C(0, 0, 4, '#F4EEE2') + ln('M0 0L16-16', '#6E4533', 2) + d('M16-16L14-22L18-20L22-18L20-14Z', '#2F6B66'),
+  pillow: d('M-4-19A17 17 0 1 0 14 7A14 14 0 1 1-4-19Z', '#E3B54A') + shade('M14 7A17 17 0 0 1-15 8Q0 12 14 7Z', 0.12) + ln('M-14-12h0M18-14h0M8 16h0', '#F4EEE2', 2) + txt(10, -6, 'z', 10, '#8FA7C9') + txt(17, -14, 'z', 7.5, '#8FA7C9'),
+  planner: RR(-16, -20, 32, 40, 3, '#2F6B66') + RR(-12, -16, 26, 32, 2, '#F4EEE2') + ln('M-16-12h4M-16-4h4M-16 4h4M-16 12h4', '#D9A441', 2) + ln('M-6-8H10M-6 0H10M-6 8H6', '#B6AFA2', 1.8) + R(-9, -10, 3, 3, 'none', ' stroke="#2F6B66" stroke-width="1"') + ln('M-8.6-7.5L-7.8-6.4L-6-9', '#C44A36', 1),
+  clock: C(0, 0, 19, '#8A5A3C') + C(0, 0, 16, '#F4EEE2') + ln('M0-13V-10M13 0H10M0 13V10M-13 0H-10', '#8A8378', 1.6) + ln('M0 0V-11M0 0L-1.8-8', '#3B2723', 1.8) + C(0, 0, 1.6, '#C44A36'),
+  fireworks: [[-8, -6, 12, '#E3B54A'], [10, -10, 9, '#C4607A'], [6, 10, 8, '#6FA3B8']].map(([x, y, r, c]) => C(x, y, r * 1.1, c, ' opacity=".15"') + ln(Array.from({ length: 12 }, (_, i) => { const a = i / 12 * Math.PI * 2; return `M${f1(x + Math.cos(a) * r * 0.3)} ${f1(y + Math.sin(a) * r * 0.3)}L${f1(x + Math.cos(a) * r)} ${f1(y + Math.sin(a) * r)}`; }).join(''), c, 1.5)).join(''),
   // props only (not stickers)
   phone: RR(-9, -16, 18, 32, 3, '#2E2A36') + RR(-7, -12, 14, 22, 1, '#9EC3CF') + R(-5, -9, 10, 3, '#F4EEE2') + R(-5, -3, 7, 3, '#F4EEE2') + C(0, 13, 1.4, '#6B6570'),
   teh: d('M-9-12H9L7 14H-7Z', '#EDE6DA') + d('M-8.5-7H8.5L7 14H-7Z', '#B8723A') + R(-9, -7, 18, 4, '#EEDDC2') + ln('M9-4Q16-2 9 6', '#EDE6DA', 3),
@@ -249,11 +295,11 @@ export function castKit(pfx) {
   const person = (x, y, s, headY) => C(x, y - s * 2.6, s, '#272539') + RR(f1(x - s * 1.4), f1(y - s * 1.6), f1(s * 2.8), f1(s * 3.4), s, '#272539');
 
   // characters
-  const FY = { aina: -117.5, wei: -116.5, raju: -113.5, kamala: -113.5, arjun: -73.5 }, HOLD_Y = { aina: -71, wei: -72, raju: -68, kamala: -69.5, arjun: -45 };
-  const SKIN = { aina: A.skin, wei: W.skin, raju: J.skin, kamala: KM.skin, arjun: AJ.skin };
-  const BODY = { aina: ainaBody, wei: weiBody, raju: rajuBody, kamala: kamalaBody, arjun: arjunBody };
-  const RIG = { aina: [12.5, -97], wei: [12.5, -98], raju: [14, -94], kamala: [11.5, -95], arjun: [8, -62, 0.65] };
-  const faceUse = (who, f, x, y) => who === 'raju' ? use(`rf-${f}`, () => faceArt(f, 7.2) + MOUSTACHE, x, y) : use(`f-${f}`, () => faceArt(f), x, y);
+  const FY = { aina: -117.5, wei: -116.5, raju: -113.5, kamala: -113.5, arjun: -73.5, grace: -116.5 }, HOLD_Y = { aina: -71, wei: -72, raju: -68, kamala: -69.5, arjun: -45, grace: -72 };
+  const SKIN = { aina: A.skin, wei: W.skin, raju: J.skin, kamala: KM.skin, arjun: AJ.skin, grace: GR.skin };
+  const BODY = { aina: ainaBody, wei: weiBody, raju: rajuBody, kamala: kamalaBody, arjun: arjunBody, grace: graceBody };
+  const RIG = { aina: [12.5, -97], wei: [12.5, -98], raju: [14, -94], kamala: [11.5, -95], arjun: [8, -62, 0.65], grace: [12.5, -98] };
+  const faceUse = (who, f, x, y) => who === 'grace' ? use(`gf-${f}`, () => faceArt(f) + GLASSES, x, y) : who === 'raju' ? use(`rf-${f}`, () => faceArt(f, 7.2) + MOUSTACHE, x, y) : use(`f-${f}`, () => faceArt(f), x, y);
   const person3 = who => (o = {}) => {
     const { x = 160, y = 188, s = 1, face = 'happy', pose = 'stand', flip = false, item = null, is = 0.5, apron = null } = o;
     const fp = pose === 'kneel' ? [0, FY[who] + 40] : pose === 'hug' ? [-3, FY[who] + 72] : [0, FY[who]];
@@ -297,6 +343,26 @@ export function castKit(pfx) {
       + C(140, 40, 11, '#F1E8D8') + C(140, 40, 11, 'none', ' stroke="#6E4533" stroke-width="2"') + ln('M140 40V33M140 40L145 43', '#3B2723', 1.3)
       + ln('M160 0V12', '#4A4E5E', 2) + e(160, 14, 34, 3.5, '#6B6570') + C(160, 14, 5, '#4A4E5E') + e(160, 150, 150, 18, '#1B1430', ' opacity=".05"'),
     'home-n': () => home(false), 'home-d': () => home(true), 'porch-n': () => porch(false), 'porch-d': () => porch(true),
+    'home-r': () => home(true).replace(/#C99A78/g, '#A8876C').replace(/#B08466/g, '#94735A').replace(/#7A5540/g, '#6A4A38').replace('#A9C8CF', '#7F95A2').replace(' opacity="0.35" filter', ' opacity="0.1" filter')
+      .replace('r="9" fill="#F4EEDD"', 'r="9" fill="#7F95A2"').replace('rx="14" ry="5" fill="#F4EEDD" opacity=".6"', 'rx="14" ry="5" fill="#9AABB4" opacity=".8"')
+      + ln('M34 30l-4 10M44 34l-4 10M54 30l-4 10M70 36l-4 10M82 30l-4 10M90 40l-4 10M36 56l-4 10M50 62l-4 10M66 58l-4 10M80 64l-4 10M40 76l-4 10M58 80l-4 10M76 76l-4 10M90 70l-4 10', '#C9D6DC', 0.9, ' opacity=".7"'),
+    'xmas-n': () => xmas(false), 'xmas-d': () => xmas(true),
+    park: () => `<defs><linearGradient id="${pfx}dsky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8FB9C9"/><stop offset="1" stop-color="#E6DDC0"/></linearGradient></defs>` + R(0, 0, 320, 130, `url(#${pfx}dsky)`) + glow(270, 30, 60, 0.5, '#FFF1D0')
+      + e(70, 30, 26, 7, '#FFFFFF', ' opacity=".6"') + e(200, 20, 34, 8, '#FFFFFF', ' opacity=".55"')
+      + d('M0 118Q20 92 44 104Q60 84 86 100Q104 86 128 102Q150 88 170 104Q196 86 220 102Q246 88 268 104Q290 90 320 100V124H0Z', '#6F8F5A') + d('M0 122Q40 108 80 116Q130 106 180 118Q240 106 320 116V126H0Z', '#5E7F4A')
+      + R(0, 122, 320, 78, '#8FAE62') + d('M130 200Q150 160 200 140Q240 126 320 128V140Q250 140 214 152Q176 166 170 200Z', '#D9C7A0')
+      + R(24, 56, 10, 76, '#6E4533') + C(18, 48, 22, '#4F7A42') + C(44, 44, 20, '#5E8B4A') + C(30, 30, 18, '#5E8B4A') + e(30, 134, 30, 5, SH, ' opacity=".2"')
+      + ln('M262 136V96M278 136V96M262 104H278M262 114H278M262 124H278', '#6E4533', 1.6) + ln('M278 96Q300 104 308 134', '#C44A36', 4) + R(258, 92, 24, 5, '#C44A36')
+      + R(96, 118, 36, 3, '#8A5A3C') + ln('M100 121V130M128 121V130', '#6E4533', 1.6) + R(96, 112, 36, 2.5, '#8A5A3C'),
+    library: () => { const cols = ['#8E2F4F', '#2F6B66', '#D9A441', '#4F6D8F', '#C44A36', '#6E4A7E', '#E9D8B8', '#5E8B4A'], paths = cols.map(() => []);
+      [20, 48, 76, 104].forEach((y, r) => { let x = 14; let i = r * 3; while (x < 300) { const w = 5 + (i * 7 % 4), h = 22 + (i * 5 % 5); paths[(i * 3 + r) % 8].push(`M${x} ${y + 26 - h}h${w}v${h}h${-w}z`); x += w + 0.8; i++; } });
+      return R(0, 0, 320, 200, '#D9C4A0') + R(8, 14, 304, 120, '#6E4533') + R(12, 18, 296, 112, '#3E261E') + paths.map((q, i) => d(q.join(''), cols[i])).join('')
+        + ln('M12 46.5H308M12 74.5H308M12 102.5H308M12 130.5H308', '#8A5A3C', 3) + glow(160, 70, 140, 0.25) + R(0, 134, 320, 30, '#CDB894') + R(0, 164, 320, 36, '#9C7A5A') + ln('M0 180H320', '#86664A', 0.8); },
+    rooftop: () => sky() + ln('M20 20h0M60 12h0M140 16h0M230 10h0M300 24h0M104 40h0', '#FFFFFF', 1.6, ' opacity=".7"') + skyline(150)
+      + [[70, 48, 26, '#E8B04A'], [178, 34, 30, '#C4607A'], [262, 60, 22, '#6FA3B8'], [124, 82, 14, '#8FB35E']].map(([x, y, r, c]) => glow(x, y, r * 1.6, 0.35, c)
+        + ln(Array.from({ length: 14 }, (_, i) => { const a = i / 14 * Math.PI * 2; return `M${f1(x + Math.cos(a) * r * 0.3)} ${f1(y + Math.sin(a) * r * 0.3)}L${f1(x + Math.cos(a) * r)} ${f1(y + Math.sin(a) * r)}`; }).join(''), c, 1.3)
+        + ln(Array.from({ length: 14 }, (_, i) => { const a = (i + 0.5) / 14 * Math.PI * 2; return `M${f1(x + Math.cos(a) * r * 1.12)} ${f1(y + Math.sin(a) * r * 1.12)}h0`; }).join(''), '#F6E2A8', 2)).join('')
+      + R(0, 144, 320, 6, '#807F8C') + R(0, 150, 320, 26, '#6B6A78') + shade('M0 150H320V156H0Z') + bulbs([0, 142], [160, 152], [320, 142], 14) + R(0, 176, 320, 24, '#4A4956') + R(280, 110, 34, 34, '#5A5966') + e(297, 110, 17, 4, '#6B6A78'),
     kitchen: () => R(0, 0, 320, 200, '#D9C4A0') + R(0, 58, 320, 62, '#ECE4D4') + ln(Array.from({ length: 21 }, (_, i) => `M${i * 16} 58V120`).join('') + 'M0 74H320M0 90H320M0 106H320', '#D6CBB6', 0.8)
       + R(226, 12, 82, 60, '#E9D8B8') + R(230, 16, 74, 52, '#A9C8CF') + glow(267, 44, 90, 0.45, '#FFF1D0') + R(265.5, 16, 3, 52, '#E9D8B8') + R(222, 70, 90, 4, '#8A5A3C')
       + R(12, 30, 116, 4, '#8A5A3C') + [[18, 10, 14, '#C9953A'], [32, 9, 12, '#B5533A'], [46, 12, 16, '#2F6B66'], [64, 10, 13, '#E9D8B8'], [80, 12, 15, '#6F8FA6'], [98, 9, 11, '#C9953A'], [112, 10, 14, '#8E2F4F']].map(([x, w, h, c]) => RR(x, 30 - h, w, h, 2, c)).join('')
@@ -311,6 +377,21 @@ export function castKit(pfx) {
       + R(236, 124, 84, 48, '#6E4533') + R(232, 118, 88, 7, '#8A5A3C') + shade('M236 125H320V132H236Z'),
 
   };
+  function xmas(day) {
+    const wall = day ? '#E3CBA6' : '#9C7A5C';
+    const tri = (y, h, w, c) => d(`M272 ${y}L${272 + w} ${y + h}H${272 - w}Z`, c) + shade(`M272 ${y}L${272 + w} ${y + h}H272Z`, 0.12);
+    return R(0, 0, 320, 200, wall) + (day ? '' : glow(250, 100, 170, 0.45)) + R(0, 120, 320, 44, day ? '#D2B690' : '#86664C')
+      + R(24, 26, 72, 68, '#E9D8B8') + R(28, 30, 64, 60, day ? '#A9C8CF' : '#27305A') + R(58.5, 30, 3, 60, '#E9D8B8') + d('M16 20H32Q27 58 34 100H16Z', '#3F6B4A') + d('M104 20H88Q93 58 86 100H104Z', '#3F6B4A') + RR(12, 17, 96, 4, 2, '#8A5A3C')
+      + ln('M112 14Q150 30 190 14Q214 26 232 14', '#3F6B4A', 3) + ln('M126 21h0M150 25h0M174 20h0M204 20h0M222 17h0', '#C44A36', 3.4)
+      + R(20, 124, 104, 8, '#EFE6D3') + R(24, 132, 4, 32, '#6E4533') + R(116, 132, 4, 32, '#6E4533') + e(40, 122, 10, 3, '#D9A441') + e(70, 121, 12, 3.5, '#B8703A') + e(100, 122, 9, 3, '#C44A36') + ln('M70 116q-3-4 1-8', '#F3E6CF', 1.2, ' opacity=".6"')
+      + R(0, 164, 320, 36, day ? '#8A6246' : '#6A4A38') + e(200, 186, 110, 11, '#8E2F3A', ' opacity=".8"')
+      + R(266, 146, 12, 16, '#6E4533') + tri(34, 44, 26, '#3F6B4A') + tri(58, 54, 32, '#3F6B4A') + tri(86, 64, 40, '#37603F')
+      + ln('M254 70h0M284 64h0M264 94h0M292 100h0M248 118h0M276 124h0M298 136h0M258 140h0', '#C44A36', 5) + ln('M270 80h0M296 118h0M252 104h0M280 142h0', '#D9A441', 4.6)
+      + (day ? '' : ln('M252 56h0M266 62h0M282 56h0M246 88h0M262 96h0M280 92h0M298 88h0M240 124h0M258 132h0M276 130h0M296 128h0M308 144h0', '#F2B45A', 7, ` opacity=".5" filter="url(#${pfx}b2)"`))
+      + ln('M252 56h0M266 62h0M282 56h0M246 88h0M262 96h0M280 92h0M298 88h0M240 124h0M258 132h0M276 130h0M296 128h0M308 144h0', '#F6D08A', 2.6)
+      + (day ? '' : glow(272, 30, 20, 0.7)) + d('M272 20L275 28L283 28L277 33L279 41L272 36L265 41L267 33L261 28L269 28Z', '#E3B54A')
+      + RR(236, 150, 18, 14, 2, '#C44A36') + R(243.5, 150, 3, 14, '#D9A441') + RR(284, 148, 20, 16, 2, '#2F6B66') + R(292.5, 148, 3, 16, '#D9A441') + RR(258, 154, 14, 10, 2, '#D9A441') + R(263.5, 154, 3, 10, '#C44A36');
+  }
   function porch(day) {
     const wall = day ? '#E2C79C' : '#9A7450', lit = day ? '#F1E3C8' : '#F2C77A', glass = day ? '#A9C8CF' : lit;
     const leaves = Array.from({ length: 9 }, (_, i) => { const x = 131 + i * 7.25, y = 50 + Math.sin(i / 8 * Math.PI) * 5; return d(`M${f1(x - 2.6)} ${f1(y)}Q${f1(x)} ${f1(y + 12)} ${f1(x)} ${f1(y + 12)}Q${f1(x)} ${f1(y + 12)} ${f1(x + 2.6)} ${f1(y)}Z`, i % 2 ? '#5E8B4A' : '#7FA35A'); }).join('');
@@ -340,13 +421,17 @@ export function castKit(pfx) {
       + RR(4, 138, 20, 24, 2, '#B5533A') + [[-30, 10], [-5, 12], [20, 11], [40, 9]].map(([a, h]) => e(14, 138 - h, 4, h, '#3F6B4A', ` transform="rotate(${a} 14 138)"`)).join('');
   }
   const CAN = { '#B5533A': '#B5533A', '#2A9D8F': '#2F5D5A', '#7B2CBF': '#6E4A7E' };
-  /** Full-bleed background. kind: stall | street | home | kopitiam | night | porch | kitchen | shop. stall opts: { sign, a, behind, items, steam } home opts: { day } kopitiam opts: { table } */
+  /** Full-bleed background. kind: stall | street | home | kopitiam | night | porch | kitchen | shop | xmas | rain | park | library | rooftop. stall opts: { sign, a, behind, items, steam } home opts: { day } kopitiam opts: { table } */
   function scene(kind, o = {}) {
     if (kind === 'stall') { const a = CAN[o.a] || o.a || '#B5533A';
       return use('stall', SCENES.stall) + (o.behind || '') + use(`can${a.slice(1)}`, () => d(canopyD(18, 24, 284, 16, 11), a) + shade(canopyD(18, 34, 284, 6, 11)) + R(16, 21, 288, 4, '#5A3A2A'))
         + (o.sign ? RR(100, 1, 120, 18, 4, '#E3C27A') + txt(160, 15, o.sign, 12, '#6E2E1A', ' letter-spacing="1"') : '') + (o.steam ? steam(`M${o.steam - 4} 116q-5-8 0-15t0-16`) + steam(`M${o.steam + 6} 114q5-9 0-17t1-18`) : '')
         + use('counter', SCENES.counter) + (o.items || ''); }
     if (kind === 'home') return use(o.day ? 'home-d' : 'home-n', SCENES[o.day ? 'home-d' : 'home-n']);
+    if (kind === 'xmas') return use(o.day ? 'xmas-d' : 'xmas-n', SCENES[o.day ? 'xmas-d' : 'xmas-n']);
+    if (kind === 'rain') return use('home-r', SCENES['home-r']);
+    if (kind === 'park') return use('park', SCENES.park) + (o.mat ? e(160, 182, 72, 11, '#C44A36') + ln('M104 182H216M130 173L118 191M160 171V193M190 173L202 191', '#EFE6D3', 2, ' opacity=".7"') : '');
+    if (kind === 'library' || kind === 'rooftop') return use(kind, SCENES[kind]);
     if (kind === 'porch') return use(o.day ? 'porch-d' : 'porch-n', SCENES[o.day ? 'porch-d' : 'porch-n']);
     if (kind === 'kitchen') return use('kitchen', SCENES.kitchen) + (o.items || '');
     if (kind === 'shop') return use('shop', SCENES.shop) + (o.sign ? RR(100, 1, 120, 18, 4, '#C44A36') + txt(160, 15, o.sign, 12, '#F4EEE2', ' letter-spacing="1"') : '') + (o.items || '');
@@ -366,7 +451,7 @@ export function castKit(pfx) {
     + `<feTurbulence type="fractalNoise" baseFrequency=".03 .045" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 .93 0 0 0 0 .8 0 0 0 .42 -.2" result="m"/><feTurbulence type="fractalNoise" baseFrequency=".012 .3" numOctaves="2" seed="5"/><feColorMatrix values="0 0 0 0 .2 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .5 -.26" result="s"/><feMerge><feMergeNode in="m"/><feMergeNode in="s"/><feMergeNode in="g"/></feMerge></filter>`
     + `<linearGradient id="${pfx}sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1E2340"/><stop offset=".62" stop-color="#463A55"/></linearGradient><linearGradient id="${pfx}road" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#3D3548"/><stop offset="1" stop-color="#4A3F4E"/></linearGradient>`;
   return {
-    aina: person3('aina'), wei: person3('wei'), raju: person3('raju'), kamala: person3('kamala'), arjun: person3('arjun'), duit, scene, coffeeTable, grain, sticker, it, priceTag,
+    aina: person3('aina'), wei: person3('wei'), raju: person3('raju'), kamala: person3('kamala'), arjun: person3('arjun'), grace: person3('grace'), duit, scene, coffeeTable, grain, sticker, it, priceTag,
     /** Everything the panels <use>: put it once in a hidden <svg><defs>…</defs></svg>. Call after drawing the panels. */
     defs: () => BASE() + [...defs.values()].join(''),
   };
