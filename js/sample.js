@@ -13,7 +13,7 @@ const at = (date, time = '09:00') => new Date(`${date}T${time}:00`).getTime();
 const DAYS = 64;
 
 /** today in → {accounts, tx, recurring, budgets, goals, noSpend, friends}, all sample. */
-export function sampleData(today, now = Date.now(), cash = 'Cash') {
+export function sampleData(today, now = Date.now(), cash = 'Cash', goal = 'Emergency fund') {
   const accounts = [
     { id: 's_cash', name: cash, kind: 'cash', opening: 18000 },
     { id: 's_bank', name: 'Maybank', kind: 'bank', opening: 120000 },
@@ -74,16 +74,16 @@ export function sampleData(today, now = Date.now(), cash = 'Cash') {
   const spent = new Set(tx.filter(x => x.type === 'expense').map(x => x.date));
   const noSpend = Array.from({ length: 21 }, (_, i) => iso(today, i + 1)).filter(d => !spent.has(d)).slice(0, 2).sort();
   // RM 290 a month gets the emergency fund there: about the RM 300 put in after each payday.
-  const goals = [{ id: 's_goal', name: 'Emergency fund', target: 800000, by: `${addMonths(today.slice(0, 7), 10)}-01`, accountId: 's_asb', sample: true, createdAt: accounts[0].createdAt }];
+  const goals = [{ id: 's_goal', name: goal, target: 800000, by: `${addMonths(today.slice(0, 7), 10)}-01`, accountId: 's_asb', sample: true, createdAt: accounts[0].createdAt }];
   const budgets = { total: 230000, byCat: { dining: 50000, groceries: 25000 } };
   return { accounts: [...accounts, ...owe], tx, recurring, budgets, goals, noSpend, friends };
 }
 
 const empty = () => !S.accounts.length && !S.tx.length && !S.recurring.length && !S.kv.goals.length && !S.kv.budgets.total && !Object.keys(S.kv.budgets.byCat).length;
 /** Look around with sample data: only on an empty app, so nothing of the user's is ever mixed in or overwritten. → started */
-export async function startSample(today, cash) {
+export async function startSample(today, cash, goal) {
   if (!empty()) return false;
-  const d = sampleData(today, Date.now(), cash);
+  const d = sampleData(today, Date.now(), cash, goal);
   await addAll({ accounts: d.accounts, tx: d.tx, recurring: d.recurring, kv: { budgets: d.budgets, goals: d.goals, settings: { ...settings(), sample: true, onboarded: true, noSpend: d.noSpend, friends: d.friends } } });
   return true;
 }

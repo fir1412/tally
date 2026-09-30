@@ -1534,6 +1534,7 @@ export default {
   "The account's balance is the progress. A savings account is best.": "口座の残高が進み具合になります。貯金用の口座がおすすめです。",
   "You're there!": "達成しました！",
   "e.g. Emergency fund, Hari Raya, a new phone": "例：緊急資金、ハリラヤ、新しいスマホ",
+  "Emergency fund": "緊急資金",
   "{0} a month gets you there by {1}": "毎月{0}で{1}までに届きます",
   "{0} to go": "あと{0}",
   "{0}% saved": "{0}%達成",

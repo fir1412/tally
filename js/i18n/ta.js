@@ -1534,6 +1534,7 @@ export default {
   "The account's balance is the progress. A savings account is best.": "கணக்கின் இருப்புதான் முன்னேற்றம். சேமிப்புக் கணக்கு சிறந்தது.",
   "You're there!": "இலக்கை அடைந்துவிட்டீர்கள்!",
   "e.g. Emergency fund, Hari Raya, a new phone": "எ.கா. அவசர நிதி, தீபாவளி, புதிய கைப்பேசி",
+  "Emergency fund": "அவசர நிதி",
   "{0} a month gets you there by {1}": "மாதம் {0} சேர்த்தால் {1}-க்குள் இலக்கை அடையலாம்",
   "{0} to go": "இன்னும் {0}",
   "{0}% saved": "{0}% சேமித்தாச்சு",

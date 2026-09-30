@@ -1133,7 +1133,7 @@ export const act = {
   },
   // Sample data: two made-up months to look around in (only on an empty app); "Start for real" removes it (and anything added to its accounts).
   'sample-go': async () => {
-    await startSample(today(), t('Cash'));
+    await startSample(today(), t('Cash'), t('Emergency fund'));
     go('home');
   },
   'sample-end': async () => {
