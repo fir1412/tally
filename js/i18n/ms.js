@@ -1540,4 +1540,6 @@ export default {
   "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe": "Bahagikan bil dan simpan bahagian anda sahaja sebagai perbelanjaan; Utama menunjukkan siapa berhutang dengan anda, dan dengan siapa anda berhutang",
   "Savings goals: a target, a date and the account it grows in, with how much a month gets you there": "Matlamat simpanan: sasaran, tarikh dan akaun tempat ia berkembang, serta berapa sebulan untuk sampai",
   "\"Can I afford it?\" now counts your everyday money, not your savings": "\"Mampukah saya?\" kini mengira wang harian anda, bukan simpanan",
+  "Tamil is new. Suggest a better word": "Bahasa Tamil masih baharu. Cadangkan perkataan yang lebih baik",
+  "Tamil (beta): Tally in தமிழ். Suggest a better word from Settings": "Bahasa Tamil (beta): Tally dalam தமிழ். Cadangkan perkataan yang lebih baik dari Tetapan",
 };

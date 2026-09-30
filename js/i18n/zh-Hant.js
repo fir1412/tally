@@ -1539,4 +1539,6 @@ export default {
   "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe": "分帳後只把自己那份算作開銷；首頁顯示誰欠你、你欠誰",
   "Savings goals: a target, a date and the account it grows in, with how much a month gets you there": "儲蓄目標：目標金額、日期和存錢的帳戶，並告訴你每月要存多少",
   "\"Can I afford it?\" now counts your everyday money, not your savings": "「我買得起嗎？」現在只算日常用的錢，不算儲蓄",
+  "Tamil is new. Suggest a better word": "泰米爾語剛剛加入。建議更好的用詞",
+  "Tamil (beta): Tally in தமிழ். Suggest a better word from Settings": "泰米爾語（測試版）：Tally 現有 தமிழ் 版。可在設定中建議更好的用詞",
 };

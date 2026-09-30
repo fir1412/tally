@@ -1539,4 +1539,6 @@ export default {
   "Split a bill and keep only your share as spending; Home shows who owes you, and whom you owe": "割り勘で自分の分だけを支出に。ホームに貸し・借りを表示",
   "Savings goals: a target, a date and the account it grows in, with how much a month gets you there": "貯金目標：金額・期日・貯める口座と、毎月いくら貯めればよいか",
   "\"Can I afford it?\" now counts your everyday money, not your savings": "「買っても大丈夫？」は貯金を除いた普段のお金で判断します",
+  "Tamil is new. Suggest a better word": "タミル語は加わったばかり。もっと良い言葉を提案する",
+  "Tamil (beta): Tally in தமிழ். Suggest a better word from Settings": "タミル語（ベータ版）：Tally が தமிழ் に対応。もっと良い言葉は設定から提案できます",
 };

@@ -21,9 +21,14 @@ import { sampleData } from '../sample.js';
 import { pickColor, ACCENTS, onColor, applyLook, parseHex, colourName, APP_PALETTES, themeNow, okMine, surfacesFrom, paletteFor } from '../colorpicker.js';
 
 const KIND = { cash: 'Cash', bank: 'Bank account', ewallet: 'E-wallet', card: 'Credit card', savings: 'Savings' };
-// Short native names so five languages fit one row on a 360px phone; the full name is what a screen reader says.
+// Short native names so five languages fit one row on a 360px phone (Tamil wraps to a second); the full name is what
+// a screen reader says.
 const SHORT = { ms: 'BM', zh: '简体', 'zh-Hant': '繁體' };
-const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${langTag(k)}" aria-pressed="${getLang() === k}"${SHORT[k] ? ` aria-label="${esc(n)}" title="${esc(n)}"` : ''}>${esc(SHORT[k] || n)}</button>`).join('')}</div>`;
+// New translations not yet checked by a native reader: tagged, and the note under the picker asks readers for better words
+// through the usual feedback form (the app info it sends already names the language).
+const BETA = new Set(['ta']);
+const langButtons = () => `<div class="segs lang" role="group" aria-label="Language · Bahasa · 语言">${LANGS.map(([k, n]) => `<button class="seg${getLang() === k ? ' on' : ''}" data-act="set-lang" data-l="${k}" lang="${langTag(k)}" aria-pressed="${getLang() === k}"${SHORT[k] ? ` aria-label="${esc(n)}" title="${esc(n)}"` : ''}>${esc(SHORT[k] || n)}${BETA.has(k) ? ' <small class="beta" lang="en">beta</small>' : ''}</button>`).join('')}</div>
+  ${getLang() === 'ta' ? `<button class="link betanote" data-act="feedback">${esc(t('Tamil is new. Suggest a better word'))}<span lang="en">Tamil is new. Suggest a better word</span></button>` : ''}`;
 
 const SIZES = [100, 115, 130];
 /** A / A+ / A++, the same sizes as Settings → Text size, drawn at the size they give. */
