@@ -293,3 +293,20 @@ test('a return window or a warranty printed on the slip is found (for an optiona
   assert.deepEqual(r('WARRANTY: 6 MONTHS'), [undefined, 6]);
   assert.deepEqual(r('No refund. No exchange.'), [undefined, undefined]);
 });
+
+test('phone-photo receipts: tax after the payment, OCR misreads, a label above its amount, promotions, unit-price lines', () => {
+  // Fast-food slip: the tax line comes after the payment and starts with "TOTAL".
+  const a = parseReceipt('1 Burger Set 12.00\n1 Sundae 4.37\nSubtotal 16.37\nEat-In Total (incl Tax) 17.35\nCash 20.00\nTOTAL 6% Service Tax 0.98');
+  assert.equal(a.tax, 98); assert.ok(a.check.ok, JSON.stringify(a.check));
+  // Convenience store: "Uisa" (Visa) and "Sauings" (Savings) must not replace the total; the promotion is money off.
+  const b = parseReceipt('Chicken Bites 5.90\nRice Ball 5.50\nSUBTOTAL 11.40\nSnack Prono -1.65\nTOTAL 9.75\nUisa (001122/334455) -9.75\n#ITEMS SOLD 2\nTotal Sauings: 1.65');
+  assert.equal(b.total, 975); assert.ok(b.check.ok, JSON.stringify(b.check));
+  const c = parseReceipt('Iced Latte ea 9.50\nCheese Bun 7.90\nSUBTOTAL 17.40\n1 Latte (any size) -9.50\nTOTAL 7.90');
+  assert.ok(c.check.ok, JSON.stringify(c.check));
+  // "Jumlah Barang" with its amount on the next line is the total, not an item.
+  const d = parseReceipt('Ais Krim Mocha\n5.50 5.50\nAis Krim Vanila\n2.00 1 2.00\nJumlah Barang\n7.50\n1.Bankcard 7.50');
+  assert.deepEqual([d.total, d.items.length, d.check.ok], [750, 2, true]);
+  // "1ea@5.90" under its item is that item's unit price, not a second item.
+  const e = parseReceipt('Red Bean Bun ea 3.20\nSpicy Chicken 5.90\n1ea@5.90\nTOTAL 9.10\nVisa -9.10');
+  assert.deepEqual([e.items.length, e.check.ok], [2, true]);
+});

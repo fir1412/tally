@@ -8,14 +8,14 @@ import { calcAmount } from './engine.js';
 // A glued unit ("1.25L", "0.50KG") is a pack size in a name, not a price with a tax code.
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
 const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
-const UNIT_ONLY = /^\s*(\d{1,3})\s*[x×]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;
-const QTY = /^\s*\d+(?:[.,]\d+)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
+const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;   // "2 x 10.90", "1ea@5.90"
+const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
 const TOTAL = /[o0]ta[l1i]?(?![a-z])|t[o0]t[ai][l1](?![a-z])|t[o0]ta[l1](?=with|incl|[il1]ncl|amt|amount|sales|rm|myr)|jumlah|amount\s*due|\bnett?\b|grand/i;
-const PAYMENT = /\b(cash|tunai|change|baki|tender|visa|master|card|credit|debit|paid|payment|e-?wallet|grabpay|boost|tng|touch\s*n)/i;
+const PAYMENT = /\b(cash|tunai|change|baki|tender|[uv]isa|master|card|credit|debit|paid|payment|e-?wallet|grabpay|boost|tng|touch\s*n)/i;
 // "Total Qty", "Total Items", "Total Saving", "Total 0% supplies" (a group total), "Item 2 Total with GST"
-const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|saving|disc)|^(qty|items?)\b|saving|excl|suppl/i;
+const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|sa[uv]ing|disc)|^(qty|items?)\b|sa[uv]ing|excl|suppl/i;   // and OCR's "Sauings"
 // A line that says both "total" and "tax"/"rounding" is the total only when it says so ("incl", "payment"...)
 const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
@@ -23,7 +23,8 @@ const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
 const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
 const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax\b|cukai/i;
 const ROUNDING = /round|pelarasan|bundar/i;
-const DISCOUNT = /disc(ount)?|\bdsc\b|diskaun|potongan|saving|voucher|baucar|coupon|kupon|promo|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
+const MONEY_LABEL = new RegExp([TOTAL, SUBTOTAL, TAX, SERVICE, ROUNDING].map(x => x.source).join('|'), 'i');
+const DISCOUNT = /disc(ount)?|\bdsc\b|diskaun|potongan|sa[uv]ing|voucher|baucar|coupon|kupon|pro[mn]o|rebate|redeem|points? (used|redeemed)|优惠|折扣/i;
 // Printed shop names end like this; a handwritten name or a garbled logo above them is not the shop.
 const COMPANY = /\bsdn\.?\s*bhd|sdnbhd|\bbhd\b|enterprise|trading|restoran|restaurant|supermarket|hypermarket|pharmacy|farmasi|\bkedai\b|\bmart\b|\bstore\b|bakery|\bcafe\b/i;
 /** Strip codes, quantities, prices and units: what is left is the item's name (maybe nothing). */
@@ -175,7 +176,14 @@ export function parseReceipt(text) {
   text = String(text ?? '').normalize('NFKC');   // the Chinese model returns full-width digits: "27/09/２0２6"
   const lines = text.split(/\r?\n/).map(l => l.slice(0, 300).replace(/\s+/g, ' ').trim())   // receipt lines are short: a runaway one can't stall the patterns
     .map(l => l.replace(/\bbarcode\s*:?\s*(?:[0-9][0-9A-Z]{10,13}\b)?/gi, ' ').replace(/\s+/g, ' ').trim())   // "Barcode: 9555C39200019" (OCR's C for 0): never a name
-    .filter(Boolean);
+    .filter(Boolean)
+    // "Jumlah Barang" with its "7.50" on the next line: one money line, not an item named "Jumlah Barang"
+    .reduce((out, l, i, a) => {
+      if (out.skip === i) return out;
+      const n = a[i + 1];
+      if (n !== undefined && !AMOUNT.test(l) && MONEY_LABEL.test(l) && /^\W*(?:RM|MYR)?\s*-?\d{1,6}[.,]\d{2}\W*$/i.test(n)) { out.push(l + ' ' + n); out.skip = i + 1; } else out.push(l);
+      return out;
+    }, []);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
   let pendingName = null; // name line waiting for a "2 x 3.50  7.00" line
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
@@ -216,6 +224,7 @@ export function parseReceipt(text) {
     else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
     else if (DISCOUNT.test(key) && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
     else if (DISCOUNT.test(key) && cents && r.total === null) billOff += Math.abs(cents);   // "Member discount -5.00" between subtotal and total
+    else if (cents < 0 && r.subtotal !== null && r.total === null) billOff += -cents;   // "1 Frappe (any flavor) -9.50": a promotion between subtotal and total
     else if (r.subtotal === null && r.total === null && !COUNT.test(label)) { // items stop at the subtotal or first real total
       const name = label.replace(QTY, '').trim();
       const qtyOnly = !/[a-z]{2}/i.test(bareName(name));   // "2587 1.00 PCS 48.00": code, qty and price; the name is elsewhere
@@ -233,6 +242,12 @@ export function parseReceipt(text) {
   if (r.total > 0 && r.total % 5) {
     const r5 = Math.round(r.total / 5) * 5;
     if (lines.some(l => amountsIn(l).includes(r5))) { r.rounding = (r.rounding ?? 0) + r5 - r.total; r.total = r5; }
+  }
+  // A tax line printed after the payment ("TOTAL 6% Service Tax 0.98" under "Cash 20.00") counts only when it is exactly
+  // the gap between the subtotal and the total: a tax summary table there never adds a guess.
+  if (r.tax === null && r.subtotal !== null && r.total > r.subtotal) {
+    const gap = r.total - r.subtotal - (r.service ?? 0) - (r.rounding ?? 0);
+    if (gap > 0 && lines.some(l => TAX.test(l) && amountsIn(l).includes(gap))) r.tax = gap;
   }
   // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
   if (r.total) for (const k of ['tax', 'service']) if (Math.abs(r[k] ?? 0) * 3 > r.total) r[k] = null;
