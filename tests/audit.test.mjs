@@ -27,3 +27,12 @@ test('bills that add themselves post only the last ~13 months, however old their
   for (const b of bills) assert.ok(got.filter(t => t.bill === b.id).length <= 60, `bill ${b.id} posted ${got.filter(t => t.bill === b.id).length} payments`);
   assert.ok(got.every(t => t.date >= E.addDays('2026-09-30', -400)));
 });
+
+test('a zoned CSV date is held to the same range as every other date (an impossible year is skipped, not stored)', async () => {
+  const IO = await import('../js/io.js');
+  const rows = [['0000-01-01T00:00:00Z', '-12.50', 'A'], ['9999-12-31T23:00:00-05:00', '-3.00', 'B'], ['2026-09-29T02:30:00Z', '-5.00', 'C']];
+  const r = IO.rowsToTx(rows, { date: 0, amount: 1, merchant: 2 }, { accountId: 'a', catMap: {}, customCats: [] });
+  assert.deepEqual(r.txs.map(t => t.merchant), ['C']);
+  assert.ok(r.txs.every(t => E.validIso(t.date)));
+  assert.deepEqual(r.skipped.map(s => s.why), ['date', 'date']);
+});

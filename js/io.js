@@ -366,18 +366,18 @@ const MON_MS = ['jan', 'feb', 'mac', 'apr', 'mei', 'jun', 'jul', 'ogo', 'sep', '
 export function fileDate(v, monthFirst = false) {
   const s = cleanText(v, 40).replace(/^(mon|tue|wed|thu|fri|sat|sun|isnin|selasa|rabu|khamis|jumaat|sabtu|ahad)[a-z]*,?\s+/i, '');
   if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5).toISOString().slice(0, 10);
-  let m, y, mo, d;
-  if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/) || s.match(/^(\d{4})(\d{2})(\d{2})$/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
-  else if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) [d, mo, y] = monthFirst ? [+m[2], +m[1], +m[3]] : [+m[1], +m[2], +m[3]];
+  let m, y, yt, mo, d;   // yt: the year as written, so only a 2-digit one means 20xx ('0000' is not 2000)
+  if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/) || s.match(/^(\d{4})(\d{2})(\d{2})$/))) [yt, mo, d] = [m[1], +m[2], +m[3]];
+  else if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) [d, mo, yt] = monthFirst ? [+m[2], +m[1], m[3]] : [+m[1], +m[2], m[3]];
   else if ((m = s.match(/^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[\s,.-]*(\d{2,4})/))) {
     const k = m[2].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
-    [d, mo, y] = [+m[1], i + 1, +m[3]];
+    [d, mo, yt] = [+m[1], i + 1, m[3]];
   } else if ((m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/))) {
     const k = m[1].toLowerCase(), i = MON_EN.indexOf(k) >= 0 ? MON_EN.indexOf(k) : MON_MS.indexOf(k);
-    [d, mo, y] = [+m[2], i + 1, +m[3]];
-  } else if ((m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
+    [d, mo, yt] = [+m[2], i + 1, m[3]];
+  } else if ((m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/))) [yt, mo, d] = [m[1], +m[2], +m[3]];
   else return null;
-  if (y < 100) y += 2000;
+  y = +yt + (yt.length <= 2 ? 2000 : 0);
   const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   return mo >= 1 && validIso(iso) && y >= 2000 && y <= 2100 ? iso : null;
 }
@@ -405,8 +405,9 @@ const timeOf = (v, bare = false) => {
 const zoned = v => {
   const s = cleanText(v, 40);
   if (!/^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)? ?(Z|[+-]\d\d:?\d\d)$/i.test(s)) return null;
-  const d = new Date(s.replace(' ', 'T').replace(' ', ''));
-  return isNaN(d) ? null : { date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`, time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` };
+  const d = new Date(s.replace(' ', 'T').replace(' ', '')), y = d.getFullYear(), date = `${y}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  // The same range as fileDate: '0000-…' or '9999-…' would be stored as '0-01-01' and crash date maths on every start.
+  return isNaN(d) || y < 2000 || y > 2100 || !validIso(date) ? null : { date, time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}` };
 };
 
 // ---- rows → transactions ---------------------------------------------------------------------------
