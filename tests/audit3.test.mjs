@@ -26,6 +26,16 @@ test("a partner's delete markers stop only joint bills' payments, never a person
   assert.match(post, /unmarkedPayments\(/);
 });
 
+test('a photo backup is refused, not reported as saved, when its data or photo count is more than restore reads', async () => {
+  const { readFileSync } = await import('node:fs'), L = IO.LIMITS;
+  assert.equal(IO.backupFits({ zip: true, fileBytes: 1e6, jsonBytes: L.backupJson + 1, entries: 2 }), false);   // the zip was fine, its JSON too big
+  assert.equal(IO.backupFits({ zip: true, fileBytes: 1e6, jsonBytes: 1000, entries: IO.ZIP.entries + 1 }), false);   // photos restore would leave out
+  assert.equal(IO.backupFits({ zip: true, fileBytes: 1e6, jsonBytes: 1000, entries: IO.ZIP.entries }), true);
+  assert.equal(IO.backupFits({ zip: false, fileBytes: L.backupJson + 1, jsonBytes: L.backupJson + 1, entries: 1 }), false);
+  const src = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8');
+  assert.match(src.match(/async function sealedBackup[\s\S]*?\n}\n/)[0], /backupFits\(/);
+});
+
 test("a joint account deleted on either phone takes its bills with it: none is left to post into a personal account", () => {
   const T = Date.now(), me = { id: 'pmine', name: 'Maybank', kind: 'bank' };
   const bill = (id, accountId, updatedAt) => ({ id, name: 'Rent', amount: 150000, accountId, day: 1, auto: true, start: '2026-06-01', updatedAt });

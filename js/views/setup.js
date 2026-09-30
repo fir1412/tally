@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, backupFits, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -624,18 +624,19 @@ async function restoreText(text, zip = {}) {
 
 /** The backup, as JSON, or with photos as a zip holding the same JSON plus photos/<id>.jpg. */
 async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx) {
-  if (!withPhotos) return { name, blob: new Blob([text], { type: 'application/json' }), missing: 0 };
-  const files = [{ name: BACKUP_JSON, data: new TextEncoder().encode(text) }];
+  const json = new TextEncoder().encode(text);
+  if (!withPhotos) return { name, blob: new Blob([json], { type: 'application/json' }), missing: 0, jsonBytes: json.length, entries: 1 };
+  const files = [{ name: BACKUP_JSON, data: json }];
   let missing = 0;
   for (const id of new Set(txs.map(x => x.receiptId).filter(Boolean))) { const p = await getPhoto(id); if (p) files.push({ name: `photos/${id}.jpg`, data: new Uint8Array(await p.arrayBuffer()) }); else missing++; }
-  return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files), missing };
+  return { name: name.replace(/\.json$/, '.zip'), blob: zipStore(files), missing, jsonBytes: json.length, entries: files.length };
 }
 /** The backup as the sheet asks: with or without photos, and sealed with its password when one is typed. Null: too short. */
 async function sealedBackup(r = null, pass = '#bk-pass', err = '#bk-err') {
   const pw = $(pass)?.value || '';
   if (!r) {   // this phone's backup: never one its own restore would refuse, reported as saved
     r = await backupBlob($('#bk-photos')?.checked);
-    const big = r.blob.size > (r.name.endsWith('.zip') ? LIMITS.backupBytes : LIMITS.backupJson);
+    const big = !backupFits({ zip: r.name.endsWith('.zip'), fileBytes: r.blob.size, jsonBytes: r.jsonBytes, entries: r.entries });
     if (big || overCap({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, customCats: S.kv.customCats })) { $(err).textContent = t('This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.'); return null; }
   }
   if (!pw) return r;

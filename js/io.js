@@ -894,6 +894,9 @@ export function overCapAfter(local, add, del = {}) {
   const join = k => { const m = new Map((local[k] || []).map(x => [x.id, x])); for (const x of add[k] || []) m.set(x.id, x); for (const id of del[k] || []) m.delete(id); return [...m.values()]; };
   return overCap(Object.fromEntries(Object.keys(CAPS).map(k => [k, join(k)])));
 }
+/** Would restore read all of this backup? The file, the JSON inside a zip, and the zip's entries (JSON + photos) each have
+ *  restore's limit: a photo backup over any of them was refused whole, or lost photos, after being reported as saved. */
+export const backupFits = ({ zip, fileBytes, jsonBytes, entries = 1 }) => fileBytes <= (zip ? LIMITS.backupBytes : LIMITS.backupJson) && jsonBytes <= LIMITS.backupJson && entries <= ZIP.entries;
 /** A sealed backup is base64 of the file in JSON: this long at most for the biggest file importFile reads back. */
 export const SEALED_MAX = Math.ceil((LIMITS.backupBytes + 16) / 3) * 4 + 1024;
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
