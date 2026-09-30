@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { typedShift } from './io.js';
+import { typedShift, CAPS } from './io.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
@@ -139,6 +139,7 @@ export async function addCategory(name, color = nextColor(S.kv.customCats.map(x 
   // The same name again (Enter pressed twice, or typed twice) is that category, not a second one.
   const same = S.kv.customCats.find(x => x.name.trim().toLowerCase() === String(name).slice(0, 40).trim().toLowerCase() && (x.kind || 'expense') === kind);
   if (same) return same;
+  if (S.kv.customCats.length >= CAPS.customCats) throw new Error('You have 50 categories of your own, the most a backup can hold.');
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color, ...(kind === 'income' ? { kind } : {}) };
   await setKv('customCats', [...S.kv.customCats, c]);
   return c;

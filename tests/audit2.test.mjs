@@ -148,6 +148,25 @@ test("a Money Manager import keeps the user's own categories at 50 in all (past 
   assert.match(go, /fitCats\(/, 'the Money Manager import must use it');
 });
 
+test("Tally never writes, or reports as saved, a backup its own restore refuses", async () => {
+  const IO = await import('../js/io.js'), { readFileSync } = await import('node:fs');
+  const bills = n => Array.from({ length: n }, (_, i) => ({ id: `jb${i}`, accountId: 'jt' })), local = { accounts: [{ id: 'me' }], tx: [{ id: 't1' }], recurring: [{ id: 'mine' }], customCats: [] };
+  assert.equal(IO.overCapAfter(local, { recurring: bills(500) }), 'recurring');   // a partner's 500 joint bills next to one of mine
+  assert.equal(IO.overCapAfter(local, { recurring: bills(499) }), '');
+  assert.equal(IO.overCapAfter({ ...local, accounts: Array.from({ length: 200 }, (_, i) => ({ id: `a${i}` })) }, { accounts: [{ id: 'new' }] }, { accounts: ['a0'] }), '');   // one in, one out
+  // A 51st category of the user's own is refused (a backup with 51 won't restore).
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  for (let i = 0; i < 50; i++) await A.S.addCategory(`Mine ${i}`);
+  await assert.rejects(A.S.addCategory('One too many'), /50 categories/);
+  // A password-protected backup of the biggest file Tally reads back still fits the sealed file's own limit.
+  const s = await IO.sealBackup(new Uint8Array(1000), 'dummy-password-1'), extra = s.length - Math.ceil(1016 / 3) * 4;
+  assert.ok(Math.ceil((IO.LIMITS.backupBytes + 16) / 3) * 4 + extra <= IO.SEALED_MAX);
+  const src = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8'), fn = name => src.match(new RegExp(`(async )?function ${name}\\([\\s\\S]*?\\n}\\n`))[0];
+  assert.match(fn('importFile'), /SEALED_MAX/);
+  for (const f of ['importJoint', 'restoreText', 'commitImport', 'sealedBackup']) assert.match(fn(f), /overCap/, `${f} must check the totals`);
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];

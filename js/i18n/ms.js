@@ -1418,4 +1418,7 @@ export default {
   "Imports from other money apps keep your own category names": "Import daripada aplikasi wang lain mengekalkan nama kategori anda sendiri",
   "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "Pasang Tally dari mana-mana pelayar, dengan langkah bergambar untuk iPhone, Samsung dan Firefox",
   "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "Import dan padam yang lebih selamat: fail daripada orang lain tidak lagi boleh membekukan Tally atau mengembalikan data yang dipadam",
+  "Adding this would make Tally's data more than a backup can restore, so nothing was added.": "Menambah ini akan menjadikan data Tally lebih daripada yang boleh dipulihkan oleh sandaran, jadi tiada apa-apa ditambah.",
+  "This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.": "Ini lebih daripada yang boleh dipulihkan oleh sandaran. Tinggalkan foto, atau buang beberapa catatan atau bil dahulu.",
+  "You have 50 categories of your own, the most a backup can hold.": "Anda mempunyai 50 kategori sendiri, jumlah maksimum yang boleh disimpan dalam sandaran.",
 };

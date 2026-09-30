@@ -407,7 +407,7 @@ export const act = {
     const done = async ok => {
       const name = el.querySelector('#nc-name').value.trim();
       if (ok && !name) return el.querySelector('#nc-name').focus();
-      if (ok) { const c = await addCategory(name, undefined, income ? 'income' : 'expense'); draft.category = c.id; catPicked = true; if (draft.items?.length) draft.items.forEach(i => { i.category = c.id; }); }
+      if (ok) { let c; try { c = await addCategory(name, undefined, income ? 'income' : 'expense'); } catch (e) { return toast(t(e.message), { k: 'warn' }); } draft.category = c.id; catPicked = true; if (draft.items?.length) draft.items.forEach(i => { i.category = c.id; }); }
       closeSheet(); reopen();
     };
     el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) done(x === 'ok'); });

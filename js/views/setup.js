@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, fitCats, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -304,7 +304,9 @@ export async function importFile(f) {
   if (!$('#imp-err')) importSheet();   // shared from another app: show the import sheet for messages
   let kind = 'file';
   try {
-    if (f.size > LIMITS.backupBytes) return impErr(t('That file is too big (over 200 MB).'));
+    // A password-protected backup is its file in base64 (a third bigger): it may be as big as the biggest backup sealed.
+    const sealed = f.size > LIMITS.backupBytes && isSealed(new TextDecoder().decode(await f.slice(0, 64).arrayBuffer()));
+    if (f.size > (sealed ? SEALED_MAX : LIMITS.backupBytes)) return impErr(t('That file is too big (over 200 MB).'));
     impErr(t('Reading {0} ({1} MB)…', f.name || t('file'), Math.max(0.1, Math.round(f.size / 104857.6) / 10)));
     const buf = await f.arrayBuffer();
     const head = new Uint8Array(buf.slice(0, 64));
@@ -312,7 +314,7 @@ export async function importFile(f) {
     // Money Manager backups: .mmbackup, or any zip (maybe renamed by a download) holding MyFinance.db
     if (!/\.mmbak$/i.test(f.name) && (/\.mmbackup$/i.test(f.name) || (zipAt > 0 && zipAt < 64))) { kind = 'Money Manager'; return await importMoneyManager(buf); }
     if (/\.json$/i.test(f.name) || new Uint8Array(buf.slice(0, 1))[0] === 0x7b) {
-      const text = jsonText(buf);
+      const text = isSealed(new TextDecoder().decode(head)) ? new TextDecoder().decode(buf) : jsonText(buf);   // sealed: held to SEALED_MAX above
       if (isSealed(text)) {   // a password-protected backup: opened here, then read like any backup (zip or JSON)
         const pw = await askPassword(); if (!pw) return impErr('');
         const bytes = await openBackup(text, pw);
@@ -466,6 +468,9 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   const stagedKv = { ...kv, ...(first ? { settings: { ...(kv.settings || settings()), onboarded: true } } : {}) };
   const brings = stagedAccounts.some(a => newAccounts.includes(a.id) && a.kind === 'bank' && !a.outside);
   const empty = brings ? S.accounts.filter(a => a.typed === false && a.kind === 'bank' && !a.outside && !a.scope?.match(/joint|business/) && !S.tx.some(x => x.accountId === a.id || x.toAccountId === a.id) && !save.some(x => x.accountId === a.id || x.toAccountId === a.id)) : [];
+  if (overCapAfter({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, customCats: S.kv.customCats }, { accounts: stagedAccounts, tx: save, customCats: stagedKv.customCats }, { tx: gone, accounts: empty.map(a => a.id) })) {
+    await deletePhotos(photoIds); throw new Error(t("Adding this would make Tally's data more than a backup can restore, so nothing was added."));
+  }
   try { await putAll({ accounts: stagedAccounts, tx: save, del: { tx: gone, accounts: empty.map(a => a.id) }, kv: stagedKv }); }
   catch (e) { await deletePhotos(photoIds); throw e; }
   if (first && !tourLater) afterSetup();
@@ -587,7 +592,11 @@ async function restoreText(text, zip = {}) {
   if (choice === 'no') return;
   const local = { accounts: S.accounts, tx: S.tx, recurring: S.recurring, kv: { budgets: S.kv.budgets, rules: S.kv.rules, customCats: S.kv.customCats } };
   const before = choice === 'merge' ? S.tx : [], had = new Set(before.map(x => x.id));   // a merge keeps these rows as they are, photos too
-  if (choice === 'merge') await addAll(mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data)); else await replaceAll(data);
+  if (choice === 'merge') {
+    const merged = mergeBackup({ ...local, kv: { ...local.kv, dismissed: S.kv.dismissed } }, data);
+    if (overCap({ ...merged, customCats: merged.kv.customCats })) return impErr(t("Adding this would make Tally's data more than a backup can restore, so nothing was added."));   // both together: no backup of them would restore
+    await addAll(merged);
+  } else await replaceAll(data);
   // Its settings (month start, language, text size…): all of them on a replace, only what this phone hasn't set on a merge.
   const cur = settings(), want = Object.entries(data.settings || {}).filter(([k]) => choice !== 'merge' || cur[k] == null);
   if (want.length) {
@@ -624,7 +633,11 @@ async function backupBlob(withPhotos, { name, text } = backupFile(), txs = S.tx)
 /** The backup as the sheet asks: with or without photos, and sealed with its password when one is typed. Null: too short. */
 async function sealedBackup(r = null, pass = '#bk-pass', err = '#bk-err') {
   const pw = $(pass)?.value || '';
-  r ||= await backupBlob($('#bk-photos')?.checked);
+  if (!r) {   // this phone's backup: never one its own restore would refuse, reported as saved
+    r = await backupBlob($('#bk-photos')?.checked);
+    const big = r.blob.size > (r.name.endsWith('.zip') ? LIMITS.backupBytes : LIMITS.backupJson);
+    if (big || overCap({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, customCats: S.kv.customCats })) { $(err).textContent = t('This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.'); return null; }
+  }
   if (!pw) return r;
   if (pw.length < 10) { $(err).textContent = t('Use at least 10 characters.'); $(pass).focus(); return null; }
   const text = await sealBackup(new Uint8Array(await r.blob.arrayBuffer()), pw);
@@ -648,6 +661,7 @@ const jointTx = () => { const j = jointIds(); return S.tx.filter(x => j.has(x.ac
 const jointFile = () => ({ name: `tally-joint-${today()}.json`, text: makeJointShare({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, settings().myName || '') });
 async function importJoint(data, zip = {}) {
   const m = mergeJoint({ accounts: S.accounts, tx: S.tx, kv: S.kv, recurring: S.recurring }, data), from = data.by || t('your partner');
+  if (overCapAfter({ accounts: S.accounts, tx: S.tx, recurring: S.recurring, customCats: S.kv.customCats }, m, { tx: m.drop, accounts: m.empty.map(a => a.id) })) return impErr(t("Adding this would make Tally's data more than a backup can restore, so nothing was added."));
   const theirs = m.tx.length - m.empty.reduce((s, a) => s + (a.moved || 0), 0);
   const body = [t('New or changed entries: {0}. Deleted: {1}. Newer edits win; your personal accounts are not touched.', theirs, m.drop.length),
     m.budgetsJoint ? t('Joint budgets are updated.') : '', m.recurring.length ? t('Joint bills: {0}.', m.recurring.length) : '',
@@ -790,7 +804,11 @@ export const act = {
   },
   'cat-add': () => catAddSheet(),
   'cat-add-color': async b => { const name = $('#cat-name').value; catAddSheet(name, (await pickColor({ value: b.dataset.v })) || b.dataset.v); },
-  'cat-save': async () => { const n = $('#cat-name').value.trim(); if (!n) return; await addCategory(n, $('#cat-color').dataset.v); closeSheet(); render(); toast(t('Saved')); },
+  'cat-save': async () => {
+    const n = $('#cat-name').value.trim(); if (!n) return;
+    try { await addCategory(n, $('#cat-color').dataset.v); } catch (e) { return toast(t(e.message), { k: 'warn' }); }   // 50 of the user's own at most
+    closeSheet(); render(); toast(t('Saved'));
+  },
   // Settings is long (8+ screens at big text): the chips at the top jump to a section, Restore included.
   jump: b => { const el = document.getElementById(b.dataset.to); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); el?.querySelector('h2')?.setAttribute('tabindex', '-1'); el?.querySelector('h2')?.focus({ preventScroll: true }); },
   'rules-clear': async () => {

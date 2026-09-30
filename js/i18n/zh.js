@@ -1418,4 +1418,7 @@ export default {
   "Imports from other money apps keep your own category names": "从其他记账应用导入时保留你自己的分类名称",
   "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "可从任何浏览器安装 Tally，并有 iPhone、Samsung 和 Firefox 的图示步骤",
   "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "更安全的导入与删除：他人的文件不再能让 Tally 卡住，也不会让已删除的数据恢复",
+  "Adding this would make Tally's data more than a backup can restore, so nothing was added.": "添加后 Tally 的数据将超过备份可恢复的上限，因此未添加任何内容。",
+  "This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.": "这超出了备份可恢复的上限。请不包含照片，或先删除一些记录或账单。",
+  "You have 50 categories of your own, the most a backup can hold.": "你已有 50 个自定义分类，这是备份可容纳的上限。",
 };

@@ -1417,4 +1417,7 @@ export default {
   "Imports from other money apps keep your own category names": "他の家計簿アプリから取り込んでも、カテゴリー名はそのまま残ります",
   "Install Tally from any browser, with picture steps for iPhone, Samsung and Firefox": "どのブラウザからでも Tally をインストールできます（iPhone、Samsung、Firefox 向けの図解手順付き）",
   "Safer imports and erase: files from others can no longer freeze Tally or bring erased data back": "取り込みと消去がより安全に：他人のファイルで Tally が固まったり、消去したデータが戻ったりしなくなりました",
+  "Adding this would make Tally's data more than a backup can restore, so nothing was added.": "追加すると Tally のデータがバックアップで復元できる量を超えるため、何も追加しませんでした。",
+  "This is more than a backup can restore. Leave out the photos, or remove some entries or bills first.": "バックアップで復元できる量を超えています。写真を含めないか、先に記録や請求をいくつか削除してください。",
+  "You have 50 categories of your own, the most a backup can hold.": "自分のカテゴリーが 50 個あり、バックアップに保存できる上限です。",
 };

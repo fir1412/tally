@@ -872,6 +872,17 @@ const list = (x, max) => (Array.isArray(x) ? x.slice(0, max) : []);
 const upd = n => (Number.isSafeInteger(n) && n > 0 ? { updatedAt: Math.min(n, Date.now()) } : {}); // a file can't claim to be edited in the future
 /** A creation time from a file: 2000 to tomorrow, else 0 (unknown). Year 500 became '500-06-15' in Home's banner and crashed it. */
 export const okMs = n => (Number.isSafeInteger(n) && n >= Date.UTC(2000, 0, 1) && n <= Date.now() + 864e5 ? n : 0);
+/** The most a backup holds: readBackup refuses a whole backup over any of these, so nothing may store more (overCap). */
+export const CAPS = { accounts: 200, tx: 200_000, recurring: 500, customCats: 50 };
+/** The first limit these records are over ('' when none): a backup of them would not restore. */
+export const overCap = r => Object.keys(CAPS).find(k => (r[k] || []).length > CAPS[k]) || '';
+/** overCap of `local` after adding `add` (by id, replacing) and deleting `del` ({accounts, tx, recurring}: ids). */
+export function overCapAfter(local, add, del = {}) {
+  const join = k => { const m = new Map((local[k] || []).map(x => [x.id, x])); for (const x of add[k] || []) m.set(x.id, x); for (const id of del[k] || []) m.delete(id); return [...m.values()]; };
+  return overCap(Object.fromEntries(Object.keys(CAPS).map(k => [k, join(k)])));
+}
+/** A sealed backup is base64 of the file in JSON: this long at most for the biggest file importFile reads back. */
+export const SEALED_MAX = Math.ceil((LIMITS.backupBytes + 16) / 3) * 4 + 1024;
 /** Backup text → cleaned {accounts, tx, recurring, kv, dropped}, or throws a message the user can act on. */
 export function readBackup(text) {
   if (String(text).length > LIMITS.backupJson) throw new Error('This backup is too big to restore (over 50 MB).');
@@ -879,10 +890,11 @@ export function readBackup(text) {
   try { d = JSON.parse(text); } catch { throw new Error('This file is not a Tally backup (it is not valid JSON).'); }
   if (!isObj(d) || d.app !== BACKUP_APP) throw new Error('This file is not a Tally backup.');
   if (d.v > 1) throw new Error('This backup is from a newer version of Tally. Update the app, then restore.');
-  for (const [key, max] of [['accounts', 200], ['tx', 200_000], ['recurring', 500]]) {
+  for (const key of ['accounts', 'tx', 'recurring']) {
+    const max = CAPS[key];
     if (Array.isArray(d[key]) && d[key].length > max) throw new Error(`This backup has more than ${max} ${key === 'tx' ? 'transactions' : key === 'recurring' ? 'bills' : key}. Nothing was restored.`);
   }
-  if (Array.isArray(d.kv?.customCats) && d.kv.customCats.length > 50) throw new Error('This backup has more than 50 custom categories. Nothing was restored.');
+  if (Array.isArray(d.kv?.customCats) && d.kv.customCats.length > CAPS.customCats) throw new Error('This backup has more than 50 custom categories. Nothing was restored.');
   // Custom categories first: only the ones that pass are category ids anywhere else in the backup.
   const customCats = list(isObj(d.kv) && d.kv.customCats, 50).filter(c => isObj(c) && /^c_[\w-]{1,40}$/.test(c.id)).map(c => ({ id: c.id, name: cleanText(c.name, 40) || 'Custom', color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#64748B', ...(c.kind === 'income' ? { kind: 'income' } : {}) }));
   const customIds = new Set(customCats.map(c => c.id));
