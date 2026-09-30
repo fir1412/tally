@@ -597,11 +597,12 @@ export function habits(txs, today) {
     const [category, days] = key.split('|');
     list.sort((a, b) => a.m - b.m);
     // Widest cluster of times inside 90 minutes (sliding window).
-    let best = [];
+    let bi = 0, bj = -1;   // the window's bounds, copied once after: a copy per step was quadratic on a big import
     for (let i = 0, j = 0; j < list.length; j++) {
       while (list[j].m - list[i].m > 90) i++;
-      if (j - i + 1 > best.length) best = list.slice(i, j + 1);
+      if (j - i > bj - bi) { bi = i; bj = j; }
     }
+    const best = list.slice(bi, bj + 1);
     if (best.length < 3 || new Set(best.map(x => x.date)).size < 3) continue;
     const mid = a => a[Math.floor(a.length / 2)];
     out.push({ category, days, at: hhmm(mid(best.map(x => x.m))), count: best.length, amount: mid(best.map(x => x.amount).sort((a, b) => a - b)) });
