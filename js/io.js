@@ -90,7 +90,7 @@ export async function unzip(buf, want, { budget = ZIP.budget, entries = ZIP.entr
   for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   if (eocd < 0) bad();
   const count = dv.getUint16(eocd + 10, true);
-  let p = base + dv.getUint32(eocd + 16, true), left = budget, read = 0;
+  let p = base + dv.getUint32(eocd + 16, true), left = budget, read = 0, taken = 0;
   const out = Object.create(null); // entry names are untrusted: "__proto__" is just a name here
   for (let n = 0; n < count; n++) {
     if (p + 46 > b.length || dv.getUint32(p, true) !== 0x02014b50) bad();
@@ -105,6 +105,9 @@ export async function unzip(buf, want, { budget = ZIP.budget, entries = ZIP.entr
     if (local + 30 > b.length || dv.getUint32(local, true) !== 0x04034b50) bad();
     const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
     if (start + size > b.length) bad();
+    // Entries that don't overlap can't add up past the file: names sharing one local entry (or local headers nested in
+    // each other's extra field) would hand out the same bytes thousands of times, past every budget.
+    if ((taken += size) > b.length) bad();
     const data = b.subarray(start, start + size);
     if (method === 0) { if (size > budget) throw new Error('too big'); out[name] = data; } // stored: a view of the file, no copy
     else if (method === 8) { if (full > left) throw new Error('too big'); out[name] = await inflateRaw(data, full); left -= out[name].length; }

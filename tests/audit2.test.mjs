@@ -24,6 +24,31 @@ test("bills that add themselves don't check every due date against every stored 
   assert.ok(bRows < bNone * 2 + 100, `Home's bill banner: ${bRows | 0} ms with the rows vs ${bNone | 0} ms without`);   // the rows add next to nothing
 });
 
+// A stored zip written by hand: `locals` [{at, extra}] local headers, `names` central records → local header index.
+function aliasZip(dataLen, locals, names) {
+  const top = Math.max(...locals.map(l => l.at + 30 + l.extra)), dataAt = top, cdAt = dataAt + dataLen;
+  const cd = names.map(([name, li]) => [new TextEncoder().encode(name), locals[li].at]);
+  const size = cdAt + cd.reduce((s, [n]) => s + 46 + n.length, 0) + 22, b = new Uint8Array(size), dv = new DataView(b.buffer);
+  for (const l of locals) { dv.setUint32(l.at, 0x04034b50, true); dv.setUint32(l.at + 18, dataLen, true); dv.setUint32(l.at + 22, dataLen, true); dv.setUint16(l.at + 28, l.extra, true); }
+  b.fill(7, dataAt, dataAt + dataLen);
+  let p = cdAt;
+  for (const [n, at] of cd) { dv.setUint32(p, 0x02014b50, true); dv.setUint32(p + 20, dataLen, true); dv.setUint32(p + 24, dataLen, true); dv.setUint16(p + 28, n.length, true); dv.setUint32(p + 42, at, true); b.set(n, p + 46); p += 46 + n.length; }
+  dv.setUint32(p, 0x06054b50, true); dv.setUint16(p + 8, cd.length, true); dv.setUint16(p + 10, cd.length, true); dv.setUint32(p + 12, p - cdAt, true); dv.setUint32(p + 16, cdAt, true);
+  return b;
+}
+
+test('a zip cannot hand out the same stored bytes under many names (a 2 MB Money Manager file stored one photo 5,000 times)', async () => {
+  const IO = await import('../js/io.js'), photos = n => Array.from({ length: n }, (_, i) => [`photos/r${i}.jpg`, 0]);
+  const shared = aliasZip(100_000, [{ at: 0, extra: 0 }], photos(1000));   // 1,000 names, one local entry
+  await assert.rejects(IO.unzip(shared, n => n.startsWith('photos/')), /bad zip/);
+  const N = 1000, nested = aliasZip(100_000, Array.from({ length: N }, (_, i) => ({ at: 30 * i, extra: 30 * (N - 1 - i) })), Array.from({ length: N }, (_, i) => [`photos/r${i}.jpg`, i]));   // headers inside each other's extra field
+  await assert.rejects(IO.unzip(nested, n => n.startsWith('photos/')), /bad zip/);
+  // A real one still reads, entries of any size, with bytes before it (Money Manager starts with 8).
+  const ok = new Uint8Array(await IO.zipStore([{ name: 'photos/a.jpg', data: new Uint8Array(5000).fill(1) }, { name: 'photos/b.jpg', data: new Uint8Array(7000).fill(2) }]).arrayBuffer());
+  const pre = new Uint8Array(ok.length + 8); pre.set(ok, 8);
+  for (const z of [ok, pre]) assert.deepEqual(Object.entries(await IO.unzip(z, () => true)).map(([k, v]) => [k, v.length]), [['photos/a.jpg', 5000], ['photos/b.jpg', 7000]]);
+});
+
 test('a bill counts as paid exactly as before: tagged, posted (rec-<id>-), or by its shop name', () => {
   const ref = (r, date, txs) => {   // the old whole-list scan
     const name = String(r.name || '').trim().toLowerCase(), per = { weekly: 3, yearly: 182 }[r.freq];
