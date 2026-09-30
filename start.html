@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tally: free receipt scanner and money book for Malaysians</title>
+<meta name="description" content="Snap a receipt and Tally reads it on your phone, files every item, and flags what may count for LHDN reliefs. No account, nothing uploaded, free.">
+<meta name="theme-color" content="#070A16">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tallymy.github.io/start.html">
+<meta property="og:title" content="Tally, the free money book for Malaysians">
+<meta property="og:description" content="Snap a receipt and Tally reads it on your phone, files every item, and flags what may count for LHDN reliefs. No account, nothing uploaded, free.">
+<meta property="og:image" content="https://tallymy.github.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Tally reading a receipt on a phone: each item gets its own category and the total adds up.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="canonical" href="https://tallymy.github.io/start.html">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<style>
+/* Fonts served from this site, not a font service: this page contacts nobody else, as the app doesn't (OFL 1.1: licences.html). */
+@font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/instrument-sans-latin.woff2) format('woff2')}
+@font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/instrument-serif-latin.woff2) format('woff2')}
+@font-face{font-family:'Instrument Serif';font-style:italic;font-weight:400;font-display:swap;src:url(fonts/instrument-serif-italic-latin.woff2) format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/jetbrains-mono-500-latin.woff2) format('woff2')}
+</style>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#F6F5F1;color:#0A0F1E;font-family:'Instrument Sans',system-ui,sans-serif;font-size:17px;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
+a{color:#2F54EB}a:hover{color:#1D3BC2}
+a:focus-visible,summary:focus-visible{outline:2px solid #8EA4FF;outline-offset:3px;border-radius:8px}
+.lp{width:100%;min-width:320px;overflow-x:clip;timeline-scope:--hero,--free}
+.wrap{max-width:1240px;margin:0 auto;padding:0 40px}
+.serif{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-style:italic;letter-spacing:-.01em}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.tab{font-variant-numeric:tabular-nums}
+.kicker{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
+.ex{font-size:11px;font-weight:500;letter-spacing:.04em;color:#8A8676}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 26px;border-radius:999px;font-weight:600;font-size:16px;text-decoration:none;transition:transform .2s ease,background .2s ease,border-color .2s ease}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(0) scale(.98)}
+.btn.light{background:#FFFFFF;color:#0A0F1E}.btn.light:hover{color:#0A0F1E;background:#EEF1FF}
+.btn.line{color:#E7EAF3;border:1px solid rgba(255,255,255,.24)}.btn.line:hover{color:#FFFFFF;border-color:rgba(255,255,255,.55)}
+.btn.ink{background:#0A0F1E;color:#FFFFFF}.btn.ink:hover{color:#FFFFFF;background:#1B2340}
+.arrow{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ico{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.chk{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+
+/* nav: sits over the hero; glass fades in on scroll, turns light over the cream sections */
+.nav{--navdk:rgba(7,10,22,.78);position:sticky;top:0;z-index:30;height:68px;margin-bottom:-68px;color:#FFFFFF}
+.nav::before,.nav::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+.nav::before{background:var(--navdk);border-bottom:1px solid rgba(255,255,255,.08)}
+.nav::after{background:rgba(246,245,241,.86);border-bottom:1px solid #E3E0D6;opacity:0}
+.nav a.l{color:inherit;opacity:.72;text-decoration:none;font-size:14px;font-weight:500;transition:opacity .2s ease}.nav a.l:hover{opacity:1;color:inherit}
+.nav .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.nav .btn{min-height:40px;padding:0 18px;font-size:14px;background:#FFFFFF;color:#0A0F1E}
+@keyframes on{from{opacity:0}to{opacity:1}}
+@keyframes clear{from{background-color:var(--navdk);border-bottom-color:rgba(255,255,255,.08)}to{background-color:rgba(7,10,22,0);border-bottom-color:rgba(255,255,255,0)}}
+@keyframes navink{from{color:#FFFFFF}to{color:#0A0F1E}}
+@keyframes navbtn{from{background:#FFFFFF;color:#0A0F1E}to{background:#0A0F1E;color:#FFFFFF}}
+@supports (animation-timeline: scroll()){
+/* dark glass after 32px; light glass once the hero has gone; dark again while the dark #free band is under the nav */
+.nav::before{opacity:0;animation:on linear both,clear linear both,dkbg linear none;animation-timeline:scroll(),--hero,--free;animation-range:0px 32px,cover calc(100% - 76px) cover calc(100% - 60px),exit-crossing calc(0% - 68px) exit-crossing 100%}
+.nav::after{animation:on linear both,hide linear none;animation-timeline:--hero,--free;animation-range:cover calc(100% - 76px) cover calc(100% - 60px),exit-crossing calc(0% - 68px) exit-crossing 100%}
+.nav{animation:navink linear both,white linear none;animation-timeline:--hero,--free;animation-range:cover calc(100% - 76px) cover calc(100% - 60px),exit-crossing calc(0% - 68px) exit-crossing 100%}
+.nav .btn{animation:navbtn linear both,btnw linear none;animation-timeline:--hero,--free;animation-range:cover calc(100% - 76px) cover calc(100% - 60px),exit-crossing calc(0% - 68px) exit-crossing 100%}
+}
+@keyframes dkbg{from,to{background-color:var(--navdk);border-bottom-color:rgba(255,255,255,.08)}}
+@keyframes hide{from,to{opacity:0}}
+@keyframes white{from,to{color:#FFFFFF}}
+@keyframes btnw{from,to{background:#FFFFFF;color:#0A0F1E}}
+
+/* hero */
+.hero{position:relative;background:#070A16;color:#E7EAF3;padding-top:156px;isolation:isolate;overflow:clip;view-timeline-name:--hero}
+.spot{position:absolute;z-index:-1;width:900px;height:900px;right:-160px;top:-120px;border-radius:50%;background:radial-gradient(closest-side,rgba(47,84,235,.34),rgba(47,84,235,0));animation:breathe 8s ease-in-out infinite}
+.grain{position:absolute;inset:0;z-index:-1;opacity:.5;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:64px 64px;-webkit-mask-image:radial-gradient(ellipse at 60% 30%,#000 20%,transparent 70%);mask-image:radial-gradient(ellipse at 60% 30%,#000 20%,transparent 70%)}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
+.h-in{animation:hin 1.1s cubic-bezier(.16,1,.3,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.2s}.d3{animation-delay:.34s}.d4{animation-delay:.5s}.d5{animation-delay:.7s}
+.pulse{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes hin{from{opacity:0;transform:translateY(28px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:40px;align-items:end}
+.htext{display:flex;flex-direction:column;gap:28px;padding-bottom:88px}
+.h1{margin:0;font-size:84px;line-height:.94;font-weight:600;letter-spacing:-.035em;color:#FFFFFF}
+.h1 .serif{display:inline-block;margin-top:.08em;font-size:1.1em;letter-spacing:-.02em;line-height:.9;color:#A9BBFF}
+.lead{margin:0;font-size:20px;line-height:1.55;color:#B4BCD0;max-width:580px}
+.trust{display:flex;flex-wrap:wrap;gap:12px 24px;font-size:14px;color:#B4BCD0}
+.trust span{display:inline-flex;align-items:center;gap:8px}
+.trust .ico{width:18px;height:18px;color:#8EA4FF}
+/* device */
+.stage{position:relative;height:600px}
+.phone{position:absolute;left:50%;bottom:-72px;margin-left:-160px;width:320px;height:660px;border-radius:52px;background:linear-gradient(145deg,#2A3044,#0E1220 40%,#1A2033);padding:11px;box-shadow:-30px 0 80px -40px rgba(245,196,81,.25),0 60px 120px -30px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.08) inset,0 0 0 1px rgba(0,0,0,.6);animation:rise-in 1.4s cubic-bezier(.16,1,.3,1) .3s both}
+@keyframes rise-in{from{opacity:0;transform:translateY(80px) rotate(4deg)}to{opacity:1;transform:none}}
+.screen{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:#F3F5F9;color:#0F172A}
+.notch{position:absolute;top:10px;left:50%;margin-left:-48px;width:96px;height:28px;border-radius:20px;background:#05070E;z-index:3}
+.glare{position:absolute;inset:0;border-radius:42px;background:linear-gradient(120deg,rgba(255,255,255,.18),rgba(255,255,255,0) 38%);pointer-events:none;z-index:4}
+.sbar{position:absolute;top:46px;left:0;right:0;text-align:center;font-size:13px;font-weight:600;color:#3B4459}
+.slip{position:absolute;left:26px;right:26px;top:78px;z-index:2;background:#FFFEF8;border-radius:4px;padding:16px 14px 20px;box-shadow:0 14px 30px -8px rgba(15,23,42,.35);font-size:11px;color:#3B4252;animation:slip 12s ease-in-out infinite both}
+.slip .ln{display:flex;justify-content:space-between;padding:3px 0}
+.scan{position:absolute;left:20px;right:20px;top:78px;height:2px;border-radius:2px;background:#2F54EB;box-shadow:0 0 22px 6px rgba(47,84,235,.5);z-index:3;opacity:0;animation:scan 12s linear infinite both}
+.list{position:absolute;inset:0;padding:74px 16px 16px;display:flex;flex-direction:column;gap:8px;animation:list 12s ease infinite both}
+.lhead{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;color:#3B4459;padding:0 4px 2px}
+.row{display:flex;align-items:center;gap:8px;background:#FFFFFF;border-radius:14px;padding:10px 12px;font-size:13px;box-shadow:0 1px 0 rgba(15,23,42,.04);animation:row 12s cubic-bezier(.16,1,.3,1) infinite both}
+.row .nm{flex-grow:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .amt{width:44px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;font-size:13px}
+.tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.tot{margin-top:4px;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:14px;background:#0A0F1E;color:#FFFFFF;font-weight:600;font-variant-numeric:tabular-nums;animation:tot 12s cubic-bezier(.16,1,.3,1) infinite both}
+.ok{display:inline-flex;align-items:center;gap:5px;background:#D9F7E5;color:#0F5132;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;animation:pop 12s ease infinite both}
+.relief{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:#FFF7E0;border:1px solid #F5DFA0;font-size:12px;font-weight:600;color:#6B4E0A;animation:late 12s cubic-bezier(.16,1,.3,1) infinite both}
+.relief .ico{width:16px;height:16px;color:#B7791F}
+.catbar{display:flex;gap:2px;height:8px;margin-top:2px;animation:late 12s cubic-bezier(.16,1,.3,1) .12s infinite both}
+.catbar i{display:block;height:100%;border-radius:4px}
+.leg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;padding:0 4px;font-size:11px;color:#5B6275;font-variant-numeric:tabular-nums;animation:late 12s cubic-bezier(.16,1,.3,1) .2s infinite both}
+.leg span{display:flex;align-items:center;gap:6px}.leg i{width:7px;height:7px;border-radius:50%}
+.save{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-left:4px;animation:late 12s cubic-bezier(.16,1,.3,1) .28s infinite both}
+.sbtn{padding:10px 18px;border-radius:12px;background:#2F54EB;color:#FFFFFF;font-size:13px;font-weight:600}
+.r1{animation-delay:0s}.r2{animation-delay:.18s}.r3{animation-delay:.36s}.r4{animation-delay:.54s}.r5{animation-delay:.72s}
+@keyframes slip{0%,16%{opacity:1;transform:none}22%{opacity:0;transform:translateY(-40px) scale(.9)}93%{opacity:0;transform:translateY(40px) rotate(-3deg)}100%{opacity:1;transform:none}}
+@keyframes scan{0%,4%{opacity:0;transform:translateY(0)}6%{opacity:1;transform:translateY(0)}17%{opacity:1;transform:translateY(196px)}19%,100%{opacity:0;transform:translateY(196px)}}
+@keyframes list{0%,18%{opacity:0}20%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes row{0%,19%{opacity:0;transform:translateX(-14px)}24%,100%{opacity:1;transform:none}}
+@keyframes tot{0%,30%{opacity:0;transform:translateY(8px)}34%,100%{opacity:1;transform:none}}
+@keyframes pop{0%,33%{opacity:0;transform:scale(.5)}35%{opacity:1;transform:scale(1.12)}37%,100%{opacity:1;transform:none}}
+@keyframes late{0%,35%{opacity:0;transform:translateY(8px)}39%,100%{opacity:1;transform:none}}
+/* chips that land around the phone once the receipt is understood */
+.chip{position:absolute;z-index:8;white-space:nowrap;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:14px;background:rgba(20,26,46,.84);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#C9D0E0;font-size:13px;font-weight:500;box-shadow:0 20px 40px -18px rgba(0,0,0,.7);animation:chip 12s cubic-bezier(.16,1,.3,1) infinite both}
+.chip b{font-weight:600;color:#FFFFFF}
+.chip .ico{width:16px;height:16px}
+.c1{left:-66px;top:0;animation-delay:0s}.c2{right:-64px;top:84px;animation-delay:.24s}
+@keyframes chip{0%,37%{opacity:0;transform:translateY(14px) scale(.94)}41%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+/* proof strip */
+.proof{position:relative;z-index:9;background:#070A16;border-top:1px solid rgba(255,255,255,.08)}
+.proof-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.proof-grid>div{display:flex;flex-direction:column;gap:4px;padding:24px 24px 26px;border-left:1px solid rgba(255,255,255,.08)}
+.proof-grid>div:first-child{border-left:0;padding-left:0}
+.proof b{font-size:14px;font-weight:600;color:#E7EAF3}
+.proof span{font-size:13px;line-height:1.5;color:#9AA3BA;text-wrap:balance}
+
+/* scroll reveals (scroll-driven where supported, else once on load) */
+.rise{animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0% cover 24%}
+.rise.card{animation-name:upc}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes upc{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+.bento>.rise:nth-child(2),.fit>a:nth-child(2){animation-range:entry 6% cover 28%}
+.bento>.rise:nth-child(3),.fit>a:nth-child(3){animation-range:entry 12% cover 32%}
+.bento>.rise:nth-child(4),.fit>a:nth-child(4){animation-range:entry 18% cover 36%}
+.bento>.rise:nth-child(5){animation-range:entry 24% cover 40%}
+
+/* sections */
+.sec{padding:128px 0}
+.shead{display:flex;flex-direction:column;gap:16px;max-width:820px;margin-bottom:56px}
+.h2{margin:0;font-size:56px;line-height:1.04;font-weight:600;letter-spacing:-.03em}
+.card{background:#FFFFFF;border:1px solid #E6E3DA;border-radius:24px;box-shadow:0 1px 2px rgba(10,15,30,.04),0 16px 40px -24px rgba(10,15,30,.18)}
+
+/* for you if */
+.fit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fit a{display:flex;flex-direction:column;gap:16px;padding:24px;text-decoration:none;color:#0A0F1E;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.fit a:hover{color:#0A0F1E;transform:translateY(-2px);border-color:#CFCCC2;box-shadow:0 1px 2px rgba(10,15,30,.05),0 22px 44px -22px rgba(10,15,30,.28)}
+.fit .fi{width:40px;height:40px;border-radius:50%;background:#EEF1FF;color:#2F54EB;display:grid;place-items:center;flex:none}
+.fit .ft{display:flex;flex-direction:column;gap:6px}
+.fit .ft b{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.fit .ft span{font-size:15px;line-height:1.5;color:#4D5163}
+.h2s{font-size:36px}
+.fit .go{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#2F54EB}
+.fit .go .arrow{width:15px;height:15px}
+
+/* chapters */
+.chapter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center;padding:56px 0;border-top:1px solid #E3E0D6}
+.ctext{display:flex;flex-direction:column;gap:16px}
+.ctext h3{margin:0;font-size:36px;line-height:1.1;font-weight:600;letter-spacing:-.02em}
+.ctext p{margin:0;font-size:18px;line-height:1.6;color:#4D5163;max-width:480px}
+.num{font-size:14px;font-weight:600;color:#8A8676;letter-spacing:.08em}
+.demo{padding:28px;display:flex;flex-direction:column;gap:12px}
+.dhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:#8A8676;padding-bottom:4px}
+/* 01 snap */
+.table{position:relative;height:300px;border-radius:14px;background:#F1EEE6;display:grid;place-items:center;overflow:hidden}
+.table .ex{position:absolute;top:12px;right:14px}
+.pw{filter:contrast(1) drop-shadow(0 12px 16px rgba(60,48,20,.16));animation:straighten 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 20% cover 50%}
+@keyframes straighten{from{transform:rotate(-9deg) skewX(3deg) scale(.94);filter:contrast(.7) drop-shadow(0 12px 16px rgba(60,48,20,.16))}to{transform:none;filter:contrast(1) drop-shadow(0 12px 16px rgba(60,48,20,.16))}}
+.paper{width:212px;padding:16px 16px 24px;font-size:10.5px;line-height:1.55;color:#6F6A5C;background:linear-gradient(172deg,#FFFEF8 0 46%,#F1EEE4 50%,#FFFEF8 54%);border:.5px solid #E4E0D4;-webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/10px 100%;mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) 50%/10px 100%}
+.paper .ln{display:flex;justify-content:space-between}
+.brk{position:absolute;width:22px;height:22px;border:0 solid #2F54EB;animation:snap 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 38% cover 50%}
+.brk.tl{top:30px;left:calc(50% - 138px);border-width:3px 0 0 3px;border-top-left-radius:6px;--dx:-12px;--dy:-12px}
+.brk.tr{top:30px;right:calc(50% - 138px);border-width:3px 3px 0 0;border-top-right-radius:6px;--dx:12px;--dy:-12px}
+.brk.bl{bottom:30px;left:calc(50% - 138px);border-width:0 0 3px 3px;border-bottom-left-radius:6px;--dx:-12px;--dy:12px}
+.brk.br{bottom:30px;right:calc(50% - 138px);border-width:0 3px 3px 0;border-bottom-right-radius:6px;--dx:12px;--dy:12px}
+@keyframes snap{from{transform:translate(var(--dx),var(--dy))}to{transform:none}}
+.scan2{position:absolute;left:calc(50% - 110px);width:220px;top:40px;height:3px;border-radius:2px;background:#2F54EB;opacity:.85;box-shadow:0 0 16px 3px rgba(47,84,235,.35);animation:scan2 3.2s ease-in-out infinite}
+@keyframes scan2{0%,100%{transform:translateY(0)}50%{transform:translateY(218px)}}
+/* 02 check */
+.ocr{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:14px;background:#F7F6F2}
+.ocr .raw{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#6A6E7E}
+.ocr .clean{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:15px;font-weight:500;color:#0A0F1E;font-variant-numeric:tabular-nums;animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 22%}
+.ocr.sub{margin-left:16px;position:relative}
+.ocr.sub::before{content:"";position:absolute;left:-10px;top:-8px;bottom:50%;width:8px;border-left:1px solid #D6D2C6;border-bottom:1px solid #D6D2C6;border-bottom-left-radius:6px}
+.ocr.sub .clean{animation-range:cover 17% cover 27%}
+.ocr.rd .clean{animation-range:cover 22% cover 32%}
+.note{font-size:12px;font-weight:500;color:#8A8676}
+.sum{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:14px;background:#0A0F1E;color:#FFFFFF}
+.pill-ok{display:inline-flex;align-items:center;gap:6px;background:#D9F7E5;color:#0F5132;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 03 file */
+.segs{display:flex;height:16px;border-radius:8px;overflow:hidden;gap:3px}
+.fill{height:100%;transform-origin:left;animation:grow 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 10% cover 42%}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;font-size:14px}
+.legend>div{display:flex;flex-direction:column;gap:4px}
+.legend span{display:flex;align-items:center;gap:8px;color:#4D5163}
+.legend b{font-weight:600;font-variant-numeric:tabular-nums}
+.fixrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:12px 14px;border-radius:14px;background:#F7F6F2;font-size:15px;font-weight:500}
+.changed{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:#EEF1FF;color:#2F54EB}
+/* 04 reliefs (dark) */
+.demo.dk{background:#0A0F1E;border-color:#0A0F1E;border-radius:32px;color:#E7EAF3;gap:16px}
+.demo.dk .dhead{color:#A9B1C6}
+.exb{font-size:11px;font-weight:600;letter-spacing:.04em;padding:3px 9px;border-radius:999px;background:#1E2640;color:#C9D0E0}
+.fly{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#141B33;border:1px solid #232C48;animation:flyin 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 24%}
+@keyframes flyin{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+.shield{width:32px;height:32px;border-radius:10px;background:#F5C451;color:#0A0F1E;display:grid;place-items:center;flex:none}
+.shield .ico{width:18px;height:18px;stroke-width:1.8}
+.bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px}
+.bars>div{display:flex;flex-direction:column;gap:8px}
+.bars .lbl{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:#C9D0E0}
+.bars .lbl b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums}
+.bar{height:10px;border-radius:5px;background:#1E2640;overflow:hidden}
+.bar .fill{border-radius:5px}
+.plus{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:#F5C451;color:#0A0F1E;margin-left:6px;animation:pop2 1s ease both;animation-timeline:view();animation-range:cover 24% cover 32%}
+@keyframes pop2{0%{opacity:0;transform:scale(.5)}70%{opacity:1;transform:scale(1.1)}100%{opacity:1;transform:none}}
+.disc{margin:0;font-size:13px;line-height:1.5;color:#A9B1C6}
+
+/* free */
+.free{background:#0A0F1E;color:#E7EAF3;view-timeline-name:--free}
+.free-top{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:64px;align-items:center}
+.free .h2{color:#FFFFFF;max-width:640px;font-size:52px;line-height:1.08}
+.free .h2 .serif{color:#A9BBFF}
+.free p.body{margin:0;font-size:18px;line-height:1.6;color:#A9B1C6;max-width:600px}
+.dia{display:flex;flex-direction:column;align-items:center;gap:16px;view-timeline-name:--dia}
+.dia svg{width:100%;max-width:340px;height:auto;overflow:visible}
+.dia .wire{transform-box:fill-box;transform-origin:left center;animation:wire 1s linear both;animation-timeline:--dia;animation-range:cover 15% cover 28%}
+@keyframes wire{from{transform:scaleX(0)}to{transform:none}}
+.dia .srv{opacity:.28;animation:srv 1s linear both;animation-timeline:--dia;animation-range:cover 26% cover 36%}
+@keyframes srv{from{opacity:1}to{opacity:.28}}
+.dia .cross{stroke-dasharray:150;stroke-dashoffset:0;animation:cross 1s linear both;animation-timeline:--dia;animation-range:cover 32% cover 42%}
+@keyframes cross{from{stroke-dashoffset:150}to{stroke-dashoffset:0}}
+.cells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:64px;border-top:1px solid rgba(255,255,255,.1)}
+.cells>div{display:flex;flex-direction:column;gap:8px;padding:28px 28px 0;border-left:1px solid rgba(255,255,255,.1)}
+.cells>div:first-child{border-left:0;padding-left:0}
+.cells b{font-size:19px;font-weight:600;color:#FFFFFF}
+.cells span{color:#A9B1C6;line-height:1.5;font-size:16px}
+.sign{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:56px;padding-top:28px;border-top:1px solid rgba(255,255,255,.1);font-size:15px;color:#A9B1C6}
+.sign a{color:#A9BBFF;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:8px}.sign a:hover{color:#FFFFFF}
+
+/* bento */
+.bento{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}
+.tile{padding:28px;display:flex;flex-direction:column;gap:24px;overflow:hidden;position:relative}
+.tile.dark{background:#0A0F1E;border-color:#0A0F1E;color:#E7EAF3}
+.tile .tx{display:flex;flex-direction:column;gap:10px}
+.tile p{margin:0;line-height:1.55;color:#4D5163;font-size:16px}.tile.dark p{color:#A9B1C6}
+.tile h3{margin:0;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-.01em}
+.tile.dark h3{color:#FFFFFF}
+.vis{height:96px;display:flex;align-items:center}
+.bvis{gap:24px}
+.tex{position:absolute;top:20px;right:24px;color:#9AA3BA}
+.s2{grid-column:span 2}.s3{grid-column:span 3}.s4{grid-column:span 4}
+.langs{position:relative;height:56px;width:100%}
+.langs span{position:absolute;left:0;top:0;font-size:44px;font-style:normal;opacity:0;animation:lang 12.5s ease infinite both}
+.langs span:first-child{opacity:1}
+@keyframes lang{0%{opacity:0;transform:translateY(14px)}4%,18%{opacity:1;transform:none}22%,100%{opacity:0;transform:translateY(-14px)}}
+.ring{position:relative;width:80px;height:80px;flex:none}
+.ring svg{width:80px;height:80px;transform:rotate(-90deg)}
+.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:81.4;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
+@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:81.4}}
+.ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.mini{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#1E2640;color:#C9D0E0;font-size:13px;white-space:nowrap}
+.mini .ico{width:15px;height:15px;color:#8EA4FF}
+.tog{display:flex;flex-direction:column;gap:8px;width:100%;max-width:240px}
+.togrow{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:#F7F6F2;font-size:14px;font-weight:500}
+.sw{width:40px;height:24px;border-radius:12px;background:#2F54EB;position:relative;animation:swbg 1s ease both;animation-timeline:view();animation-range:cover 18% cover 26%}
+.sw::after{content:"";position:absolute;top:3px;left:19px;width:18px;height:18px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.2);animation:swk 1s ease both;animation-timeline:view();animation-range:cover 18% cover 26%}
+@keyframes swbg{from{background:#CFCCC2}to{background:#2F54EB}}
+@keyframes swk{from{transform:translateX(-16px)}to{transform:none}}
+.readok{display:flex;align-items:center;gap:8px;padding:0 12px;font-size:14px;font-weight:600;color:#0B7A55;animation:up 1s ease both;animation-timeline:view();animation-range:cover 26% cover 32%}
+.pills{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.pills>span{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#F7F6F2;border:1px solid #ECE9E0;font-size:13px;color:#4D5163;animation:upc 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 16% cover 24%}
+.pills>span:nth-child(2){animation-range:cover 19% cover 27%}.pills>span:nth-child(3){animation-range:cover 22% cover 30%}
+.pills b{font-weight:600;color:#0A0F1E}
+.pills .to{margin:0 -3px;color:#8A8676}
+.pills .dot{width:8px;height:8px}
+.imp{display:flex;align-items:center;gap:10px;width:100%}
+.imp .files{display:flex;flex-direction:column;gap:6px;animation:slide 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 16% cover 28%}
+@keyframes slide{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+.imp .f{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;background:#F7F6F2;border:1px solid #ECE9E0;font-size:12px;color:#4D5163;white-space:nowrap}
+.imp .f .ico{width:14px;height:14px}
+.imp .t{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:#0A0F1E;color:#FFFFFF;font-size:13px;font-weight:600;white-space:nowrap}
+
+/* get started */
+.steps{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.steps::before{content:"";position:absolute;top:22px;left:22px;right:calc(33.333% - 62px);border-top:1px dashed #9DB0F5;transform-origin:left;animation:grow 1s linear both;animation-timeline:view();animation-range:entry 40% cover 45%}
+.step{display:flex;flex-direction:column;gap:12px;padding:0 40px;border-left:1px solid #E3E0D6}
+.step:first-child{padding-left:0;border-left:0}
+.step:last-child{padding-right:0}
+.stepn{position:relative;width:44px;height:44px;border-radius:50%;border:1px solid #2F54EB;background:#F6F5F1;color:#2F54EB;display:grid;place-items:center;font-size:24px;font-style:normal;line-height:1;margin-bottom:8px}
+.stepn.serif{font-style:normal}
+.step b{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.step p{margin:0;color:#4D5163;line-height:1.55;font-size:16px}
+.os{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.os div{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:#FFFFFF;border:1px solid #E6E3DA;font-size:14px;line-height:1.45;color:#4D5163}
+.os b{font-size:14px;color:#0A0F1E;white-space:nowrap}
+.os .ico{width:16px;height:16px;color:#2F54EB;vertical-align:-3px}
+.small{font-size:14px;color:#6A6E7E;line-height:1.5}
+
+/* faq */
+.faq{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:64px;align-items:start}
+@media (min-width:981px){.faq>div:first-child{position:sticky;top:112px;align-self:start}}
+.qa{border-top:1px solid #E3E0D6}
+.qa:last-child{border-bottom:1px solid #E3E0D6}
+.qa summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary .pl{width:28px;height:28px;border-radius:50%;border:1px solid #CFCCC2;display:grid;place-items:center;flex:none;transition:transform .25s ease,background .2s ease}
+.qa summary .pl .ico{width:14px;height:14px;stroke-width:2}
+.qa summary:hover .pl{background:#FFFFFF}
+.qa[open] summary .pl{transform:rotate(45deg)}
+.qa p{margin:0;padding:0 44px 24px 0;font-size:16px;line-height:1.6;color:#4D5163;max-width:640px}
+
+/* cta + footer */
+.cta{border-radius:32px;background:#0A0F1E;color:#FFFFFF;padding:72px 56px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:32px;position:relative;overflow:hidden;isolation:isolate}
+.cta .h2{font-size:52px;line-height:1.04}
+.foot a{color:#4D5163;text-decoration:none}.foot a:hover{color:#0A0F1E;text-decoration:underline}
+.mbar{display:none}
+
+@media (max-width:980px){
+.wrap{padding:0 20px}
+.navlinks{display:none !important}
+.nav{--navdk:rgba(7,10,22,.88)}
+.nav .btn{display:none}
+.desk{display:none}
+.hero{padding-top:108px}
+.hero-grid{grid-template-columns:minmax(0,1fr);gap:4px}
+.htext{gap:20px;padding-bottom:0}
+.h1{font-size:46px;letter-spacing:-.03em}
+.lead{font-size:17px}
+.trust{display:grid;grid-template-columns:repeat(2,max-content);gap:10px 18px;font-size:13px}
+.stage{height:470px;margin-top:8px}
+.phone{transform:scale(.82);transform-origin:50% 100%;animation-name:rise-in-m}
+.chip{font-size:12px;padding:8px 11px}
+.c1{display:none}
+.c2{right:0;top:58px}
+.cs{display:none}
+.proof-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.proof-grid>div{padding:18px 0 20px 16px}
+.proof-grid>div:nth-child(odd){border-left:0;padding-left:0}
+.proof-grid>div:nth-child(n+3){border-top:1px solid rgba(255,255,255,.08)}
+.sec{padding:80px 0}
+.shead{margin-bottom:36px;gap:14px}
+.h2,.free .h2,.cta .h2{font-size:36px}
+.h2s{font-size:28px}
+.fit{grid-template-columns:repeat(2,minmax(0,1fr))}
+.chapter{grid-template-columns:minmax(0,1fr);gap:28px;padding:48px 0}
+.chapter .ctext{order:-1}
+.ctext h3{font-size:28px}
+.ctext p{font-size:17px}
+.demo{padding:20px}
+.legend{grid-template-columns:repeat(2,minmax(0,1fr))}
+.free-top{grid-template-columns:minmax(0,1fr);gap:40px}
+.free p.body{font-size:17px}
+.cells{grid-template-columns:minmax(0,1fr);margin-top:40px;border-top:0}
+.cells>div{border-left:0;padding:20px 0;border-top:1px solid rgba(255,255,255,.1)}
+.bento{grid-template-columns:minmax(0,1fr);gap:12px}
+.s2,.s3,.s4{grid-column:auto}
+.tile{padding:24px;gap:20px}
+.tile h3{font-size:21px}
+.bvis{height:auto;flex-wrap:wrap;align-items:flex-start;gap:12px}
+.bvis>div:last-child{flex:0 0 100% !important}
+.steps{grid-template-columns:minmax(0,1fr);gap:32px}
+.steps::before{display:none}
+.step{position:relative;padding:10px 0 0 60px;border-left:0}
+.step:first-child,.step:last-child{padding-left:60px}
+.stepn{position:absolute;left:0;top:0;z-index:1;margin:0}
+.step:not(:last-child)::after{content:"";position:absolute;left:22px;top:22px;bottom:-54px;border-left:1px dashed #C9C4B6}
+.faq{grid-template-columns:minmax(0,1fr);gap:24px}
+.qa summary{font-size:17px;padding:18px 0}
+.qa p{padding-right:0}
+.cta{padding:48px 24px;border-radius:28px}
+.mbar{display:block;position:sticky;bottom:0;z-index:25;padding:12px 20px calc(12px + env(safe-area-inset-bottom));background:rgba(246,245,241,.9);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid #E3E0D6}
+.mbar .btn{width:100%}
+}
+@keyframes rise-in-m{from{opacity:0;transform:translateY(80px) rotate(4deg) scale(.82)}to{opacity:1;transform:scale(.82)}}
+@keyframes mbar{from{opacity:0;transform:translateY(100%);visibility:hidden}to{opacity:1;transform:none;visibility:visible}}
+@supports (animation-timeline: scroll()){@media (max-width:980px){.mbar{animation:mbar linear both;animation-timeline:--hero;animation-range:cover calc(100% - 120px) cover 100%}}}
+@media (max-width:560px){.bars{grid-template-columns:minmax(0,1fr)}.fit{grid-template-columns:minmax(0,1fr);gap:8px}.fit a{flex-direction:row;align-items:center;gap:14px;padding:16px}.fit .go{margin:0 0 0 auto}.fit .go .gl{display:none}.h1{font-size:44px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important}.slip,.scan,.scan2{display:none}.nav::before{opacity:1 !important}}
+@keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
+@supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
+</style>
+</head>
+<body>
+<div class="lp">
+
+<nav class="nav" aria-label="Main">
+<div class="wrap" style="display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 16px">
+<a class="logo" href="./start.html" aria-label="Tally, top of page">
+<svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#2F54EB"></rect><path d="M9 10h14M16 10v13" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"></path></svg>
+<span style="font-size: 20px; font-weight: 700; letter-spacing: -.02em">Tally</span>
+</a>
+<div class="navlinks" style="display: flex; gap: 32px">
+<a class="l" href="#how">How it works</a>
+<a class="l" href="#features">Features</a>
+<a class="l" href="#free">Free, and why</a>
+<a class="l" href="#faq">FAQ</a>
+</div>
+<a class="btn" href="./?app">Open Tally free</a>
+</div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+<div class="spot"></div><div class="grain"></div>
+<div class="wrap hero-grid">
+<div class="htext">
+<span class="kicker h-in d1" style="color: #A9BBFF; font-size: 13px; display: inline-flex; align-items: center; gap: 10px"><span class="pulse" style="width: 6px; height: 6px; border-radius: 50%; background: #5B7CFF; display: inline-block; transform: translateY(-.5px)"></span>Free money book for Malaysians</span>
+<h1 class="h1 h-in d2">Snap a receipt.<br>Every item,<br><span class="serif">sorted.</span></h1>
+<p class="lead h-in d3">Point your phone at a receipt. Tally reads it on the phone, line by line, puts each item in its own category, and flags what may count for your LHDN reliefs. No account. Nothing uploaded.</p>
+<div class="h-in d4" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a class="btn light" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a class="btn line" href="#how">Watch it read a receipt</a>
+</div>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #B4BCD0; max-width: 560px; text-wrap: balance">Opens in your browser. No sign-up, no download.<span class="desk"> On&nbsp;a&nbsp;computer? Open tallymy.github.io on your phone.</span></p>
+</div>
+<div class="trust h-in d5">
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path><path d="M3 3l18 18"></path></svg>No account</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Receipts never uploaded</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M5.6 5.6l12.8 12.8"></path></svg>No ads</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg>Open source</span>
+</div>
+</div>
+<div class="stage" role="img" aria-label="Example: Tally reads a receipt on the phone, gives each item its own category, checks it adds up to RM 53.90, and flags a book as a possible relief candidate">
+<div class="phone">
+<div class="screen">
+<div class="notch"></div><div class="glare"></div>
+<div class="sbar">Review receipt</div>
+<div class="slip mono">
+<div style="text-align: center; font-weight: 700; padding-bottom: 8px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
+<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
+<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
+<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
+<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
+<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
+<div class="ln" style="border-top: 1px dashed #B8BFCC; margin-top: 8px; padding-top: 8px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
+</div>
+<div class="scan"></div>
+<div class="list">
+<div class="lhead"><span>Kedai Runcit Maju · 5 items</span></div>
+<div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">21.90</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">12.50</span></div>
+<div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">Household</span><span class="amt">8.90</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="amt">6.40</span></div>
+<div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">Education</span><span class="amt">4.20</span></div>
+<div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Adds up</span></div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 relief candidate · Lifestyle</div>
+<div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
+<div class="leg"><span><i style="background: #009E73"></i>Groceries 34.40</span><span><i style="background: #A16207"></i>Household 8.90</span><span><i style="background: #CC79A7"></i>Health 6.40</span><span><i style="background: #332288"></i>Education 4.20</span></div>
+<div class="save"><span class="ex">Example</span><span class="sbtn">Save receipt</span></div>
+</div>
+</div>
+</div>
+<div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Read on this phone · <b>not uploaded</b></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Shop recognised</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+</div>
+</div>
+<div class="proof">
+<div class="wrap proof-grid">
+<div><b>Reads every line</b><span>Discounts, SST, service charge and 5-sen rounding.</span></div>
+<div><b>Checks its own sums</b><span>Items must add up to the total, or Tally flags the line.</span></div>
+<div><b>Knows Malaysian shops</b><span>About 2,900 chains and shop names, from kopitiam to hypermarket.</span></div>
+<div><b>5 languages</b><span>English, Bahasa Melayu, 简体中文, 繁體中文, 日本語.</span></div>
+</div>
+</div>
+</header>
+
+<!-- WHO IT IS FOR -->
+<section style="padding: 112px 0 0 0">
+<div class="wrap">
+<div class="shead rise" style="margin-bottom: 36px">
+<span class="kicker" style="color: #2F54EB">Who it’s for</span>
+<h2 class="h2 h2s">Tally is for you if…</h2>
+</div>
+<div class="fit">
+<a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>Big shop runs</b><span>Your hypermarket trip is food, medicine and cleaning on one receipt.</span></span><span class="go"><span class="gl">See it sorted</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>Relief receipts</b><span>You keep receipts all year for books, the gym, check-ups and zakat.</span></span><span class="go"><span class="gl">Tax reliefs</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#t-budget"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg></span><span class="ft"><b>Shared money</b><span>You and your partner run one joint account.</span></span><span class="go"><span class="gl">Budgets and bills</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>Switching apps</b><span>You’re moving over from another money app.</span></span><span class="go"><span class="gl">Bring your history</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+</div>
+</div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="sec" style="padding-bottom: 72px">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">How it works</span>
+<h2 class="h2">From a crumpled slip to a clear picture.</h2>
+</div>
+
+<div class="chapter">
+<div class="ctext rise">
+<span class="num">01 — SNAP IT</span>
+<h3>Faded, crumpled, sideways. Still readable.</h3>
+<p>Tally straightens the photo, looks closer where the print is faint, and reads it on the phone itself. Nothing is uploaded. No receipt? Just type an amount.</p>
+</div>
+<div class="demo card rise">
+<div class="table">
+<span class="ex">Example</span>
+<div class="pw">
+<div class="paper mono">
+<div style="text-align: center; font-weight: 700; padding-bottom: 6px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
+<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
+<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
+<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
+<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
+<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
+<div class="ln" style="border-top: 1px dashed #CFC9B8; margin-top: 6px; padding-top: 6px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
+<div style="text-align: center; padding-top: 8px">TERIMA KASIH</div>
+</div>
+</div>
+<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+<span class="scan2"></span>
+</div>
+</div>
+</div>
+
+<div class="chapter">
+<div class="demo card rise">
+<div class="dhead"><span>Read from the photo</span><span class="ex">Example</span></div>
+<div class="ocr">
+<div class="raw mono"><span>1030061 SIMPLY H CKW WDFL</span><span>21.90</span></div>
+<div class="clean"><span>Chicken wings</span><span>21.90</span></div>
+</div>
+<div class="ocr sub">
+<div class="raw mono"><span>PWP @ 30% OCT26</span><span>-6.57</span></div>
+<div class="clean"><span>Discount <span class="note">· kept with its item</span></span><span style="color: #B42318">−6.57</span></div>
+</div>
+<div class="ocr rd">
+<div class="raw mono"><span>ROUNDING</span><span>0.02</span></div>
+<div class="clean"><span>5-sen rounding</span><span>+0.02</span></div>
+</div>
+<div class="sum"><span style="font-weight: 600">Items add up to the total</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 15.35</span></div>
+</div>
+<div class="ctext rise">
+<span class="num">02 — CHECK IT</span>
+<h3>Tally shows its working.</h3>
+<p>It reads every line, including discounts, SST, service charge and 5-sen rounding, then checks the items add up to the total. If a line looks off, Tally points at it so you can fix it. Fix one, and it remembers next time.</p>
+</div>
+</div>
+
+<div class="chapter" id="file">
+<div class="ctext rise">
+<span class="num">03 — FILE IT</span>
+<h3>One trip, sorted by item.</h3>
+<p>One hypermarket run can be food, medicine and cleaning. Tally puts each item in its own category, so your budget shows what you really bought. Correct one, and it remembers next time.</p>
+</div>
+<div class="demo card rise" style="gap: 18px">
+<div class="dhead" style="padding-bottom: 0"><span style="font-size: 18px; font-weight: 600; color: #0A0F1E">This receipt <span class="tab" style="color: #8A8676; font-weight: 500; margin-left: 6px">RM 53.90</span></span><span class="ex">Example</span></div>
+<div class="segs"><div class="fill" style="width: 64%; background: #009E73"></div><div class="fill" style="width: 16.5%; background: #A16207"></div><div class="fill" style="width: 12%; background: #CC79A7"></div><div class="fill" style="width: 7.5%; background: #332288"></div></div>
+<div class="legend">
+<div><span><i class="dot" style="background: #009E73"></i>Groceries</span><b>RM 34.40</b></div>
+<div><span><i class="dot" style="background: #A16207"></i>Household</span><b>RM 8.90</b></div>
+<div><span><i class="dot" style="background: #CC79A7"></i>Health</span><b>RM 6.40</b></div>
+<div><span><i class="dot" style="background: #332288"></i>Education</span><b>RM 4.20</b></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="changed">Changed from Groceries</span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Remembered for next time</span>
+</div>
+</div>
+</div>
+
+<div class="chapter" id="reliefs">
+<div class="demo card dk rise">
+<div class="dhead"><span>Relief candidates, this year</span><span class="exb">Example</span></div>
+<div class="fly">
+<span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">May count for Lifestyle · photo kept</span></span>
+<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #F5C451; transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</div>
+<div class="bars">
+<div><div class="lbl"><span>Lifestyle<span class="plus tab">+4.20</span></span><b>RM 1,240.00</b></div><div class="bar"><div class="fill" style="width: 62%; background: #F5C451"></div></div></div>
+<div><div class="lbl"><span>Medical</span><b>RM 380.00</b></div><div class="bar"><div class="fill" style="width: 34%; background: #F0A6CE"></div></div></div>
+<div><div class="lbl"><span>Education</span><b>RM 2,150.00</b></div><div class="bar"><div class="fill" style="width: 80%; background: #8EA4FF"></div></div></div>
+<div><div class="lbl"><span>Zakat</span><b>RM 600.00</b></div><div class="bar"><div class="fill" style="width: 45%; background: #6EE7B7"></div></div></div>
+</div>
+<p class="disc">Example figures. Relief candidates only: an estimate to help you prepare, not tax advice. Check LHDN’s rules for what you can claim.</p>
+</div>
+<div class="ctext rise">
+<span class="num">04 — RELIEFS</span>
+<h3>Tax season, without the shoebox of receipts.</h3>
+<p>As you log, Tally flags receipts and items that may count as LHDN relief candidates, like books, a gym, a medical check-up or kindergarten fees, and keeps each receipt photo beside them. Shown against this year’s usual limits.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- FREE AND PRIVATE -->
+<section id="free" class="sec free">
+<div class="wrap">
+<div class="free-top">
+<div class="rise" style="display: flex; flex-direction: column; gap: 20px">
+<span class="kicker" style="color: #8EA4FF">Free, and why</span>
+<h2 class="h2">Free, because there’s <span class="serif">nothing to charge for.</span></h2>
+<p class="body">Tally is a passion project. Your phone does the work, so there are no servers holding your data, and it costs almost nothing to run. No premium tier. Every feature is free for everyone.</p>
+</div>
+<div class="dia rise" role="img" aria-label="Your phone does the work. There is no server holding your data. Backups go to your own Google Drive or a file, only when you choose.">
+<svg viewBox="0 0 320 220" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<rect x="28" y="36" width="76" height="134" rx="14" stroke="#8EA4FF" stroke-width="1.5"></rect>
+<path d="M56 46h20" stroke="#8EA4FF" stroke-width="1.5"></path>
+<rect x="42" y="64" width="48" height="60" rx="3" stroke="#3A4466" stroke-width="1.5"></rect>
+<path d="M50 78h24M50 90h32M50 102h18M50 114h28" stroke="#3A4466" stroke-width="1.5"></path>
+<path d="M44 140h44" stroke="#8EA4FF" stroke-width="1.5"></path>
+<path class="wire" d="M116 103H206" stroke="#3A4466" stroke-width="1.5" stroke-dasharray="4 6"></path>
+<g class="srv" stroke="#8EA4FF" stroke-width="1.5">
+<rect x="218" y="58" width="80" height="26" rx="6"></rect><rect x="218" y="90" width="80" height="26" rx="6"></rect><rect x="218" y="122" width="80" height="26" rx="6"></rect>
+<path d="M230 71h.01M230 103h.01M230 135h.01M244 71h30M244 103h30M244 135h30"></path>
+</g>
+<path class="cross" d="M210 50L306 156" stroke="#F0A6CE" stroke-width="2"></path>
+<text x="66" y="198" text-anchor="middle" fill="#C9D0E0" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">Your phone does the work</text>
+<text x="258" y="180" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">No server holding</text>
+<text x="258" y="196" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">your data</text>
+</svg>
+</div>
+</div>
+<div class="cells rise">
+<div><b>No ads.</b><span>No ad code, no tracking.</span></div>
+<div><b>Stays on your phone.</b><span>Unless you back up to your own Google Drive or a file, only when you choose.</span></div>
+<div><b>Open source (MIT).</b><span>Read every line on GitHub.</span></div>
+<div><b>No premium tier.</b><span>Every feature, for everyone.</span></div>
+</div>
+<div class="sign rise">
+<span>Made in Malaysia by one independent developer.</span>
+<a href="https://github.com/tallymy/tallymy.github.io">Read the code <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</section>
+
+<!-- EVERYTHING ELSE: bento -->
+<section id="features" class="sec">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Also included, all free</span>
+<h2 class="h2">Made for how Malaysians spend.</h2>
+</div>
+<div class="bento">
+<div class="tile card dark s4 rise" id="t-budget">
+<span class="ex tex">Example</span>
+<div class="vis bvis">
+<div class="ring">
+<svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 820</b><span style="font-size: 10px; color: #9AA3BA">left</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
+<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>Bill reminder · due in 3 days</span>
+<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>Joint account</span>
+<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"></path></svg>“Can I afford it?”</span>
+</div>
+</div>
+<div class="tx">
+<h3>Budgets, bills and “Can I afford it?”</h3>
+<p>A calm budget ring, reminders before bills are due, a joint account with your partner, and a straight answer before a big buy.</p>
+</div>
+</div>
+<div class="tile card s2 rise">
+<div class="vis"><div class="langs" role="img" aria-label="Hello in five languages: English, Bahasa Melayu, Simplified Chinese, Traditional Chinese and Japanese"><span class="serif" style="animation-delay: 0s">Hello</span><span class="serif" style="animation-delay: 2.5s">Selamat</span><span class="serif" style="animation-delay: 5s">你好</span><span class="serif" style="animation-delay: 7.5s">您好</span><span class="serif" style="animation-delay: 10s">こんにちは</span></div></div>
+<div class="tx">
+<h3>Speaks your language.</h3>
+<p>English, Bahasa Melayu, 简体中文, 繁體中文 and 日本語, down to the receipt words.</p>
+</div>
+</div>
+<div class="tile card s2 rise">
+<div class="vis"><div class="tog">
+<div class="togrow"><span style="display: inline-flex; align-items: center; gap: 8px"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px; color: #4D5163"><path d="M10.5 21l1.5-1 1.5 1v-2l-1-1v-4.5l8 2.5v-2l-8-5V4.5a1 1 0 0 0-2 0V9l-8 5v2l8-2.5V18l-1 1z"></path></svg>Aeroplane mode</span><span class="sw"></span></div>
+<div class="readok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px"><path d="M20 6L9 17l-5-5"></path></svg>Receipt read</div>
+</div></div>
+<div class="tx">
+<h3>No signal? No problem.</h3>
+<p>Works at the pasar, in the LRT, in the basement car park. Once opened, Tally works fully offline, receipt reading included.</p>
+</div>
+</div>
+<div class="tile card s2 rise">
+<div class="vis"><div class="pills">
+<span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>Groceries</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Kopitiam<span class="to">→</span><b>Dining</b></span>
+<span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>Health</b></span>
+</div></div>
+<div class="tx">
+<h3>Knows the shops.</h3>
+<p>About 2,900 Malaysian chains and shop names, from kopitiam to hypermarket, recognised by name and filed the right way.</p>
+</div>
+</div>
+<div class="tile card s2 rise" id="t-import">
+<div class="vis"><div class="imp">
+<div class="files">
+<span class="f"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>statement.csv</span>
+<span class="f"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>backup from another app</span>
+</div>
+<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #8A8676; flex: none"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span class="t"><svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#2F54EB"></rect><path d="M9 10h14M16 10v13" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"></path></svg>Tally</span>
+</div></div>
+<div class="tx">
+<h3>Bring your history.</h3>
+<p>Move over from Money Manager, Cashew, Money Lover, Spendee, Wallet and other money apps, or from bank-statement files. Your old categories come along.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- GET STARTED -->
+<section id="start" class="sec" style="padding-top: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Get started</span>
+<h2 class="h2">Start in three taps.</h2>
+</div>
+<div class="steps rise">
+<div class="step">
+<span class="stepn serif">1</span>
+<b>Open tallymy.github.io on your phone</b>
+<p>Pick your language. No sign-up.</p>
+</div>
+<div class="step">
+<span class="stepn serif">2</span>
+<b>Add it to your home screen</b>
+<div class="os">
+<div><b>iPhone</b><span>In Safari, tap Share <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"></path><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"></path></svg>, then Add to Home Screen.</span></div>
+<div><b>Android</b><span>In Chrome, tap the menu <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>, then Install app or Add to Home screen.</span></div>
+</div>
+<p style="font-size: 15px">It then opens like any app and works offline.</p>
+<span class="small" style="font-size: 13px">A Play Store version is coming.</span>
+</div>
+<div class="step">
+<span class="stepn serif">3</span>
+<b>Snap your first receipt</b>
+<p>Or type an amount, or try it with sample data first. Nothing is kept until you start for real.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="sec" style="padding-top: 0">
+<div class="wrap faq">
+<div class="rise" style="display: flex; flex-direction: column; gap: 16px">
+<span class="kicker" style="color: #2F54EB">FAQ</span>
+<h2 class="h2">Fair questions.</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4D5163">Still unsure? Tally is open source, so you can <a href="https://github.com/tallymy/tallymy.github.io">read the code on GitHub</a>.</p>
+</div>
+<div class="rise">
+<details class="qa"><summary>Is it really free?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes. Every feature is free, with no premium tier and no ads. It’s a passion project, and because your phone does the work there are no servers to pay for.</p></details>
+<details class="qa"><summary>Where does my data go?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It stays on your phone. There’s no account. Receipts are read on the device and never uploaded. If you back up, it goes to your own Google Drive or a file, only when you choose.</p></details>
+<details class="qa"><summary>Will it read my receipts?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It copes with faded, crumpled, far-away and sideways photos, and recognises about 2,900 Malaysian chains and shop names. It won’t be right every time, which is why it checks the items add up to the total and points at any line worth a second look. Fix one and Tally remembers it next time.</p></details>
+<details class="qa"><summary>Is it a real app if I install it from a browser?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It’s a web app that installs to your home screen, opens like an app and works offline once opened. A Play Store version is coming.</p></details>
+<details class="qa"><summary>What if I change phones?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>In Settings, Backup &amp; restore makes a backup file. Send it to yourself (Google Drive, email, WhatsApp), then restore it on the new phone. There’s no account, so back up before you switch.</p></details>
+<details class="qa"><summary>Can I bring my old data?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes, from Money Manager, Cashew, Money Lover, Spendee, Wallet and others, and from bank-statement files. Your old categories come along.</p></details>
+<details class="qa"><summary>Is the tax relief part tax advice?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>No. Tally flags receipts and items that may count as relief candidates, with this year’s usual limits. It’s an estimate to help you prepare. Please check LHDN’s rules for what you can claim.</p></details>
+<details class="qa"><summary>Who makes it?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>One independent developer in Malaysia. It’s open source (MIT), so you can read the code on GitHub. Feedback or a bug? <a href="https://github.com/tallymy/tallymy.github.io/issues">Open an issue on GitHub</a>.</p></details>
+<details class="qa"><summary>What if I stop using it, or it stops being updated?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Your data is on your phone, and you can make a backup file whenever you like. The code is open source (MIT) on GitHub, so it isn’t locked away.</p></details>
+</div>
+</div>
+</section>
+
+<!-- FINAL CTA -->
+<section style="padding: 0 0 96px 0">
+<div class="wrap">
+<div class="cta rise">
+<div style="position: absolute; z-index: -1; width: 700px; height: 700px; right: -200px; top: -300px; border-radius: 50%; background: radial-gradient(closest-side, rgba(47,84,235,.38), rgba(47,84,235,0))"></div>
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 560px">
+<h2 class="h2">Every receipt.<br>Every item. <span class="serif" style="color: #A9BBFF">Understood.</span></h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.55; color: #B4BCD0">Free, private and made in Malaysia. Open it on your phone and scan one receipt.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a class="btn light" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a class="btn line" href="https://github.com/tallymy/tallymy.github.io">Read the code on GitHub</a>
+</div>
+<span style="font-size: 14px; color: #9AA3BA">No account. Nothing to install from a store.</span>
+<span style="font-size: 13px; color: #8C95AD"><span lang="ms">Percuma. Tiada akaun. Buatan Malaysia.</span> · <span lang="zh-Hans">免费 · 无需账号 · 马来西亚制造</span></span>
+</div>
+</div>
+</div>
+</section>
+
+<footer class="foot" style="border-top: 1px solid #E3E0D6; padding: 40px 0 56px 0">
+<div class="wrap" style="display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: center; font-size: 14px; color: #6A6E7E">
+<span style="display: flex; align-items: center; gap: 10px"><svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#2F54EB"></rect><path d="M9 10h14M16 10v13" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"></path></svg>Tally · made in Malaysia · free and open source</span>
+<span style="display: flex; gap: 24px"><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./licences.html">Licences</a><a href="https://github.com/tallymy/tallymy.github.io">GitHub</a></span>
+<span style="flex-basis: 100%; font-size: 13px">Feedback or a bug? <a href="https://github.com/tallymy/tallymy.github.io/issues" style="text-decoration: underline">Open an issue on GitHub</a>.</span>
+</div>
+</footer>
+
+<div class="mbar"><a class="btn ink" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a></div>
+
+</div>
+</body>
+</html>

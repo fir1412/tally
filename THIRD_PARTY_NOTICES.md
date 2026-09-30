@@ -10,6 +10,7 @@ Tally ships these files unchanged (except bundling) so it can run offline on the
 | ONNX Runtime Web (Microsoft) | bundled in `vendor/ocr.js`, `vendor/ort-wasm-simd-threaded.*` | MIT |
 | js-clipper, tiny-invariant | bundled in `vendor/ocr.js` | BSL-1.0, MIT |
 | Bricolage Grotesque (Mathieu Triay), IBM Plex Sans and IBM Plex Mono (IBM), via Fontsource | `fonts/*.woff2` (Latin subsets) | SIL Open Font License 1.1 |
+| Instrument Sans, Instrument Serif (The Instrument Project Authors), JetBrains Mono (JetBrains), via Google Fonts | `fonts/instrument-*.woff2`, `fonts/jetbrains-mono-500-latin.woff2` (Latin subsets, the landing page start.html) | SIL Open Font License 1.1 ([Instrument Sans](LICENSES/OFL-1.1-instrumentsans.txt), [Instrument Serif](LICENSES/OFL-1.1-instrumentserif.txt), [JetBrains Mono](LICENSES/OFL-1.1-jetbrainsmono.txt)) |
 | pdf.js (Mozilla) | `vendor/pdf.min.mjs`, `vendor/pdf.worker.min.mjs` (4.10.38) | Apache-2.0 |
 | sql.js (SQLite compiled to WebAssembly) | `vendor/sql-wasm.js`, `vendor/sql-wasm.wasm` | MIT (SQLite is public domain) |
 | Grocery chain names from OpenDOSM PriceCatcher (KPDN, DOSM), changed | `js/shops.js` | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Contains data from data.gov.my |
