@@ -8,10 +8,12 @@ import { STICKERS } from './stickers.js';
 export const daysIn = ym => new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate();
 const pad = n => String(n).padStart(2, '0');
 
-/** Days of month `ym` (1…n) the user filled: an entry of theirs dated that day and made on it or later, before the month
- *  ended (a planned entry made ahead doesn't count, nor imports or bills posted for them), or a "nothing spent" check-in. */
+/** The last day a month's gaps can still be filled: the 7th of the next month (catching up on the 1st counts). */
+export const graceEnd = ym => { const [y, m] = ym.split('-').map(Number); return m === 12 ? `${y + 1}-01-07` : `${y}-${pad(m + 1)}-07`; };
+/** Days of month `ym` (1…n) the user filled: an entry of theirs dated that day and made on it or later, by the 7th of the
+ *  next month (a planned entry made ahead doesn't count, nor imports or bills posted for them), or a "nothing spent" check-in. */
 export function filledDays({ tx = [], noSpend = [], me = '', ym, today }) {
-  const end = `${ym}-${pad(daysIn(ym))}`, out = new Set();
+  const end = graceEnd(ym), out = new Set();
   for (const x of tx) {
     if (!x.date?.startsWith(ym) || x.date > today || !x.createdAt || !byUser(x, me)) continue;
     const made = dayOf(x.createdAt);
@@ -31,8 +33,9 @@ export async function loadBook(ym) {
 }
 /** Where a month's book stands: which days are in, whether it is complete (every day), and what is still open. */
 export function bookState({ ym, filled, today }) {
-  const n = daysIn(ym), over = today.slice(0, 7) > ym;
-  return { ym, n, got: filled.size, complete: filled.size === n, over, open: !over && today.slice(0, 7) === ym };
+  const n = daysIn(ym), over = today.slice(0, 7) > ym, end = graceEnd(ym);
+  // open: gaps can still be filled (this month, or last month until the 7th); grace: a past month still open.
+  return { ym, n, got: filled.size, complete: filled.size === n, over, open: today >= `${ym}-01` && today <= end, grace: over && today <= end, end };
 }
 /** The cast's names over their lines, in each language. */
 export const WHO = {

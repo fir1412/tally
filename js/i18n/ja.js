@@ -1498,4 +1498,6 @@ export default {
   "Remove categories you don't use: what was in them moves to the one you pick": "使わないカテゴリを削除：中身は選んだカテゴリへ移ります",
   "Sticker book · {0} of {1}": "ステッカー帳 · {1}枚中{0}枚",
   "Open your sticker book any time from Home, even before you log today": "今日の記録前でも、ホームからいつでもステッカー帳を開けます",
+  "{0} of {1} days. Missed days can still be filled in until {2}.": "{1}日中{0}日。見逃した日は{2}まで埋められます。",
+  "A month's missed stickers can be filled in until the 7th of the next month": "見逃したステッカーは翌月7日まで埋められます",
 };

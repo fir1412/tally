@@ -1498,4 +1498,6 @@ export default {
   "Remove categories you don't use: what was in them moves to the one you pick": "刪除不用的類別：裡面的記錄會移到你選的類別",
   "Sticker book · {0} of {1}": "貼紙簿 · {1} 張中的 {0} 張",
   "Open your sticker book any time from Home, even before you log today": "隨時從首頁打開貼紙簿，今天還沒記帳也可以",
+  "{0} of {1} days. Missed days can still be filled in until {2}.": "{1} 天中的 {0} 天。錯過的日子在 {2} 之前還能補記。",
+  "A month's missed stickers can be filled in until the 7th of the next month": "一個月裡錯過的貼紙，可以在下個月 7 日前補上",
 };

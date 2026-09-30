@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.6.2': [
+    "A month's missed stickers can be filled in until the 7th of the next month",
+  ],
   '1.6.1': [
     "Open your sticker book any time from Home, even before you log today",
   ],

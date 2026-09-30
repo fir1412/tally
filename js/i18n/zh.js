@@ -1499,4 +1499,6 @@ export default {
   "Remove categories you don't use: what was in them moves to the one you pick": "删除不用的类别：里面的记录会移到你选的类别",
   "Sticker book · {0} of {1}": "贴纸簿 · {1} 张中的 {0} 张",
   "Open your sticker book any time from Home, even before you log today": "随时从首页打开贴纸簿，今天还没记账也可以",
+  "{0} of {1} days. Missed days can still be filled in until {2}.": "{1} 天中的 {0} 天。错过的日子在 {2} 之前还能补记。",
+  "A month's missed stickers can be filled in until the 7th of the next month": "一个月里错过的贴纸，可以在下个月 7 日前补上",
 };

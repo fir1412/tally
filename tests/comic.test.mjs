@@ -17,7 +17,9 @@ test('a day counts when something is logged for it on the day or later in the mo
     tx('2026-09-29', '2026-10-01'),                        // last month's day, now: not this book
   ] });
   assert.deepEqual([...f].sort((a, b) => a - b), [1, 2, 5]);
-  assert.deepEqual([...filledDays({ ym: '2026-09', today: '2026-10-20', tx: [tx('2026-09-29', '2026-10-01')] })], []);   // after the month ended: too late
+  assert.deepEqual([...filledDays({ ym: '2026-09', today: '2026-10-20', tx: [tx('2026-09-29', '2026-10-07')] })], [29]);   // caught up by the 7th of the next month: counts
+  assert.deepEqual([...filledDays({ ym: '2026-09', today: '2026-10-20', tx: [tx('2026-09-29', '2026-10-08')] })], []);   // after that: too late
+  assert.deepEqual([...filledDays({ ym: '2026-12', today: '2027-01-05', tx: [tx('2026-12-31', '2027-01-02')] })], [31]);   // over the new year too
 });
 
 test('day N shows panel N, and the last day always shows the ending', () => {
@@ -28,7 +30,9 @@ test('day N shows panel N, and the last day always shows the ending', () => {
 
 test('a book is complete only with every day in; a month without its own book uses the classic stickers', async () => {
   const s = bookState({ ym: '2026-02', filled: new Set(Array.from({ length: 28 }, (_, i) => i + 1)), today: '2026-03-01' });
-  assert.equal(s.complete, true); assert.equal(s.over, true); assert.equal(s.open, false);
+  assert.equal(s.complete, true); assert.equal(s.over, true); assert.equal(s.open, true); assert.equal(s.grace, true);   // until 7 March
+  const late = bookState({ ym: '2026-02', filled: new Set([1]), today: '2026-03-08' });
+  assert.equal(late.open, false); assert.equal(late.grace, false);
   const book = await loadBook('2026-01');
   assert.equal(book.stickers.length, 31); assert.ok(Array.isArray(book.panels));
 });

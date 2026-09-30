@@ -1499,4 +1499,6 @@ export default {
   "Remove categories you don't use: what was in them moves to the one you pick": "Buang kategori yang anda tidak guna: isinya dipindahkan ke kategori yang anda pilih",
   "Sticker book · {0} of {1}": "Buku pelekat · {0} daripada {1}",
   "Open your sticker book any time from Home, even before you log today": "Buka buku pelekat anda bila-bila masa dari Utama, walaupun sebelum mencatat hari ini",
+  "{0} of {1} days. Missed days can still be filled in until {2}.": "{0} daripada {1} hari. Hari yang terlepas masih boleh diisi sehingga {2}.",
+  "A month's missed stickers can be filled in until the 7th of the next month": "Pelekat yang terlepas dalam sebulan boleh diisi sehingga 7 hari bulan berikutnya",
 };
