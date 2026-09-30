@@ -68,7 +68,7 @@ const stkSvg = (s, on = true, cls = 'stk') => `<svg class="${cls}${on ? '' : ' o
  *  day, never a score to keep up. */
 function stickerCard(tdy) {
   const ym = tdy.slice(0, 7), day = +tdy.slice(8, 10), filled = filledIn(ym);
-  if (settings().sample || !shown('stickers') || dismissed().includes(`stk-${tdy}`) || !filled.has(day)) return '';
+  if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !filled.has(day)) return '';
   const book = bookOf(ym); if (!book) return '';
   const st = bookState({ ym, filled, today: tdy }), s = book.stickers[panelOf(day, st.n)];
   return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stkSvg(s, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", say(s.name)))}</b>
@@ -77,7 +77,7 @@ function stickerCard(tdy) {
 }
 /** The way into the book on days without today's card (nothing logged yet, or the card dismissed): one small line. */
 function stickerLink(tdy) {
-  if (settings().sample || !shown('stickers')) return '';
+  if (!shown('stickers')) return '';
   const ym = tdy.slice(0, 7), st = bookState({ ym, filled: filledIn(ym), today: tdy });
   return `<button class="link stk-link" data-act="stickers-open">${ICON.award}${esc(t('Sticker book · {0} of {1}', st.got, st.n))}</button>`;
 }
