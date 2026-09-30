@@ -9,7 +9,7 @@ import { calcAmount } from './engine.js';
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
 const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
 const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;   // "2 x 10.90", "1ea@5.90"
-const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*/i;
+const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit))?\s*/i;   // and weighed: "1.438 KG X 6.90/KG"
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
 const TOTAL = /[o0]ta[l1i]?(?![a-z])|t[o0]t[ai][l1](?![a-z])|t[o0]ta[l1](?=with|incl|[il1]ncl|amt|amount|sales|rm|myr)|jumlah|amount\s*due|\bnett?\b|grand/i;
@@ -148,6 +148,7 @@ const NOT_SHOP = new RegExp([
   /^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg)|registration)|^\(|^\d{3,}|^[\d\W]+$/.source,   // numbers, a "(Perub…)" or "(123456-X)" line
 ].join('|'), 'i');
 const BANK_SLIP = /^(public\s*bank|hong\s*leong|maybank|cimb|rhb|ambank|bank\s*islam|bsn|affin|uob|ocbc|hsbc|alliance\s*bank)/i;
+const PAID_WITH = /\bbank\b|e-?wallet|duit\s*now|touch\s*'?\s*n\s*'?\s*go|\btng\b|grab\s*pay|\bboost\b|shopee\s*pay|\bmae\b|master\s*card|\bvisa\b|\bdebit\b|\bamex\b|\bmydebit\b|\bpaynet\b/i;
 const ADDRESS = /\b(jalan|jln|lot|no\.?\s*\d+|taman|lorong|level|floor|lg-?\d+|kuala lumpur|selangor|\d{5})\b/i;
 const CO_TAIL = /[\s.,]*\(?\b(m|malaysia)?\)?\s*(sd[nh]\.?\s*bh?d|sdnbhd|berhad|bhd)\b.*$/i;   // "(M) SDN. BHD. (123-X)", OCR's "Sdh"
 const titleCase = s => (s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(&/-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : s);
@@ -163,7 +164,12 @@ function joinNameLines(lines) {
 }
 /** "HEXTAR LUCKIN M SDN BHD" → Luckin Coffee (a known brand); "RESTORAN MAJU JAYA SDN.BHD (123-X)" → Restoran Maju Jaya. */
 export function shopName(lines) {
-  const brand = brandOf(lines) || knownShop(lines.slice(0, 10).filter(l => !ADDRESS.test(l) && !/\d[.,]\d{2}/.test(l)))?.name; if (brand) return brand;   // not "Jalan Setia", not "Cheese Burger 4.50"
+  // An e-wallet or DuitNow slip names the shop it paid: "Recipient: GERAI MAK TEH".
+  const payee = lines.slice(0, 25).map(l => l.match(/^\W*(?:recipient|merchant(?:\s*name)?|paid\s*to|pay\s*to|penerima|payee)\s*[:\-]?\s*([\p{L}\d].{1,60})$/iu)?.[1]).find(n => n && /\p{L}{3}/u.test(n));
+  if (payee) return brandOf([payee]) || titleCase(payee.replace(CO_TAIL, '').trim()).slice(0, 80);
+  // The bank, card or wallet printed on the slip is how it was paid, never the shop (card-terminal slips put it on top).
+  const pool = lines.filter(l => !PAID_WITH.test(l));
+  const brand = brandOf(pool) || knownShop(pool.slice(0, 10).filter(l => !ADDRESS.test(l) && !/\d[.,]\d{2}/.test(l)))?.name; if (brand) return brand;   // not "Jalan Setia", not "Cheese Burger 4.50"
   const top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, ''))).slice(0, 8);   // a lone "Bhd" is no name
   const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
   if (!co) return null;
@@ -232,7 +238,8 @@ export function parseReceipt(text) {
     else if (SUBTOTAL.test(key) && !adj) { if (r.total === null && r.rounding && r.subtotal !== null && cents === r.subtotal + r.rounding) r.total = cents; else r.subtotal = cents; }
     else if (SUBTOTAL.test(key)) r[adj] = (r[adj] ?? 0) + cents;   // "Shipping Subtotal 4.90" is a charge, not the items' subtotal
     else if (TOTAL.test(key) && NOT_TOTAL.test(key)) { /* a count or group total: skip */ }
-    else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total = Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
+    else if (TOTAL.test(key) && r.total !== null && /\b(SGD|USD|EUR|GBP|IDR|THB|RMB|CNY|JPY|AUD|HKD)\b|S\$|US\$/i.test(line)) { /* the same total in another currency, printed after ours */ }
+    else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total =Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
     else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
     else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
     else if (offKey && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
@@ -316,7 +323,7 @@ const amountsIn = line => [...line.matchAll(ALL_AMOUNTS)].map(m => +m[1] * 100 +
 // The money part of a receipt that OCR misspelt, so it slipped into the items: "SUBTUTAL", "AHOUNT", "TOTAAMN",
 // "GRAND TOTAI.", "TTL"; and payment / tax / rounding lines (card slips print them between the items and the total).
 const SUMMARY_NAME = /^\W*(sub\s*-?\s*t[o0u]t[ao]?[l1i]?|grand\s*t[o0]t|t[o0]t[a4]?[l1iat]?(?![a-z]{3})|t[o0]ta\S*\s*(items?|amount|amt)|ttl\b|a[mh][o0]u?n?t\b|total\s*amount|taxable|item\s*qty)/i;
-const MONEY_NAME = /^\W*(r[o0]u?n?d|f[o0]und|change|balance\b|cash\b|card\b|c?<+\s*card|visa|master|credit|debit|duit\s*now|a*duitnow|tendered|payment|ringgit\s*malaysia|items?\s*sold|service\s*(tax|charge)|serv\.?\s*charge|tax\s*\d|sst\b|gst\b|ixn\s*ref|rm$|qty$)/i;
+const MONEY_NAME = /^\W*(r[o0]u?n?d|f[o0]und(?:ing|ng)?\b|change|balance\b|cash\b|card\b|c?<+\s*card|visa|master|credit|debit|duit\s*now|a*duitnow|tendered|payment|ringgit\s*malaysia|items?\s*sold|service\s*(tax|charge)|serv\.?\s*charge|tax\s*\d|sst\b|gst\b|ixn\s*ref|rm$|qty$)/i;
 /** Items end where the money part starts: a (misspelt) total line and everything after it goes; payment, tax and
  *  rounding lines go wherever they are. A real item never has a name like these. */
 export function dropSummaryLines(items) {

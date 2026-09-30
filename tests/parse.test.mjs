@@ -339,3 +339,14 @@ test('found on real receipts (CORD bench): thousands commas, TAX6%, a name on tw
   assert.deepEqual(promo.items.map(i => i.cents), [1750, -200]); assert.ok(promo.check.ok);
   assert.equal(cleanName('ICED TEA 1.20 5'), 'ICED TEA'); assert.equal(cleanName('RM1.50'), 'RM1.50');
 });
+
+test('found by the synthetic bench: bank/wallet slips name the shop they paid, FOUNDATION is an item, a foreign-currency total, weighed produce', () => {
+  assert.equal(parseReceipt('HONG LEONG BANK\nKOPITIAM LAMA 1955\nSALE\nAMOUNT RM 12.50').merchant, 'Kopitiam Lama 1955');
+  assert.equal(parseReceipt("Touch 'n Go eWallet\nPayment successful\nRecipient: GERAI MAK TEH\nAmount RM 8.50").merchant, 'Gerai Mak Teh');
+  const f = parseReceipt('GUARDIAN\nMAYBELLINE FIT ME FOUNDATION 30ML 39.90\nTOTAL 39.90');
+  assert.deepEqual(f.items.map(i => i.cents), [3990]);
+  const x = parseReceipt('DUTY FREE\nPERFUME 340.90\nTOTAL 340.90\nTotal SGD 104.00');
+  assert.equal(x.total, 34090);
+  const kg = parseReceipt('GROCER\nCARROT AUSTRALIA\n1.438 KG X 6.90/KG 9.92\nTOTAL 9.92');
+  assert.deepEqual(kg.items.map(i => [i.name, i.cents]), [['CARROT AUSTRALIA', 992]]);
+});
