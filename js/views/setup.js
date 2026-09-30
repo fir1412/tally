@@ -91,6 +91,11 @@ const mailLink = () => `<a class="link" href="mailto:${CONTACT}">${CONTACT}</a>`
 const RATE_API = 'https://api.frankfurter.dev/v1/latest';
 /** Privacy, terms and the source code: on Welcome (people check before the first tap) and in Settings. */
 const legalLinks = () => `<a class="link" href="privacy${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Privacy policy'))}</a><a class="link" href="terms${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja' })[getLang()] || ''}.html" target="_blank" rel="noopener">${esc(t('Terms of use'))}</a><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Source code'))}</a><a class="link" href="licences.html" target="_blank" rel="noopener">${esc(t('Licences'))}</a>`;
+/** Why Tally costs nothing: on Welcome (before the first tap) and in Settings. */
+const whyFree = () => `<section class="card whyfree"><h2>${esc(t('Why is Tally free?'))}</h2><ul class="points">
+  <li>${ICON.sparkles}<span>${esc(t('A passion project by {0}, one developer in Malaysia.', MAKER))} ${mailLink()}</span></li>
+  <li>${ICON.globe}<span><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Open source: anyone can read the code.'))}</a></span></li>
+  <li>${ICON.lock}<span>${esc(t('No servers to pay for, and none of your money data to sell.'))}</span></li></ul></section>`;
 export const welcomeView = {
   title: 'Welcome',
   render() {
@@ -100,13 +105,13 @@ export const welcomeView = {
       <p class="lede">${esc(t('Snap any receipt. See what you actually spent on, item by item.'))}</p>
       <p class="sublede">${ICON.lock} ${esc(t('Never asks for your bank login, TAC, OTP or IC.'))} <button class="link" data-act="net-check">${esc(t('Check it yourself'))}</button></p>
       ${demoCard()}
-      <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('Free'), t('No ads'), t('No sign-up'), t('Kept on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
+      <ul class="promise" aria-label="${esc(t('Tally is'))}">${[t('No subscription'), t('No ads'), t('No sign-up'), t('Kept on your phone')].map(w => `<li>${ICON.check}${esc(w)}</li>`).join('')}</ul>
       <button class="btn wide" data-act="start-fresh">${esc(t('Start fresh'))}</button>
       <button class="btn ghost wide" data-act="sample-go">${esc(t('Not sure yet? Look around with sample data'))}</button>
       <button class="btn ghost wide" data-act="import-open">${esc(t('Bring my data: bank or e-wallet statements (MAE, TNG, Grab…), other money apps, Excel'))}</button>
       <button class="btn ghost wide" data-act="restore-pick">${esc(t('Restore a Tally backup'))}</button>
+      ${whyFree()}
       <div class="langrow"><div class="sizerow"><span class="fine">${esc(t('Text size'))}</span>${sizeButtons()}</div></div>
-      <p class="fine maker">${esc(t("Made in Malaysia by {0}, one independent developer. Free because there are no servers to pay for. Tally doesn't collect your money data, so there is nothing to sell.", MAKER))} ${mailLink()}</p>
       <p class="fine">${esc(t('By using Tally you agree to the Terms of use and have read the Privacy policy.'))}</p>
       <p class="legal">${legalLinks()}</p>
       <ul class="points">
@@ -218,6 +223,7 @@ export const settingsView = {
         <p class="fine">${esc(t('Tell the developer about a bug or an idea. Sent: your message, the contact you add, and app and device details. Nothing about your money.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button>
         <p class="fine center">${esc(t('Or email the developer ({0}):', MAKER))} ${mailLink()}</p></section>
+      ${whyFree()}
       <p class="fine center">Tally ${APP_VERSION}<span id="build">${buildLink()}</span> · <a class="link" href="https://github.com/tallymy/tallymy.github.io/commits/main" target="_blank" rel="noopener">${esc(t("Every change, with its code"))}</a></p>`;
   },
 };

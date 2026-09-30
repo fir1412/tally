@@ -1442,4 +1442,9 @@ export default {
   "Reading each line…": "正在逐行读取…",
   "Turning the photo the right way up…": "正在把照片转正…",
   "Straightening the photo…": "正在把照片摆直…",
+  "No subscription": "无需订阅",
+  "Why is Tally free?": "Tally 为什么免费？",
+  "A passion project by {0}, one developer in Malaysia.": "这是 {0} 的热爱之作，一位来自马来西亚的独立开发者。",
+  "Open source: anyone can read the code.": "开源：任何人都可以查看代码。",
+  "No servers to pay for, and none of your money data to sell.": "没有服务器费用，也没有你的财务数据可卖。",
 };

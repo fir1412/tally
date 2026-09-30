@@ -1442,4 +1442,9 @@ export default {
   "Reading each line…": "Membaca setiap baris…",
   "Turning the photo the right way up…": "Memusingkan foto supaya tegak…",
   "Straightening the photo…": "Meluruskan foto…",
+  "No subscription": "Tiada langganan",
+  "Why is Tally free?": "Kenapa Tally percuma?",
+  "A passion project by {0}, one developer in Malaysia.": "Projek minat {0}, seorang pembangun di Malaysia.",
+  "Open source: anyone can read the code.": "Sumber terbuka: sesiapa pun boleh membaca kodnya.",
+  "No servers to pay for, and none of your money data to sell.": "Tiada pelayan untuk dibayar, dan tiada data kewangan anda untuk dijual.",
 };

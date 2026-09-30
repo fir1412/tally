@@ -1441,4 +1441,9 @@ export default {
   "Reading each line…": "1行ずつ読んでいます…",
   "Turning the photo the right way up…": "写真の向きを直しています…",
   "Straightening the photo…": "写真の傾きを直しています…",
+  "No subscription": "サブスクなし",
+  "Why is Tally free?": "Tally が無料なのはなぜ？",
+  "A passion project by {0}, one developer in Malaysia.": "マレーシアの一人の開発者 {0} が情熱で作っているプロジェクトです。",
+  "Open source: anyone can read the code.": "オープンソース：誰でもコードを読めます。",
+  "No servers to pay for, and none of your money data to sell.": "支払うサーバー代はなく、売るようなあなたのお金のデータもありません。",
 };

@@ -1,7 +1,7 @@
 {
   "name": "Tally: receipts & money",
   "short_name": "Tally",
-  "description": "Snap any receipt and see what you spent on, item by item. Local-only, no ads.",
+  "description": "Every item on your receipt, sorted. Read on your phone, with no upload, account or bank login. No subscription, no ads: a passion project, and open source.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
