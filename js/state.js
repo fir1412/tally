@@ -301,9 +301,9 @@ export async function addAll({ accounts, tx, recurring, kv }) {
 }
 /** Write records as given, overwriting (a spouse's newer joint edits), all or nothing. `edit`: the user's own change
  *  (an import and its Undo), stamped and with joint delete markers like saveTxs and deleteTxs, in the same write. */
-export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {}, edit = false }) {
+export async function putAll({ accounts = [], tx = [], recurring = [], kv = {}, del = {}, edit = false, mark = true }) {
   if (edit) {
-    const j = jointIds(), dead = new Set(del.tx || []), joint = S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId)));
+    const j = jointIds(), dead = new Set(del.tx || []), joint = mark ? S.tx.filter(t => dead.has(t.id) && (j.has(t.accountId) || j.has(t.toAccountId))) : [];
     tx = tx.map(stamp);
     if (joint.length) kv = { ...kv, jointGone: withGone(joint.map(t => t.id)) };
   }

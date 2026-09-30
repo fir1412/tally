@@ -58,6 +58,21 @@ test('a phone with more than 50 own categories from before the cap gets back und
   assert.ok(A.S.S.tx.every(t => A.S.S.kv.customCats.some(c => c.id === t.category) || !t.category.startsWith('c_')));
 });
 
+test("undoing a big import on a joint account doesn't push out the markers of entries deleted before", async () => {
+  const { readFileSync } = await import('node:fs');
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  await A.S.saveAccount({ id: 'jt', name: 'Joint', kind: 'bank', scope: 'joint', opening: 0, createdAt: 1 });
+  const row = id => ({ id, accountId: 'jt', type: 'expense', amount: 100, date: '2026-09-01', merchant: id, category: 'other', createdAt: 1 });
+  await A.S.saveTxs([row('x_rent')]); await A.S.deleteTxs(['x_rent']);   // a real delete the partner hasn't had yet
+  const save = Array.from({ length: 1000 }, (_, i) => row(`imp${i}`));
+  await A.S.putAll({ tx: save, edit: true });   // the import
+  await A.S.putAll({ del: { tx: save.map(x => x.id) }, edit: true, mark: false });   // its Undo, as commitImport does it
+  assert.ok(A.S.S.kv.jointGone.x_rent, "the earlier delete's marker is still there");
+  const undo = readFileSync(new URL('../js/views/setup.js', import.meta.url), 'utf8').match(/async function commitImport[\s\S]*?\n}\n/)[0].match(/undo: [\s\S]*?\} \}\);/)[0];
+  assert.match(undo, /mark: false/, "the Undo removes the import's own rows without delete markers");
+});
+
 test("a joint account deleted on either phone takes its bills with it: none is left to post into a personal account", () => {
   const T = Date.now(), me = { id: 'pmine', name: 'Maybank', kind: 'bank' };
   const bill = (id, accountId, updatedAt) => ({ id, name: 'Rent', amount: 150000, accountId, day: 1, auto: true, start: '2026-06-01', updatedAt });

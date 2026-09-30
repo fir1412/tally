@@ -477,7 +477,7 @@ async function commitImport(txs, label, { before = async () => [], accounts = []
   closeSheet(); go('home'); render();
   toast(t('Imported {0} from {1}', fresh.length, label) + (dups.length ? ` · ${t('{0} already here, skipped', dups.length)}` : '') + (pairs.length + relink.length ? ` · ${t('{0} top-ups counted as transfers between your accounts', pairs.length + relink.length)}` : '')
     + (reloads.length ? ` · ${t('{0} wallet reloads with no bank line: counted as money moved from your bank, not as income.', reloads.length)}` : ''), { undo: !save.length ? null : async () => {
-    await putAll({ accounts: [...shifted, ...empty], tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) }, edit: true });
+    await putAll({ accounts: [...shifted, ...empty], tx: replaced, del: { tx: save.map(x => x.id), accounts: newAccounts.filter(id => !S.tx.some(x => !kept.has(x.id) && (x.accountId === id || x.toAccountId === id))) }, edit: true, mark: false });   // the import's own rows, seconds old and never shared: no delete markers (1000 of them pushed out real ones)
     await deletePhotos(photoIds);
     await undoMore(); render();
   } });
