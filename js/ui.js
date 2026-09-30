@@ -111,9 +111,34 @@ export function openSheet(html, { onClose, label = 'Dialog', stack = false } = {
     if (opener?.isConnected) opener.focus({ preventScroll: true });
     onClose?.();
   };
+  swipeToClose(wrap, sheet);
   const f = sheet.querySelector('[autofocus]') || sheet.querySelector('input, select, textarea, button');
   setTimeout(() => { if (wrap.isConnected && !wrap.classList.contains('out')) (f || sheet).focus({ preventScroll: true }); }, 30);   // not into a sheet already closing
   return sheet;
+}
+/** Pull a sheet down to close it: from its top, or anywhere once its content is scrolled to the top. Short pulls snap
+ *  back; a pull past a third of its height (or a quick flick) closes it. Not the camera: aiming shouldn't close it. */
+function swipeToClose(wrap, sheet) {
+  let y0 = null, dy = 0, t0 = 0;
+  const reset = () => { y0 = null; sheet.style.transition = ''; sheet.style.transform = ''; };
+  sheet.addEventListener('touchstart', e => {
+    const skip = e.touches.length !== 1 || sheet.scrollTop > 0 || wrap.classList.contains('cam') || e.target.closest('input, select, textarea, [contenteditable]');
+    y0 = skip ? null : e.touches[0].clientY; dy = 0; t0 = e.timeStamp;
+  }, { passive: true });
+  sheet.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0) { if (dy < -8) reset(); else sheet.style.transform = ''; return; }   // upward: an ordinary scroll
+    if (e.cancelable) e.preventDefault();
+    sheet.style.transition = 'none'; sheet.style.transform = `translateY(${dy}px)`;
+  }, { passive: false });
+  sheet.addEventListener('touchend', e => {
+    if (y0 == null) return;
+    const flick = dy > 30 && dy / Math.max(1, e.timeStamp - t0) > 0.6;
+    if (dy > Math.min(160, sheet.offsetHeight / 3) || flick) { y0 = null; sheet.style.transition = ''; closeSheet(); }   // the exit animation starts from where the finger left it
+    else reset();
+  });
+  sheet.addEventListener('touchcancel', reset);
 }
 export function closeSheet() { sheetClose?.(); }
 export const sheetOpen = () => !!sheetClose;
