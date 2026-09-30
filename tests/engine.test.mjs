@@ -407,3 +407,11 @@ test('learnNames: remembers item names the user fixed, forgets one put back, nul
   assert.deepEqual(E.learnNames(m, [{ name: 'WS B121 WET WIPES', raw: 'WS B121 WET WIPES' }]), {});
   assert.equal(E.learnNames(m, [{ name: 'Typed', raw: '' }]), null);   // an item added by hand has no reading to fix
 });
+
+test('everyday Malaysian items land where people expect (checked against 796 PriceCatcher items)', () => {
+  const c = n => E.categorize(n);
+  assert.equal(c('AYAM GORENG'), 'dining'); assert.equal(c('SUP DAGING'), 'dining'); assert.equal(c('ROTI TISU'), 'dining'); assert.equal(c('MURTABAK AYAM'), 'dining');
+  assert.equal(c('SERBUK NASI GORENG CINA ADABI'), 'groceries'); assert.equal(c('REMPAH SUP'), 'groceries'); assert.equal(c('MINYAK MASAK BURUH 5KG'), 'groceries');
+  assert.equal(c('UBAT GIGI COLGATE'), 'personal'); assert.equal(c('KACANG BOTOL'), 'groceries');   // not Health, not Transport ("tol")
+  assert.equal(c('PETPET DAY NIGHT PANTS'), 'kids'); assert.equal(c('SANTAN KARA 200ML'), 'groceries'); assert.equal(c('DEODORAN NIVEA'), 'personal');
+});
