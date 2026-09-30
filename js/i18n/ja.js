@@ -1487,4 +1487,9 @@ export default {
   "{0} of {1} days. One for each day you log; fill in a missed day any time this month.": "{1}日中{0}日。記録した日ごとに1枚。見逃した日は今月中ならいつでも埋められます。",
   "{0} of {1} this month, and today's page of the story.": "今月{1}枚中{0}枚目と、今日の物語のページ。",
   "{0} of {1} this month. One for each day you log.": "今月{1}枚中{0}枚目。記録した日ごとに1枚。",
+  "Every day of {0} logged with Tally": "{0}は毎日 Tally で記録しました",
+  "Share this month": "今月をシェア",
+  "Use these colours": "この配色を使う",
+  "Your reward: the colours of {0}": "ごほうび：{0}の配色",
+  "{0} of {1} days logged with Tally": "Tally で{1}日中{0}日を記録",
 };

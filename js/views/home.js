@@ -94,6 +94,7 @@ function bookHtml(book, ym, filled, tdy) {
     <p class="sh-body">${esc(st.complete ? t('Every day of {0} is in. The whole story is yours.', fmtMonth(ym)) : st.open ? t('{0} of {1} days. One for each day you log; fill in a missed day any time this month.', st.got, st.n) : t('{0} of {1} days.', st.got, st.n))}</p>
     <ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
     ${book.panels.length ? `<h3 class="comic-h">${esc(t('The story'))}</h3><ol class="comic">${days.map(panel).join('')}</ol>` : ''}
+    ${st.complete || st.over ? `<div class="book-reward">${st.complete && book.colours ? `<p><b>${esc(t('Your reward: the colours of {0}', fmtMonth(ym)))}</b></p><span class="apv" aria-hidden="true" style="background:${book.colours.dark[0]}"><i style="background:${book.colours.dark[2]}"></i><b style="background:${book.colours.accent}"></b></span><button class="btn small" data-act="set-app-palette" data-v="book-${ym}">${esc(t('Use these colours'))}</button>` : ''}<button class="btn small ghost" data-act="book-share" data-ym="${ym}">${esc(t('Share this month'))}</button></div>` : ''}
     ${past.length ? `<h3 class="comic-h">${esc(t('Past months'))}</h3><div class="chips">${past.map(m => `<button class="chip" data-act="stickers-open" data-ym="${m}">${esc(fmtMonth(m))} · ${filledIn(m).size}</button>`).join('')}</div>` : ''}
     <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Close'))}</button></div>`;
 }
@@ -363,8 +364,39 @@ const addDaysIso = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUT
 export const act = {
   'bal-hide': async () => { await setSetting('hideBal', !settings().hideBal); render(); $('.eyebtn')?.focus(); },
   'stickers-open': async b => {
-    const ym = b?.dataset?.ym || today().slice(0, 7), book = bookOf(ym) || await loadBook(ym);
-    openSheet(bookHtml(book, ym, filledIn(ym), today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
+    const ym = b?.dataset?.ym || today().slice(0, 7), book = bookOf(ym) || await loadBook(ym), filled = filledIn(ym);
+    // A complete month's colours are kept for Settings → App colours, whether or not they're used now.
+    if (book.colours && bookState({ ym, filled, today: today() }).complete && !settings().bookPalettes?.[ym]) {
+      const { dark, light, accent } = book.colours;
+      await setSetting('bookPalettes', { ...(settings().bookPalettes || {}), [ym]: { dark, light, accent } });
+    }
+    openSheet(bookHtml(book, ym, filled, today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
+  },
+  // A finished month as a picture to share: its stickers (the missed days faint), how many days, no money at all.
+  'book-share': async b => {
+    const ym = b.dataset.ym, book = bookOf(ym) || await loadBook(ym), filled = filledIn(ym), st = bookState({ ym, filled, today: today() });
+    const W = 1080, H = 1350, c = Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
+    const bg = book.colours?.dark || ['#1C1A2B', '#252236'], accent = book.colours?.accent || '#B5533A';
+    g.fillStyle = bg[0]; g.fillRect(0, 0, W, H);
+    g.fillStyle = bg[1]; g.beginPath(); g.roundRect(60, 60, W - 120, H - 120, 48); g.fill();
+    g.fillStyle = '#FFFFFF'; g.font = '700 64px "Bricolage Grotesque", system-ui, sans-serif'; g.textAlign = 'center';
+    g.fillText(book.theme ? say(book.theme) : t('Sticker book'), W / 2, 190);
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '500 40px "IBM Plex Sans", system-ui, sans-serif'; g.fillText(fmtMonth(ym), W / 2, 250);
+    const img = s => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">${s.svg}</svg>`)}`; });
+    const cols = 6, size = 120, gap = 22, x0 = (W - (cols * size + (cols - 1) * gap)) / 2;
+    for (let d = 1; d <= st.n; d++) {
+      const i = await img(book.stickers[panelOf(d, st.n)]), k = d - 1, x = x0 + (k % cols) * (size + gap), y = 310 + Math.floor(k / cols) * (size + gap);
+      if (!i) continue;
+      g.globalAlpha = filled.has(d) ? 1 : 0.16; g.drawImage(i, x, y, size, size); g.globalAlpha = 1;
+    }
+    g.fillStyle = '#FFFFFF'; g.font = '700 48px "IBM Plex Sans", system-ui, sans-serif';
+    g.fillText(st.complete ? t('Every day of {0} logged with Tally', fmtMonth(ym)) : t('{0} of {1} days logged with Tally', st.got, st.n), W / 2, H - 130);
+    g.fillStyle = accent; g.font = '600 36px "IBM Plex Sans", system-ui, sans-serif'; g.fillText('tallymy.github.io', W / 2, H - 82);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')); if (!blob) return;
+    const file = new File([blob], `tally-${ym}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: fmtMonth(ym) }); } catch { /* closed */ } return; }
+    const url = URL.createObjectURL(blob), a = Object.assign(document.createElement('a'), { href: url, download: file.name });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   },
   ...analyticsAct,
   'move-money': () => openTxSheet({ type: 'transfer', category: 'other' }),   // where people looked for it: under Accounts

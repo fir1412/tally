@@ -851,6 +851,8 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .comic .tip { margin: 0; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--mute); border-top: 1px dashed var(--line); display: flex; gap: 6px; align-items: flex-start; }
 .comic .tip svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 .comic .panel.locked { display: grid; place-content: center; gap: 4px; text-align: center; min-height: 88px; padding: var(--sp-3); color: var(--mute); font-size: var(--fs-sm); border-style: dashed; background: transparent; }
+.book-reward { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: 14px; background: var(--panel2); }
+.book-reward p { margin: 0; flex-basis: 100%; }
 .comic .pday { font-weight: 700; color: var(--ink); }
 /* App colours: a little screen of each palette (background, a card, the accent). */
 .apal { grid-template-rows: auto auto; }

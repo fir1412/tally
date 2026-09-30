@@ -1488,4 +1488,9 @@ export default {
   "{0} of {1} days. One for each day you log; fill in a missed day any time this month.": "{0} daripada {1} hari. Satu untuk setiap hari anda mencatat; isi hari yang terlepas bila-bila masa bulan ini.",
   "{0} of {1} this month, and today's page of the story.": "{0} daripada {1} bulan ini, dan halaman cerita hari ini.",
   "{0} of {1} this month. One for each day you log.": "{0} daripada {1} bulan ini. Satu untuk setiap hari anda mencatat.",
+  "Every day of {0} logged with Tally": "Setiap hari dalam {0} dicatat dengan Tally",
+  "Share this month": "Kongsi bulan ini",
+  "Use these colours": "Guna warna ini",
+  "Your reward: the colours of {0}": "Ganjaran anda: warna {0}",
+  "{0} of {1} days logged with Tally": "{0} daripada {1} hari dicatat dengan Tally",
 };

@@ -1488,4 +1488,9 @@ export default {
   "{0} of {1} days. One for each day you log; fill in a missed day any time this month.": "{1} 天中的 {0} 天。每记一天得一张；本月内随时可以补记错过的日子。",
   "{0} of {1} this month, and today's page of the story.": "本月 {1} 张中的第 {0} 张，还有今天的故事页。",
   "{0} of {1} this month. One for each day you log.": "本月 {1} 张中的第 {0} 张。每记一天得一张。",
+  "Every day of {0} logged with Tally": "{0} 每一天都用 Tally 记下了",
+  "Share this month": "分享这个月",
+  "Use these colours": "使用这些颜色",
+  "Your reward: the colours of {0}": "你的奖励：{0} 的颜色",
+  "{0} of {1} days logged with Tally": "用 Tally 记下了 {1} 天中的 {0} 天",
 };
