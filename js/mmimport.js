@@ -1,12 +1,13 @@
 // Import from "Money manager & expenses" (Innim) backups (.mmbackup): a zip holding MyFinance.db (SQLite) and
 // photos/. SQLite is read with sql.js (vendored, loaded only here). Accounts keep their current balances.
 // Also Money Manager by Realbyte backups (.mmbak), below.
-import { unzip, cleanText, mapCategory, sameCategory, OTHER_NAME, hash, okId, okSigned } from './io.js';
+import { unzip, cleanText, mapCategory, sameCategory, catName, OTHER_NAME, hash, okId, okSigned } from './io.js';
 import { INCOME_CATEGORIES, validIso, MAX_SEN, nextColor } from './engine.js';
 import { guessKind } from './statement.js';
 
 /** Their category keeps its name: Tally's of exactly that name, else a new one called the same (50 at most, then the nearest of Tally's). */
 function keepName(title, income, customCats, id, color) {
+  title = catName(title) || 'Category';   // "&#x1f35c; Food" is Food
   const same = sameCategory(title, [], income);
   if (same) return same;
   if (!OTHER_NAME.test(title) && customCats.length < 50) { customCats.push({ id, name: title, color, ...(income ? { kind: 'income' } : {}) }); return id; }

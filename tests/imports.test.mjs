@@ -137,6 +137,40 @@ test("another app's categories keep their names: Tally's only when the name is e
   assert.equal(IO.sameCategory('Transit'), null);
 });
 
+test('category names written as HTML codes with an emoji ("&#x1f35c; Food") land in the category of that name, never a second one', async () => {
+  assert.deepEqual(['&#x1f35c; Food', '&#127873; Gift', '🍜 Food', 'Makan &amp; Minum', '&#x1f35c;', 'Food'].map(IO.catName), ['Food', 'Gift', 'Food', 'Makan & Minum', '🍜', 'Food']);
+  const mine = [{ id: 'c_mine', name: 'Food', color: '#123456' }];
+  assert.deepEqual([IO.sameCategory('&#x1f35c; Food', mine), IO.sameCategory('&#x1f696; Transport')], ['c_mine', 'transport']);
+  // A backup with Realbyte-style names: Transport is Tally's, Food the user's own Food, Beauty a new one called Beauty.
+  const s = d => Date.UTC(2026, 7, d, 4) / 1000;
+  const db = sqlite(`create table wallets(wallet_pk, name, currency, date_created, archived);
+    create table categories(category_pk, name, income);
+    create table transactions(transaction_pk, paired_transaction_fk, name, amount, note, category_fk, wallet_fk, date_created, paid);
+    insert into wallets values ('w1', 'Maybank', 'myr', ${s(1)}, 0);
+    insert into categories values ('1', '&#x1f35c; Food', 0), ('2', '&#x1f696; Transport', 0), ('3', '&#x1f484; Beauty', 0);
+    insert into transactions values ('e1', null, 'Nasi', -12.5, '', '1', 'w1', ${s(2)}, 1), ('e2', null, 'Grab', -12, '', '2', 'w1', ${s(3)}, 1), ('e3', null, 'Lipstick', -30, '', '3', 'w1', ${s(4)}, 1);`);
+  const mm = await readRealbyte(db, SQL);
+  assert.deepEqual(mm.customCats.map(c => c.name).sort(), ['Beauty', 'Food']);
+  const cats = IO.fitCats(mine, mm.customCats, mm.tx, mm.tx);
+  const by = m => mm.tx.find(t => t.merchant === m).category;
+  assert.deepEqual([by('Nasi'), by('Grab'), cats.map(c => c.name)], ['c_mine', 'transport', ['Beauty']]);
+});
+
+test('an older import\'s coded names are repaired at start: folded into the category of that name, or renamed', async () => {
+  const shim = await import('./fixtures/idbshim.mjs'); shim.reset();
+  const A = await shim.tab(); await A.S.load();
+  await A.S.saveAccount({ id: 'a1', name: 'Maybank', kind: 'bank', opening: 0, createdAt: 1 });
+  await A.S.setKv('customCats', [{ id: 'c_food', name: 'Food', color: '#111111' }, { id: 'c_rb1', name: '&#x1f35c; Food', color: '#222222' }, { id: 'c_rb2', name: '&#x1f381; Gift', color: '#333333' }, { id: 'c_rb3', name: '&#x1f696; Transport', color: '#444444' }]);
+  await A.S.setKv('budgets', { total: 0, byCat: { c_food: 100, c_rb1: 50 } });
+  const row = (id, category) => ({ id, accountId: 'a1', type: 'expense', amount: 100, date: '2026-08-02', merchant: id, category, createdAt: 1 });
+  await A.S.saveTxs([row('t1', 'c_rb1'), row('t2', 'c_rb2'), row('t3', 'c_rb3'), row('t4', 'c_food')]);
+  assert.equal(await A.S.repairCatNames(), 3);
+  assert.deepEqual(A.S.S.kv.customCats.map(c => [c.id, c.name]), [['c_food', 'Food'], ['c_rb2', 'Gift']]);
+  assert.deepEqual(A.S.S.tx.map(t => [t.id, t.category]).sort(), [['t1', 'c_food'], ['t2', 'c_rb2'], ['t3', 'transport'], ['t4', 'c_food']]);
+  assert.deepEqual(A.S.S.kv.budgets.byCat, { c_food: 150 });
+  assert.equal(await A.S.repairCatNames(), 0);   // once
+});
+
 test('Cashew backup (.sql): read as Cashew, not Money Manager; corrections open balances, pairs are transfers, unpaid ones left out', async () => {
   const s = d => Date.UTC(2026, 8, d, 4) / 1000;
   const db = sqlite(`create table wallets(wallet_pk, name, currency, date_created, archived);

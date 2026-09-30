@@ -115,7 +115,7 @@ export async function unzip(buf, want, { budget = ZIP.budget, entries = ZIP.entr
   }
   return out;
 }
-const unxml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&');
+const unxml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, n) => cp(+n)).replace(/&#x([0-9a-f]+);/gi, (m, h) => cp(parseInt(h, 16))).replace(/&amp;/g, '&');
 const colIndex = ref => [...ref.replace(/\d+/g, '')].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 // Linear scans with indexOf: a lazy regex over the whole sheet re-scans to the end on every unclosed "<row" (quadratic).
 /** Each <tag …>body</tag> (or self-closed <tag …/>) in xml → fn(attrs, body). Stops early when fn returns false. */
@@ -433,15 +433,24 @@ const TRANSFER_WORD = /transfer|pindahan|转账|轉帳/i;
 /** Another app's category name → ours: catMap (the mapping step), then the user's own categories by name, then ours by
  *  id or name, then words. */
 export function mapCategory(name, catMap = {}, merchant = '', custom = []) {
-  const n = cleanText(name, 60), lo = n.toLowerCase();
-  if (Object.hasOwn(catMap, n)) return catMap[n];
+  if (Object.hasOwn(catMap, cleanText(name, 60))) return catMap[cleanText(name, 60)];
+  const n = catName(cleanText(name, 60)), lo = n.toLowerCase();
   const hit = [...custom, ...ALL_CATS].find(c => c.id === lo || String(c.name).toLowerCase() === lo);
   if (hit) return hit.id;
   return CAT_WORDS.find(([, re]) => re.test(n))?.[0] || categorize(n, merchant);
 }
+const cp = n => (n > 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.fromCodePoint(n) : '');
+const LEAD_EMOJI = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}️‍⃣\s]+/u;
+/** Another app's category name as a person reads it: HTML codes decoded (Money Manager by Realbyte stores "🍜 Food" as
+ *  "&#x1f35c; Food") and a leading emoji dropped (Tally shows its own icons), so it matches the category of that name. */
+export function catName(s) {
+  const d = String(s ?? '').replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => cp(parseInt(h, 16))).replace(/&#(\d{1,7});/g, (m, n) => cp(+n))
+    .replace(/&(amp|lt|gt|quot|apos);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[k]).trim();
+  return d.replace(LEAD_EMOJI, '').trim() || d;
+}
 /** Another app's category → the Tally one with exactly that name (built-in or the user's own), else null: imports keep the user's names. */
 export function sameCategory(name, custom = [], income = false) {
-  const lo = cleanText(name, 40).toLowerCase();
+  const lo = catName(cleanText(name, 40)).toLowerCase();
   return (lo && [...custom.filter(c => (c.kind === 'income') === income), ...(income ? INCOME_CATEGORIES : CATEGORIES)].find(c => String(c.name).toLowerCase() === lo)?.id) || null;   // the name shown, never Tally's inner id ("Income" is not "Other income")
 }
 /** "Other" in another app is Tally's Other, not a new category. */
@@ -953,6 +962,10 @@ export const photosToWrite = (rows, before) => {
 /** An import's own categories that fit: those of `fileCats` the imported rows (`used`) need, up to 50 of the user's own in
  *  all (a backup with more won't restore). Rows and items in `rows` using one that doesn't fit get Tally's nearest. */
 export function fitCats(have, fileCats, used, rows) {
+  // One of theirs with the name of one of the user's own is that one, not a second "Food".
+  const same = new Map(fileCats.filter(c => !have.some(h => h.id === c.id)).map(c => [c.id, sameCategory(c.name, have, c.kind === 'income')]).filter(([, v]) => v));
+  if (same.size) for (const x of rows) { if (same.has(x.category)) x.category = same.get(x.category); for (const i of x.items || []) if (same.has(i.category)) i.category = same.get(i.category); }
+  fileCats = fileCats.filter(c => !same.has(c.id));
   const ids = new Set(have.map(c => c.id)), needs = c => used.some(x => x.category === c.id || x.items?.some(i => i.category === c.id));
   const want = fileCats.filter(c => !ids.has(c.id) && needs(c)), cats = want.slice(0, Math.max(0, 50 - have.length));
   const out = new Map(want.slice(cats.length).map(c => [c.id, c]));

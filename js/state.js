@@ -1,6 +1,6 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
-import { typedShift, CAPS } from './io.js';
+import { typedShift, CAPS, catName, sameCategory } from './io.js';
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
@@ -143,6 +143,34 @@ export async function addCategory(name, color = nextColor(S.kv.customCats.map(x 
   const c = { id: uid('c_'), name: String(name).slice(0, 40), color, ...(kind === 'income' ? { kind } : {}) };
   await setKv('customCats', [...S.kv.customCats, c]);
   return c;
+}
+
+/**
+ * Categories an older import saved with HTML codes in their names ("&#x1f35c; Food" from Money Manager by Realbyte):
+ * each is folded into the category of that name (Tally's own or the user's), entries, bills, budgets and learned rules
+ * moved with it, or else just renamed. Runs at start; a no-op once nothing has the codes. → how many were fixed.
+ */
+export async function repairCatNames() {
+  const bad = new Set(S.kv.customCats.filter(c => /&#x?[0-9a-f]+;/i.test(c.name)).map(c => c.id));
+  if (!bad.size) return 0;
+  const into = new Map(), fixed = [];
+  for (const c of S.kv.customCats) {
+    if (!bad.has(c.id)) { fixed.push(c); continue; }
+    const name = catName(c.name).slice(0, 40), to = sameCategory(name, fixed, c.kind === 'income');
+    if (to) into.set(c.id, to); else fixed.push({ ...c, name });
+  }
+  const m = id => into.get(id) || id, moves = t => into.has(t.category) || t.items?.some(i => into.has(i.category));
+  const rows = S.tx.filter(moves).map(t => ({ ...t, category: m(t.category), ...(t.items ? { items: t.items.map(i => ({ ...i, category: m(i.category) })) } : {}) }));
+  if (rows.length) await saveTxs(rows);
+  for (const r of S.recurring.filter(r => into.has(r.category))) await saveBill({ ...r, category: m(r.category) });
+  const byCat = b => (b?.byCat ? { ...b, byCat: Object.entries(b.byCat).reduce((o, [k, v]) => ({ ...o, [m(k)]: (o[m(k)] || 0) + v }), {}) } : b);
+  const b = S.kv.budgets;
+  if (into.size) {
+    await setKv('budgets', { ...byCat(b), ...(b.joint ? { joint: byCat(b.joint) } : {}), ...(b.business ? { business: byCat(b.business) } : {}) });
+    await setKv('rules', Object.fromEntries(Object.entries(S.kv.rules).map(([k, v]) => [k, m(v)])));
+  }
+  await setKv('customCats', fixed);
+  return bad.size;
 }
 
 // ---- transactions -----------------------------------------------------------------------------------------------

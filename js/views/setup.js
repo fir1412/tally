@@ -4,7 +4,7 @@ import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory } from '../engine.js';
-import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
+import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
@@ -367,7 +367,7 @@ function catChoices() {
   for (const s of new Set(rows.filter(r => isMoneyRow(r, map, ctx)).map(r => cleanText(rowCategory(r, map, ctx), 60)).filter(Boolean))) {
     if (Object.keys(out).length >= 60) break;
     // Their names stay: the Tally category of exactly that name, else a new one called the same. "Other" stays Other.
-    out[s] = IMP.catMap[s] || sameCategory(s, S.kv.customCats) || sameCategory(s, S.kv.customCats, true) || (OTHER_NAME.test(s) ? 'other' : `new:${s}`);
+    out[s] = IMP.catMap[s] || sameCategory(s, S.kv.customCats) || sameCategory(s, S.kv.customCats, true) || (OTHER_NAME.test(theirCatName(s)) ? 'other' : `new:${theirCatName(s)}`);
   }
   return out;
 }
