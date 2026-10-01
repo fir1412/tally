@@ -1,6 +1,6 @@
 // Insights analytics: the month-end forecast (this month, near the top) and cards below it, each closed to one line
 // with its headline figure. Sums come from engine.js; every chart has its numbers in text next to it or in a hidden table.
-import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached, scopedAccounts } from '../state.js';
+import { S, booked, today, startDay, thisMonth, scope, hasJoint, budgetsFor, inScope, settings, cat, cached, scopedAccounts } from '../state.js';
 import { t, fmtDate, fmtMonth, cycleShort, getLang, langTag } from '../i18n.js';
 import { esc, short, ICON, openSheet, closeSheet, lineChart, balHidden, MASK } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex,
@@ -9,6 +9,9 @@ import { CPI } from '../cpi.js';
 import { catLabel, showIds, downloadReceipts, showCategory } from './money.js';
 import { receiptName, csvLine } from '../io.js';
 import { on } from '../features.js';
+import { shareSheet, monthName, stickerDays } from '../share.js';
+import { loggedDays } from '../gamify.js';
+import { filledDays, loadBook, panelOf } from '../comic.js';
 
 const OPEN = new Set();   // cards opened stay open across re-renders (a scope or month change)
 const card = (id, title, head, body) => `<details class="card acard"${OPEN.has(id) ? ' open' : ''}><summary data-act="acard" data-id="${id}"><span class="grow"><span class="lbl">${esc(title)}</span><b>${esc(head)}</b></span><span class="chev" aria-hidden="true"></span></summary>${body}</details>`;
@@ -239,7 +242,7 @@ export function tilesHtml(M) {
     <div class="tile"><span class="lbl">${esc(t('Money in'))}</span><b class="num">${esc(fmtRM(h.inn))}</b></div>
     ${h.inn ? `<div class="tile"><span class="lbl">${esc(h.kept >= 0 ? t('Kept') : t('Over'))}</span><b class="num ${h.kept >= 0 ? 'good' : 'bad'}">${esc(fmtRM(Math.abs(h.kept)))}</b></div>`
       : `<div class="tile"><span class="lbl">${esc(t('Kept'))}</span><b class="num">–</b><small>${esc(t('when money comes in'))}</small></div>`}</section>
-    <div class="tilebar"><button class="link" data-act="month-share" data-m="${M}">${ICON.share}${esc(t('Share this month'))}</button><button class="link" data-act="year-open" data-y="${year}">${ICON.award}${esc(t('Your {0}', year))}</button></div>`;
+    <div class="tilebar">${mine() ? `<button class="link" data-act="month-share" data-m="${M}">${ICON.share}${esc(t('Share this month'))}</button>` : ''}<button class="link" data-act="year-open" data-y="${year}">${ICON.award}${esc(t('Your {0}', year))}</button></div>`;
 }
 /** Subcategories are off until wanted: once there is some spending, one card shows what they look like (a drawing, few
  *  words) and turns them on in one tap. Dismissed or on: never again. */
@@ -251,29 +254,6 @@ export function subHint() {
   return `<section class="card hint"><div class="rowb"><b class="grow">${esc(t('Want more detail? Try subcategories'))}</b><button class="icon-btn" data-act="dismiss" data-id="hint-subcats" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>${pic}
     <p class="fine">${esc(t('Split a category into smaller ones, like Dining into kopitiam, mamak and delivery. Pick one when you add an entry.'))}</p><button class="btn small" data-act="subcats-on">${esc(t('Turn on subcategories'))}</button></section>`;
 }
-/** A picture to share (WhatsApp, a partner): a title, a subtitle and rows [label, value, bar 0–1?], in the app's dark colours. */
-async function sharePicture(title, sub, rows, name) {
-  const W = 1080, H = Math.max(1080, 440 + rows.length * 132), c = Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
-  g.fillStyle = '#0F172A'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#1E293B'; g.beginPath(); g.roundRect(48, 48, W - 96, H - 96, 40); g.fill();
-  g.textAlign = 'left'; g.fillStyle = '#FFFFFF'; g.font = '700 64px "Bricolage Grotesque", system-ui, sans-serif'; g.fillText(title, 110, 190);
-  g.fillStyle = 'rgba(255,255,255,.65)'; g.font = '500 38px "IBM Plex Sans", system-ui, sans-serif'; g.fillText(sub, 110, 250);
-  // Each row: the label, and its value on the line under it (a long one, "Rent & housing · RM 1,300.00", never runs into
-  // the label), shrunk to fit the card's width.
-  rows.forEach(([label, value, bar], i) => {
-    const y = 340 + i * 132;
-    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '500 32px "IBM Plex Sans", system-ui, sans-serif'; g.fillText(label, 110, y);
-    let size = 46; do g.font = `700 ${size}px "IBM Plex Mono", ui-monospace, monospace`; while (g.measureText(value).width > W - 220 && (size -= 2) > 22);
-    g.fillStyle = '#FFFFFF'; g.fillText(value, 110, y + 54);
-    if (bar != null) { g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(110, y + 72, W - 220, 12); g.fillStyle = '#60A5FA'; g.fillRect(110, y + 72, Math.max(6, (W - 220) * bar), 12); }
-  });
-  g.fillStyle = '#60A5FA'; g.font = '600 34px "IBM Plex Sans", system-ui, sans-serif'; g.fillText('tallymy.github.io', 110, H - 110);
-  const blob = await new Promise(r => c.toBlob(r, 'image/png')); if (!blob) return;
-  const file = new File([blob], `${name}.png`, { type: 'image/png' });
-  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title }); } catch { /* closed */ } return; }
-  const url = URL.createObjectURL(blob), a = Object.assign(document.createElement('a'), { href: url, download: file.name });
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
 /** The year in a few big numbers. */
 function yearRows(year) {
   const y = yearReview(booked(), year, settings().noSpend || []);
@@ -282,6 +262,9 @@ function yearRows(year) {
     y.item && [t('What you bought most'), `${y.item.name} · ${y.item.n}×`], [t('Days you logged'), String(y.logged)], y.noSpend && [t('Days with nothing spent'), String(y.noSpend)],
     y.fees && [t('SST and charges'), fmtRM(y.fees)]].filter(Boolean);
 }
+const catInfo = c => ({ label: catLabel(c), color: cat(c).color });
+// "Where my money went" is only true of the user's own money: no share picture while the scope holds a joint account's.
+const mine = () => !(scope() === 'joint' || (scope() === 'all' && hasJoint()));
 
 export const act = {
   acard: b => { const d = b.parentElement, id = b.dataset.id; d.open = !d.open; if (d.open) OPEN.add(id); else OPEN.delete(id); },
@@ -296,18 +279,30 @@ export const act = {
   },
   'subcats-on': async () => { const { setModules } = await import('../features.js'); await setModules({ subcats: true }); (await import('../app.js')).render(); },
   'cat-go': b => { closeSheet(); showCategory(b.dataset.c, b.dataset.m); },
-  'month-share': b => {
-    const M = b.dataset.m, sd = startDay(), h = headline(M), parts = Object.entries(cached(monthSpends, booked(), [M], sd)[M].byCat).filter(([, v]) => v > 0).sort((a, c) => c[1] - a[1]).slice(0, 5);
-    return sharePicture(fmtMonth(M, sd), t('My month with Tally'), [[t('Spent'), fmtRM(h.spent)], h.inn ? [h.kept >= 0 ? t('Kept') : t('Over'), fmtRM(Math.abs(h.kept))] : null,
-      ...parts.map(([c, v]) => [catLabel(c), fmtRM(v), v / (h.spent || 1)])].filter(Boolean), `tally-${M}`);
+  // A month's picture: its categories and the days logged (so far, this month); the stickers of two logged days.
+  'month-share': async b => {
+    const M = b.dataset.m, sd = startDay(), h = headline(M), span = cycleSpan(M, sd), end = h.cur ? today() : span.end, s = settings();
+    const days = loggedDays(S.tx, s.noSpend || [], s.myName || ''), n = daysBetween(span.start, end) + 1;
+    let got = 0; for (let d = span.start; d <= end; d = addDays(d, 1)) got += days.has(d);
+    const ym = span.end.slice(0, 7), book = await loadBook(ym), dn = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate();
+    const filled = filledDays({ tx: S.tx, noSpend: s.noSpend || [], me: s.myName || '', ym, today: today() });
+    shareSheet('month', { ym: M, ...monthName(M, sd), label: fmtMonth(M, sd), change: h.change, prev: monthName(addMonths(M, -1), sd).name, date: sd === 1 ? M : `${span.start.slice(8)}.${span.start.slice(5, 7)}–${span.end.slice(8)}.${span.end.slice(5, 7)}`,
+      spent: h.spent, inn: h.inn, byCat: cached(monthSpends, booked(), [M], sd)[M].byCat, info: catInfo, got, n,
+      stickers: stickerDays(filled, dn).map(d => book.stickers[panelOf(d, dn)]?.svg).filter(Boolean) });
   },
   'year-open': b => {
     const y = b.dataset.y;
     openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Your {0}', y))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
       <ol class="yr">${yearRows(y).map(([l, v]) => `<li><span class="lbl">${esc(l)}</span><b>${esc(v)}</b></li>`).join('')}</ol>
-      <button class="btn wide" data-act="year-share" data-y="${y}">${ICON.share}${esc(t('Share as a picture'))}</button><p class="fine">${esc(t('The picture is made on this phone. Nothing leaves it unless you share it.'))}</p>`, { label: t('Your {0}', y) });
+      ${mine() ? `<button class="btn wide" data-act="year-share" data-y="${y}">${ICON.share}${esc(t('Share as a picture'))}</button><p class="fine">${esc(t('The picture is made on this phone. Nothing leaves it unless you share it.'))}</p>` : ''}`, { label: t('Your {0}', y) });
   },
-  'year-share': b => sharePicture(t('My {0} with Tally', b.dataset.y), b.dataset.y === today().slice(0, 4) ? t('So far this year') : t('The whole year'), yearRows(b.dataset.y), `tally-${b.dataset.y}`),
+  'year-share': b => {
+    const y = b.dataset.y, months = Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`), byCat = {};
+    for (const m of Object.values(cached(monthSpends, booked(), months, 1))) for (const [c, v] of Object.entries(m.byCat)) byCat[c] = (byCat[c] || 0) + v;
+    // Well logged: on 2/3 of the days from the year's first entry (counting from 1 January would punish starting late).
+    const r = yearReview(booked(), y, settings().noSpend || []), first = booked().map(x => x.date).filter(d => d.startsWith(y)).sort()[0], end = [today(), `${y}-12-31`].sort()[0];
+    shareSheet('year', { year: y, y: r, byCat, info: catInfo, well: !first || r.logged >= (daysBetween(first, end) + 1) * 2 / 3 });
+  },
   // Every relief's receipt photos in a folder of its own, with a list of all its entries (photo or not) for the tax form.
   'relief-dl': b => {
     const y = b.dataset.y, byId = new Map(S.tx.map(x => [x.id, x])), taken = new Set(), rows = [], csv = [csvLine(['Relief', 'Date', 'Shop', 'Amount (RM)', 'Photo'])];

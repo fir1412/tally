@@ -6,6 +6,7 @@ import { esc, ICON, toast, sheetOpen, burst, haptic, replay } from '../ui.js';
 import { render, go, route } from '../app.js';
 import { progress, doneByData, missionFor, byUser } from '../learn.js';
 import { streak, loggedDays, earned, BADGES, RESTS } from '../gamify.js';
+import { shareSheet } from '../share.js';
 
 const TEXT = {
   scan: () => [t('Scan a receipt'), t('Tap the camera and snap a receipt. Tally reads it on this phone and splits it into items and categories.')],
@@ -97,6 +98,11 @@ export const learnView = {
 
 const weekday = iso => new Intl.DateTimeFormat(langTag(), { weekday: 'narrow', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 const plusDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+/** The streak as a picture (from 7 days): its length and the last 7 days, logged, a rest day or not (yet) logged. */
+const shareStreak = () => {
+  const tdy = today(), st = myStreak(), days = loggedDays(S.tx, settings().noSpend || [], settings().myName || '');
+  shareSheet('streak', { streak: st.streak, week: Array.from({ length: 7 }, (_, i) => plusDays(tdy, i - 6)).map(d => ({ k: days.has(d) ? 'logged' : st.rests.includes(d) ? 'rest' : 'missed', label: weekday(d), today: d === tdy })) });
+};
 export const badgesView = {
   title: 'Streaks and badges',
   render() {
@@ -114,7 +120,7 @@ export const badgesView = {
       <section class="card streakcard${st.loggedToday ? ' lit' : ''}" style="--flame:${flame(st.streak)}"><div class="sbig">${ICON.flame}<span class="grow"><span class="lbl">${esc(t('Logging streak'))}</span><b class="num">${st.streak}</b><small>${esc(st.streak === 1 ? t('day') : t('days'))}</small></span></div>
         <ol class="week" aria-label="${esc(t('Last 7 days'))}">${week}</ol>
         <p class="fine">${esc([bestLine(st), t('Miss up to {0} days in any 7 and the streak keeps going.', RESTS)].filter(Boolean).join(' · '))}</p>
-        ${st.loggedToday ? '' : `<button class="btn ghost wide" data-act="no-spend">${ICON.leaf}${esc(t('Nothing spent today'))}</button>`}</section>
+        ${st.loggedToday ? '' : `<button class="btn ghost wide" data-act="no-spend">${ICON.leaf}${esc(t('Nothing spent today'))}</button>`}${st.streak >= 7 ? `<button class="btn ghost wide" data-act="streak-share">${ICON.share}${esc(t('Share'))}</button>` : ''}</section>
       <div class="rowb"><h2>${esc(t('Badges'))}</h2><span class="fine num">${n}/${BADGES.length}</span></div>
       <ul class="badges">${BADGES.map(b => {
         const d = got[b.id], [name, about] = BTEXT[b.id]();
@@ -155,7 +161,7 @@ async function celebrate() {
     replay(flameEl()?.closest('.streak, .streakcard'), 'flare');
     if (MILESTONES.includes(st.streak)) {   // once a day at most: this runs on the day's check-in only
       haptic(); burst(flameEl(), 22);
-      if (![7, 30].includes(st.streak)) quiet(() => toast(t('{0}-day logging streak', st.streak), { k: 'good', icon: 'flame', cheer: true }));   // 7 and 30 have badges
+      if (![7, 30].includes(st.streak)) quiet(() => toast(t('{0}-day logging streak', st.streak), { k: 'good', icon: 'flame', cheer: true, ...(st.streak >= 7 ? { undo: shareStreak, undoLabel: t('Share') } : {}) }));   // 7 and 30 have badges
     }
   }
   const seen = new Set(s.badgesSeen || []), fresh = Object.keys(earned(game())).filter(id => !seen.has(id));
@@ -163,7 +169,7 @@ async function celebrate() {
   await setSetting('badgesSeen', [...seen, ...fresh]);
   const names = fresh.map(id => BTEXT[id]()[0]);
   quiet(() => {
-    toast(names.length === 1 ? t('New badge: {0}', names[0]) : t('New badges: {0}', names.join(', ')), { k: 'good', icon: 'award', cheer: true });
+    toast(names.length === 1 ? t('New badge: {0}', names[0]) : t('New badges: {0}', names.join(', ')), { k: 'good', icon: 'award', cheer: true, ...(fresh.some(id => id.startsWith('streak')) ? { undo: shareStreak, undoLabel: t('Share') } : {}) });
     haptic(); burst(document.querySelector('#toast svg'), 22);
   });
 }
@@ -270,6 +276,7 @@ async function gamify(on) {
   render();
 }
 export const act = {
+  'streak-share': () => shareStreak(),
   'learn-go': b => SHOW[b.dataset.id]?.(),
   'learn-hide': async () => { await setSetting('learnHidden', true); render(); toast(t('Hidden. Find it any time in Settings → Learn Tally.')); },
   'learn-unhide': async () => { await setSetting('learnHidden', false); render(); toast(t('The next mission shows on Home.')); },

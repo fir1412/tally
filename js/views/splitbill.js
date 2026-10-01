@@ -6,7 +6,8 @@ import { S, settings, setSetting, cat, putAll, uid, today as todayIso } from '..
 import { t, fmtDate } from '../i18n.js';
 import { esc, openSheet, closeSheet, toast } from '../ui.js';
 import { fmtRM, allocate, isFx } from '../engine.js';
-import { download, shareFile, typedShift } from '../io.js';
+import { typedShift } from '../io.js';
+import { send, caption } from '../share.js';
 
 /** splitBill, and what each person had of each item: {owe: {id: sen}, parts: {id: [sen per item]}}, parts summing to owe. */
 export function splitShares(items, total, who, people) {
@@ -110,12 +111,12 @@ export function openSplit(tx) {
       toast(paidBy === ME ? t('Saved. Your share: {0}. Owed to you: {1}', fmtRM(owe[ME]), fmtRM(o.amount - owe[ME])) : t('Saved. You owe {0}: {1}', paidBy, fmtRM(owe[ME])), { icon: 'check' });
     }
     if (x === 'text') {
-      const text = [`${o.merchant || t('Bill')} · ${fmtDate(o.date)} · ${fmtRM(o.amount)}`, ...people.map(p => `${name(p)}: ${fmtRM(owe[p])}`)].join('\n');
+      const text = [`${o.merchant || t('Bill')} · ${fmtDate(o.date)} · ${fmtRM(o.amount)}`, ...people.map(p => `${name(p)}: ${fmtRM(owe[p])}`), t('Split with Tally · tallymy.github.io')].join('\n');
       try { await navigator.clipboard.writeText(text); toast(t('Copied. Paste it in your chat.'), { k: 'good', icon: 'check' }); } catch { toast(text); }
     }
     if (x === 'img') {
-      const blob = await picture(o, items, who, people, owe, name), file = `tally-split-${o.date}.png`;
-      try { if (!(await shareFile(file, blob, 'image/png'))) download(file, blob, 'image/png'); } catch (err) { if (err?.name !== 'AbortError') download(file, blob, 'image/png'); }
+      const blob = await picture(o, items, who, people, owe, name);
+      if (blob) await send(blob, `tally-split-${o.date}`, o.merchant || t('Bill'), caption('split'));
     }
   });
 }

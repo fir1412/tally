@@ -6,6 +6,7 @@ import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast 
 import { balances, goalProgress, calcAmount, validIso, fmtAcct, owing } from '../engine.js';
 import { cleanText } from '../io.js';
 import { on } from '../features.js';
+import { shareSheet } from '../share.js';
 
 const goals = () => S.kv.goals || [];
 const acctOf = g => S.accounts.find(a => a.id === g.accountId);
@@ -21,7 +22,7 @@ export function goalsCard() {
   const bal = balances(S.accounts, booked()).by, hide = balHidden(), tdy = today();
   return `<section class="card goals"><h2>${esc(t('Goals'))}</h2><ul class="goallist">${goals().map(g => {
     const p = goalProgress(g, bal, tdy), pct = Math.round(p.pct * 100);
-    return `<li><div class="rowb"><b>${esc(g.name)}</b><span class="num fine">${esc(hide ? MASK : `${fmtAcct(acctOf(g), Math.max(0, p.have))} / ${fmtAcct(acctOf(g), g.target)}`)}</span></div>
+    return `<li><div class="rowb"><b>${esc(g.name)}</b>${p.reached ? `<button class="icon-btn" data-act="goal-share" data-id="${esc(g.id)}" aria-label="${esc(t('Share'))}">${ICON.share}</button>` : ''}<span class="num fine">${esc(hide ? MASK : `${fmtAcct(acctOf(g), Math.max(0, p.have))} / ${fmtAcct(acctOf(g), g.target)}`)}</span></div>
       <div class="meter${p.overdue ? ' warn' : ''}" role="img" aria-label="${esc(t('{0}% saved', pct))}"><i style="width:${pct}%"></i></div><small class="fine">${esc(goalLine(g, p, hide))}</small></li>`;
   }).join('')}</ul></section>`;
 }
@@ -61,4 +62,8 @@ function goalSheet(g = {}) {
     closeSheet(); render(); toast(t('Saved'), { icon: 'check' });
   });
 }
-export const act = { 'goal-edit': b => goalSheet(goals().find(g => g.id === b.dataset.id) || {}) };
+export const act = {
+  'goal-edit': b => goalSheet(goals().find(g => g.id === b.dataset.id) || {}),
+  // A reached goal as a picture: its name and a full bar (the amount only if the sharer turns it on).
+  'goal-share': b => { const g = goals().find(x => x.id === b.dataset.id); if (g) shareSheet('goal', { id: g.id, name: g.name, target: g.target }); },
+};
