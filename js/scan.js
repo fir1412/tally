@@ -1,4 +1,4 @@
-// Reading a receipt photo on the phone: PaddleOCR (vendored, ~40 MB, loaded on first scan and cached offline),
+// Reading a receipt photo on the phone: PaddleOCR (vendored, ~30 MB, loaded on first scan and cached offline),
 // then the Malaysian receipt parser. Nothing is uploaded.
 import { parseReceipt, rowsOf } from './parse.js';
 import { imageInfo, LIMITS } from './io.js';
@@ -6,7 +6,7 @@ import { imageInfo, LIMITS } from './io.js';
 // OCR runs in a worker (js/ocr-worker.js): the screen stays responsive, and the page keeps a strict CSP.
 let worker = null, loading = null, ready = false, seq = 0;
 const pending = new Map();
-/** One OCR request. A worker that doesn't answer within 2 minutes (first run includes the 40 MB download) is reset. */
+/** One OCR request. A worker that doesn't answer within 2 minutes (first run includes the 30 MB download) is reset. */
 function call(raw, onStage = () => {}, zoom = false) {
   return new Promise((resolve, reject) => {
     const id = ++seq;

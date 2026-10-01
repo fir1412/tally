@@ -199,7 +199,7 @@ export const settingsView = {
       <section class="card" id="remind"><h2>${esc(t('Daily reminder'))}</h2><p class="fine">${esc(t("Your calendar reminds you to add the day's spending, even with Tally closed."))}</p>
         <label class="field"><span>${esc(t('Remind me at'))}</span><input id="remind-at" type="time" value="${esc(settings().remindAt || '21:00')}"></label>
         <div class="row2"><button class="btn" data-act="remind-google">${ICON.calendar}${esc(t('Google Calendar'))}</button><button class="btn ghost" data-act="remind-ics">${ICON.download}${esc(t('Other calendar'))}</button></div></section>
-      <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 40 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
+      <section class="card" id="reader"><h2>${esc(t('Receipt reader'))}</h2><p class="fine" id="reader-state">${esc(t('The reader (about 30 MB) downloads the first time you scan. Get it now on Wi-Fi so scanning works offline straight away.'))}</p>
         <div class="dl" id="reader-dl" hidden><progress id="ocr-prog" max="100" value="0" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num"></span></div>
         <button class="btn ghost wide" data-act="reader-get">${ICON.download}${esc(t('Download the receipt reader now'))}</button></section>
       <section class="card" id="backup"><h2 id="s-backup">${esc(t('Backup'))}</h2>
@@ -1176,7 +1176,7 @@ export const act = {
       <p class="sh-body">${esc(t('Every address this page has fetched since it opened, as recorded by your browser (links you open in a new tab, like Google Calendar, are not in it):'))}</p>
       ${hosts.every(h => h === location.host) ? `<p class="okbox">${esc(t("Only Tally's own website. Nothing else."))}</p>` : ''}
       <ul class="list">${hosts.map(h => `<li><span class="grow"><b>${esc(h)}</b><small>${esc(what(h))}</small></span></li>`).join('')}</ul>
-      <p class="fine">${esc(t('Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 40 MB, from Tally\'s own site).'))}</p>
+      <p class="fine">${esc(t('Try this: turn on airplane mode, then add an entry. It still works. Scanning works offline too, once the receipt reader has downloaded (once, about 30 MB, from Tally\'s own site).'))}</p>
       <p class="fine"><a class="link" href="https://github.com/tallymy/tallymy.github.io" target="_blank" rel="noopener">${esc(t('Tally is open source: anyone can read the code on GitHub.'))}</a></p>`, { label: t('Check it yourself') });
   },
   'erase': async () => {

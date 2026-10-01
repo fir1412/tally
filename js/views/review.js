@@ -87,7 +87,7 @@ async function pump() {
     await saveQueue();
   } catch (e) {
     console.error(e);
-    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : /could not be downloaded|fetch|network|load failed/i.test(e.message) ? t("The receipt reader isn't on this phone yet. It downloads once (about 40 MB, from Tally's own site); after that, scanning works offline. Connect and try again.") : t('Could not read this photo: {0}', e.message) };
+    current = { ...current, status: 'error', error: /not an image/.test(e.message) ? t('That file is not a photo. Pick a JPG or PNG of the receipt.') : /too big/.test(e.message) ? t('That photo is over 40 MB. Take a new one or send a smaller copy.') : /too many pixels/.test(e.message) ? t('That photo is over 50 megapixels. Take it in the normal camera mode, or send a smaller copy.') : /could not be downloaded|fetch|network|load failed/i.test(e.message) ? t("The receipt reader isn't on this phone yet. It downloads once (about 30 MB, from Tally's own site); after that, scanning works offline. Connect and try again.") : t('Could not read this photo: {0}', e.message) };
   }
   if (current?.status === 'error') await saveQueue();
   else deletePhotos([`q_${next.id}`]);   // read: the draft holds its own copy now; an unreadable one waits for Skip
@@ -119,7 +119,7 @@ export async function restoreDraft() {
     current = { id: uid('r'), status: 'ready', existing: saved.existing, manual: saved.manual, draft: saved.draft, thumb: blob ? URL.createObjectURL(blob) : null };
   } else if (queue.length) {
     // Photos left waiting while the reader was still downloading: read them now only if the reader is here. Otherwise don't
-    // start a 40 MB download on every open (prepaid data); Scan offers to read them when the person chooses.
+    // start a 30 MB download on every open (prepaid data); Scan offers to read them when the person chooses.
     if (ocrReady() || await ocrSaved()) pump(); else return 'waiting';
   }
   return current?.draft && !current.draft.receiptId ? 'items' : !!current || queue.length > 0 ? 'receipt' : false;
@@ -202,13 +202,13 @@ export const reviewView = {
     const waiting = queue.length;
     if (!current) return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
       <section class="card center">${ICON.camera}<p>${esc(t('Take a photo of a receipt, or pick one or more from your gallery. They are read on this phone and never uploaded.'))}</p>
-      ${queue.length ? `<button class="btn wide" data-act="rv-readq">${esc(t('Read the {0} waiting (downloads the reader, about 40 MB)', queue.length))}</button>` : ''}
+      ${queue.length ? `<button class="btn wide" data-act="rv-readq">${esc(t('Read the {0} waiting (downloads the reader, about 30 MB)', queue.length))}</button>` : ''}
       <button class="btn${queue.length ? ' ghost' : ''} wide" data-act="scan">${esc(t('Take or pick photos'))}</button><button class="btn ghost wide" data-act="tx-new">${esc(t('No receipt? Add by hand'))}</button>
       <button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'reading' || current.status === 'waiting') return `<header class="top"><h1>${esc(t('Reading…'))}</h1></header>
       <div class="scanning">${current.thumb ? `<div class="receipt-thumb"><img src="${current.thumb}" alt=""><div class="scanline" aria-hidden="true"></div></div>` : ''}</div>
       <section class="card center" aria-busy="true">${current.t0 ? `<p id="read-stage">${esc(STAGES[stageNow()]())}</p><div class="dl"><progress id="read-prog" max="100" value="${readPct(performance.now() - current.t0, current.est)}" aria-label="${esc(t('Reading…'))}"></progress></div>`
-        : `<p>${esc(ocrReady() || saved ? t('Starting the reader…') : t('Getting the reader ready (the first time downloads about 40 MB; after that it works offline).'))}</p>`}
+        : `<p>${esc(ocrReady() || saved ? t('Starting the reader…') : t('Getting the reader ready (the first time downloads about 30 MB; after that it works offline).'))}</p>`}
       ${ocrReady() || saved ? '' : `<button class="btn ghost wide" data-act="go" data-to="home">${esc(t('Use Tally while it downloads'))}</button><div class="dl"><progress id="ocr-prog" max="100" value="${dlPct}" aria-label="${esc(t('Downloading the receipt reader'))}"></progress><span id="ocr-pct" class="fine num">${esc(dlText)}</span></div>`}
       ${waiting ? `<p class="fine">${esc(t('{0} more waiting', waiting))}</p>` : ''}<button class="link" data-act="photo-tips">${ICON.camera}${esc(t('Tips for a clear photo'))}</button></section>`;
     if (current.status === 'error') return `<header class="top"><h1>${esc(t('Scan a receipt'))}</h1></header>
