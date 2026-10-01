@@ -1751,6 +1751,7 @@ export default {
   "Pick the saved sticker": "சேமித்த ஸ்டிக்கரைத் தேர்ந்தெடு",
   "WhatsApp does this step, not Tally.": "இந்தப் படியை WhatsApp செய்கிறது, Tally அல்ல.",
   "The sticker could not be made. Try again.": "ஸ்டிக்கரை உருவாக்க முடியவில்லை. மீண்டும் முயலவும்.",
+  "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Tally இணையதளம் இப்போது ஆறு மொழிகளிலும் உள்ளது, ஜப்பானிய மற்றும் பாரம்பரிய சீன பக்கங்களுடன்",
   "Save your day's sticker and add it to WhatsApp with Create sticker": "அன்றைய ஸ்டிக்கரைச் சேமித்து, WhatsApp-இன் Create sticker மூலம் சேர்க்கலாம்",
   "Deepavali!": "தீபாவளி!",
   "Happy birthday!": "பிறந்தநாள்!",

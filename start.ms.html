@@ -21,6 +21,8 @@
 <link rel="alternate" hreflang="en" href="https://tallymy.github.io/start.html">
 <link rel="alternate" hreflang="ms" href="https://tallymy.github.io/start.ms.html">
 <link rel="alternate" hreflang="zh-Hans" href="https://tallymy.github.io/start.zh.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://tallymy.github.io/start.zh-Hant.html">
+<link rel="alternate" hreflang="ja" href="https://tallymy.github.io/start.ja.html">
 <link rel="alternate" hreflang="ta" href="https://tallymy.github.io/start.ta.html">
 <link rel="alternate" hreflang="x-default" href="https://tallymy.github.io/start.html">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
@@ -45,6 +47,8 @@ a:focus-visible,summary:focus-visible{outline:2px solid #8EA4FF;outline-offset:3
 /* Chinese and Tamil: the Latin fonts have none of these glyphs, so name good system fonts (nothing is downloaded) */
 body:lang(zh),[lang|=zh]{font-family:'Instrument Sans',"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
 body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil Sangam MN","Nirmala UI","Latha",system-ui,sans-serif}
+body:lang(zh-Hant),[lang|=zh-Hant]{font-family:'Instrument Sans',"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+body:lang(ja),[lang|=ja]{font-family:'Instrument Sans',"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",system-ui,sans-serif}
 .tab{font-variant-numeric:tabular-nums}
 .kicker{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
 .ex{font-size:11px;font-weight:500;letter-spacing:.04em;color:#8A8676}
@@ -547,6 +551,11 @@ html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0
 html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 @media (max-width:980px){html:lang(ta) .c2{max-width:150px;top:2px;font-size:11px}}
 @media (prefers-reduced-motion:reduce){.shot{display:none}}
+/* six-language switcher on phones: one line, the wordmark gives way first (the logo keeps its label) */
+.lsw a{white-space:nowrap}
+@media (max-width:560px){.lsw>svg{display:none}.lsw ul,.lsw li{gap:4px}.lsw a{padding:6px 2px}}
+@media (max-width:440px){.nav .logo>span{display:none}}
+@media (max-width:360px){.lsw{font-size:12px}.lsw ul,.lsw li{gap:3px}}
 </style>
 </head>
 <body>
@@ -570,7 +579,9 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <ul aria-label="Bahasa">
 <li><a href="./start.html" hreflang="en" lang="en">English</a></li>
 <li><a href="./start.ms.html" hreflang="ms" lang="ms" aria-label="Bahasa Melayu" aria-current="page">BM</a></li>
-<li><a href="./start.zh.html" hreflang="zh-Hans" lang="zh-Hans">中文</a></li>
+<li><a href="./start.zh.html" hreflang="zh-Hans" lang="zh-Hans">简体</a></li>
+<li><a href="./start.zh-Hant.html" hreflang="zh-Hant" lang="zh-Hant">繁體</a></li>
+<li><a href="./start.ja.html" hreflang="ja" lang="ja">日本語</a></li>
 <li><a href="./start.ta.html" hreflang="ta" lang="ta">தமிழ்</a></li>
 </ul>
 </div>

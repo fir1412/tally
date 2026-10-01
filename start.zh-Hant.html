@@ -1,23 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tally: free receipt scanner and money book for Malaysians</title>
-<meta name="description" content="Snap a receipt and Tally sorts every item, on your phone. No account, no SMS, no bank login, nothing uploaded. Free, no ads.">
+<title>Tally：馬來西亞人的免費收據掃描與記帳本</title>
+<meta name="description" content="拍下收據，Tally 直接在手機上把每個項目分類好。不用帳號、不讀簡訊、不要網銀登入，什麼都不上傳。免費，沒有廣告。">
 <meta name="theme-color" content="#070A16">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://tallymy.github.io/start.html">
-<meta property="og:title" content="Tally, the free money book for Malaysians">
-<meta property="og:description" content="Snap a receipt and Tally sorts every item, on your phone. No account, no SMS, no bank login, nothing uploaded. Free, no ads.">
+<meta property="og:url" content="https://tallymy.github.io/start.zh-Hant.html">
+<meta property="og:title" content="Tally，馬來西亞人的免費記帳本">
+<meta property="og:description" content="拍下收據，Tally 直接在手機上把每個項目分類好。不用帳號、不讀簡訊、不要網銀登入，什麼都不上傳。免費，沒有廣告。">
 <meta property="og:image" content="https://tallymy.github.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Tally reading a receipt on a phone: each item gets its own category and the total adds up.">
+<meta property="og:image:alt" content="Tally 在手機上讀取收據：每個項目各歸其類，總額也對得上。">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-48.png" sizes="48x48" type="image/png">
-<link rel="canonical" href="https://tallymy.github.io/start.html">
+<link rel="canonical" href="https://tallymy.github.io/start.zh-Hant.html">
 <link rel="alternate" hreflang="en" href="https://tallymy.github.io/start.html">
 <link rel="alternate" hreflang="ms" href="https://tallymy.github.io/start.ms.html">
 <link rel="alternate" hreflang="zh-Hans" href="https://tallymy.github.io/start.zh.html">
@@ -46,9 +46,9 @@ a:focus-visible,summary:focus-visible{outline:2px solid #8EA4FF;outline-offset:3
 .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
 /* Chinese and Tamil: the Latin fonts have none of these glyphs, so name good system fonts (nothing is downloaded) */
 body:lang(zh),[lang|=zh]{font-family:'Instrument Sans',"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
-body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil Sangam MN","Nirmala UI","Latha",system-ui,sans-serif}
 body:lang(zh-Hant),[lang|=zh-Hant]{font-family:'Instrument Sans',"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
 body:lang(ja),[lang|=ja]{font-family:'Instrument Sans',"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",system-ui,sans-serif}
+body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil Sangam MN","Nirmala UI","Latha",system-ui,sans-serif}
 .tab{font-variant-numeric:tabular-nums}
 .kicker{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
 .ex{font-size:11px;font-weight:500;letter-spacing:.04em;color:#8A8676}
@@ -420,11 +420,14 @@ body:lang(ja),[lang|=ja]{font-family:'Instrument Sans',"Noto Sans JP","Hiragino 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important}.slip,.scan,.scan2{display:none}.nav::before{opacity:1 !important}}
 /* Chinese and Tamil: the accent words keep the accent colour, set upright in the page's own font (no fake italic);
    no negative tracking, and Tamil gets taller lines for the marks above and below */
-:is(.h1,.h2) .serif:lang(zh),:is(.h1,.h2) .serif:lang(ta){font-family:inherit;font-style:normal;letter-spacing:inherit;line-height:inherit}
-html:lang(zh) body{word-break:normal}
+:is(.h1,.h2) .serif:lang(zh),:is(.h1,.h2) .serif:lang(ja),:is(.h1,.h2) .serif:lang(ta){font-family:inherit;font-style:normal;letter-spacing:inherit;line-height:inherit}
+html:lang(zh) body,html:lang(ja) body{word-break:normal}
+html:lang(ja) body{line-break:strict}
 html:lang(zh) :is(.h1,.h2,h3){word-break:keep-all}
-html:lang(zh) :is(.h1,.h2,h3),html:lang(ta) :is(.h1,.h2,h3){letter-spacing:0}
-html:lang(zh) .h1{line-height:1.1}
+html:lang(ja) :is(.h1,.h2,h3,.htext>div>p,.proof span,.step b,.qa summary){word-break:keep-all}
+html:lang(ja) .kicker{letter-spacing:.08em}
+html:lang(zh) :is(.h1,.h2,h3),html:lang(ja) :is(.h1,.h2,h3),html:lang(ta) :is(.h1,.h2,h3){letter-spacing:0}
+html:lang(zh) .h1,html:lang(ja) .h1{line-height:1.1}
 html:lang(ta) .h1{line-height:1.28}
 html:lang(ta) :is(.h2,h3){line-height:1.3}
 html:lang(ta) .kicker{letter-spacing:.04em}
@@ -488,7 +491,7 @@ html:lang(ta) .ctext h3{font-size:30px}
 .rlist b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rlist.apart>div{opacity:.62}
 .apartk{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#A9B1C6}
-html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
+html:lang(zh) .apartk,html:lang(ja) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
 /* afford band: the app's answer, the next 30 days, the sums */
 .chapter.afd{border-top:0;padding-top:0;padding-bottom:0;align-items:start}
 .verdict{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:600;line-height:1.3;color:#FFFFFF}
@@ -561,31 +564,31 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <body>
 <div class="lp">
 
-<nav class="nav" aria-label="Main">
+<nav class="nav" aria-label="主選單">
 <div class="wrap" style="display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 16px">
-<a class="logo" href="./start.html" aria-label="Tally, top of page">
+<a class="logo" href="./start.zh-Hant.html" aria-label="Tally，回到頁首">
 <svg width="30" height="30" aria-hidden="true" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0F172A"/><path d="M160 104h192v304l-32-22-32 22-32-22-32 22-32-22-32 22z" fill="#F4F4EF"/><path d="M196 176h120M196 224h120M196 272h72" stroke="#94A3B8" stroke-width="16" stroke-linecap="round"/><circle cx="330" cy="330" r="62" fill="#059669"/><path d="M302 330l20 20 36-40" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>
 <span style="font-size: 20px; font-weight: 700; letter-spacing: -.02em">Tally</span>
 </a>
 <div class="navlinks" style="display: flex; gap: 32px">
-<a class="l" href="#how">How it works</a>
-<a class="l" href="#features">Features</a>
-<a class="l" href="#free">Free, and why</a>
-<a class="l" href="#faq">FAQ</a>
+<a class="l" href="#how">運作方式</a>
+<a class="l" href="#features">功能</a>
+<a class="l" href="#free">為什麼免費</a>
+<a class="l" href="#faq">常見問題</a>
 </div>
 <div class="navend">
 <div class="lsw">
 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"></path></svg>
-<ul aria-label="Language">
-<li><a href="./start.html" hreflang="en" lang="en" aria-current="page">English</a></li>
+<ul aria-label="語言">
+<li><a href="./start.html" hreflang="en" lang="en">English</a></li>
 <li><a href="./start.ms.html" hreflang="ms" lang="ms" aria-label="Bahasa Melayu">BM</a></li>
 <li><a href="./start.zh.html" hreflang="zh-Hans" lang="zh-Hans">简体</a></li>
-<li><a href="./start.zh-Hant.html" hreflang="zh-Hant" lang="zh-Hant">繁體</a></li>
+<li><a href="./start.zh-Hant.html" hreflang="zh-Hant" lang="zh-Hant" aria-current="page">繁體</a></li>
 <li><a href="./start.ja.html" hreflang="ja" lang="ja">日本語</a></li>
 <li><a href="./start.ta.html" hreflang="ta" lang="ta">தமிழ்</a></li>
 </ul>
 </div>
-<a class="btn" href="./?app">Open Tally free</a>
+<a class="btn" href="./?app">免費使用 Tally</a>
 </div>
 </div>
 </nav>
@@ -595,56 +598,56 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <div class="spot"></div><div class="grain"></div>
 <div class="wrap hero-grid">
 <div class="htext">
-<span class="kicker h-in d1" style="color: #A9BBFF; font-size: 13px; display: inline-flex; align-items: center; gap: 10px"><span class="pulse" style="width: 6px; height: 6px; border-radius: 50%; background: #5B7CFF; display: inline-block; transform: translateY(-.5px)"></span>Free money book for Malaysians</span>
-<h1 class="h1 h-in d2">Snap a receipt.<br>Every item,<br><span class="serif">sorted.</span></h1>
-<p class="lead h-in d3">Point your phone at a receipt. Tally reads it on the phone, line by line, puts each item in its own category, and flags what may count for your LHDN reliefs. No account. Nothing uploaded.</p>
+<span class="kicker h-in d1" style="color: #A9BBFF; font-size: 13px; display: inline-flex; align-items: center; gap: 10px"><span class="pulse" style="width: 6px; height: 6px; border-radius: 50%; background: #5B7CFF; display: inline-block; transform: translateY(-.5px)"></span>馬來西亞人的免費記帳本</span>
+<h1 class="h1 h-in d2">拍下收據。<br>每一項，<br><span class="serif">分類整齊。</span></h1>
+<p class="lead h-in d3">把手機對準收據，Tally 直接在手機上逐行讀取，把每個項目歸到各自的類別，還會標出可能適用 LHDN（馬來西亞內陸稅收局）稅務減免的消費。不用帳號，什麼都不上傳。</p>
 <div class="h-in d4" style="display: flex; flex-direction: column; gap: 14px">
 <div style="display: flex; flex-wrap: wrap; gap: 12px">
-<a class="btn light" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
-<a class="btn line" href="#how">Watch it read a receipt</a>
+<a class="btn light" href="./?app">免費使用 Tally <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a class="btn line" href="#how">看它怎麼讀收據</a>
 </div>
-<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #B4BCD0; max-width: 560px; text-wrap: balance">Opens in your browser. No sign-up, no download.<span class="desk"> On&nbsp;a&nbsp;computer? Open tallymy.github.io on your phone.</span></p>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #B4BCD0; max-width: 560px; text-wrap: balance">直接用瀏覽器開啟，不用註冊，也不用下載。<span class="desk">在用電腦？請用手機開啟 tallymy.github.io。</span></p>
 </div>
 <div class="trust h-in d5">
-<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path><path d="M3 3l18 18"></path></svg>No account</span>
-<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Receipts never uploaded</span>
-<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M5.6 5.6l12.8 12.8"></path></svg>No ads</span>
-<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg>Open source</span>
-<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M3 3l18 18"></path></svg>No SMS access</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path><path d="M3 3l18 18"></path></svg>不用帳號</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>收據絕不上傳</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M5.6 5.6l12.8 12.8"></path></svg>沒有廣告</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg>開源</span>
+<span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M3 3l18 18"></path></svg>不讀簡訊</span>
 </div>
 </div>
-<div class="stage" role="img" aria-label="Example: Tally reads a receipt on the phone, gives each item its own category, checks it adds up to RM 53.90, and flags a book as a possible relief candidate">
+<div class="stage" role="img" aria-label="示例：Tally 在手機上讀取收據，替每個項目分好類別，核對總額為 RM 53.90，並把一本書標為可能的減免項目">
 <div class="phone">
 <div class="screen">
 <div class="notch"></div><div class="glare"></div>
-<div class="sbar">Review receipt</div>
+<div class="sbar">核對收據</div>
 <picture class="shot"><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="" decoding="async"></picture>
 <div class="scan"></div>
 <div class="list">
-<div class="lhead"><span>Kedai Runcit Maju · 5 items</span></div>
-<div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">21.90</span></div>
-<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">12.50</span></div>
-<div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">Household</span><span class="amt">8.90</span></div>
-<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="amt">6.40</span></div>
-<div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">Education</span><span class="amt">4.20</span></div>
-<div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Adds up</span></div>
-<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 possible tax relief · Buku cerita</div>
+<div class="lhead"><span>Kedai Runcit Maju · 5 個項目</span></div>
+<div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">日常雜貨</span><span class="amt">21.90</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">日常雜貨</span><span class="amt">12.50</span></div>
+<div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">家居用品</span><span class="amt">8.90</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">醫療健康</span><span class="amt">6.40</span></div>
+<div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">教育</span><span class="amt">4.20</span></div>
+<div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>總額相符</span></div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 項可能的稅務減免 · Buku cerita</div>
 <div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
-<div class="leg"><span><i style="background: #009E73"></i>Groceries 34.40</span><span><i style="background: #A16207"></i>Household 8.90</span><span><i style="background: #CC79A7"></i>Health 6.40</span><span><i style="background: #332288"></i>Education 4.20</span></div>
-<div class="save"><span class="ex">Example</span><span class="sbtn">Save receipt</span></div>
+<div class="leg"><span><i style="background: #009E73"></i>日常雜貨 34.40</span><span><i style="background: #A16207"></i>家居用品 8.90</span><span><i style="background: #CC79A7"></i>醫療健康 6.40</span><span><i style="background: #332288"></i>教育 4.20</span></div>
+<div class="save"><span class="ex">示例</span><span class="sbtn">儲存收據</span></div>
 </div>
 </div>
 </div>
-<div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Read on this phone · <b>not uploaded</b></span></div>
-<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Shop name read</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+<div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>在這部手機上讀取 · <b>不上傳</b></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>已認出店名</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
 </div>
 </div>
 <div class="proof">
 <div class="wrap proof-grid">
-<div><b>Reads every line</b><span>Discounts, SST, service charge and 5-sen rounding.</span></div>
-<div><b>Checks its own sums</b><span>Items must add up to the total, or Tally flags the line.</span></div>
-<div><b>Knows Malaysian shops</b><span>Over 3,000 chains and shop names, from kopitiam to hypermarket.</span></div>
-<div><b>6 languages</b><span>English, Bahasa Melayu, 简体中文, 繁體中文, 日本語, <span lang="ta">தமிழ்</span>.</span></div>
+<div><b>逐行讀取</b><span>折扣、SST、服務費和 5 仙湊整都不放過。</span></div>
+<div><b>自己核對總額</b><span>項目加起來必須等於總額，否則 Tally 會標出那一行。</span></div>
+<div><b>認得馬來西亞的店</b><span>從咖啡店到大型超市，<wbr>超過 3,000 個連鎖品牌和店名。</span></div>
+<div><b>6 種語言</b><span style="word-break: keep-all"><span lang="en">English</span>、<span lang="ms">Bahasa Melayu</span>、<span lang="zh-Hans">简体中文</span>、繁體中文、<span lang="ja">日本語</span>、<span lang="ta">தமிழ்</span></span></div>
 </div>
 </div>
 </header>
@@ -653,14 +656,14 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section style="padding: 112px 0 0 0">
 <div class="wrap">
 <div class="shead rise" style="margin-bottom: 36px">
-<span class="kicker" style="color: #2F54EB">Who it’s for</span>
-<h2 class="h2 h2s">Tally is for you if…</h2>
+<span class="kicker" style="color: #2F54EB">使用情境</span>
+<h2 class="h2 h2s">這些時候，Tally 最好用。</h2>
 </div>
 <div class="fit">
-<a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>Big shop runs</b><span>Your hypermarket trip is food, medicine and cleaning on one receipt.</span></span><span class="go"><span class="gl">See it sorted</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>Relief receipts</b><span>You keep receipts all year for books, the gym, check-ups and zakat.</span></span><span class="go"><span class="gl">Tax reliefs</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>End of the month</b><span>You want to know before you buy, not after payday.</span></span><span class="go"><span class="gl">Can I afford it?</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>Switching apps</b><span>You’re moving over from another money app.</span></span><span class="go"><span class="gl">Bring your history</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>一次採買一大堆</b><span>去一趟大型超市，食物、藥品和清潔用品全在同一張收據上。</span></span><span class="go"><span class="gl">看它怎麼分類</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>報稅用的收據</b><span>你整年都在收集書籍、健身房、健康檢查和天課的收據。</span></span><span class="go"><span class="gl">稅務減免</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>月底手頭緊</b><span>你想在買之前就知道，而不是等發薪後才知道。</span></span><span class="go"><span class="gl">我買得起嗎？</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>換記帳 App</b><span>你正從別的記帳 App 搬過來。</span></span><span class="go"><span class="gl">帶上舊記錄</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 </div>
 </div>
 </section>
@@ -669,102 +672,102 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="how" class="sec" style="padding-bottom: 96px">
 <div class="wrap">
 <div class="shead rise">
-<span class="kicker" style="color: #2F54EB">How it works</span>
-<h2 class="h2">From a crumpled slip to a clear picture.</h2>
+<span class="kicker" style="color: #2F54EB">運作方式</span>
+<h2 class="h2">皺巴巴的收據，<wbr>也能變成<wbr>一筆筆清楚的帳。</h2>
 </div>
 
 <div class="chapter ch01">
 <div class="ctext rise">
-<span class="num">01 — SNAP IT</span>
-<h3>Faded, crumpled, sideways. Still readable.</h3>
-<p>Tally straightens the photo, looks closer where the print is faint, and reads it on the phone itself. Nothing is uploaded. No receipt? Just type an amount.</p>
+<span class="num">01 — 拍下</span>
+<h3>褪色、皺了、拍歪了，照樣讀得出來。</h3>
+<p>Tally 會把照片擺正，字跡淡的地方看得更仔細，全程在手機上讀取，什麼都不上傳。沒有收據？直接輸入金額也行。</p>
 </div>
 <div class="demo card rise snap">
-<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="Example: a crumpled receipt from Kedai Runcit Maju, photographed at an angle" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
+<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="示例：一張 Kedai Runcit Maju 的皺巴巴收據，斜著拍攝" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
 <div class="readc">
-<div class="dhead"><span>Read on this phone</span><span class="ex">Example</span></div>
+<div class="dhead"><span>在這部手機上讀取</span><span class="ex">示例</span></div>
 <div class="shopl">Kedai Runcit Maju · 15/10/2026</div>
 <div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Beras 5kg</span><span>21.90</span></div>
 <div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Minyak masak 2kg</span><span>12.50</span></div>
 <div class="rl"><i class="dot" style="background: #A16207"></i><span class="n">Sabun basuh</span><span>8.90</span></div>
 <div class="rl"><i class="dot" style="background: #CC79A7"></i><span class="n">Ubat batuk</span><span>6.40</span></div>
 <div class="rl"><i class="dot" style="background: #332288"></i><span class="n">Buku cerita</span><span>4.20</span></div>
-<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · Adds up</span></div>
+<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · 總額相符</span></div>
 </div>
 </div>
 </div>
 
 <div class="chapter">
 <div class="demo card rise">
-<div class="dhead"><span>Read from the photo</span><span class="ex">Example</span></div>
+<div class="dhead"><span>從照片讀取</span><span class="ex">示例</span></div>
 <div class="ocr">
 <div class="raw mono"><span>1030061 SIMPLY H CKW WDFL</span><span>21.90</span></div>
-<div class="clean"><span>SIMPLY H CKW WDFL <span class="note">· item code dropped</span></span><span>21.90</span></div>
+<div class="clean"><span>SIMPLY H CKW WDFL <span class="note">· 已去除商品編號</span></span><span>21.90</span></div>
 </div>
 <div class="ocr sub">
 <div class="raw mono"><span>PWP @ 30% OCT26</span><span>-6.57</span></div>
-<div class="clean"><span>Discount <span class="note">· kept with its item</span></span><span style="color: #B42318">−6.57</span></div>
+<div class="clean"><span>折扣 <span class="note">· 歸在對應的項目下</span></span><span style="color: #B42318">−6.57</span></div>
 </div>
 <div class="ocr rd">
 <div class="raw mono"><span>ROUNDING</span><span>0.02</span></div>
-<div class="clean"><span>5-sen rounding</span><span>+0.02</span></div>
+<div class="clean"><span>5 仙湊整</span><span>+0.02</span></div>
 </div>
-<div class="sum"><span style="font-weight: 600">Items add up to the total</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 15.35</span></div>
+<div class="sum"><span style="font-weight: 600">項目加總等於總額</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 15.35</span></div>
 </div>
 <div class="ctext rise">
-<span class="num">02 — CHECK IT</span>
-<h3>Tally shows its working.</h3>
-<p>It reads every line, including discounts, SST, service charge and 5-sen rounding, then checks the items add up to the total. If a line looks off, Tally points at it so you can fix it. Fix one, and it remembers next time.</p>
+<span class="num">02 — 核對</span>
+<h3>Tally 把算式攤開給你看。</h3>
+<p>它逐行讀取，包括折扣、SST、服務費和 5 仙湊整，再核對項目加總是否等於總額。哪一行看起來不對勁，Tally 會指出來讓你修改。改過一次，下次它就記得。</p>
 </div>
 </div>
 
 <div class="chapter" id="file">
 <div class="ctext rise">
-<span class="num">03 — FILE IT</span>
-<h3>One trip, sorted by item.</h3>
-<p>One hypermarket run can be food, medicine and cleaning. Tally puts each item in its own category, so your budget shows what you really bought. Correct one, and it remembers next time.</p>
+<span class="num">03 — 歸類</span>
+<h3>同一趟採買，按項目分好類。</h3>
+<p>一趟大型超市，可能同時買了食物、藥品和清潔用品。Tally 把每個項目歸到各自的類別，預算才看得出你真正買了什麼。改過一次，下次它就記得。</p>
 </div>
 <div class="demo card rise" style="gap: 18px">
-<div class="dhead" style="padding-bottom: 0"><span style="font-size: 18px; font-weight: 600; color: #0A0F1E">This receipt <span class="tab" style="color: #8A8676; font-weight: 500; margin-left: 6px">RM 53.90</span></span><span class="ex">Example</span></div>
+<div class="dhead" style="padding-bottom: 0"><span style="font-size: 18px; font-weight: 600; color: #0A0F1E">這張收據 <span class="tab" style="color: #8A8676; font-weight: 500; margin-left: 6px">RM 53.90</span></span><span class="ex">示例</span></div>
 <div class="segs"><div class="fill" style="width: 64%; background: #009E73"></div><div class="fill" style="width: 16.5%; background: #A16207"></div><div class="fill" style="width: 12%; background: #CC79A7"></div><div class="fill" style="width: 7.5%; background: #332288"></div></div>
 <div class="legend">
-<div><span><i class="dot" style="background: #009E73"></i>Groceries</span><b>RM 34.40</b></div>
-<div><span><i class="dot" style="background: #A16207"></i>Household</span><b>RM 8.90</b></div>
-<div><span><i class="dot" style="background: #CC79A7"></i>Health</span><b>RM 6.40</b></div>
-<div><span><i class="dot" style="background: #332288"></i>Education</span><b>RM 4.20</b></div>
+<div><span><i class="dot" style="background: #009E73"></i>日常雜貨</span><b>RM 34.40</b></div>
+<div><span><i class="dot" style="background: #A16207"></i>家居用品</span><b>RM 8.90</b></div>
+<div><span><i class="dot" style="background: #CC79A7"></i>醫療健康</span><b>RM 6.40</b></div>
+<div><span><i class="dot" style="background: #332288"></i>教育</span><b>RM 4.20</b></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
-<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">Health<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
-<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Tap to change it. Tally remembers your pick next time.</span>
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">醫療健康<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>點一下就能改，下次 Tally 會記住你的選擇。</span>
 </div>
 </div>
 </div>
 
 <div class="chapter" id="reliefs">
 <div class="demo card dk rise">
-<div class="dhead"><span>Possible tax-relief expenses in 2026</span><span class="exb">Example</span></div>
-<p class="rsum">RM 570.10 in spending to review</p>
+<div class="dhead"><span>2026 年可能符合稅務減免條件的支出</span><span class="exb">示例</span></div>
+<p class="rsum">有 RM 570.10 支出待核對</p>
 <div class="fly">
 <span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
-<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">Possible tax relief · photo kept for 7 years</span></span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">可能符合稅務減免 · 照片保留 7 年</span></span>
 </div>
-<div class="pick"><span>Tax relief</span><span class="v"><span>Automatic: Books, phone, computer and internet</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<div class="pick"><span>稅務減免</span><span class="v"><span>自動：書籍、手機、電腦和上網</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
 <div class="rlist">
-<div><span class="nm"><span>Books, phone, computer and internet<span class="plus tab">+4.20</span></span><small>4 entries</small></span><b>RM 322.10</b></div>
-<div><span class="nm"><span>Medical, dental and vaccination</span><small>1 entry</small></span><b>RM 120.00</b></div>
-<div><span class="nm"><span>Sports and gym</span><small>3 entries</small></span><b>RM 128.00</b></div>
+<div><span class="nm"><span>書籍、手機、電腦和上網<span class="plus tab">+4.20</span></span><small>4 筆</small></span><b>RM 322.10</b></div>
+<div><span class="nm"><span>醫療、牙科和疫苗</span><small>1 筆</small></span><b>RM 120.00</b></div>
+<div><span class="nm"><span>運動和健身</span><small>3 筆</small></span><b>RM 128.00</b></div>
 </div>
-<div class="apartk">Shown apart, not reliefs</div>
+<div class="apartk">另外列出，不算減免</div>
 <div class="rlist apart">
-<div><span class="nm"><span>Zakat and fitrah (tax rebate)</span><small>1 entry</small></span><b>RM 50.00</b></div>
-<div><span class="nm"><span>Donations (approved bodies only, official receipt needed)</span><small>1 entry</small></span><b>RM 30.00</b></div>
+<div><span class="nm"><span>天課與開齋捐（稅務回扣）</span><small>1 筆</small></span><b>RM 50.00</b></div>
+<div><span class="nm"><span>捐款（僅限認可機構，需正式收據）</span><small>1 筆</small></span><b>RM 30.00</b></div>
 </div>
-<p class="disc">Example figures. Tally shows what you spent, not what you can claim. Not tax advice: check LHDN’s rules before you file.</p>
+<p class="disc">示例數字。Tally 顯示的是你花了多少，不是可以申報多少。這不是稅務建議，報稅前請先查看 LHDN 的規定。</p>
 </div>
 <div class="ctext rise">
-<span class="num">04 — RELIEFS</span>
-<h3>Tax season, without the shoebox of receipts.</h3>
-<p>Tally flags buys that may count for LHDN relief, from the receipt’s words. Wrong? Mark it “Not a tax relief”, or pick the one it missed. Zakat and donations are listed apart. Relief receipt photos stay 7 years, ready to download. Check LHDN’s limits.</p>
+<span class="num">04 — 稅務減免</span>
+<h3>報稅季，不必再翻一整箱收據。</h3>
+<p>Tally 根據收據上的文字，標出可能適用 LHDN 減免的消費。標錯了？改成「不是稅務減免」，或補選它漏掉的項目。天課和捐款會另外列出。減免收據的照片保留 7 年，隨時可以下載。上限請以 LHDN 公布為準。</p>
 </div>
 </div>
 </div>
@@ -774,19 +777,19 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="afford" class="sec" style="padding-top: 0">
 <div class="wrap">
 <div class="shead rise">
-<span class="kicker" style="color: #2F54EB">Before you buy</span>
-<h2 class="h2">Can I afford it? <span class="serif">Ask before, not after.</span></h2>
+<span class="kicker" style="color: #2F54EB">花錢之前</span>
+<h2 class="h2">我買得起嗎？<span class="serif">先問清楚，再買。</span></h2>
 </div>
 <div class="chapter afd">
 <div class="ctext rise">
-<p>Type a price. Tally walks your next 30 days (money now, pay, bills, usual spending) and judges by your lowest day, not the month’s end. Short before payday means “tight”, even if pay fixes it. Few entries yet? It says it’s a rough guess.</p>
+<p>輸入價格，Tally 會把接下來 30 天一天天算一遍（現有的錢、薪水、帳單、平時開銷），看的是餘額最低的那一天，而不是月底。發薪前錢不夠，就算發薪後補得回來，也算「比較緊」。記錄還不多？它會告訴你這只是粗略估計。</p>
 </div>
 <div class="demo card dk rise">
-<div class="dhead"><span>Can I afford it? · <span class="tab">RM 450.00</span></span><span class="exb">Example</span></div>
-<p class="verdict"><i></i>You can, but it will be tight.</p>
-<p class="sm"><b>Lowest: RM 141.34 on 27 Oct</b></p>
-<div class="chart" role="img" aria-label="Example: over the next 30 days the balance is lowest on 27 Oct, the day before pay comes in on 28 Oct."><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>Today</span><span>30 days</span></div><div class="ckey"><span><i></i>Lowest day</span><span><i class="p"></i>Payday</span></div></div>
-<ul class="arows"><li><span>Money now</span><span class="av">RM 2,035.60</span></li><li><span>Pay due 28 Oct</span><span class="av">RM 3,500.00</span></li><li><span>Bills due</span><span class="av">−RM 984.00</span></li><li><span>Usual everyday spending</span><span class="av">−RM 1,255.26</span></li><li><span>This buy</span><span class="av">−RM 450.00</span></li><li class="lt"><span>Left</span><span class="av">RM 2,846.34</span></li></ul>
+<div class="dhead"><span>我買得起嗎？ · <span class="tab">RM 450.00</span></span><span class="exb">示例</span></div>
+<p class="verdict"><i></i>買得起，但會比較緊。</p>
+<p class="sm"><b>最低：10月27日剩 RM 141.34</b></p>
+<div class="chart" role="img" aria-label="示例：未來 30 天裡，餘額在 10月27日最低，也就是 10月28日發薪的前一天。"><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>今天</span><span>30 天</span></div><div class="ckey"><span><i></i>最低的一天</span><span><i class="p"></i>發薪日</span></div></div>
+<ul class="arows"><li><span>現有的錢</span><span class="av">RM 2,035.60</span></li><li><span>10月28日發薪</span><span class="av">RM 3,500.00</span></li><li><span>帳單到期</span><span class="av">−RM 984.00</span></li><li><span>平時的日常開銷</span><span class="av">−RM 1,255.26</span></li><li><span>這次購買</span><span class="av">−RM 450.00</span></li><li class="lt"><span>剩下</span><span class="av">RM 2,846.34</span></li></ul>
 </div>
 </div>
 </div>
@@ -797,11 +800,11 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <div class="wrap">
 <div class="free-top">
 <div class="rise" style="display: flex; flex-direction: column; gap: 20px">
-<span class="kicker" style="color: #8EA4FF">Free, and why</span>
-<h2 class="h2">Free, because there’s <span class="serif">nothing to charge for.</span></h2>
-<p class="body">Tally is a passion project. Your phone does the work, so there are no servers holding your data, and it costs almost nothing to run. No premium tier. Every feature is free for everyone.</p>
+<span class="kicker" style="color: #8EA4FF">為什麼免費</span>
+<h2 class="h2">免費，因為<span class="serif">根本<wbr>沒什麼<wbr>好收費的。</span></h2>
+<p class="body">Tally 是一個用心做的個人作品。所有工作都在你的手機上完成，沒有伺服器保存你的資料，運作成本幾乎是零。沒有付費進階版，每項功能人人免費。</p>
 </div>
-<div class="dia rise" role="img" aria-label="Your phone does the work. There is no server holding your data. Backups go to your own Google Drive or a file, only when you choose.">
+<div class="dia rise" role="img" aria-label="所有工作都在你的手機上完成，沒有伺服器保存你的資料。只有在你選擇時，才會備份到你自己的 Google Drive 或檔案。">
 <svg viewBox="0 0 320 220" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
 <rect x="28" y="36" width="76" height="134" rx="14" stroke="#8EA4FF" stroke-width="1.5"></rect>
 <path d="M56 46h20" stroke="#8EA4FF" stroke-width="1.5"></path>
@@ -814,23 +817,23 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <path d="M230 71h.01M230 103h.01M230 135h.01M244 71h30M244 103h30M244 135h30"></path>
 </g>
 <path class="cross" d="M210 50L306 156" stroke="#F0A6CE" stroke-width="2"></path>
-<text x="66" y="198" text-anchor="middle" fill="#C9D0E0" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">Your phone does the work</text>
-<text x="258" y="180" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">No server holding</text>
-<text x="258" y="196" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">your data</text>
+<text x="66" y="198" text-anchor="middle" fill="#C9D0E0" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">工作在手機上完成</text>
+<text x="258" y="180" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">沒有伺服器</text>
+<text x="258" y="196" text-anchor="middle" fill="#A9B1C6" stroke="none" style="font: 500 12px 'Instrument Sans', sans-serif">保存你的資料</text>
 </svg>
 </div>
 </div>
 <div class="cells rise">
-<div><b>No ads.</b><span>No ad code, no tracking.</span></div>
-<div><b>Stays on your phone.</b><span>Unless you back up to your own Google Drive or a file, only when you choose.</span></div>
-<div><b>Open source (MIT).</b><span>Read every line on GitHub.</span></div>
-<div><b>No premium tier.</b><span>Every feature, for everyone.</span></div>
-<div><b>Delete receipt photos any time.</b><span>The entries stay: shop, date, amount and items.</span></div>
-<div><b>Online only when needed.</b><span>For its own files, and things you ask for.</span></div>
+<div><b>沒有廣告。</b><span>沒有廣告程式碼，也沒有追蹤。</span></div>
+<div><b>資料留在你的手機裡。</b><span>除非你選擇備份到自己的 Google Drive 或檔案。</span></div>
+<div><b>開源（MIT）。</b><span>每一行程式碼都能在 GitHub 上看到。</span></div>
+<div><b>沒有付費進階版。</b><span>所有功能，人人都能用。</span></div>
+<div><b>收據照片隨時可刪。</b><span>記錄會保留：商店、日期、金額和項目。</span></div>
+<div><b>只在需要時連網。</b><span>只為了下載自己的檔案，或完成你要求的事。</span></div>
 </div>
 <div class="sign rise">
-<span>Made in Malaysia by one independent developer.</span>
-<a href="https://github.com/tallymy/tallymy.github.io">Read the code <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<span>由馬來西亞一位獨立開發者製作。</span>
+<a href="https://github.com/tallymy/tallymy.github.io">看程式碼 <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
 </div>
 </div>
 </section>
@@ -839,14 +842,14 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="share" class="sec" style="padding-bottom: 0">
 <div class="wrap">
 <div class="shead rise">
-<span class="kicker" style="color: #2F54EB">Share</span>
-<h2 class="h2">Show the family group. <span class="serif">Keep the ringgit to yourself.</span></h2>
+<span class="kicker" style="color: #2F54EB">分享</span>
+<h2 class="h2">分享到家族群組，<span class="serif">金額留給自己。</span></h2>
 </div>
 <div class="chapter shr">
 <div class="ctext rise">
-<p>Your month or year, a sticker book or a goal reached, as a picture for WhatsApp: square for chats, tall for status. Amounts stay hidden unless you turn them on. Made on your phone; nothing leaves it unless you send it.</p>
+<p>把你的一個月或一年、貼紙簿或達成的目標，做成 WhatsApp 圖片：方圖適合聊天，長圖適合發狀態。除非你打開，否則金額一律隱藏。圖片在手機上產生，只要你不傳出去，什麼都不會離開手機。</p>
 </div>
-<div class="fan rise" role="img" aria-label="Example share pictures: this month’s spending in percentages, and a goal reached"><picture class="back"><source type="image/webp" srcset="img/share-goal-en.webp"><img src="img/share-goal-en.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-en.webp"><img src="img/share-month-en.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>Amounts hidden</span></div>
+<div class="fan rise" role="img" aria-label="分享圖示例：本月開銷的百分比，以及達成的目標"><picture class="back"><source type="image/webp" srcset="img/share-goal-zh-Hant.webp"><img src="img/share-goal-zh-Hant.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-zh-Hant.webp"><img src="img/share-month-zh-Hant.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>金額已隱藏</span></div>
 </div>
 </div>
 </section>
@@ -855,68 +858,68 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="features" class="sec">
 <div class="wrap">
 <div class="shead rise">
-<span class="kicker" style="color: #2F54EB">Also included, all free</span>
-<h2 class="h2">Made for how Malaysians spend.</h2>
+<span class="kicker" style="color: #2F54EB">還有這些，全部免費</span>
+<h2 class="h2">為馬來西亞人的<wbr>花錢方式<wbr>而設計。</h2>
 </div>
 <div class="bento">
 <div class="tile card dark s3 rise" id="t-budget">
-<span class="ex tex">Example</span>
+<span class="ex tex">示例</span>
 <div class="vis bvis">
 <div class="ring">
 <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
-<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">left</span></div>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">剩餘</span></div>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>Bill reminder · due in 3 days</span>
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>Joint account</span>
+<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>帳單提醒 · 3 天後到期</span>
+<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>共同帳戶</span>
 </div>
 </div>
 <div class="tx">
-<h3>Budgets, bills and a joint account</h3>
-<p>A calm budget ring, reminders before bills are due, and a joint account with your partner.</p>
+<h3>預算、帳單和共同帳戶</h3>
+<p>讓人安心的預算環、帳單到期前提醒，還有和另一半共用的帳戶。</p>
 </div>
 </div>
 <div class="tile card s3 rise">
-<span class="ex tex" style="z-index: 1">Example</span>
-<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="Example: October’s stickers, one for each day filled in" decoding="async" loading="lazy"></picture></div>
+<span class="ex tex" style="z-index: 1">示例</span>
+<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="示例：十月的貼紙，每記一天得一張" decoding="async" loading="lazy"></picture></div>
 <div class="tx">
-<h3>A sticker for each day you fill in.</h3>
-<p>Fill in a day (add something, or tap “Nothing spent today”) and it gets a sticker and a page of the month’s story. October’s book is Pasar malam: will Uncle Raju close his apam balik stall after 30 years?</p>
+<h3>每記一天得一張貼紙。</h3>
+<p>記一筆，或點「今天沒有花錢」，這一天就能得到一張貼紙，還有本月故事的一頁。十月的貼紙簿是《夜市》：擺了 30 年曼煎糕攤的 Raju 叔叔，真的要收攤了嗎？</p>
 </div>
 </div>
 <div class="tile card s2 rise">
 <div class="vis"><div class="tog">
-<div class="togrow"><span style="display: inline-flex; align-items: center; gap: 8px"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px; color: #4D5163"><path d="M10.5 21l1.5-1 1.5 1v-2l-1-1v-4.5l8 2.5v-2l-8-5V4.5a1 1 0 0 0-2 0V9l-8 5v2l8-2.5V18l-1 1z"></path></svg>Aeroplane mode</span><span class="sw"></span></div>
-<div class="readok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px"><path d="M20 6L9 17l-5-5"></path></svg>Receipt read</div>
+<div class="togrow"><span style="display: inline-flex; align-items: center; gap: 8px"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px; color: #4D5163"><path d="M10.5 21l1.5-1 1.5 1v-2l-1-1v-4.5l8 2.5v-2l-8-5V4.5a1 1 0 0 0-2 0V9l-8 5v2l8-2.5V18l-1 1z"></path></svg>飛行模式</span><span class="sw"></span></div>
+<div class="readok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px"><path d="M20 6L9 17l-5-5"></path></svg>收據已讀取</div>
 </div></div>
 <div class="tx">
-<h3>No signal? No problem.</h3>
-<p>Works at the pasar, in the LRT, in the basement car park. Once opened, Tally works fully offline, receipt reading included. About 2 MB to open, plus about 30 MB once for the receipt reader. Fine on older Android phones.</p>
+<h3>沒訊號？沒問題。</h3>
+<p>在巴剎、在 LRT 上、在地下停車場都能用。開過一次之後，Tally 就能完全離線使用，連讀收據也一樣。開啟約需 2 MB，收據識別器另需一次性下載約 30 MB。舊款 Android 手機也跑得動。</p>
 </div>
 </div>
 <div class="tile card s2 rise">
 <div class="vis"><div class="pills">
-<span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>Groceries</b></span>
-<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>Dining<span class="subc"> › Mamak</span></b></span>
-<span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>Health</b></span>
+<span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>日常雜貨</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>餐飲<span class="subc"> › 嘛嘛檔</span></b></span>
+<span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>醫療健康</b></span>
 </div></div>
 <div class="tx">
-<h3>Knows the shops.</h3>
-<p>Over 3,000 Malaysian chains and shop names, from kopitiam to hypermarket, recognised by name and filed the right way. Want more detail? Turn on subcategories, like Dining › Mamak or Kopitiam. Tally guesses them from the shop’s name and learns from your picks.</p>
+<h3>認得各家商店。</h3>
+<p>從咖啡店到大型超市，超過 3,000 個馬來西亞連鎖品牌和店名，一看名字就知道該歸哪類。想看得更細？打開子類別，例如 餐飲 › 嘛嘛檔 或 咖啡店。Tally 會根據店名猜測，並從你的選擇中學習。</p>
 </div>
 </div>
 <div class="tile card s2 rise" id="t-import">
 <div class="vis"><div class="imp">
 <div class="files">
 <span class="f"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>statement.csv</span>
-<span class="f"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>backup from another app</span>
+<span class="f"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>其他 App 的備份</span>
 </div>
 <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #8A8676; flex: none"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
 <span class="t"><svg width="18" height="18" aria-hidden="true" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0F172A"/><path d="M8.5 5.5h13v19.5l-2.17-1.5-2.16 1.5-2.17-1.5-2.17 1.5-2.16-1.5-2.17 1.5z" fill="#F4F4EF"/><circle cx="22.5" cy="22.5" r="6.5" fill="#059669" stroke="#0F172A" stroke-width="1.5"/><path d="M19.6 22.6l2 2 3.6-4" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>Tally</span>
 </div></div>
 <div class="tx">
-<h3>Bring your history.</h3>
-<p>Move over from Money Manager, Cashew, Money Lover, Spendee, Wallet and other money apps, or from bank-statement files. Your old categories come along.</p>
+<h3>帶上你的舊記錄。</h3>
+<p>可以從 Money Manager、Cashew、Money Lover、Spendee、Wallet 等記帳 App，或銀行對帳單檔案搬過來，原本的類別也會一起帶過來。</p>
 </div>
 </div>
 </div>
@@ -927,28 +930,28 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="start" class="sec" style="padding-top: 0">
 <div class="wrap">
 <div class="shead rise">
-<span class="kicker" style="color: #2F54EB">Get started</span>
-<h2 class="h2">Start in three taps.</h2>
+<span class="kicker" style="color: #2F54EB">開始使用</span>
+<h2 class="h2">點三下就能開始。</h2>
 </div>
 <div class="steps rise">
 <div class="step">
 <span class="stepn serif">1</span>
-<b>Open tallymy.github.io on your phone</b>
-<p>Pick your language. No sign-up.</p>
+<b>用手機開啟 tallymy.github.io</b>
+<p>選好語言，不用註冊。</p>
 </div>
 <div class="step">
 <span class="stepn serif">2</span>
-<b>Add it to your home screen</b>
+<b>加入主畫面</b>
 <div class="os">
-<div><b>iPhone</b><span>In Safari, tap Share <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"></path><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"></path></svg>, then Add to Home Screen.</span></div>
-<div><b>Android</b><span>In Chrome, tap the menu <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>, then Install app or Add to Home screen.</span></div>
+<div><b>iPhone</b><span>在 Safari 點「分享」<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"></path><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"></path></svg>，再點「加入主畫面」。</span></div>
+<div><b>Android</b><span>在 Chrome 點選單 <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>，再點「安裝應用程式」或「新增至主畫面」。</span></div>
 </div>
-<p style="font-size: 15px">It then opens like any app and works offline.</p>
+<p style="font-size: 15px">之後它就像一般 App 一樣開啟，也能離線使用。</p>
 </div>
 <div class="step">
 <span class="stepn serif">3</span>
-<b>Snap your first receipt</b>
-<p>Or type an amount. Not ready? On the first screen, tap “Look around with sample data”. Nothing is kept until you start for real.</p>
+<b>拍下第一張收據</b>
+<p>也可以直接輸入金額。還沒準備好？在第一個畫面點「先用示例資料看看」。正式開始之前，什麼都不會保存。</p>
 </div>
 </div>
 </div>
@@ -958,23 +961,23 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <section id="faq" class="sec" style="padding-top: 0">
 <div class="wrap faq">
 <div class="rise" style="display: flex; flex-direction: column; gap: 16px">
-<span class="kicker" style="color: #2F54EB">FAQ</span>
-<h2 class="h2">Fair questions.</h2>
-<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4D5163">Still unsure? Tally is open source, so you can <a href="https://github.com/tallymy/tallymy.github.io">read the code on GitHub</a>.</p>
+<span class="kicker" style="color: #2F54EB">常見問題</span>
+<h2 class="h2">你一定想問。</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4D5163">還是不放心？Tally 是開源的，你可以<a href="https://github.com/tallymy/tallymy.github.io">在 GitHub 上看程式碼</a>。</p>
 </div>
 <div class="rise">
-<details class="qa"><summary>Is it really free?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes. Every feature is free, with no premium tier and no ads. It’s a passion project, and because your phone does the work there are no servers to pay for.</p></details>
-<details class="qa"><summary>Where does my data go?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It stays on your phone. There’s no account. Receipts are read on the device and never uploaded. If you back up, it goes to your own Google Drive or a file, only when you choose.</p></details>
-<details class="qa"><summary>Can I delete my receipt photos?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes. In Settings → Privacy → Receipt photos, delete them all now, or let Tally delete photos older than 30 days, 90 days or a year. The entry stays: shop, date, amount and items. When Tally tidies by age, it keeps photos of possible tax-relief buys for the 7 years LHDN can ask for them. Deleting all removes those too, your choice.</p></details>
-<details class="qa"><summary>Does Tally read my SMS or need my bank login?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>No. Tally never reads your SMS or OTPs, and never asks for your bank login, card or PIN. The only part of your phone it asks to use is the camera, to snap receipts, and you can say no and type instead. Bank records come in only when you pick a statement file yourself.</p></details>
-<details class="qa"><summary>Why does it need the internet?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>To open the first time, to download the receipt reader once (about 30 MB), and to update itself. After that it works offline. Otherwise it goes online only when you ask: a Google Sheets link you paste, an exchange rate you ask for, feedback you send, or a calendar reminder you add. Your entries and receipt photos are never sent.</p></details>
-<details class="qa"><summary>Setting it up for a parent?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Open tallymy.github.io on their phone, pick their language and a bigger text size, then add it to the home screen. Choose “Simple” in Settings → Features for just the basics. There’s no account or password for them to remember, and their entries stay on their phone.</p></details>
-<details class="qa"><summary>Will it read my receipts?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It copes with faded, crumpled, far-away and sideways photos, and recognises over 3,000 Malaysian chains and shop names. It won’t be right every time, which is why it checks the items add up to the total and points at any line worth a second look. Fix one and Tally remembers it next time.</p></details>
-<details class="qa"><summary>Is it a real app if I install it from a browser?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It’s a web app that installs to your home screen, opens like an app and works offline once opened.</p></details>
-<details class="qa"><summary>What if I change phones?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>In Settings, Backup &amp; restore makes a backup file. Send it to yourself (Google Drive, email, WhatsApp), then restore it on the new phone. There’s no account, so back up before you switch.</p></details>
-<details class="qa"><summary>Is the tax relief part tax advice?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>No. Tally flags receipts and items that may count as relief candidates and keeps the receipt photo with each. It doesn’t know your circumstances or work out what you can claim; each relief has limits and conditions. It’s an estimate to help you prepare. Please check LHDN’s rules for what you can claim.</p></details>
-<details class="qa"><summary>Who makes it?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>One independent developer in Malaysia. It’s open source (MIT), so you can read the code on GitHub. Feedback or a bug? <a href="https://github.com/tallymy/tallymy.github.io/issues">Open an issue on GitHub</a>.</p></details>
-<details class="qa"><summary>What if I stop using it, or it stops being updated?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Your data is on your phone, and you can make a backup file whenever you like. The code is open source (MIT) on GitHub, so it isn’t locked away.</p></details>
+<details class="qa"><summary>真的免費嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>真的。所有功能都免費，沒有付費進階版，也沒有廣告。這是一個用心做的個人作品，而且工作都在你的手機上完成，不需要花錢養伺服器。</p></details>
+<details class="qa"><summary>我的資料會去哪裡？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>留在你的手機裡。沒有帳號。收據在裝置上讀取，從不上傳。如果你要備份，只會在你選擇時存到你自己的 Google Drive 或檔案。</p></details>
+<details class="qa"><summary>可以刪除收據照片嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>可以。在「設定 → 隱私 → 收據照片」裡，可以馬上全部刪除，或讓 Tally 自動刪除超過 30 天、90 天或一年的照片。記錄會保留：商店、日期、金額和項目。依時間清理時，Tally 會把可能符合稅務減免的消費照片保留 7 年（LHDN 可要求查看的期限）。選擇全部刪除的話，這些照片也會一起刪掉，由你決定。</p></details>
+<details class="qa"><summary>Tally 會讀我的簡訊，或要我的網銀登入資料嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>不會。Tally 從不讀取你的簡訊或驗證碼（OTP），也從不要求網銀登入資料、銀行卡或密碼。它唯一會請求使用的是相機，用來拍收據；你也可以拒絕，改成手動輸入。只有你自己選擇匯入對帳單檔案時，銀行記錄才會進來。</p></details>
+<details class="qa"><summary>為什麼需要連網？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>第一次開啟、下載收據識別器（只需一次，約 30 MB）和自動更新時需要連網。之後就能離線使用。除此之外，它只在你要求時連網：你貼上的 Google Sheets 連結、你查詢的匯率、你送出的意見回饋，或你新增的日曆提醒。你的記錄和收據照片從不會被傳送出去。</p></details>
+<details class="qa"><summary>幫爸媽安裝？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>在他們的手機上開啟 tallymy.github.io，選好語言和大一點的字，再加入主畫面。到「設定 → 功能」選「簡單」，只保留基本功能。不需要帳號或密碼，記錄都留在他們自己的手機裡。</p></details>
+<details class="qa"><summary>它讀得懂我的收據嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>褪色、皺巴巴、拍得遠或拍歪的照片都難不倒它，還認得超過 3,000 個馬來西亞連鎖品牌和店名。它不可能每次都對，所以會核對項目加總是否等於總額，並指出值得再看一眼的那一行。改過一次，下次 Tally 就記得。</p></details>
+<details class="qa"><summary>從瀏覽器安裝的，算真正的 App 嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>它是一個網頁應用程式，可以安裝到主畫面，像 App 一樣開啟，開過一次後就能離線使用。</p></details>
+<details class="qa"><summary>換手機怎麼辦？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>在「設定」的「備份與恢復」建立備份檔，傳給自己（Google Drive、電子郵件、WhatsApp），再到新手機上恢復。因為沒有帳號，換手機前記得先備份。</p></details>
+<details class="qa"><summary>稅務減免功能算稅務建議嗎？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>不算。Tally 會標出可能符合減免的收據和項目，並保存每張收據的照片。它不了解你的個人狀況，也不會計算你能申報多少；每項減免都有上限和條件。這只是幫你提早準備的估算。哪些可以申報，請以 LHDN 的規定為準。</p></details>
+<details class="qa"><summary>誰做的？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>馬來西亞的一位獨立開發者。它是開源的（MIT），你可以在 GitHub 上看程式碼。有意見或發現 bug？<a href="https://github.com/tallymy/tallymy.github.io/issues">到 GitHub 開 issue</a>。</p></details>
+<details class="qa"><summary>如果我不用了，或它不再更新呢？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>你的資料在你的手機裡，隨時都能建立備份檔。程式碼以開源（MIT）方式放在 GitHub 上，不會被鎖起來。</p></details>
 </div>
 </div>
 </section>
@@ -985,16 +988,16 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 <div class="cta rise">
 <div style="position: absolute; z-index: -1; width: 700px; height: 700px; right: -200px; top: -300px; border-radius: 50%; background: radial-gradient(closest-side, rgba(47,84,235,.38), rgba(47,84,235,0))"></div>
 <div style="display: flex; flex-direction: column; gap: 14px; max-width: 560px">
-<h2 class="h2">Every receipt.<br>Every item. <span class="serif" style="color: #A9BBFF">Understood.</span></h2>
-<p style="margin: 0; font-size: 18px; line-height: 1.55; color: #B4BCD0">Free, private and made in Malaysia. Open it on your phone and scan one receipt.</p>
+<h2 class="h2">每一張收據，<br>每一個項目，<span class="serif" style="color: #A9BBFF">都看得懂。</span></h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.55; color: #B4BCD0">免費、注重隱私，馬來西亞製造。用手機打開，掃一張收據試試看。</p>
 </div>
 <div style="display: flex; flex-direction: column; gap: 14px">
 <div style="display: flex; flex-wrap: wrap; gap: 12px">
-<a class="btn light" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
-<a class="btn line" href="https://github.com/tallymy/tallymy.github.io">Read the code on GitHub</a>
+<a class="btn light" href="./?app">免費使用 Tally <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a class="btn line" href="https://github.com/tallymy/tallymy.github.io">在 GitHub 上看程式碼</a>
 </div>
-<span style="font-size: 14px; color: #9AA3BA">No account. Nothing to install from a store.</span>
-<span class="langline" style="font-size: 13px; color: #8C95AD"><span lang="ms">Percuma. Tiada akaun. Buatan Malaysia.</span> · <span lang="zh-Hans">免费 · 无需账号 · 马来西亚制造</span> · <span lang="ta">இலவசம் · கணக்கு தேவையில்லை</span></span>
+<span style="font-size: 14px; color: #9AA3BA">不用帳號，也不必到應用程式商店下載。</span>
+<span class="langline" style="font-size: 13px; color: #8C95AD"><span lang="en">Free. No account. Made in Malaysia.</span> · <span lang="ms">Percuma. Tiada akaun. Buatan Malaysia.</span> · <span lang="ta">இலவசம் · கணக்கு தேவையில்லை</span></span>
 </div>
 </div>
 </div>
@@ -1002,13 +1005,13 @@ html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
 
 <footer class="foot" style="border-top: 1px solid #E3E0D6; padding: 40px 0 56px 0">
 <div class="wrap" style="display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: center; font-size: 14px; color: #6A6E7E">
-<span style="display: flex; align-items: center; gap: 10px"><svg width="24" height="24" aria-hidden="true" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0F172A"/><path d="M160 104h192v304l-32-22-32 22-32-22-32 22-32-22-32 22z" fill="#F4F4EF"/><path d="M196 176h120M196 224h120M196 272h72" stroke="#94A3B8" stroke-width="16" stroke-linecap="round"/><circle cx="330" cy="330" r="62" fill="#059669"/><path d="M302 330l20 20 36-40" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>Tally · made in Malaysia · free and open source</span>
-<span style="display: flex; gap: 24px"><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./licences.html">Licences</a><a href="https://github.com/tallymy/tallymy.github.io">GitHub</a></span>
-<span style="flex-basis: 100%; font-size: 13px">Feedback or a bug? <a href="https://github.com/tallymy/tallymy.github.io/issues" style="text-decoration: underline">Open an issue on GitHub</a>.</span>
+<span style="display: flex; align-items: center; gap: 10px"><svg width="24" height="24" aria-hidden="true" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0F172A"/><path d="M160 104h192v304l-32-22-32 22-32-22-32 22-32-22-32 22z" fill="#F4F4EF"/><path d="M196 176h120M196 224h120M196 272h72" stroke="#94A3B8" stroke-width="16" stroke-linecap="round"/><circle cx="330" cy="330" r="62" fill="#059669"/><path d="M302 330l20 20 36-40" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>Tally · 馬來西亞製造 · 免費開源</span>
+<span style="display: flex; gap: 24px"><a href="./privacy.zh-Hant.html">隱私</a><a href="./terms.zh-Hant.html">條款</a><a href="./licences.html" hreflang="en">授權</a><a href="https://github.com/tallymy/tallymy.github.io">GitHub</a></span>
+<span style="flex-basis: 100%; font-size: 13px">有意見或發現 bug？<a href="https://github.com/tallymy/tallymy.github.io/issues" style="text-decoration: underline">到 GitHub 開 issue</a>。</span>
 </div>
 </footer>
 
-<div class="mbar"><a class="btn ink" href="./?app">Open Tally free <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a></div>
+<div class="mbar"><a class="btn ink" href="./?app">免費使用 Tally <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a></div>
 
 </div>
 </body>

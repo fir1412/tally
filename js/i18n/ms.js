@@ -1752,6 +1752,7 @@ export default {
   "Pick the saved sticker": "Pilih pelekat yang disimpan",
   "WhatsApp does this step, not Tally.": "Langkah ini dibuat oleh WhatsApp, bukan Tally.",
   "The sticker could not be made. Try again.": "Pelekat tidak dapat dibuat. Cuba lagi.",
+  "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Laman web Tally kini dalam keenam-enam bahasa, termasuk halaman bahasa Jepun dan Cina Tradisional",
   "Save your day's sticker and add it to WhatsApp with Create sticker": "Simpan pelekat hari anda dan tambahkannya ke WhatsApp dengan Cipta pelekat",
   "Deepavali!": "Deepavali!",
   "Happy birthday!": "Selamat hari jadi!",
