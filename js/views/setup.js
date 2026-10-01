@@ -128,6 +128,7 @@ export const welcomeView = {
       <p class="legal">${legalLinks()}</p>
       <ul class="points">
         <li>${ICON.receipt}<span>${esc(t('Receipts are read on this phone and split into categories automatically.'))}</span></li>
+        <li>${ICON.lock}<span>${esc(t('Tally never reads your SMS and never asks for your bank login. The camera is the only permission it asks for.'))}</span></li>
         <li>${ICON.wallet}<span>${esc(t('No account, no ads. Your entries stay on this phone. They leave it only when you export, back up or share them, or add a reminder to Google Calendar.'))} <button class="link" data-act="storage-info">${esc(t('How your data is kept'))}</button> · <button class="link" data-act="net-check">${esc(t('Check it yourself'))}</button></span></li>
         <li>${ICON.upload}<span>${esc(t('Already tracking in another app or a spreadsheet? Bring your history with you.'))}</span></li>
         <li>${ICON.download}<span>${esc(t('Your data is never locked in: take it to Excel, Google Sheets or another money app any time.'))}</span></li>

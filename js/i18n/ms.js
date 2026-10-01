@@ -1536,6 +1536,7 @@ export default {
   "The account's balance is the progress. A savings account is best.": "Baki akaun ialah kemajuan anda. Akaun simpanan paling sesuai.",
   "You're there!": "Sudah sampai!",
   "e.g. Emergency fund, Hari Raya, a new phone": "cth. Dana kecemasan, Hari Raya, telefon baharu",
+  "Tally never reads your SMS and never asks for your bank login. The camera is the only permission it asks for.": "Tally tidak pernah membaca SMS anda dan tidak pernah meminta log masuk bank. Kamera ialah satu-satunya kebenaran yang ia minta.",
   "Emergency fund": "Dana kecemasan",
   "{0} a month gets you there by {1}": "{0} sebulan untuk capai menjelang {1}",
   "{0} to go": "{0} lagi",

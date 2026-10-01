@@ -1535,6 +1535,7 @@ export default {
   "The account's balance is the progress. A savings account is best.": "கணக்கின் இருப்புதான் முன்னேற்றம். சேமிப்புக் கணக்கு சிறந்தது.",
   "You're there!": "இலக்கை அடைந்துவிட்டீர்கள்!",
   "e.g. Emergency fund, Hari Raya, a new phone": "எ.கா. அவசர நிதி, தீபாவளி, புதிய கைப்பேசி",
+  "Tally never reads your SMS and never asks for your bank login. The camera is the only permission it asks for.": "Tally உங்கள் SMS-ஐ ஒருபோதும் படிக்காது, வங்கி உள்நுழைவையும் கேட்காது. அது கேட்கும் அனுமதி கேமரா மட்டுமே.",
   "Emergency fund": "அவசர நிதி",
   "{0} a month gets you there by {1}": "மாதம் {0} சேர்த்தால் {1}-க்குள் இலக்கை அடையலாம்",
   "{0} to go": "இன்னும் {0}",

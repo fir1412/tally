@@ -1536,6 +1536,7 @@ export default {
   "The account's balance is the progress. A savings account is best.": "账户余额就是进度。最好用储蓄账户。",
   "You're there!": "达成了！",
   "e.g. Emergency fund, Hari Raya, a new phone": "例如：应急基金、开斋节、新手机",
+  "Tally never reads your SMS and never asks for your bank login. The camera is the only permission it asks for.": "Tally 从不读取你的短信，也从不要求银行登录。它只请求相机权限。",
   "Emergency fund": "应急基金",
   "{0} a month gets you there by {1}": "每月 {0}，{1} 前达成",
   "{0} to go": "还差 {0}",
