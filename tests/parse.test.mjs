@@ -119,6 +119,16 @@ test('app screenshot dates: month name glued to the time, US order, status bar a
     'Item A 10.00', 'Total RM10.00', 'Order Time 10-09-2024 21:04'].join('\n'));
   assert.equal(r.date, '2024-09-10');
 });
+test('app screenshots: the shop under the delivery app, Shopee by its own words, a payee under its label', () => {
+  const shop = l => parseReceipt(l.join('\n')).merchant;
+  // A food-delivery order: the restaurant's "Name-Branch" line, not the app, the status bar or the address
+  assert.equal(shop(['1:32 61%', 'Order Summary', 'Order ID GF-123', "Your order's in the kitchen.", 'Kedai Burger Contoh-Taman Contoh', '16, Jalan Contoh 5', '1x Burger 10.00', 'Subtotal RM10.00', 'Total RM10.00']), 'Kedai Burger Contoh');
+  // A known brand far down the screen beats the delivery app named on top
+  assert.equal(shop(['11:05 94%', 'Grab', 'Hope you enjoyed your food!', 'GrabFood Payment Method:', 'Booking code', '1x Milk Tea', 'MYR18.00', 'CHAGEE-Contoh Branch', 'Total MYR18.00']), 'Chagee');
+  assert.equal(shop(['10:02 68%', 'Order Details', 'On-Time Guarantee: Get a RM5.00 voucher', 'arrive by 09-08-2024. View More', 'Kedai Contoh Official', 'Sabun 20ml x2', 'RM28.30', 'Order Total RM28.30']), 'Shopee');
+  assert.equal(shop(['9:19 48%', 'Transfer Money', 'Successful', 'Recipient Name', 'AHMAD BIN CONTOH', 'Amount', 'MYR 50.00']), 'Ahmad Bin Contoh');
+  assert.equal(shop(['10:43 86%', 'Payment Receipt', 'Thank you for using myTNB.', 'AMOUNT (RM)', '109.50']), 'TNB');
+});
 test('dates: day-first, ISO, impossible dates rejected', () => {
   assert.equal(parseDate('05/03/2026'), '2026-03-05');
   assert.equal(parseDate('2026-09-01 10:00'), '2026-09-01');

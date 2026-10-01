@@ -152,6 +152,7 @@ export function parseItemLines(text) {
 const NOT_SHOP = new RegExp([
   /^\d{1,2}:\d{2}\b|\d+\s*%|\d+\.\d{2}\b|\b\d{1,2}\s*[:.]\d{2}\s*(am|pm)\b|\b\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*\d{2,4}/.source,   // times, percentages, amounts, dates
   /order\s*(summary|details|number|no|id|on)|your\s*(order|receipt|payment)|official\s*receipt|tax\s*invoice|deal\s*details|contact\s*support|my\s*purchases|seller\s*will/.source,
+  /we'?ll\s*(let|notify)|your\s*seller|hope\s*you\s*enjoy|to\s*make\s*changes|arriv|estimated|preparing|note\s*to\s*driver|^items\W*$|my\s*tickets|\bcopy$|deliver\s*to|track\s*your\s*order|thank\s*you\s*for\s*using|we\s*are\s*pleased|transfer\s*money|successful/.source,   // app screens' own words
   /ro[lu]n?ding|sub\s*-?t[o0]tal|\bt[o0]tal\b|\bqty\b|kuantiti|delivery|note\s*to|to\s*pay|visit\s*shop|premium|payment\s*successful|tbl\s*no/.source,   // money-part and app-screen words
   /^\W*(invoice|receipt|resit|welcome|selamat|thank|terima\s*kasih|date|time|ticket|table|cashier|pos\s*no|bill\s*no|payment|quantity|description)\b/.source,
   /^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg)|registration)|^\(|^\d{3,}|^[\d\W]+$/.source,   // numbers, a "(Perub…)" or "(123456-X)" line
@@ -171,11 +172,30 @@ function joinNameLines(lines) {
   }
   return out.flatMap((l, i, a) => (/^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(l.trim()) && a[i + 1] ? [] : [i && /^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(a[i - 1].trim()) ? `${a[i - 1].trim()} ${l}` : l]));
 }
+// A screenshot of a shopping, delivery or bank app: the phone's status bar on top ("9:37 95%") or an app's own heading.
+const appScreen = lines => /^\W*\d{1,2}[:.]\d{2}\b.{0,30}\d{1,3}\s*%/.test(lines[0] ?? '') || lines.slice(0, 5).some(l => /order\s*(summary|details)|booking\s*code|transfer\s*money|deal\s*details/i.test(l));
+const PLATFORM = /^(GrabFood|Grab|foodpanda|ShopeeFood)$/;
+/** On an app screen the shop is often far down: Shopee by its own words; else any known brand on the screen that isn't the
+ *  delivery app; a Grab order's restaurant from its "Name-Branch" line; else the delivery app itself. → name or null. */
+function appShop(lines) {
+  if (lines.some(l => /shopee(?!\s*pay|\s*food)|on-?\s*time\s*guarantee|preferred\s*\+|shop\s*voucher/i.test(l))) return 'Shopee';
+  const brands = lines.filter(l => !PAID_WITH.test(l)).map(l => brandOf([l], 1)).filter(Boolean);
+  const shop = brands.find(b => !PLATFORM.test(b)); if (shop) return shop;
+  if (brands.length || lines.some(l => /\bgrab\b|\bGF-\d{3}|note\s*to\s*driver/i.test(l))) {
+    const dash = lines.slice(0, 20).map(l => l.match(/^([\p{L}][\p{L}\d'&. ]{2,40}?)\s*-\s*(?:rate\s*order|[\p{L}].{2,40})$/u)?.[1]).find(n => n && !ADDRESS.test(n) && !NOT_SHOP.test(n));
+    return dash ? titleCase(dash.trim()) : brands[0] || 'Grab';
+  }
+  return null;
+}
 /** "HEXTAR LUCKIN M SDN BHD" → Luckin Coffee (a known brand); "RESTORAN MAJU JAYA SDN.BHD (123-X)" → Restoran Maju Jaya. */
 export function shopName(lines) {
   // An e-wallet or DuitNow slip names the shop it paid: "Recipient: GERAI MAK TEH".
-  const payee = lines.slice(0, 25).map(l => l.match(/^\W*(?:recipient|merchant(?:\s*name)?|paid\s*to|pay\s*to|penerima|payee)\s*[:\-]?\s*([\p{L}\d].{1,60})$/iu)?.[1]).find(n => n && /\p{L}{3}/u.test(n));
-  if (payee) return brandOf([payee]) || titleCase(payee.replace(CO_TAIL, '').trim()).slice(0, 80);
+  const payee = lines.slice(0, 25).map(l => l.match(/^\W*(?:recipient|merchant(?:\s*name)?|paid\s*to|pay\s*to|penerima|payee)\s*[:\-]?\s*([\p{L}\d].{1,60})$/iu)?.[1]).find(n => n && /\p{L}{3}/u.test(n) && !/^name\b/i.test(n));   // "Recipient Name": the label, not a name
+  // or puts the name on the line under its label: "Recipient Name" / "NG TECK HIN".
+  const under = payee || lines.slice(0, 25).map((l, i) => (/^\W*(?:recipient(?:\s*name)?|name|payee|pay\s*to|merchant\s*name|penerima)\W*$/i.test(l) ? lines[i + 1] : null))
+    .find(n => n && /\p{L}{3}/u.test(n) && !/\d[.,]\d{2}/.test(n));
+  if (under) return brandOf([under]) || titleCase(under.replace(CO_TAIL, '').trim()).slice(0, 80);
+  if (appScreen(lines)) { const n = appShop(lines); if (n) return n; }
   // The bank, card or wallet printed on the slip is how it was paid, never the shop (card-terminal slips put it on top).
   const pool = lines.filter(l => !PAID_WITH.test(l));
   const brand = brandOf(pool) || knownShop(pool.slice(0, 10).filter(l => !ADDRESS.test(l) && !/\d[.,]\d{2}/.test(l)))?.name; if (brand) return brand;   // not "Jalan Setia", not "Cheese Burger 4.50"

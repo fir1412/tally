@@ -5,7 +5,7 @@
 import SHOPS from './shops.js';
 export const BRANDS = [
   // Coffee, tea, desserts
-  [/luckin/i, 'Luckin Coffee'], [/starbucks/i, 'Starbucks'], [/\bzus\s*coffee|\bzus\b/i, 'ZUS Coffee'],
+  [/luckin/i, 'Luckin Coffee'], [/starbucks/i, 'Starbucks'], [/\bzus\s*coffee|\bzus(?:\b|(?=balance|app))/i, 'ZUS Coffee'],
   [/tea\s*live|loob holding/i, 'Tealive'], [/chatime/i, 'Chatime'], [/chagee|霸王茶姬/i, 'Chagee'], [/cha\s*tra\s*mue|great\s*white\s*pelican/i, 'ChaTraMue'],
   [/gong\s*cha/i, 'Gong Cha'], [/baker'?s\s*cottage/i, "Baker's Cottage"], [/dunkin|golden\s*donuts/i, "Dunkin'"], [/jollibee/i, 'Jollibee'], [/mixue|蜜雪/i, 'Mixue'],
   [/coffee\s*bean/i, 'The Coffee Bean & Tea Leaf'], [/tim\s*hortons/i, 'Tim Hortons'], [/gigi\s*coffee/i, 'Gigi Coffee'],
@@ -14,7 +14,7 @@ export const BRANDS = [
   [/tiger\s*sugar/i, 'Tiger Sugar'], [/xing\s*fu\s*tang/i, 'Xing Fu Tang'], [/family\s*mart|ql maxincome/i, 'FamilyMart'],
   [/bask\s*bear/i, 'Bask Bear Coffee'], [/kopi\s*saigon/i, 'Kopi Saigon'], [/hwc\s*coffee/i, 'HWC Coffee'], [/beutea/i, 'Beutea'],
   // Fast food and restaurants
-  [/mc\s*donald|gerbang\s*alaf|\bmcd\b|mcdelivery/i, "McDonald's"], [/\bkfc\b|kentucky fried/i, 'KFC'], [/texas\s*chick/i, 'Texas Chicken'],
+  [/mc\s*donald|gerbang\s*alaf|\bmcd\b|mcdelivery/i, "McDonald's"], [/\bkfc\b|kentucky fried/i, 'KFC'], [/texas\s*chic/i, 'Texas Chicken'],
   [/marry\s*brown/i, 'Marrybrown'], [/pizza\s*hut/i, 'Pizza Hut'], [/domino'?s|dommal/i, "Domino's"], [/\bsubway\b|belle\s*vue\s*food/i, 'Subway'], [/\bkgb\b|killer\s*gourmet/i, 'KGB'], [/sushi\s*zanmai/i, 'Sushi Zanmai'],
   [/burger\s*king/i, 'Burger King'], [/\ba\s*&\s*w\b/i, 'A&W'], [/taco\s*bell/i, 'Taco Bell'], [/nando'?s/i, "Nando's"],
   [/kenny\s*rogers|berjaya roasters/i, 'Kenny Rogers Roasters'], [/sushi\s*king/i, 'Sushi King'], [/sushi\s*mentai/i, 'Sushi Mentai'],
@@ -45,7 +45,7 @@ export const BRANDS = [
   // Online and services
   [/shopee/i, 'Shopee'], [/carousell/i, 'Carousell'], [/lazada/i, 'Lazada'], [/airbnb/i, 'Airbnb'], [/golden\s*screen|\bgsc\b/i, 'GSC'], [/\btgv\b/i, 'TGV Cinemas'],
   [/\bunifi\b/i, 'Unifi'], [/\bmaxis\b/i, 'Maxis'], [/celcom|\bdigi\b/i, 'CelcomDigi'], [/u\s*mobile/i, 'U Mobile'],
-  [/tenaga\s*nasional/i, 'TNB'], [/indah\s*water/i, 'Indah Water'], [/air\s*selangor/i, 'Air Selangor'],
+  [/tenaga\s*nasional|\bmy\s*tnb\b/i, 'TNB'], [/indah\s*water/i, 'Indah Water'], [/air\s*selangor/i, 'Air Selangor'],
 ];
 
 /** The brand a receipt's top lines name, or null. Earlier lines win; each line is tried against the whole list. */
