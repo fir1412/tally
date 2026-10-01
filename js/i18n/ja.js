@@ -1606,4 +1606,7 @@ export default {
   "{0}% of budget": "予算の{0}%",
   "{0}: {1} less at {2}": "{0}：{2}なら{1}安い",
   "when money comes in": "収入が入ったら",
+  "Read the story": "ストーリーを読む",
+  "Read today's page of the story": "今日のストーリーを読む",
+  "Save and split with friends": "保存して友だちと割り勘",
 };

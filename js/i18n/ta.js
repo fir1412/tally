@@ -1606,4 +1606,7 @@ export default {
   "{0}% of budget": "பட்ஜெட்டில் {0}%",
   "{0}: {1} less at {2}": "{0}: {2}-இல் {1} குறைவு",
   "when money comes in": "பணம் வந்ததும்",
+  "Read the story": "கதையைப் படி",
+  "Read today's page of the story": "இன்றைய கதைப் பக்கத்தைப் படி",
+  "Save and split with friends": "சேமித்து நண்பர்களுடன் பகிர்",
 };

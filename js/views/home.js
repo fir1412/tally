@@ -71,7 +71,7 @@ function stickerCard(tdy) {
   if (!shown('stickers') || dismissed().includes(`stk-${tdy}`) || !filled.has(day)) return '';
   const book = bookOf(ym); if (!book) return '';
   const st = bookState({ ym, filled, today: tdy }), s = book.stickers[panelOf(day, st.n)];
-  return `<section class="card sticker"><button class="stk-go" data-act="stickers-open">${stkSvg(s, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", say(s.name)))}</b>
+  return `<section class="card sticker"><button class="stk-go" data-act="stickers-open" data-jump="1">${stkSvg(s, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", say(s.name)))}</b>
     <small>${esc(book.panels.length ? t("{0} of {1} this month, and today's page of the story.", st.got, st.n) : t('{0} of {1} this month. One for each day you log.', st.got, st.n))}</small></span></button>
     <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
 }
@@ -90,17 +90,20 @@ function bookHtml(book, ym, filled, tdy) {
       const why = end ? t('Fill in every day to see how it ends.') : !st.over && d > +tdy.slice(8, 10) ? t('Opens on day {0}.', d) : st.open ? t('Log something for day {0} to open it.', d) : t('Missed. Next month is a new story.');
       return `<li class="panel locked"><span class="pday">${esc(t('Day {0}', d))}</span><span>${esc(why)}</span></li>`;
     }
-    return `<li class="panel"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${p.art}</svg>
+    return `<li class="panel" id="pday-${ym}-${d}"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${p.art}</svg>
       ${p.lines.map(l => `<p class="say">${l.who === 'narrator' ? '' : `<b>${esc(say(book.who?.[l.who] || WHO[l.who] || l.who))}</b> `}${esc(say(l.text))}</p>`).join('')}
       ${p.tip ? `<p class="tip">${ICON.sparkles || ''}${esc(say(p.tip))}</p>` : ''}</li>`;
   };
+  // The latest page that's open (today's, once something is logged today), one tap away: nobody scrolls past 31 stickers.
+  const latest = book.panels.length ? days.filter(d => filled.has(d) && !(d === st.n && !st.complete)).at(-1) : null, isToday = latest === +tdy.slice(8, 10) && tdy.slice(0, 7) === ym;
+  const jump = latest ? `<button class="btn wide comic-jump" data-act="comic-jump" data-to="pday-${ym}-${latest}">${ICON.sparkles || ''}${esc(isToday ? t("Read today's page of the story") : t('Read the story'))}</button>` : '';
   const first = began() < Infinity ? dayOf(began()).slice(0, 7) : ym, past = [];
   for (let m = addMonths(tdy.slice(0, 7), -1); m >= first && past.length < 24; m = addMonths(m, -1)) past.push(m);
   // The book's shared drawings (cast, scenes, paint grain), once for all its panels. Not display:none: gradients and
   // filters inside a hidden-by-display svg stop painting in some browsers.
   return `${book.defs ? `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${book.defs}</defs></svg>` : ''}<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
     <p class="sh-body">${esc(st.complete ? t('Every day of {0} is in. The whole story is yours.', fmtMonth(ym)) : st.grace ? t('{0} of {1} days. Missed days can still be filled in until {2}.', st.got, st.n, fmtDate(st.end)) : st.open ? t('{0} of {1} days. One for each day you log; fill in a missed day any time this month.', st.got, st.n) : t('{0} of {1} days.', st.got, st.n))}</p>
-    <ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
+    ${jump}<ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
     ${book.panels.length ? `<h3 class="comic-h">${esc(t('The story'))}</h3><ol class="comic">${days.map(panel).join('')}</ol>` : ''}
     ${st.complete || st.over ? `<div class="book-reward">${st.complete && book.colours ? `<p><b>${esc(t('Your reward: the colours of {0}', fmtMonth(ym)))}</b></p><span class="apv" aria-hidden="true" style="background:${book.colours.dark[0]}"><i style="background:${book.colours.dark[2]}"></i><b style="background:${book.colours.accent}"></b></span><button class="btn small" data-act="set-app-palette" data-v="book-${ym}">${esc(t('Use these colours'))}</button>` : ''}<button class="btn small ghost" data-act="book-share" data-ym="${ym}">${esc(t('Share this month'))}</button></div>` : ''}
     ${past.length ? `<h3 class="comic-h">${esc(t('Past months'))}</h3><div class="chips">${past.map(m => `<button class="chip" data-act="stickers-open" data-ym="${m}">${esc(fmtMonth(m))} · ${filledIn(m).size}</button>`).join('')}</div>` : ''}
@@ -411,8 +414,11 @@ export const act = {
       const { dark, light, accent } = book.colours;
       await setSetting('bookPalettes', { ...(settings().bookPalettes || {}), [ym]: { dark, light, accent } });
     }
-    openSheet(bookHtml(book, ym, filled, today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
+    const el = openSheet(bookHtml(book, ym, filled, today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
+    // From today's sticker card ("…and today's page of the story"): open on that page
+    if (b?.dataset?.jump) requestAnimationFrame(() => el?.querySelector('.comic-jump')?.click());
   },
+  'comic-jump': b => document.getElementById(b.dataset.to)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }),
   // A finished month as a picture to share: its stickers (the missed days faint), how many days, no money at all.
   'book-share': async b => {
     const ym = b.dataset.ym, book = bookOf(ym) || await loadBook(ym), filled = filledIn(ym), st = bookState({ ym, filled, today: today() });

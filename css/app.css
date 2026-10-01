@@ -920,3 +920,6 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .yr .lbl { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
 .yr b { font: 750 var(--fs-lg)/1.25 var(--display); overflow-wrap: anywhere; }
 @media (max-width: 359px) { .tiles { grid-template-columns: 1fr; } }
+/* The review screen's bottom bar: "Save and split with friends" above Cancel / Save, always in view */
+.rv-foot { display: flex; flex-direction: column; gap: var(--sp-1); }
+.rv-split { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }

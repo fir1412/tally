@@ -1607,4 +1607,7 @@ export default {
   "{0}% of budget": "{0}% bajet",
   "{0}: {1} less at {2}": "{0}: {1} lebih murah di {2}",
   "when money comes in": "apabila wang masuk",
+  "Read the story": "Baca ceritanya",
+  "Read today's page of the story": "Baca halaman cerita hari ini",
+  "Save and split with friends": "Simpan dan kongsi dengan kawan",
 };

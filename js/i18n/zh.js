@@ -1607,4 +1607,7 @@ export default {
   "{0}% of budget": "预算的 {0}%",
   "{0}: {1} less at {2}": "{0}：在 {2} 便宜 {1}",
   "when money comes in": "有收入后显示",
+  "Read the story": "看故事",
+  "Read today's page of the story": "看今天的故事",
+  "Save and split with friends": "保存并和朋友分摊",
 };

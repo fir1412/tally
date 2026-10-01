@@ -256,7 +256,8 @@ export const reviewView = {
       ${on('reminders') ? remindHtml(d) : ''}
       ${current.manual ? '' : `<label class="check"><input type="checkbox" id="rv-refund" data-input="rv-refund"${d.refund ? ' checked' : ''}> ${esc(t('Refund: money back to this account'))}</label>`}
       <label class="check"><input type="checkbox" id="rv-learn" checked> ${esc(t('Remember my category changes for next time'))}</label>
-      <div class="row2 sticky"><button class="btn ghost" data-act="rv-skip">${esc(current.existing ? t('Cancel') : t('Discard'))}</button><button class="btn" data-act="rv-save">${esc(flagged ? t('Save · {0} to check', flagged) : t('Save'))}</button></div>`;
+      <div class="sticky rv-foot">${on('split') && !d.refund && !queue.length && !(current.existing && S.tx.find(x => x.id === d.id)?.split) ? `<button class="link rv-split" data-act="rv-save-split">${ICON.users}${esc(t('Save and split with friends'))}</button>` : ''}
+        <div class="row2"><button class="btn ghost" data-act="rv-skip">${esc(current.existing ? t('Cancel') : t('Discard'))}</button><button class="btn" data-act="rv-save">${esc(flagged ? t('Save · {0} to check', flagged) : t('Save'))}</button></div></div>`;
   },
 };
 
@@ -416,7 +417,10 @@ export const act = {
   'rv-bulkcat': () => { const c = $('#rv-bulkcat')?.value, d = current.draft; if (!c || !current.picked?.size) return; for (const n of current.picked) if (d.items[n]) { d.items[n].category = c; d.items[n].changed = true; } current.selecting = false; persist(); render(); toast(t('Category set for {0} items', current.picked.size), { icon: 'check' }); },
   'rv-add': () => { current.draft.items.push({ name: '', raw: '', cents: 0, category: current.draft.category, flag: true }); persist(); render(); $$('.iname').at(-1)?.focus(); },
   'rv-del': b => { current.draft.items.splice(+b.dataset.n, 1); persist(); render(); },
-  'rv-save': async b => {
+  // Save and split: the same save, then the split sheet on the saved receipt with its items ready to tap.
+  'rv-save-split': b => act['rv-save'](b, 'split'),
+  'rv-save': async (b, how) => {   // how: 'split' from Save and split (actions also get the click event)
+    const split = how === 'split';
     const d = current.draft;
     if (current.manual && d.items.length) d.total = itemsSum(d);
     if (!d.total || d.total <= 0) { toast(t('Type the total from the receipt first.'), { k: 'warn' }); $('#rv-total')?.focus(); return; }
@@ -446,6 +450,13 @@ export const act = {
     const first = !current.existing && firstWord(tx.receiptId ? 'receipt' : 'entry');
     toast(first || (tx.date.slice(0, 7) === today().slice(0, 7) ? t('Saved {0} at {1}', fmtAcct(S.accounts.find(a => a.id === tx.accountId), tx.amount), tx.merchant || accName(tx.accountId)) : t('Saved {0} under {1}', fmtAcct(S.accounts.find(a => a.id === tx.accountId), tx.amount), fmtMonth(tx.date.slice(0, 7)))), { icon: 'check', ...(first ? { k: 'good', cheer: true } : {}) });
     await finish();
+    if (split) {   // Home first (going back through history closes sheets as it lands), then the split on top of it
+      go('home');
+      for (let i = 0; i < 40 && !/^#\/home$|^$/.test(location.hash); i++) await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 150));
+      const saved = S.tx.find(x => x.id === tx.id); if (saved) (await import('./splitbill.js')).openSplit(saved);
+      return;
+    }
     if (queue.length) { pump(); render(); } else go('home');
   },
 };
