@@ -823,7 +823,7 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
 }
 /**
  * Can I afford it? Over the next 30 days: money there is today (`balance`), plus pay due in them (the last salary
- * again, a month after it), minus bills due in them and everyday spending at the usual pace (the forecast's), minus
+ * again, a month after it; with no salary lately, the usual income), minus bills due in them and everyday spending at the usual pace (the forecast's), minus
  * the price. yes: a week of usual spending (at least RM 100) still left, and within the budget if there is one.
  * tight: money there but less than that, or over budget. no: short; `months` of usual saving (the last 3 full
  * months' money in minus out) would cover it, when there is any saving.
@@ -855,11 +855,16 @@ export function affordCheck({ price, balance, txs, today, startDay = 1, bills = 
   const back = startDay < 0 ? -startDay - 1 : p1 && p2 && p1.slice(8) !== p2.slice(8) && fromEnd(p1) === fromEnd(p2) ? fromEnd(p2) : null;   // 29 Sep, 30 Oct: second-last day
   const next = sal && `${nm}-${pad2(back != null ? daysInMonth(nm) - back : Math.min(+sal.date.slice(8, 10), daysInMonth(nm)))}`,   // 31 Aug → 30 Sep
     pay = next && next > today && next <= end ? sal.amount : 0;
-  const left = balance + pay - upcoming - usual - price, over = budget ? Math.max(0, f.projected + price - budget) : 0;
-  const ym = cycleKey(today, startDay), flow = cashFlow(txs, addMonths(ym, -1), 3, startDay).filter(m => m.income || m.expense);
+  // No salary lately (riders, freelancers, small sellers): their usual income instead, the lowest of the last 3 full
+  // months that have any entries (refunds aside), so one good month can't make a buy look affordable.
+  const ym = cycleKey(today, startDay), recentPay = sal && sal.date >= addDays(today, -62);
+  const full = recentPay ? [] : [1, 2, 3].map(k => addMonths(ym, -k)).filter(k => txs.some(x => cycleKey(x.date, startDay) === k));
+  const earn = full.length ? Math.min(...full.map(k => txs.filter(x => x.type === 'income' && x.category !== 'refund' && cycleKey(x.date, startDay) === k).reduce((s, x) => s + x.amount, 0))) : 0;
+  const left = balance + pay + earn - upcoming - usual - price, over = budget ? Math.max(0, f.projected + price - budget) : 0;
+  const flow = cashFlow(txs, addMonths(ym, -1), 3, startDay).filter(m => m.income || m.expense);
   const net = flow.length ? Math.round(flow.reduce((s, m) => s + m.income - m.expense, 0) / flow.length) : 0;
   const verdict = left < 0 ? 'no' : left < Math.max(100_00, Math.round(f.rate * 7)) || over ? 'tight' : 'yes';
-  return { verdict, balance, pay, payDate: pay ? next : null, upcoming, usual, price, left, end, over, net, months: left < 0 && net > 0 ? Math.ceil(-left / net) : null };
+  return { verdict, balance, pay, payDate: pay ? next : null, earn, upcoming, usual, price, left, end, over, net, months: left < 0 && net > 0 ? Math.ceil(-left / net) : null };
 }
 /** A month's spending split into regular payments (bills, and shops that are known or detected bills) and day-to-day spending. */
 export function fixedFlexible(txs, ym, sd = 1, billShops = []) {

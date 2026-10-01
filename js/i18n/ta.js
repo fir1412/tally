@@ -1505,6 +1505,7 @@ export default {
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab, Shopee, வங்கி ஆப் கட்டண ஸ்கிரீன்ஷாட்கள் இன்னும் சரியாகப் படிக்கப்படும்: தேதி, கடை அல்லது உணவகம், பொருட்கள்",
   "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "மேலும் பல ஆப் ஸ்கிரீன்ஷாட்கள் சரியாகப் படிக்கப்படும்: McDonald's, Airbnb கட்டணங்கள், Shopee பேட்ஜ்களின் கீழ் உள்ள பொருட்கள்",
   "A guide from your own entries, not financial advice.": "உங்கள் சொந்தப் பதிவுகளிலிருந்து ஒரு வழிகாட்டி, நிதி ஆலோசனை அல்ல.",
+  "Usual income (your lowest month lately)": "வழக்கமான வருமானம் (சமீபத்தில் உங்கள் குறைந்த மாதம்)",
   "At most {0}.": "அதிகபட்சம் {0}.",
   "Owed to you": "உங்களுக்கு வர வேண்டியது",
   "Paid back": "கிடைத்தது",

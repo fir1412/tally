@@ -46,7 +46,7 @@ const movedCard = () => `<section class="card moved"><h2>${esc(t('Tally has move
 /** The answer and the sums behind it. */
 function affordHtml(r) {
   const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
-  const rows = [[t('Money now'), r.balance], r.pay && [t('Pay due {0}', fmtDate(r.payDate)), r.pay], [t('Bills due'), -r.upcoming], [t('Usual everyday spending'), -r.usual], [t('This buy'), -r.price]].filter(Boolean);
+  const rows = [[t('Money now'), r.balance], r.pay && [t('Pay due {0}', fmtDate(r.payDate)), r.pay], r.earn && [t('Usual income (your lowest month lately)'), r.earn], [t('Bills due'), -r.upcoming], [t('Usual everyday spending'), -r.usual], [t('This buy'), -r.price]].filter(Boolean);
   const why = r.left >= 0 ? t('{0} left over the next 30 days, after this, your bills and your usual spending.', fmtRM(r.left)) : t('You would be {0} short over the next 30 days.', fmtRM(-r.left));
   const save = r.verdict !== 'no' ? '' : r.months ? (r.months === 1 ? t('At your usual saving ({0} a month), you could buy it next month.', fmtRM(r.net)) : t('At your usual saving ({0} a month), you could buy it in {1} months.', fmtRM(r.net), r.months))
     : t('You usually spend what you earn, so saving for it means spending less first.');

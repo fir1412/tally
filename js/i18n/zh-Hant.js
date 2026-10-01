@@ -1505,6 +1505,7 @@ export default {
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab、Shopee 和銀行應用付款截圖讀得更準：日期、商店或餐廳、以及每一項都更準確",
   "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "更多應用截圖讀得準：麥當勞、Airbnb 費用，以及 Shopee 標籤下的商品",
   "A guide from your own entries, not financial advice.": "根據你自己的記錄給出的參考，不是理財建議。",
+  "Usual income (your lowest month lately)": "平常收入（你最近收入最低的一個月）",
   "At most {0}.": "最多 {0}。",
   "Owed to you": "別人欠你",
   "Paid back": "已還錢",

@@ -433,3 +433,17 @@ test('a bill due today and not paid yet still counts, once paid it counts as spe
   const f = E.forecast({ txs: paid, today: '2026-10-15', bills: [bill] });
   assert.equal(f.upcoming + f.spent, 50000);
 });
+
+test('no salary lately: "Can I afford it?" counts the usual income, the lowest of the last 3 full months', () => {
+  const inc = (d, a, c = 'income') => ({ id: d + a + c, type: 'income', date: d, amount: a * 100, category: c, accountId: 'a' });
+  const ex = (d, a) => ({ id: 'e' + d + a, type: 'expense', date: d, amount: a * 100, category: 'food', merchant: 'Kedai', accountId: 'a' });
+  const days = (m, n, f) => Array.from({ length: n }, (_, i) => f(`2026-${m}-${String(i + 1).padStart(2, '0')}`));
+  const rider = [...days('07', 31, d => inc(d, 150)), ...days('08', 31, d => inc(d, 150)), ...days('09', 30, d => inc(d, 100)), ...days('10', 10, d => ex(d, 30)), inc('2026-08-20', 50, 'refund')];
+  const r = E.affordCheck({ price: 100000, balance: 150000, txs: rider, today: '2026-10-10' });
+  assert.equal(r.earn, 300000);   // September, the quietest month; the refund isn't income
+  assert.equal(r.left, 260000);
+  assert.equal(r.verdict, 'yes');
+  assert.equal(E.affordCheck({ price: 100000, balance: 300000, txs: [inc('2026-09-25', 4000, 'salary'), inc('2026-09-28', 500)], today: '2026-10-10' }).earn, 0);   // salaried: pay day instead
+  assert.equal(E.affordCheck({ price: 10000, balance: 100000, txs: days('10', 5, d => ex(d, 20)), today: '2026-10-05' }).earn, 0);   // no full month yet
+  assert.equal(E.affordCheck({ price: 10000, balance: 100000, txs: [inc('2026-07-25', 4000, 'salary'), inc('2026-08-15', 800), inc('2026-09-15', 600)], today: '2026-10-10' }).earn, 60000);
+});
