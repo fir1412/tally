@@ -129,6 +129,17 @@ test('app screenshots: the shop under the delivery app, Shopee by its own words,
   assert.equal(shop(['9:19 48%', 'Transfer Money', 'Successful', 'Recipient Name', 'AHMAD BIN CONTOH', 'Amount', 'MYR 50.00']), 'Ahmad Bin Contoh');
   assert.equal(shop(['10:43 86%', 'Payment Receipt', 'Thank you for using myTNB.', 'AMOUNT (RM)', '109.50']), 'TNB');
 });
+test('app screenshot items: rider line, drink options, app fees, Shopee price lines with their quantity', () => {
+  const items = l => parseReceipt(l.join('\n'));
+  // A food-delivery order: the rider's plate and rating and the drink's options are not things bought; fees are charges
+  const g = items(['1:32 61%', 'Order Summary', 'ABC1234·HONDA WAVE 5.00', 'Kedai Contoh-Taman Contoh', '1x Teh Tarik 4.00', 'Dairy| Less Sweet| Less Ice 5.00', '1x Roti Canai 2.00', 'Subtotal RM6.00', 'Delivery fee 2.00', 'Carbon Neutral Fee 0.10', 'Total RM8.10']);
+  assert.deepEqual(g.items.map(i => i.cents), [400, 200]);
+  assert.equal(g.service, 210);
+  assert.equal(g.check.ok, true);
+  // Shopee: product, variant "x2", then old and new price; "X7" (OCR's x1) undone by the printed subtotal
+  const s = items(['10:02 68%', 'Order Details', 'Preferred+ Kedai Contoh Visit Shop', 'Sabun Contoh 30ml', '30ml x2', 'RM48.00RM28.30', 'Mall Kedai Dua', 'Periuk Contoh 3L', '15DaysFreeReturns* X7', 'RM259.00RM229.00', 'Merchandise Subtotal RM285.60', 'Order Total RM285.60']);
+  assert.deepEqual(s.items.map(i => [i.name, i.cents]), [['Sabun Contoh 30ml', 5660], ['Periuk Contoh 3L', 22900]]);
+});
 test('dates: day-first, ISO, impossible dates rejected', () => {
   assert.equal(parseDate('05/03/2026'), '2026-03-05');
   assert.equal(parseDate('2026-09-01 10:00'), '2026-09-01');

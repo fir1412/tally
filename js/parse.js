@@ -9,6 +9,10 @@ import { calcAmount } from './engine.js';
 const AMOUNT = /(-)?\s*(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(-)?(?:\s*(?!(?:ML|KG|MM|CM|L|G|M)\b)(?:[A-Z]{1,2}|\*)|\s+[^\s\d]{1,2}|\s+\d)?\s*$/i;
 const COUNT = /\b([il1]te[mn]|qty)\s*[(（]s[)）]|\bno\.?\s*of\s*items|\bitem\s*count/i; // "Item(s): 5 Qty(s): 5"
 const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[.,]\d{2}\s*$/i;   // "2 x 10.90", "1ea@5.90"
+// A delivery rider's plate and bike with a rating ("VFV4311·WM110 5.00"); a drink's options ("Dairy| Less Sweet| Less Ice")
+// with its price before a discount; a shop app's badges ("15 Days Free Returns", "Preferred+"): never things bought.
+const NOT_ITEM = /\b[A-Z]{1,3}\s?\d{3,4}[A-Z]?\s*[·•]\s*[A-Z]|[A-Z]\s*[·•]\s*[A-Z]{1,3}\s?\d{3,4}\b|\|.*\|/;
+const BADGE = /free\s*returns|guarantee|preferred\s*\+?|visit\s*shop|chat\s*now|\bmall\b|expected\s*delivery|contact\s*seller|support\s*cent(er|re)|you\s*may\s*also\s*like/i;
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g|l|ltrs?|litres?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit|l|ltr|litre))?\s*/i;   // weighed "1.438 KG X 6.90/KG", pumped "26.615L@ RM2.05/L"
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
@@ -20,7 +24,7 @@ const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|s
 const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
-const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費/i;   // a charge on top of the items (Shopee's shipping)
+const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費|platform\s*fee|carbon\s*neutral|packaging\s*(fee|charge)|small\s*order\s*fee/i;   // a charge on top of the items (Shopee's shipping)
 const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax(?![a-z])|cukai/i;   // "TAX6%" too
 const ROUNDING = /round|pelarasan|bundar/i;
 const MONEY_LABEL = new RegExp([TOTAL, SUBTOTAL, TAX, SERVICE, ROUNDING].map(x => x.source).join('|'), 'i');
@@ -228,6 +232,9 @@ export function parseReceipt(text) {
     }, []);
   const r = { merchant: null, date: null, time: null, items: [], subtotal: null, tax: null, service: null, rounding: null, total: null };
   let pendingName = null; // name line waiting for a "2 x 3.50  7.00" line
+  // A shop app's product block: name, variant, "15 Days Free Returns x2", then "RM48.00 RM28.30" (old and new price).
+  const app = appScreen(lines);
+  let block = [];         // the text lines since the last item or shop header
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
   let billOff = 0;        // a discount on the whole bill
   const below = namesBelow(lines);
@@ -243,11 +250,12 @@ export function parseReceipt(text) {
     const m = line.match(AMOUNT);
     const label = m ? line.slice(0, m.index).trim() : line;
     if (!m) {
+      if (app) block = /^\W*(preferred|mall)\b|visit\s*shop|chat\s*now/i.test(line) ? [] : [...block, line];
       // "Item (s):1 Qty(s):1" is a footer and "QTY ITEM", "Table: 8", "Payment :" are headers: never an item's name
-      const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
+      const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !BADGE.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
       if (hasText && last && last.name === null) { last.name = line; pendingName = null; } // name printed under the price
-      else pendingName = hasText ? (pendingName && r.items.length && line.length <= 14 && pendingName.length < 40 && !TOTAL.test(line) && !PAYMENT.test(line) ? `${pendingName} ${line}` : line) : null;   // a name wrapped onto a short second line ("SPECIAL"): both halves; never the shop's header
+      else { pendingName = hasText ? (pendingName && r.items.length && line.length <= 14 && pendingName.length < 40 && !TOTAL.test(line) && !PAYMENT.test(line) ? `${pendingName} ${line}` : line) : null; }   // a name wrapped onto a short second line ("SPECIAL"): both halves; never the shop's header
       continue;
     }
     const cents = toCents(m);
@@ -276,14 +284,22 @@ export function parseReceipt(text) {
     else if (cents < 0 && r.subtotal !== null && r.total === null) billOff += -cents;   // "1 Frappe (any flavor) -9.50": a promotion between subtotal and total
     else if (r.subtotal === null && r.total === null && !COUNT.test(label)) { // items stop at the subtotal or first real total
       const name = label.replace(QTY, '').trim();
-      const qtyOnly = !/[a-z]{2}/i.test(bareName(name));   // "2587 1.00 PCS 48.00": code, qty and price; the name is elsewhere
+      // "2587 1.00 PCS 48.00": code, qty and price; "RM48.00 RM28.30": a shop app's old and new price. The name is elsewhere
+      const qtyOnly = !/[a-z]{2}/i.test(bareName(name.replace(/(?:RM|MYR)\s*\d+[.,]\d{2}/gi, '')));
+      // On a shop app, a price with no name of its own ("RM48.00 RM28.30", "15 Days Free Returns RM44.00") belongs to the
+      // product block above it: the name from its first line, the quantity from its "x2" line (the price is for one).
+      const XN = /\bx\s*(\d{1,2})\s*$/i, badgeOnly = BADGE.test(name) && name.replace(BADGE, '').replace(/[^a-z]/gi, '').length < 3;
+      const product = app && (qtyOnly || badgeOnly) && block.find(l => /\p{L}{3}/u.test(l) && !BADGE.test(l) && !XN.test(l));
+      const times = product ? +(block.findLast(l => XN.test(l))?.match(XN)[1] ?? 1) : 1;
       // Number-only line: its name is the line above, or (code-qty-price layout) the line below, filled in above
       const unit = line.match(UNIT_ONLY);   // "2 x 10.90" with no line total: the total is on the line next to it
       const prev = r.items.at(-1);
-      if (qtyOnly && !unit && prev?.q && prev.q * prev.cents === cents) { prev.cents = cents; delete prev.q; }   // "2 x 10.90" then "21.80": one item
+      if (NOT_ITEM.test(line)) { /* a rider's plate and rating, a drink's options: not bought */ }
+      else if (qtyOnly && !unit && prev?.q && prev.q * prev.cents === cents) { prev.cents = cents; delete prev.q; }   // "2 x 10.90" then "21.80": one item
+      else if (product) r.items.push({ name: product, cents: cents * times, ...(times > 1 ? { one: cents } : {}) });
       else r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents, ...(unit ? { q: +unit[1] } : {}) });
     }
-    pendingName = null;
+    pendingName = null; block = [];
   }
   if (r.total === 0) r.total = null;   // "Total (MYR) 0.00" on tax-inclusive templates is never what was paid
   if (r.total === null) guessTotal(r, lines);
@@ -307,7 +323,14 @@ export function parseReceipt(text) {
     const j = [i + 1, i - 1].find(k => r.items[k] && !r.items[k].q && r.items[k].cents === u.q * u.cents);
     if (j !== undefined) { r.items[j].name ||= u.name; r.items.splice(i--, 1); }
   }
-  for (const it of r.items) delete it.q;
+  // A shop app's "x1" read as "X7": when the printed subtotal matches the prices taken once, they were once.
+  const sum = list => list.reduce((s, it) => s + it.cents, 0);
+  if (r.subtotal !== null && sum(r.items) !== r.subtotal) {
+    const odd = r.items.find(it => it.one && sum(r.items) - it.cents + it.one === r.subtotal);   // the one misread
+    if (odd) odd.cents = odd.one;
+    else if (sum(r.items.map(it => ({ cents: it.one ?? it.cents }))) === r.subtotal) for (const it of r.items) it.cents = it.one ?? it.cents;
+  }
+  for (const it of r.items) { delete it.q; delete it.one; }
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.items = dropSummaryLines(r.items);
   r.check = checksum(r);
