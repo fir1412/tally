@@ -80,14 +80,20 @@ test('forecast: spent + bills still due + everyday pace; one-offs count once; sa
   assert.equal(paid.rate, 3000);   // a known bill paid by hand does not inflate the everyday pace
   // Payday months: 25 Sep – 24 Oct; three days in, last cycle's pace is used.
   const pd = E.forecast({ txs: [ex('2026-08-30', 31000), ex('2026-09-26', 5000)], today: '2026-09-27', startDay: 25 });
-  assert.equal(pd.end, '2026-10-24'); assert.ok(pd.early); assert.equal(pd.rate, 1000);
+  assert.equal(pd.end, '2026-10-24'); assert.ok(pd.early); assert.equal(pd.rate, Math.round(31000 / 26));   // from the first entry (30 Aug) to 24 Sep
   const early = E.forecast({
     txs: [ex('2026-09-20', 12900, { merchant: 'Unifi' }), ex('2026-09-21', 3000), ex('2026-10-01', 3000)],
     today: '2026-10-02', bills,
   });
   assert.equal(early.upcoming, 12900);
-  assert.equal(early.rate, 100);   // last month's known bill does not become an everyday daily rate
-  assert.equal(early.projected, 3000 + 12900 + 29 * 100);
+  assert.equal(early.rate, Math.round(3000 / 11));   // last month's known bill does not become an everyday daily rate; entries began 20 Sep
+  assert.equal(early.projected, 3000 + 12900 + Math.round(3000 / 11 * 29));
+  // Started logging late in the month: RM 60 typed on the 28th is RM 60 a day, not RM 60 spread over 28 days (owner, 2026-10-01).
+  const late = E.forecast({ txs: [ex('2026-10-28', 6000)], today: '2026-10-28' });
+  assert.equal(late.rate, 6000);
+  assert.equal(E.affordCheck({ price: 0, balance: 500000, txs: [ex('2026-10-28', 6000)], today: '2026-10-28' }).usual, 6000 * 30);
+  // Bills Tally posted by itself before the first typed entry don't count as having started.
+  assert.equal(E.forecast({ txs: [ex('2026-10-01', 150000, { source: 'recurring' }), ex('2026-10-28', 6000)], today: '2026-10-28' }).rate, 6000);
 });
 
 test('fixed vs flexible and bills per month', () => {

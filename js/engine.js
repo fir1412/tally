@@ -873,10 +873,14 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
   const billKeys = new Set(bills.map(r => r.key || shopWord(r.name)).filter(Boolean));
   const flex = ym => txs.filter(t => t.type === 'expense' && cycleKey(t.date, startDay) === ym && !isBill(t)
     && !billKeys.has(shopWord(t.merchant)) && t.amount < Math.max(500_00, budget * 0.25)).reduce((sum, t) => sum + t.amount, 0);
-  let rate = flex(c.key) / day, early = false;
+  // The pace counts days from the first entry, not from the month's start: RM 60 typed on day 28 of someone's first
+  // month is RM 60 a day, not RM 2 (bills Tally posts by itself don't count as having started).
+  const first = txs.reduce((m, t) => t.source !== 'recurring' && (t.type === 'expense' || t.type === 'income') && (!m || t.date < m) ? t.date : m, '');
+  const since = s => (first > s ? first : s);
+  let rate = flex(c.key) / (daysBetween(since(c.start), today) + 1), early = false;
   if (day < 7) {
     const pk = addMonths(c.key, -1), prev = monthSpend(txs, pk, startDay), pc = cycleSpan(pk, startDay);
-    if (prev.total) { rate = flex(pk) / (daysBetween(pc.start, pc.end) + 1); early = true; }
+    if (prev.total) { rate = flex(pk) / (daysBetween(since(pc.start), pc.end) + 1); early = true; }
   }
   const upcoming = bills.reduce((s, r) => s + billDates(r, c.end).filter(d => d >= today && d >= c.start && !billPaid(r, d, txs)).length * r.amount, 0);   // due today and not paid yet: still to pay
   const projected = sp.total + upcoming + Math.round(rate * left);
