@@ -35,8 +35,8 @@ const bareName = s => s.replace(/^\s*(?:\d+\s*x|x\s*[1il]|[1il]\s*x)(?=\s*\d{6,}
 // year may run straight into the time ("2024-04-0402:43:48").
 const DATE = /(?<!\d)(\d{1,2})([\/.-])(\d{1,2})\2(20\d{2}|\d{2})(?=\d{1,2}:\d{2}|\D|$)|(?<!\d)(20\d{2})([\/.-])(\d{1,2})\6(\d{1,2})(?=\d{1,2}:\d{2}|\D|$)/g;
 const MON = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
-// "18 Aug 2022", "11SEP202217:17:41", "04Sept2022", "1September2022", "12 Dec 24"; and "Aug 18, 2022".
-const DATE_WORDS = new RegExp(String.raw`(?<!\d)(\d{1,2})\s*[-/ ]?\s*(${MON})[a-z]*\.?\s*[-/, ]?\s*(20\d{2}|\d{2}(?!\d))|\b(${MON})[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})`, 'gi');
+// "18 Aug 2022", "11SEP202217:17:41", "04Sept2022", "1September2022", "12 Dec 24"; and "Aug 18, 2022", "OCT6,202410:52AM" (app screenshots).
+const DATE_WORDS = new RegExp(String.raw`(?<!\d)(\d{1,2})\s*[-/ ]?\s*(${MON})[a-z]*\.?\s*[-/, ]?\s*(20\d{2}|\d{2}(?!\d))|\b(${MON})[a-z]*\.?\s*(\d{1,2}),?\s*(20\d{2})`, 'gi');
 const monthOf = s => MON.split('|').indexOf(s.slice(0, 3).toLowerCase()) + 1;
 
 // OCR boxes [{text, box: [[x,y] x4]}] -> text with one receipt row per line.
@@ -90,13 +90,14 @@ export function parseDate(line) {
   const ok = (y, mo, d) => {
     if (y < 100) y += 2000;
     const dt = new Date(Date.UTC(y, mo - 1, d));
-    // ponytail: receipts from 2010 on; "C4.03.00" (a mall unit) would otherwise be 4 March 2000
-    return dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && y >= 2010 && y <= 2099 ? dt.toISOString().slice(0, 10) : null;
+    // ponytail: receipts from 2010 to next year; "C4.03.00" (a mall unit) would otherwise be 4 March 2000, and a phone's
+    // status bar ("8:45 8 OCT 40%") 8 October 2040
+    return dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && y >= 2010 && y <= new Date().getUTCFullYear() + 1 ? dt.toISOString().slice(0, 10) : null;
   };
   for (const re of [DATE, DATE_WORDS]) {
     re.lastIndex = 0;
     for (let m; (m = re.exec(line)); ) { // first valid one
-      const iso = re === DATE ? (m[5] ? ok(+m[5], +m[7], +m[8]) : ok(+m[4], +m[3], +m[1])) : m[4] ? ok(+m[6], monthOf(m[4]), +m[5]) : ok(+m[3], monthOf(m[2]), +m[1]);
+      const iso = re === DATE ? (m[5] ? ok(+m[5], +m[7], +m[8]) : ok(+m[4], +m[3], +m[1]) || (+m[3] > 12 ? ok(+m[4], +m[1], +m[3]) : null)) : m[4] ? ok(+m[6], monthOf(m[4]), +m[5]) : ok(+m[3], monthOf(m[2]), +m[1]);
       if (iso) return iso;
       re.lastIndex = m.index + 1; // retry one char later so an invalid match can't swallow the real date
     }
@@ -104,7 +105,7 @@ export function parseDate(line) {
   return null; // rejects 31/02, 13/13
 }
 const DATE_LABEL = /date|tarikh|tkh\b|日期|transaction|purchased|order\s*time|\bdt\b/i;
-const NOT_DATE = /exp|valid|till|until|before|mail\s*out|ship\s*out|member\s*since|promo|warranty/i;
+const NOT_DATE = /exp|valid|till|until|before|mail\s*out|ship\s*out|member\s*since|promo|warranty|estimat|deliver|arriv/i;   // "arrive by 14-09-2024": a shop app's delivery date
 /** The receipt's date: a line labelled Date or carrying a time beats the first date-like text (a promo's "valid till"). */
 function receiptDate(lines) {
   let best = null;

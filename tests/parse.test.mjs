@@ -108,6 +108,17 @@ test('dates glued to time by OCR, first valid date on the line', () => {
   assert.equal(parseDate('ORD #18-REG #19-21/03/2018 19:53'), '2018-03-21');
 });
 
+test('app screenshot dates: month name glued to the time, US order, status bar and delivery estimates skipped', () => {
+  assert.equal(parseDate('OCT6,202410:52AM'), '2024-10-06');
+  assert.equal(parseDate('AUG19,20246:17PM'), '2024-08-19');
+  assert.equal(parseDate('Aug 13202402:40:06GMT+'), '2024-08-13');
+  assert.equal(parseDate('8/22/202510:38:02PM'), '2025-08-22');   // month first only when day first is impossible
+  assert.equal(parseDate('12/05/2024'), '2024-05-12');
+  assert.equal(parseDate('8:45 8 OCT 40%'), null);   // the phone's status bar, not 8 Oct 2040
+  const r = parseReceipt(['Order Details', 'Estimated delivery date:12 Sept-14 Sept', 'arrive by 14-09-2024. View More', 'Kedai Contoh',
+    'Item A 10.00', 'Total RM10.00', 'Order Time 10-09-2024 21:04'].join('\n'));
+  assert.equal(r.date, '2024-09-10');
+});
 test('dates: day-first, ISO, impossible dates rejected', () => {
   assert.equal(parseDate('05/03/2026'), '2026-03-05');
   assert.equal(parseDate('2026-09-01 10:00'), '2026-09-01');
