@@ -973,6 +973,7 @@ export function readBackup(text) {
 const SETTINGS = {
   monthStart: v => Number.isInteger(v) && ((v >= 1 && v <= 28) || v === -1 || v === -2), weekStart: v => v === 0 || v === 1, lang: v => ['en', 'ms', 'zh', 'zh-Hant', 'ja', 'ta'].includes(v),
   textSize: v => [100, 115, 130].includes(v), theme: v => ['light', 'dark'].includes(v), accent: v => /^#[0-9a-f]{6}$/i.test(v),
+  photoKeep: v => [0, 30, 90, 365].includes(v),   // days receipt photos are kept (0: always)
   compact: v => typeof v === 'boolean', ownCats: v => typeof v === 'boolean', hideBal: v => typeof v === 'boolean', haptics: v => typeof v === 'boolean', gamify: v => typeof v === 'boolean', learnHidden: v => typeof v === 'boolean',
   myName: v => typeof v === 'string' && v.length <= 30 && !!cleanText(v, 30), remindAt: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
   features: v => isObj(v) && Object.keys(v).length <= 30 && Object.entries(v).every(([k, b]) => /^[a-z]{1,20}$/.test(k) && typeof b === 'boolean'),

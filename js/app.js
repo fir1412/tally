@@ -1,5 +1,5 @@
 // App shell: boot, hash routing, bottom nav, one delegated click/input handler, recovery screen on errors.
-import { S, load, locked, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos, repairCatNames, OLD_HOME, NEW_HOME, wipeSite } from './state.js';
+import { S, load, locked, settings, setSetting, onRemoteChange, onSaveFailed, storageMode, persistStorage, sweepPhotos, dropPhotos, today, repairCatNames, OLD_HOME, NEW_HOME, wipeSite } from './state.js';
 import { gate, watch, sealPhotos } from './lock.js';
 import { t, setLang, pickLang } from './i18n.js';
 import { $, esc, ICON, toast, closeSheet, sheetOpen, own , settling } from './ui.js';
@@ -197,6 +197,8 @@ export const refresh = () => { if (!sheetOpen()) render(); };
     onRemoteChange(async s => { if (s === 'erased') return location.reload();   // erased in another tab: nothing here may write the old data back
       await load(); if (locked()) { await gate(); await load(); } refresh(); });   // encrypted or re-keyed in another tab: ask here too
     setTimeout(() => sweepPhotos().catch(() => {}), 8000);   // photos of entries deleted before this start (after their Undo was over)
+    // Photos kept only for a while (Settings → Privacy): older ones go, their entries stay. The day count is from today's date.
+    if (settings().photoKeep > 0) setTimeout(() => { const d = new Date(`${today()}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - settings().photoKeep); dropPhotos(d.toISOString().slice(0, 10)).catch(() => {}); }, 9000);
     onSaveFailed(() => toast(t('Could not save. Your phone may be out of space.'), { k: 'bad' }));
     if (storageMode() === 'localstorage') setTimeout(() => toast(t('Private browsing: data may be lost when you close this tab.'), { k: 'warn' }), 800);
     if (!location.hash && settings().start === 'activity') { history.replaceState(null, '', '#/activity'); shown = 'activity'; }   // start screen

@@ -311,6 +311,17 @@ export const savePhoto = (id, blob) => (db.storageMode() === 'localstorage' && b
 export const deletePhotos = ids => db.delMany('receipts', ids).catch(() => {});
 // A photo that went through JSON (saved by the fallback before it refused them) comes back as {}: that is no photo.
 export const getPhoto = id => db.get('receipts', id).then(r => (r?.blob && Object.getPrototypeOf(r.blob) !== Object.prototype ? r.blob : null)).catch(() => null);
+/** Receipt photos taken off the phone, the entries kept: every photo of an entry dated before `before` (null: all).
+ *  The entries lose their link first, then the photos go: a failure between the two leaves only photos nothing uses,
+ *  which the next start sweeps. A photo still being checked in review is not an entry's yet and stays. → photos removed */
+export async function dropPhotos(before = null) {
+  const hit = S.tx.filter(x => x.receiptId && (!before || x.date < before)), ids = [...new Set(hit.map(x => x.receiptId))];
+  if (!hit.length) return 0;
+  await saveTxs(hit.map(x => { const { receiptId, ...rest } = x; return rest; }));
+  const still = new Set(S.tx.map(x => x.receiptId).filter(Boolean));   // another entry (a split's friend, a refund) may share one
+  await deletePhotos(ids.filter(id => !still.has(id)));
+  return ids.length;
+}
 /** A deleted entry's receipt photo stays for its Undo; the next start removes photos nothing uses any more (no entry,
  *  no receipt being checked, no photo waiting to be read). Deleting an entry then deletes its photo from the phone. */
 export async function sweepPhotos() {

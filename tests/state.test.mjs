@@ -60,3 +60,18 @@ test('a failed staged import does not appear in memory or on reload', async () =
   assert.equal(S.accounts.some(a => a.id === 'd'), false);
   assert.equal(S.tx.some(x => x.id === 't4'), false);
 });
+
+test('receipt photos off the phone, the entries kept: older than a date, or all', async () => {
+  const { dropPhotos } = await import('../js/state.js');
+  await load();
+  await saveAccount({ id: 'a', name: 'Cash', kind: 'cash', opening: 0 });
+  for (const [id, date] of [['r1', '2026-01-10'], ['r2', '2026-06-10'], ['r3', '2026-09-20']]) { await savePhoto(`p_${id}`, 'jpeg bytes'); await saveTx({ ...tx(id), date, receiptId: `p_${id}` }); }
+  assert.equal(await dropPhotos('2026-06-01'), 1);   // only January's
+  assert.deepEqual(S.tx.filter(x => x.id.startsWith('r')).map(x => [x.id, x.receiptId ?? null]).sort(), [['r1', null], ['r2', 'p_r2'], ['r3', 'p_r3']]);
+  assert.equal(await getPhoto('p_r1'), null); assert.equal(await getPhoto('p_r2'), 'jpeg bytes');
+  assert.equal(await dropPhotos(), 2);
+  await load();   // what reached storage: three entries, no photos
+  assert.deepEqual(S.tx.filter(x => x.id.startsWith('r')).map(x => [x.id, x.amount, x.receiptId ?? null]).sort(), [['r1', 500, null], ['r2', 500, null], ['r3', 500, null]]);
+  assert.equal(await getPhoto('p_r3'), null);
+  assert.equal(await dropPhotos(), 0);
+});

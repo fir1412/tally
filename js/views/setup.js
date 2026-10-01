@@ -1,5 +1,5 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
-import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
+import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, dropPhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
@@ -219,6 +219,8 @@ export const settingsView = {
         <details><summary>${esc(t('What Tally remembers ({0})', rules.length + names.length))}</summary><p class="fine">${esc(t('When you change an item\'s category, Tally files that item the same way next time.'))} ${esc(t('When you fix an item\'s name, Tally reads it that way next time.'))}</p>
           <ul class="list">${rules.slice(0, 200).map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k.replace(/^SHOP /, `${t('Shop')}: `))} → ${esc(catName(v))}</span><button class="icon-btn" data-act="rule-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}${names.slice(-200).reverse().map(([k, v]) => `<li class="rowb"><span class="grow">${esc(k)} → ${esc(v)}</span><button class="icon-btn" data-act="name-del" data-k="${esc(k)}" aria-label="${esc(t('Forget'))}">${ICON.x}</button></li>`).join('')}</ul></details></section>
       <section class="card"><h2>${esc(t('Privacy'))}</h2><p class="fine">${esc(t('No account, no ads, no tracking. Receipts are read on this phone. Tally goes online only for its own files, a Google Sheets link you paste, an exchange rate you ask for, feedback you send, and a Google Calendar reminder you add.'))}</p>
+        <div class="rowb">${ICON.image}<span class="grow"><b>${esc(t('Receipt photos'))}</b><small>${esc(t('{0} on this phone', new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size))} · ${esc(settings().photoKeep > 0 ? t('kept {0} days', settings().photoKeep) : t('kept always'))}</small></span>
+          <button class="btn small ghost" data-act="photos-manage">${esc(t('Manage'))}</button></div>
         <div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Lock Tally'))}</b><small>${esc(!lockOn() ? t('Off') : settings().lock.kind === 'pass' ? t('On: password') : settings().lock.cred && !encOn() ? t('On: PIN, fingerprint or face') : t('On: PIN'))}</small></span>
           <button class="btn small ghost" data-act="lock-set">${esc(lockOn() ? t('Change the lock') : t('Turn on'))}</button>${lockOn() ? `<button class="btn small ghost" data-act="lock-off">${esc(t('Turn off'))}</button>` : ''}</div>
         ${lockOn() && storageMode() === 'indexeddb' ? `<div class="rowb">${ICON.lock}<span class="grow"><b>${esc(t('Encrypt data on this phone'))}</b><small>${esc(encOn() ? t('On') : t('Off'))}</small></span><button class="btn small ghost" data-act="${encOn() ? 'enc-off' : 'enc-on'}">${esc(encOn() ? t('Turn off') : t('Turn on'))}</button></div>` : ''}
@@ -716,6 +718,30 @@ async function backedUp(msg) {
 
 // ---- actions ---------------------------------------------------------------------------------------------------------------
 export const act = {
+  // Receipt photos off the phone, entries kept: now, or automatically after a while. LHDN can ask for receipts behind a
+  // tax-relief claim for 7 years, so their download comes first.
+  'photos-manage': () => {
+    const keep = settings().photoKeep || 0, n = new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size, yr = today().slice(0, 4);
+    const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Receipt photos'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      <p class="sh-body">${esc(t('Deleting a photo keeps its entry: the shop, date, amount and items stay. Only the picture goes.'))}</p>
+      <label class="field"><span>${esc(t('Keep receipt photos'))}</span><select id="ph-keep">${[[0, t('Always')], [365, t('1 year')], [90, t('90 days')], [30, t('30 days')]].map(([v, l]) => `<option value="${v}"${v === keep ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <p class="fine">${esc(t('Older photos are deleted when Tally starts.'))}</p>
+      <p class="warnbox">${esc(t('LHDN can ask for the receipts behind a tax-relief claim for up to 7 years. Download them before deleting.'))}</p>
+      <button class="btn ghost wide" data-act="relief-dl" data-y="${yr}">${ICON.download}${esc(t('Download the receipts for {0}', yr))}</button>
+      ${n ? `<button class="btn ghost danger wide" data-act="photos-drop">${ICON.trash}${esc(t('Delete all {0} receipt photos now', n))}</button>` : ''}`, { label: t('Receipt photos') });
+    el.querySelector('#ph-keep').addEventListener('change', async e => {
+      const v = +e.target.value;
+      if (v && !(await confirmSheet({ title: t('Delete photos older than {0} days?', v), body: t('Their entries stay. This happens now and from then on whenever Tally starts.'), ok: t('Delete older photos'), danger: true }))) { e.target.value = String(keep); return; }
+      await setSetting('photoKeep', v);
+      if (v) { const d = new Date(`${today()}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - v); const gone = await dropPhotos(d.toISOString().slice(0, 10)); toast(t('{0} photos deleted. The entries are kept.', gone)); }
+      closeSheet(); render();
+    });
+  },
+  'photos-drop': async () => {
+    const n = new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
+    if (!(await confirmSheet({ title: t('Delete all {0} receipt photos?', n), body: t('Their entries stay. This cannot be undone: keep a backup with photos first if you might need them.'), ok: t('Delete photos'), danger: true }))) return;
+    const gone = await dropPhotos(); closeSheet(); render(); toast(t('{0} photos deleted. The entries are kept.', gone));
+  },
   'reader-get': async b => {
     b.disabled = true; $('#reader-dl').hidden = false;
     const { loadOcr } = await import('../scan.js');
