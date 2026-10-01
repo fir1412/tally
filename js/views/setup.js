@@ -3,7 +3,7 @@ import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, ad
 import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
-import { fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory, owing } from '../engine.js';
+import { keepReceiptUntil, fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory, owing } from '../engine.js';
 import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, backupFits, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
 import { detectPreset } from '../presets.js';
 import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKind, PAGE_BREAK, isWallet } from '../statement.js';
@@ -721,13 +721,14 @@ export const act = {
   // Receipt photos off the phone, entries kept: now, or automatically after a while. LHDN can ask for receipts behind a
   // tax-relief claim for 7 years, so their download comes first.
   'photos-manage': () => {
-    const keep = settings().photoKeep || 0, n = new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size, yr = today().slice(0, 4);
+    const keep = settings().photoKeep || 0, n = new Set(S.tx.map(x => x.receiptId).filter(Boolean)).size;
+    const years = [...new Set(S.tx.filter(x => x.receiptId && keepReceiptUntil(x)).map(x => x.date.slice(0, 4)))].sort().reverse();
     const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Receipt photos'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
       <p class="sh-body">${esc(t('Deleting a photo keeps its entry: the shop, date, amount and items stay. Only the picture goes.'))}</p>
       <label class="field"><span>${esc(t('Keep receipt photos'))}</span><select id="ph-keep">${[[0, t('Always')], [365, t('1 year')], [90, t('90 days')], [30, t('30 days')]].map(([v, l]) => `<option value="${v}"${v === keep ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <p class="fine">${esc(t('Older photos are deleted when Tally starts.'))}</p>
-      <p class="warnbox">${esc(t('LHDN can ask for the receipts behind a tax-relief claim for up to 7 years. Download them before deleting.'))}</p>
-      <button class="btn ghost wide" data-act="relief-dl" data-y="${yr}">${ICON.download}${esc(t('Download the receipts for {0}', yr))}</button>
+      <p class="warnbox">${esc(t('LHDN can ask for the receipts behind a relief claim for 7 years after the end of the year you file that return. Photos Tally matched to a relief are kept until then, even if you choose to delete older photos. Keep the original receipt or e-Invoice too: a phone photo is a backup, not a replacement.'))}</p>
+      ${years.map(y => `<button class="btn ghost wide" data-act="relief-dl" data-y="${y}">${ICON.download}${esc(t('Download the receipts for {0}', y))}</button>`).join('')}
       ${n ? `<button class="btn ghost danger wide" data-act="photos-drop">${ICON.trash}${esc(t('Delete all {0} receipt photos now', n))}</button>` : ''}`, { label: t('Receipt photos') });
     el.querySelector('#ph-keep').addEventListener('change', async e => {
       const v = +e.target.value;

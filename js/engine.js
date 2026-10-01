@@ -445,12 +445,17 @@ export function balanceTrend(accounts, txs, today, n = 6, sd = 1) {
  * over 25% of the budget (rent, a phone) count in the total but not in the daily rate, so one big day can't project
  * a month of them. `amounts`: the single everyday payments behind `spent` (monthSpend().each / .fixed).
  */
-export function pace(budget, spent, today, { startDay = 1, amounts = [], fixed = 0 } = {}) {
+export function pace(budget, spent, today, { startDay = 1, amounts = [], fixed = 0, first = '' } = {}) {
   const c = cycleOf(today, startDay), day = daysBetween(c.start, today) + 1, len = daysBetween(c.start, c.end) + 1;
-  const big = fixed + (budget > 0 ? amounts.filter(a => a > budget * 0.25).reduce((s, a) => s + a, 0) : 0);
-  const projected = big + Math.round((spent - big) / day * len);
-  return { pct: budget ? spent / budget : 0, projected, over: budget > 0 && day > 7 && projected > budget, left: budget - spent, daysLeft: len - day };
+  const n = first > c.start && first <= today ? daysBetween(first, today) + 1 : day;   // days of typed spending this month (`first`: firstSpend)
+  const big = fixed + amounts.filter(a => oneOff(a, budget)).reduce((s, a) => s + a, 0);
+  const projected = spent + Math.round((spent - big) / n * (len - day));
+  return { pct: budget ? spent / budget : 0, projected, over: budget > 0 && n > 7 && projected > budget, left: budget - spent, daysLeft: len - day };
 }
+/** A buy too big to be everyday: RM 500+, or over a quarter of the budget. One rule for pace(), forecast() and Can I afford it? */
+export const oneOff = (a, budget = 0) => a >= 500_00 || (budget > 0 && a > budget * 0.25);
+/** The first day spending was typed (bills Tally posts by itself aren't typing): the everyday pace counts from here. '' when none. */
+export const firstSpend = txs => txs.reduce((m, t) => (t.type === 'expense' && !isBill(t) && (!m || t.date < m) ? t.date : m), '');
 
 // ---- duplicates --------------------------------------------------------------------------------
 const shopWord = once(s => itemKey(s).split(' ').filter(w => w.length > 2 || /\p{Script=Han}/u.test(w)).slice(0, 2).join(' '));
@@ -469,12 +474,12 @@ export function findDuplicate(tx, txs) {
 export function insights({ txs, budgets = {}, today, knownBills = [], startDay = 1 }) {
   const out = [], sd = startDay;
   const ym = cycleKey(today, sd), prev = addMonths(ym, -1);
-  const { [ym]: now, [prev]: last } = monthSpends(txs, [ym, prev], sd);
+  const { [ym]: now, [prev]: last } = monthSpends(txs, [ym, prev], sd), first = firstSpend(txs);
   // Pace: a budget heading over before the month ends.
   const checks = [['total', budgets.total, now.total], ...Object.entries(budgets.byCat || {}).map(([c, b]) => [c, b, now.byCat[c] || 0])];
   for (const [c, b, spent] of checks) {
     if (!b) continue;
-    const p = pace(b, spent, today, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] });
+    const p = pace(b, spent, today, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c], first });
     const label = { cat: c };
     if (spent > b) out.push({ id: `over-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} is over budget', label], body: ['Spent {0} of {1}.', fmtRM(spent), fmtRM(b)] });
     else if (p.over && p.pct >= 0.5) out.push({ id: `pace-${c}-${ym}`, kind: 'pace', level: 'warn', cat: c, title: ['{0} at {1}% with {2} days left', label, Math.round(p.pct * 100), p.daysLeft], body: ["At this pace you'll spend {0}, {1} over.", fmtRM(p.projected), fmtRM(p.projected - b)] });
@@ -662,8 +667,14 @@ export function billDates(r, upTo) {
   }
   return out;
 }
-/** The days a payment counts for a bill due on `date`: its calendar month; 3 days either side (weekly); half a year (yearly). */
-const billPeriod = (r, date) => (r.freq === 'weekly' ? [addDays(date, -3), addDays(date, 3)] : r.freq === 'yearly' ? [addDays(date, -182), addDays(date, 182)] : [`${monthOf(date)}-01`, `${monthOf(date)}-31`]);
+/** The days a payment counts for a bill due on `date`: halfway back to the last due date to just before halfway on to the
+ *  next (monthly: rent paid on 29 Sep counts for 1 Oct, once); 3 days either side (weekly); half a year (yearly). */
+function billPeriod(r, date) {
+  if (r.freq === 'weekly') return [addDays(date, -3), addDays(date, 3)];
+  if (r.freq === 'yearly') return [addDays(date, -182), addDays(date, 182)];
+  const dd = r.day || +(r.start || date).slice(8, 10), on = ym => `${ym}-${pad2(Math.min(dd, daysInMonth(ym)))}`, m = monthOf(date);
+  return [addDays(date, -Math.floor(daysBetween(on(addMonths(m, -1)), date) / 2)), addDays(date, Math.ceil(daysBetween(date, on(addMonths(m, 1))) / 2) - 1)];
+}
 /** Paid for the period of the payment due on `date`: an expense with the bill's name, whatever the amount (utility bills vary), or one tagged with the bill. */
 export function billPaid(r, date, txs) {
   const name = String(r.name || '').trim().toLowerCase(), [a, b] = billPeriod(r, date);
@@ -786,15 +797,15 @@ export function dueNudge(habitList, txs, now, dismissed = []) {
  */
 export const RELIEFS = [
   { id: 'zakat', name: 'Zakat and fitrah (tax rebate)', shop: true, re: /zakat|fitrah/i },
-  { id: 'donation', name: 'Donations (approved bodies only, official receipt needed)', re: /derma\b|donation|sumbangan|wakaf|捐款|捐赠|捐獻/i },
-  { id: 'breastfeeding', name: 'Breastfeeding equipment', re: /breast ?pump|pam susu|breastfeed|penyusuan|nursing (bra|pad)|milk storage|吸奶器|母乳/i },
+  { id: 'donation', name: 'Donations (approved bodies only, official receipt needed)', re: /derma\b|donation|sumbangan|wakaf|捐款|捐赠|捐獻/i, no: /\bpibg\b|\bpta\b|yuran/i },
+  { id: 'breastfeeding', name: 'Breastfeeding equipment', re: /breast ?pump|pam susu|breastfeed|penyusuan|milk storage|吸奶器|母乳/i },
   { id: 'childcare', name: 'Childcare and kindergarten fees', shop: true, re: /tadika|taska|kindergarten|pre-?school|prasekolah|child ?care|day ?care|nursery fee|幼儿园|幼兒園|托儿|托兒/i },
   // Anchored (^, m): unanchored lookaheads re-scanned the rest of the text from every position (quadratic on a long import).
   { id: 'ev', name: 'EV charging', shop: true, re: /^(?=.*(?:\bev charg(?:e|er|ing)|electric vehicle charg(?:e|er|ing)|charging (?:station|equipment)|wallbox|充电桩|充電樁))(?=.*(?:install(?:ation)?|rent(?:al)?|purchas(?:e|ing)|subscription|equipment|pemasangan|sewaan|pembelian|langganan|peralatan|安装|安裝|购买|購買|租赁|租賃|订阅|訂閱))/im },
-  { id: 'sports', name: 'Sports and gym', shop: true, re: /\bgym\b|fitness|badminton|futsal|racket|raket|shuttlecock|jersey|kasut sukan|running shoe|marathon|yoga|pilates|swimming|renang|\bsports?\b|\bsukan\b|健身|羽毛球/i },
-  { id: 'medical', name: 'Medical, dental and vaccination', shop: true, cats: ['health', 'other'], re: /dental|dentist|pergigian|\bgigi\b|scaling|vaksin|vaccin|medical check|health screening|pemeriksaan kesihatan|fertility|\bivf\b|physio|mental health|psychiatr|psycholog|牙医|牙醫|牙科|疫苗|医院|醫院|体检|體檢/i },
-  { id: 'education', name: 'Education fees (yourself)', shop: true, cats: ['education', 'other', 'bills'], re: /yuran pengajian|tuition fee|course fee|semester fee|university|universiti|\bcollege\b|\bkolej\b|\bdegree\b|\bmba\b|\bphd\b|upskill|\bkursus\b|学费|學費/i },
-  { id: 'lifestyle', name: 'Books, phone, computer and internet', re: /\bbooks?\b|\bbuku\b|\bnovel\b|magazine|majalah|newspaper|akhbar|smartphone|\b(hand)?phone\b|telefon bimbit|iphone|galaxy|redmi|tablet|\bipad\b|laptop|computer|komputer|macbook|internet|unifi|broadband|fibre|书|書|杂志|雜誌|手机|手機|电脑|電腦|平板/i, no: /reload|prepaid|top ?up|\bcase\b|casing|cover|protector|charger|cable|kabel|buku latihan|exercise book/i },
+  { id: 'sports', name: 'Sports and gym', shop: true, re: /\bgym\b|\bfitness\b|badminton|futsal|racket|raket|shuttlecock|jersey|kasut sukan|running shoe|marathon|yoga|pilates|swimming|renang|\bsports?\b|\bsukan\b|健身|羽毛球/i, no: /drink|minuman|isotonic|100 ?plus|cereal|bijirin|\u996e\u6599|\u98f2\u6599/i },
+  { id: 'medical', name: 'Medical, dental and vaccination', shop: true, cats: ['health', 'other'], re: /dental|dentist|pergigian|\bgigi\b|scaling|vaksin|vaccin|medical check|health screening|pemeriksaan kesihatan|fertility|\bivf\b|mental health|psychiatr|psycholog|牙医|牙醫|牙科|疫苗|体检|體檢/i, no: /kucing|\bcats?\b|anjing|\bdogs?\b|\bpets?\b|veterin|\bvet\b|haiwan|\u732b|\u8c93|\u72d7|\u5ba0\u7269|\u5bf5\u7269/i },
+  { id: 'education', name: 'Education fees (yourself)', shop: true, cats: ['education', 'other', 'bills'], re: /yuran pengajian|course fee|semester fee|university|universiti|\bcollege\b|\bkolej\b|\bdegree\b|\bmba\b|\bphd\b|upskill|\bkursus\b|学费|學費/i, no: /memandu|driving|kahwin|perkahwinan|marriage|tuisyen|\u8865\u4e60|\u88dc\u7fd2/i },
+  { id: 'lifestyle', name: 'Books, phone, computer and internet', re: /\bbooks?\b|\bbuku\b|\bnovel\b|magazine|majalah|newspaper|akhbar|smartphone|\b(hand)?phone\b|telefon bimbit|iphone|galaxy|redmi|tablet|\bipad\b|laptop|computer|komputer|macbook|internet|unifi|broadband|fibre (?:broadband|internet|plan)|书|書|杂志|雜誌|手机|手機|电脑|電腦|平板/i, no: /reload|prepaid|top ?up|\bcase\b|casing|cover|protector|charger|cable|kabel|buku latihan|buku tulis|exercise book|\bmouse\b|keyboard|earphone|headphone|speaker|watch|\bband\b|\bmg\b|panadol|paracetamol|ubat|vitamin|\d+\s*(?:s|tabs?|tablets?)\b|\u58f3|\u6bbc|\u5957|\u819c|\u4e66\u5305|\u66f8\u5305/i },
 ];
 /** The relief a line of spending may count toward, or null. `item`: the item's words; `shop`: the shop and note. */
 export function reliefOf(item, shop, category) {
@@ -807,12 +818,16 @@ export function reliefOf(item, shop, category) {
 }
 /**
  * Recorded candidate spending by calendar year: [{id, name, total, entries:
- * [{id, date, merchant, cents, proof (has a receipt photo)}], proof (entries with one)}] in RELIEFS order.
+ * [{id, date, merchant, cents, proof (has a receipt photo)}], proof (entries with one)}] in RELIEFS order. Only the user's own
+ * personal spending: not a partner's entries (only the spouse who paid can claim), not a business account's (`business`:
+ * its ids). A relief the user picked for a payment (t.relief) wins over the words: 'none' leaves it out, a relief's id
+ * counts the whole payment there.
  */
-export function taxRelief(txs, year) {
-  const lines = Object.fromEntries(RELIEFS.map(r => [r.id, { id: r.id, name: r.name, total: 0, entries: [] }]));
+export function taxRelief(txs, year, business = []) {
+  const biz = new Set(business), lines = Object.fromEntries(RELIEFS.map(r => [r.id, { id: r.id, name: r.name, total: 0, entries: [] }]));
   for (const t of txs) {
-    if (t.type !== 'expense' || t.date.slice(0, 4) !== String(year)) continue;
+    if (t.type !== 'expense' || t.date.slice(0, 4) !== String(year) || !ownRelief(t, biz)) continue;
+    if (pickedRelief(t)) { const P = lines[t.relief]; P.entries.push({ id: t.id, date: t.date, merchant: t.merchant || '', cents: t.amount, proof: !!t.receiptId }); P.total += t.amount; continue; }   // picked by hand: the whole payment
     const parts = itemAmounts(t), shop = `${t.merchant || ''} ${t.note || ''}`;
     for (const it of parts) {
       // A payment without items is judged by its shop and note alone.
@@ -825,6 +840,18 @@ export function taxRelief(txs, year) {
   }
   return RELIEFS.map(r => { const L = lines[r.id]; return { ...L, proof: L.entries.filter(e => e.proof).length }; });
 }
+const ownRelief = (t, business) => !t.spouse && t.relief !== 'none' && !business.has(t.accountId);
+const pickedRelief = t => !!t.relief && t.relief !== 'none' && RELIEFS.some(r => r.id === t.relief);
+/** The relief Tally finds for a payment from its words (the first part that matches), whatever the user picked; null if none. */
+export function reliefGuess(t) {
+  if (t.type !== 'expense') return null;
+  const parts = itemAmounts(t), shop = `${t.merchant || ''} ${t.note || ''}`;
+  for (const it of parts) { const id = reliefOf(parts.length === 1 && !it.name ? shop : it.name, shop, it.category); if (id) return id; }
+  return null;
+}
+/** LHDN can ask for a relief's receipts for 7 years from the end of the year the return is filed: spending in 2025 is
+ *  filed in 2026 and kept until 31 Dec 2033. The last day a relief receipt must be kept, or '' for one that isn't a relief. */
+export const keepReceiptUntil = t => (t.type === 'expense' && t.relief !== 'none' && (pickedRelief(t) || reliefGuess(t)) ? `${+t.date.slice(0, 4) + 8}-12-31` : '');
 
 /** Item names that are really codes or run-together OCR text are left out of item lists. */
 export const plainItem = name => !!itemKey(name) && !/\d{5,}/.test(name) && !/[A-Za-z]{16,}/.test(name);
@@ -864,45 +891,35 @@ export function basketIndex(hist, today, months = 6) {
 export const perMonth = r => Math.round(r.freq === 'weekly' ? r.amount * 52 / 12 : r.freq === 'yearly' ? r.amount / 12 : r.amount);
 /**
  * Month-end forecast for the budget month holding `today`: spent so far + bills still due before it ends + everyday
- * spending at its daily pace for the days left. A one-off big payment (RM 500+, or a quarter of the budget) counts
- * once, not every day. Fewer than 7 days in, the pace is last month's. safe: the budget left per day, today included.
+ * spending at its daily pace (dailyPace) for the days left. safe: the budget left per day, today included.
  */
 export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
   const c = cycleOf(today, startDay), day = daysBetween(c.start, today) + 1, len = daysBetween(c.start, c.end) + 1, left = len - day;
-  const sp = monthSpend(txs, c.key, startDay);
-  const billKeys = new Set(bills.map(r => r.key || shopWord(r.name)).filter(Boolean));
-  const flex = ym => txs.filter(t => t.type === 'expense' && cycleKey(t.date, startDay) === ym && !isBill(t)
-    && !billKeys.has(shopWord(t.merchant)) && t.amount < Math.max(500_00, budget * 0.25)).reduce((sum, t) => sum + t.amount, 0);
-  // The pace counts days from the first entry, not from the month's start: RM 60 typed on day 28 of someone's first
-  // month is RM 60 a day, not RM 2 (bills Tally posts by itself don't count as having started).
-  const first = txs.reduce((m, t) => t.source !== 'recurring' && (t.type === 'expense' || t.type === 'income') && (!m || t.date < m) ? t.date : m, '');
-  const since = s => (first > s ? first : s);
-  let rate = flex(c.key) / (daysBetween(since(c.start), today) + 1), early = false;
-  if (day < 7) {
-    const pk = addMonths(c.key, -1), prev = monthSpend(txs, pk, startDay), pc = cycleSpan(pk, startDay);
-    if (prev.total) { rate = flex(pk) / (daysBetween(since(pc.start), pc.end) + 1); early = true; }
-  }
+  const sp = monthSpend(txs, c.key, startDay), p = dailyPace({ txs, today, budget, bills });
   const upcoming = bills.reduce((s, r) => s + billDates(r, c.end).filter(d => d >= today && d >= c.start && !billPaid(r, d, txs)).length * r.amount, 0);   // due today and not paid yet: still to pay
-  const projected = sp.total + upcoming + Math.round(rate * left);
-  return { spent: sp.total, upcoming, rate: Math.round(rate), projected, daysLeft: left, end: c.end, early,
+  return { spent: sp.total, upcoming, rate: Math.round(p.rate), days: p.days, projected: sp.total + upcoming + Math.round(p.rate * left), daysLeft: left, end: c.end, early: p.early,
     safe: budget ? Math.max(0, Math.floor((budget - sp.total - upcoming) / (left + 1))) : null };
 }
 /**
- * Can I afford it? Over the next 30 days: money there is today (`balance`), plus pay due in them (the last salary
- * again, a month after it; with no salary lately, the usual income), minus bills due in them and everyday spending at the usual pace (the forecast's), minus
- * the price. yes: a week of usual spending (at least RM 100) still left, and within the budget if there is one.
- * tight: money there but less than that, or over budget. no: short; `months` of usual saving (the last 3 full
- * months' money in minus out) would cover it, when there is any saving.
+ * The everyday pace in sen a day: typed spending over the last 30 days, or since the first typed spend when that is later
+ * (RM 60 typed on the 28th of someone's first month is RM 60 a day, not RM 2), bills and one-off buys left out. No month
+ * boundary, so the first days of a month need no fallback. days: how many days it is from; early: under a week of them.
  */
+export function dailyPace({ txs, today, budget = 0, bills = [] }) {
+  const billKeys = new Set(bills.map(r => r.key || shopWord(r.name)).filter(Boolean));
+  const first = firstSpend(txs), back = addDays(today, -29), from = first > back ? first : back, days = first && first <= today ? daysBetween(from, today) + 1 : 0;
+  const spent = days ? txs.filter(t => t.type === 'expense' && t.date >= from && t.date <= today && !isBill(t) && !billKeys.has(shopWord(t.merchant)) && !oneOff(t.amount, budget)).reduce((s, t) => s + t.amount, 0) : 0;
+  return { rate: days ? spent / days : 0, days, early: days > 0 && days < 7 };
+}
 /**
  * A savings goal ({target, by?, accountId?}) against its account's balance (`bal`: engine balances().by, in the account's
  * own money; no account: 0 saved). → {have, left, pct (0–1), reached, overdue, months, perMonth}: with a date, what a
- * month gets there by it, rounded up to the sen; months counts calendar months from today's to by's, at least 1.
+ * month gets there by it, rounded up to the sen; months: the days until by in average months (30.44 days), at least 1.
  */
 export function goalProgress(g, bal, today) {
   const have = g.accountId ? bal[g.accountId] || 0 : 0, left = Math.max(0, g.target - have), reached = !left;
-  const overdue = !reached && !!g.by && g.by < today, month = d => +d.slice(0, 4) * 12 + +d.slice(5, 7);
-  const months = g.by && !reached && !overdue ? Math.max(1, month(g.by) - month(today)) : null;
+  const overdue = !reached && !!g.by && g.by < today;
+  const months = g.by && !reached && !overdue ? Math.max(1, Math.round(daysBetween(today, g.by) / 30.44)) : null;   // 1 Oct → 31 Dec is 3 months, not 2
   return { have, left, pct: Math.max(0, Math.min(have, g.target)) / g.target, reached, overdue, months, perMonth: months && Math.ceil(left / months) };
 }
 /** The money "Can I afford it?" counts: everyday accounts only (cash, bank, e-wallet, and cards as they stand). Savings
@@ -912,25 +929,46 @@ export function affordMoney(accounts, txs) {
   const known = accounts.filter(a => a.typed !== false), of = kinds => balances(known.filter(a => kinds.includes(a.kind || 'bank')), txs).total;
   return { balance: of(['cash', 'bank', 'ewallet', 'card']), savings: of(['savings']) };
 }
+/**
+ * Can I afford it? The next 30 days [today, today+30) a day at a time: money there today (`balance`) less the price, then
+ * each day's pay (the next payday not yet past, or up to 5 days late and not typed yet: the last salary day's lines again; with no salary lately, the usual income
+ * spread over the days), bills due and everyday spending at the usual pace. The verdict is on the lowest day, not the
+ * last: money that runs out before payday is short even if pay refills it. yes: a week of usual spending (at least
+ * RM 100) still there on the lowest day, and within the budget if there is one. tight: less than that, over budget, or
+ * short only because of a pace from under a week of spending. no: short; `months` of usual saving (the last 3 full
+ * months' money in minus out) would cover it. path: the 30 days (next30 draws it).
+ */
 export function affordCheck({ price, balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
-  const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30);
-  const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d >= today && !billPaid(r, d, txs)).length * r.amount, 0);   // due today and not paid yet: still to pay
-  const sal = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).reduce((m, x) => (!m || x.date > m.date ? x : m), null);
-  const sals = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date).sort().slice(-2);
-  const fromEnd = d => daysInMonth(d.slice(0, 7)) - +d.slice(8, 10), [p1, p2] = sals, nm = sal && addMonths(sal.date.slice(0, 7), 1);
+  const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30), due = new Map();
+  for (const r of bills) for (const d of billDates(r, end)) if (d >= today && d < end && !billPaid(r, d, txs)) due.set(d, (due.get(d) || 0) + r.amount);   // due today and not paid yet: still to pay
+  const upcoming = [...due.values()].reduce((s, v) => s + v, 0);
+  const salDays = [...new Set(txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date))].sort();
+  const last = salDays.at(-1), [p1, p2] = salDays.slice(-2), fromEnd = d => daysInMonth(d.slice(0, 7)) - +d.slice(8, 10);
   const back = startDay < 0 ? -startDay - 1 : p1 && p2 && p1.slice(8) !== p2.slice(8) && fromEnd(p1) === fromEnd(p2) ? fromEnd(p2) : null;   // 29 Sep, 30 Oct: second-last day
-  const next = sal && `${nm}-${pad2(back != null ? daysInMonth(nm) - back : Math.min(+sal.date.slice(8, 10), daysInMonth(nm)))}`,   // 31 Aug → 30 Sep
-    pay = next && next > today && next <= end ? sal.amount : 0;
+  const payOn = ym => `${ym}-${pad2(back != null ? daysInMonth(ym) - back : Math.min(+last.slice(8, 10), daysInMonth(ym)))}`;   // 31 Aug → 30 Sep
+  let next = null;   // the first payday not yet past: a salary not typed yet, or a day late, still comes
+  if (last) for (let k = 1; k < 4 && !(next >= addDays(today, -5)); k++) next = payOn(addMonths(last.slice(0, 7), k));
+  if (next && next < today) next = today;   // up to 5 days late and not typed yet: still coming, counted from today
+  const pay = next && next >= today && next < end ? txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date === last).reduce((s, x) => s + x.amount, 0) : 0;   // every line of it
   // No salary lately (riders, freelancers, small sellers): their usual income instead, the lowest of the last 3 full
   // months that have any entries (refunds aside), so one good month can't make a buy look affordable.
-  const ym = cycleKey(today, startDay), recentPay = sal && sal.date >= addDays(today, -62);
+  const ym = cycleKey(today, startDay), recentPay = last && last >= addDays(today, -62);
   const full = recentPay ? [] : [1, 2, 3].map(k => addMonths(ym, -k)).filter(k => txs.some(x => cycleKey(x.date, startDay) === k));
   const earn = full.length ? Math.min(...full.map(k => txs.filter(x => x.type === 'income' && x.category !== 'refund' && cycleKey(x.date, startDay) === k).reduce((s, x) => s + x.amount, 0))) : 0;
-  const left = balance + pay + earn - upcoming - usual - price, over = budget ? Math.max(0, f.projected + price - budget) : 0;
+  const path = []; let bal = balance - price, low = null;
+  for (let i = 0; i < 30; i++) {
+    const date = addDays(today, i), inn = (date === next ? pay : 0) + earn / 30, out = due.get(date) || 0;
+    bal += inn - out - usual / 30;
+    path.push({ date, bal: Math.round(bal), in: Math.round(inn), out });
+    if (!low || bal < low.bal) low = { bal: Math.round(bal), date };
+  }
+  const left = Math.round(bal), over = budget ? Math.max(0, f.projected + price - Math.max(budget, f.projected)) : 0;   // what this buy adds over the budget
   const flow = cashFlow(txs, addMonths(ym, -1), 3, startDay).filter(m => m.income || m.expense);
   const net = flow.length ? Math.round(flow.reduce((s, m) => s + m.income - m.expense, 0) / flow.length) : 0;
-  const verdict = left < 0 ? 'no' : left < Math.max(100_00, Math.round(f.rate * 7)) || over ? 'tight' : 'yes';
-  return { verdict, balance, pay, payDate: pay ? next : null, earn, upcoming, usual, price, left, end, over, net, months: left < 0 && net > 0 ? Math.ceil(-left / net) : null };
+  const short = Math.min(left, low.bal), cover = balance - price - upcoming + pay + earn >= 0;
+  const verdict = short < 0 ? (f.early && cover ? 'tight' : 'no') : short < Math.max(100_00, Math.round(f.rate * 7)) || over ? 'tight' : 'yes';
+  return { verdict, balance, pay, payDate: pay ? next : null, earn, upcoming, usual, price, left, low, path, end, over, net, early: f.early, days: f.days,
+    months: short < 0 && net > 0 ? Math.ceil(-short / net) : null };
 }
 /** A month's spending split into regular payments (bills, and shops that are known or detected bills) and day-to-day spending. */
 export function fixedFlexible(txs, ym, sd = 1, billShops = []) {
@@ -1072,18 +1110,10 @@ export function shopPrices(txs, today, days = 180) {
   return [...by.values()].filter(r => r.at.size > 1).map(r => { const shops = [...r.at.values()].sort((a, b) => a.unit - b.unit); return { name: r.name, shops, save: shops.at(-1).unit - shops[0].unit }; })
     .filter(r => r.save > 0).sort((a, b) => b.save - a.save);
 }
-/** The next 30 days a day at a time, from the same sums as "Can I afford it?" (affordCheck, nothing bought): bills on
- *  their days, pay on its day, usual income and everyday spending spread evenly. Day 30's balance is affordCheck's left.
- *  → {days: [{date, bal, in, out}] (day 0 is today), low: the lowest day} */
-export function next30({ balance, txs, today, startDay = 1, bills = [] }) {
-  const a = affordCheck({ price: 0, balance, txs, today, startDay, bills }), due = new Map();
-  for (const r of bills) for (const d of billDates(r, a.end)) if (d >= today && !billPaid(r, d, txs)) due.set(d, (due.get(d) || 0) + r.amount);
-  let bal = balance; const days = [];
-  for (let i = 0; i <= 30; i++) {
-    const date = addDays(today, i), inn = (date === a.payDate ? a.pay : 0) + (i ? a.earn / 30 : 0), out = due.get(date) || 0;
-    bal += inn - out - (i ? a.usual / 30 : 0);
-    days.push({ date, bal: Math.round(bal), in: Math.round(inn), out });
-  }
+/** The next 30 days a day at a time: the path "Can I afford it?" judges (affordCheck, nothing bought), so the two always
+ *  agree. → {days: [{date, bal, in, out}] (day 0 is today), low: the lowest day} */
+export function next30({ balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
+  const days = affordCheck({ price: 0, balance, txs, today, startDay, bills, budget }).path;
   return { days, low: days.reduce((m, d) => (d.bal < m.bal ? d : m), days[0]) };
 }
 /** Everyday spending (no bills, no one-off buys of RM 500+) in the 7 days from each payday against the rest of that pay

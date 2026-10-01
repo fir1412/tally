@@ -3,7 +3,7 @@ import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, c
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { subsOf, subFor, learnSub, fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
+import { RELIEFS, reliefGuess, firstSpend, subsOf, subFor, learnSub, fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -209,6 +209,7 @@ function sheetHtml() {
     ${d.items?.length ? `<details class="items"><summary>${esc(d.receiptId ? (d.items.length === 1 ? t('1 item from the receipt') : t('{0} items from the receipt', d.items.length)) : d.items.length === 1 ? t('1 item') : t('{0} items', d.items.length))}</summary><ul>${d.items.map(i => `<li>${dot(i.category)}<span class="grow">${esc(i.name || t('(no name)'))}</span><span class="amt">${esc(fmtRM(i.cents))}</span></li>`).join('')}</ul>
       <button class="btn ghost small" data-act="tx-items">${esc(t('Edit items'))}</button></details>` : ''}
     ${refundsOf(d)}
+    ${d.type === 'expense' && on('taxrelief') ? reliefPick(d) : ''}
     ${d.type === 'expense' && on('reminders') ? `<details class="more"${d.returnBy || d.warranty ? ' open' : ''}><summary>${esc(t('Return or warranty reminder'))}</summary><div class="row2"><label class="field"><span>${esc(t('Return by'))}</span><input id="tx-return" type="date" value="${esc(d.returnBy || '')}"></label><label class="field"><span>${esc(t('Warranty until'))}</span><input id="tx-warranty" type="date" value="${esc(d.warranty || '')}"></label></div><small class="fine">${esc(t('Home reminds you 2 days before the return window ends and a month before the warranty does.'))}</small></details>` : ''}
     ${d.receiptId ? `<button class="btn ghost small" data-act="tx-photo">${ICON.receipt}${esc(t('Show receipt photo'))}</button>` : ''}
     ${!isNew && d.type === 'expense' && on('split') ? `<button class="btn ghost small" data-act="tx-splitf">${ICON.users}${esc(t('Split with friends'))}</button>` : ''}
@@ -246,6 +247,7 @@ let accPicked = false;   // nor an account picked by hand by switching Spent / R
 /** "1340", "13.40", "9:05" → "13:40" / "09:05"; anything else → no time. */
 export const hhmmIn = v => { const m = String(v ?? '').trim().match(/^([01]?\d|2[0-3])[:.\s]?([0-5]\d)$/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined; };
 function readForm() {
+  if ($('#tx-relief')) { const v = $('#tx-relief').value; if (v) draft.relief = v; else delete draft.relief; }
   draft.amount = draft.items?.length || draft.split ? draft.amount : calcAmount($('#tx-amt')?.value);
   draft.accountId = $('#tx-acc')?.value || draft.accountId;
   if (draft.type === 'transfer') draft.toAccountId = $('#tx-to')?.value; else delete draft.toAccountId;
@@ -256,6 +258,12 @@ function readForm() {
   for (const [id, k] of [['#tx-return', 'returnBy'], ['#tx-warranty', 'warranty']]) if ($(id)) { const v = $(id).value; if (validIso(v)) draft[k] = v; else delete draft[k]; }
   draft.time = hhmmIn($('#tx-time')?.value);
   draft.merchant = ($('#tx-merchant')?.value || '').trim().slice(0, 80);
+}
+/** Tax relief for this payment: Tally's guess from its words (Automatic), none, or one picked by hand, so a relief it
+ *  missed can be added and a wrong one taken off. */
+function reliefPick(d) {
+  const g = reliefGuess({ ...d, relief: undefined }), name = id => t(RELIEFS.find(r => r.id === id).name);
+  return `<label class="field"><span>${esc(t('Tax relief'))}</span><select id="tx-relief"><option value="">${esc(g ? t('Automatic: {0}', name(g)) : t('Automatic: none found'))}</option><option value="none"${d.relief === 'none' ? ' selected' : ''}>${esc(t('Not a tax relief'))}</option>${RELIEFS.map(r => `<option value="${r.id}"${d.relief === r.id ? ' selected' : ''}>${esc(t(r.name))}</option>`).join('')}</select></label>`;
 }
 /** The chosen category in the middle of its row, where the row scrolls sideways (phones). */
 function catInView(sh) {
@@ -304,7 +312,7 @@ export const budgetsView = {
     const txs = sc === scope() ? booked() : S.tx.filter(x => x.date <= tdy && inScope(x, sc)), now = cached(monthSpend, txs, ym, sd), B = budgetsFor(sc);
     const bar = (spent, budget, c) => {
       if (!budget) return `<span class="fine">${esc(t('{0} spent', fmtRM(spent)))}</span>`;
-      const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c] }), pct = Math.min(100, Math.round(spent / budget * 100));
+      const p = pace(budget, spent, tdy, { startDay: sd, amounts: now.each[c], fixed: now.fixed[c], first: cached(firstSpend, txs) }), pct = Math.min(100, Math.round(spent / budget * 100));
       const state = spent > budget ? 'bad' : p.over ? 'warn' : 'good';
       const word = spent > budget ? t('Over by {0}', fmtRM(spent - budget)) : p.over ? t('Heading over: about {0} by month end', fmtRM(p.projected)) : t('{0} left', fmtRM(budget - spent));
       return `<div class="meter ${state}" aria-hidden="true"><i style="width:${pct}%"></i></div><span class="fine ${state}">${esc(fmtRM(spent))} / ${esc(fmtRM(budget))} · ${esc(word)}</span>`;

@@ -1,7 +1,7 @@
 // In-memory state over IndexedDB. Views read S; every change goes through a function here so it is saved.
 import * as db from './db.js';
 import { typedShift, CAPS, CAT_CODE, catName, sameCategory, mapCategory } from './io.js';
-import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories, owing } from './engine.js';
+import { keepReceiptUntil, CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories, owing } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
 const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames', 'itemNames', 'goals', 'subcats', 'subRules'];   // every key setKv writes must be here, or it is lost on restart
@@ -317,7 +317,8 @@ export const getPhoto = id => db.get('receipts', id).then(r => (r?.blob && Objec
  *  The entries lose their link first, then the photos go: a failure between the two leaves only photos nothing uses,
  *  which the next start sweeps. A photo still being checked in review is not an entry's yet and stays. → photos removed */
 export async function dropPhotos(before = null) {
-  const hit = S.tx.filter(x => x.receiptId && (!before || x.date < before)), ids = [...new Set(hit.map(x => x.receiptId))];
+  // A tidy-up by age (`before`) skips relief receipts LHDN may still ask for (keepReceiptUntil); deleting all is the user's own choice.
+  const hit = S.tx.filter(x => x.receiptId && (!before || (x.date < before && !(keepReceiptUntil(x) >= today())))), ids = [...new Set(hit.map(x => x.receiptId))];
   if (!hit.length) return 0;
   await saveTxs(hit.map(x => { const { receiptId, ...rest } = x; return rest; }));
   const still = new Set(S.tx.map(x => x.receiptId).filter(Boolean));   // another entry (a split's friend, a refund) may share one

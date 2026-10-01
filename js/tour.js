@@ -6,6 +6,12 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.10.3': [
+    "October's sticker book has a new story: someone is stealing from Uncle Raju's stall. A page for each day you fill in",
+  ],
+  '1.10.2': [
+    "Can I afford it? now checks your lowest day before payday, not just the end of the month. Tax-relief receipts are kept for 7 years, and you can mark an entry's relief yourself",
+  ],
   '1.10.1': [
     "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin",
   ],

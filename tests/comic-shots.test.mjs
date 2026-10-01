@@ -76,7 +76,7 @@ test('lintShots: repeats, too few shot sizes, scenes opened close, dutch, focus,
   assert.deepEqual(lintShots([P('wide', { flip: true })], defs), []);
 });
 
-test('October\'s book has no shot problems', { todo: true }, async () => {
+test('October\'s book has no shot problems', async () => {
   const b = (await import('../js/books/10.js')).default;
   assert.deepEqual(lintShots(b.panels, b.defs), []);
 });

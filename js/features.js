@@ -14,7 +14,7 @@ export const MODULES = [
   ['split', 'Split with friends', 'Share a bill by who had what.'],
   ['subcats', 'Subcategories', 'Split a category into smaller ones, like Dining into kopitiam, mamak and delivery.'],
   ['reminders', 'Return and warranty reminders', 'A nudge before a return window or warranty ends.'],
-  ['stickers', 'Sticker book', 'A sticker for each day you log.'],
+  ['stickers', 'Sticker book', 'A sticker for each day you fill in.'],
   ['streaks', 'Streaks and badges', 'A logging streak and badges for good habits.'],
   ['learn', 'Learn Tally', 'Short missions that show what Tally can do.'],
   ['joint', 'Joint accounts', 'Shared money with a partner, kept apart from your own.'],
