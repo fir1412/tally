@@ -929,3 +929,7 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 /* The review screen's bottom bar: "Save and split with friends" above Cancel / Save, always in view */
 .rv-foot { display: flex; flex-direction: column; gap: var(--sp-1); }
 .rv-split { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+/* Subcategories: their chips under the categories, and the hint's drawing */
+.chips.subs { margin-top: calc(-1 * var(--sp-1)); }
+.chip.small { min-height: 36px; font-size: var(--fs-sm); }
+.hint .hintpic { width: 100%; height: auto; }

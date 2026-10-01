@@ -267,6 +267,7 @@ const HEAD = {
   debit: [/^(debit|withdrawals?|money out|out|outflow|expenses?|spent|pengeluaran|keluar|perbelanjaan|支出)( \((rm|myr)\))?$/i, /debit|withdraw|pengeluaran|keluar|支出|money out|out$|outflow/i],
   credit: [/^(credit|deposits?|money in|in|inflow|income|received|kredit|masuk|pendapatan|收入)( \((rm|myr)\))?$/i, /credit|deposit|kredit|masuk|收入|money in|in$|inflow/i],
   type: [/^(type|jenis|类型|類型|income ?\/ ?expense|expense ?\/ ?income|in ?\/ ?out|category type|收支|(transaction|trans\.?|txn) type|jenis transaksi|交易类型|交易類型|dr ?\/ ?cr|cr ?\/ ?dr|debit ?\/ ?credit|credit ?\/ ?debit|d ?\/ ?c|c ?\/ ?d|masuk ?\/ ?keluar)$/i, null],
+  sub: [/^(sub ?-?categor(y|ies)( name)?|subkategori|subcategoria|子类别|子類別|子分类|子分類)$/i, /sub ?-?categ|subkategori|子类|子類/i],
   category: [/^(category|categories|kategori|类别|類別|分类|分類)$/i, /categor|kategori|类别|類別|分类|分類/i],
   merchant: [/^(merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|item|items|perkara|perihal|项目|項目|摘要|描述|说明|說明|商户|商戶|description|transaction description|keterangan|butiran|catatan|details?|vendor|transaction|transaction details|particulars|what|bill|spent on|for|butiran transaksi|source|sumber|来源|來源)$/i, /merchant|payee|peniaga|商家|shop|kedai|recipient|penerima|description|摘要|描述/i],
   note: [/^(notes?|nota|memo|remarks?|备注|備註|comments?)$/i, /note|nota|memo|keterangan|butiran|备注|備註|details|remark|catatan/i],
@@ -595,7 +596,8 @@ export function rowsToTx(rows, map, { accountId, accounts = {}, catMap = {}, cus
     if (type === 'income' && !ownIncome && !INCOME_CATEGORIES.some(c => c.id === category)) category = incomeCategory(`${rawCat} ${merchant}`);
     if (type === 'expense' && (INCOME_CATEGORIES.some(c => c.id === category) || customCats.some(c => c.id === category && c.kind === 'income'))) category = 'other';
     if (refundRow && type === 'income') { txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category: 'refund', cat: INCOME_CATEGORIES.some(c => c.id === category) ? 'other' : category, merchant, note, source, createdAt: now }); return; }
-    txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, merchant, note, source, createdAt: now });
+    const sub = cleanText(get('sub'), 30);   // another app's subcategory (Money Manager, Cashew…) kept as Tally's
+    txs.push({ id: '', date, ...(time ? { time } : {}), type, amount: amt, accountId: acc, category, ...(sub ? { sub } : {}), merchant, note, source, createdAt: now });
   });
   const { transfers, loose } = joinLegs(legs);
   const tx = t => ({ id: '', date: t.date, ...(t.time ? { time: t.time } : {}), type: t.type, amount: t.amt, accountId: t.acc, ...(t.toAcc ? { toAccountId: t.toAcc } : {}), category: t.type === 'income' ? 'income' : 'other', merchant: t.type === 'transfer' ? t.merchant.replace(/^transfer\s*:.*$/i, '') : t.merchant, note: t.note, source, createdAt: now });
@@ -779,13 +781,13 @@ const catNameOf = id => ALL_CATS.find(c => c.id === id)?.name || id || '';
  *  Google Sheets exports share it, and the 'tally' preset reads any of them back. */
 export function txRows(txs, accounts, catName = catNameOf) {
   const acc = Object.fromEntries(accounts.map(a => [a.id, a.name]));
-  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time']];
+  const rows = [['Date', 'Type', 'Amount', 'Account', 'To account', 'Category', 'Merchant', 'Item', 'Note', 'Time', 'Subcategory']];   // Subcategory last: older readers keep their columns
   for (const t of [...txs].sort((a, b) => a.date.localeCompare(b.date))) {
     const head = [t.date, t.type], acct = [acc[t.accountId] || '', acc[t.toAccountId] || ''];
     // Tax, service charge and rounding spread over the items, so the rows add up to what was paid (as in Insights).
     const extra = t.items?.length ? allocate(t.items.map(i => i.cents), t.amount - t.items.reduce((a, i) => a + i.cents, 0)) : [];
-    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, (it.cents + extra[n]) / 100, ...acct, catName(it.category), t.merchant || '', it.name || '', t.note || '', t.time || '']);
-    else rows.push([...head, t.amount / 100, ...acct, catName(t.category), t.merchant || '', '', t.note || '', t.time || '']);
+    if (t.items?.length) for (const [n, it] of t.items.entries()) rows.push([...head, (it.cents + extra[n]) / 100, ...acct, catName(it.category), t.merchant || '', it.name || '', t.note || '', t.time || '', t.sub || '']);
+    else rows.push([...head, t.amount / 100, ...acct, catName(t.category), t.merchant || '', '', t.note || '', t.time || '', t.sub || '']);
   }
   return rows;
 }
@@ -936,7 +938,7 @@ export function readBackup(text) {
   const tx = list(d.tx, 200_000).filter(t => isObj(t) && okId(t.id) && validIso(t.date) && okAmt(t.amount) && (t.amount > 0 || (t.type === 'expense' && !!split(t.split))) && ['expense', 'income', 'transfer'].includes(t.type) && ids.has(t.accountId) && (t.type !== 'transfer' || (ids.has(t.toAccountId) && t.toAccountId !== t.accountId)))
     .map(t => ({
       id: t.id, date: t.date, ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? { time: t.time } : {}), type: t.type, amount: t.amount, accountId: t.accountId, ...(t.type === 'transfer' ? { toAccountId: t.toAccountId, ...(okAmt(t.toAmount) && t.toAmount > 0 ? { toAmount: t.toAmount } : {}) } : {}), ...(+t.rate > 0 && +t.rate < 1e5 ? { rate: +t.rate } : {}),
-      category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: okMs(+t.createdAt),
+      category: cat(t.category), ...(t.cat ? { cat: cat(t.cat) } : {}), ...(t.type !== 'transfer' && cleanText(t.sub, 30) ? { sub: cleanText(t.sub, 30) } : {}), merchant: cleanText(t.merchant, 80), note: cleanText(t.note, 200), source: ['quick', 'receipt', 'import', 'statement', 'recurring'].includes(t.source) ? t.source : 'import', createdAt: okMs(+t.createdAt),
       ...(Array.isArray(t.items) ? { items: cleanItems(t.items) } : {}),
       ...(t.type === 'expense' && split(t.split) ? { split: split(t.split) } : {}), ...(okId(t.splitOf) ? { splitOf: t.splitOf } : {}),
       ...Object.entries(OWE_TAG).reduce((o, [k, ok]) => (ok(t) && friend(t[k]) ? { ...o, [k]: friend(t[k]) } : o), {}),
@@ -958,6 +960,8 @@ export function readBackup(text) {
     if (isObj(d.kv.rules)) kv.rules = Object.fromEntries(Object.entries(d.kv.rules).slice(0, 5000).map(([k, v]) => [cleanText(k, 70), cat(v)]).filter(([k]) => k && !RESERVED.has(k)));
     if (isObj(d.kv.shopNames)) kv.shopNames = Object.fromEntries(Object.entries(d.kv.shopNames).slice(0, 500).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
     if (isObj(d.kv.itemNames)) kv.itemNames = Object.fromEntries(Object.entries(d.kv.itemNames).slice(-2000).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
+    // A category's own subcategories: up to 30 short names each, under a known-looking category id
+    if (isObj(d.kv.subcats)) kv.subcats = Object.fromEntries(Object.entries(d.kv.subcats).filter(([k, v]) => /^[\w-]{1,40}$/.test(k) && !RESERVED.has(k) && Array.isArray(v)).slice(0, 80).map(([k, v]) => [k, [...new Set(v.map(x => cleanText(x, 30)).filter(Boolean))].slice(0, 30)]));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
@@ -1019,6 +1023,7 @@ export function mergeBackup(local, incoming) {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
       shopNames: { ...(incoming.kv.shopNames || {}), ...(local.kv.shopNames || {}) },
       itemNames: { ...(incoming.kv.itemNames || {}), ...(local.kv.itemNames || {}) },
+      subcats: Object.fromEntries([...new Set([...Object.keys(incoming.kv.subcats || {}), ...Object.keys(local.kv.subcats || {})])].map(k => [k, [...new Set([...(local.kv.subcats?.[k] || []), ...(incoming.kv.subcats?.[k] || [])])].slice(0, 30)])),
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
       catColors: { ...(incoming.kv.catColors || {}), ...(local.kv.catColors || {}) },
       catIcons: { ...(incoming.kv.catIcons || {}), ...(local.kv.catIcons || {}) },

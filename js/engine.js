@@ -23,6 +23,26 @@ export const CATEGORIES = [
 /** Colours for categories the user adds, none close to a built-in one; the first not yet used is taken. */
 export const CUSTOM_COLORS = ['#22C55E', '#FB7185', '#C084FC', '#0369A1', '#EAB308', '#A3E635', '#78716C', '#F87171', '#2DD4BF', '#9A3412'];
 export const nextColor = (used = []) => { const u = new Set(used.map(c => String(c).toLowerCase())); return CUSTOM_COLORS.find(c => !u.has(c.toLowerCase())) || CUSTOM_COLORS[u.size % CUSTOM_COLORS.length]; };
+/** Subcategories (a module, off by default): the ones Tally suggests per category, in English and translated on screen,
+ *  then the user's own (kv 'subcats': {category: [name]}). A subcategory is only a name on the entry (tx.sub). */
+export const SUBS = {
+  groceries: ['Fresh food', 'Dry goods', 'Snacks', 'Drinks'], dining: ['Kopitiam', 'Mamak', 'Delivery', 'Café', 'Fast food'],
+  transport: ['Petrol', 'Toll', 'Parking', 'E-hailing', 'Public transport'], bills: ['Electricity', 'Water', 'Internet', 'Phone'],
+  housing: ['Rent', 'Repairs'], health: ['Clinic', 'Pharmacy', 'Dental'], personal: ['Haircut', 'Skincare'], kids: ['School', 'Childcare', 'Toys'],
+  shopping: ['Clothes', 'Online', 'Gifts'], fun: ['Movies', 'Sports', 'Travel'], education: ['Courses', 'Books'], giving: ['Zakat', 'Donations'],
+};
+export const subsOf = (c, own = {}) => [...new Set([...(SUBS[c] || []), ...(own?.[c] || [])])];
+/** A category's spending in a month split by subcategory: [{sub ('' = none), v}], most first. Receipt items count with
+ *  their entry's subcategory. */
+export function subSplit(txs, c, ym, sd = 1) {
+  const by = new Map();
+  for (const t of txs) {
+    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
+    const v = itemAmounts(t).filter(i => i.category === c).reduce((s, i) => s + i.cents, 0);
+    if (v) by.set(t.sub || '', (by.get(t.sub || '') || 0) + v);
+  }
+  return [...by].map(([sub, v]) => ({ sub, v })).sort((a, b) => b.v - a.v);
+}
 export const INCOME_CATEGORIES = [
   { id: 'salary', name: 'Salary', color: '#059669' },
   { id: 'allowance', name: 'Allowance', color: '#10B981' },

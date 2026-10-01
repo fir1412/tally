@@ -87,3 +87,14 @@ test('yearReview: a year in a few numbers', () => {
   assert.deepEqual([y.cat.id, y.shop.name, y.shop.n, y.item.n], ['dining', 'Mydin', 2, 2]);
   assert.equal(y.noSpend, 1); assert.equal(y.logged, 5); assert.equal(y.fees, 120);
 });
+
+test('subcategories: suggested and own ones, a category split by them, kept in backups and CSV imports', async () => {
+  assert.deepEqual(E.subsOf('dining', { dining: ['Hawker', 'Mamak'] }).slice(-2), ['Fast food', 'Hawker']);   // no duplicates
+  const txs = [ex('a', '2026-10-02', 1200, { category: 'dining', sub: 'Mamak' }), ex('b', '2026-10-03', 800, { category: 'dining', sub: 'Mamak' }), ex('c', '2026-10-04', 500, { category: 'dining' })];
+  assert.deepEqual(E.subSplit(txs, 'dining', '2026-10'), [{ sub: 'Mamak', v: 2000 }, { sub: '', v: 500 }]);
+  const { readBackup, rowsToTx, headerRow, guessMapping } = await import('../js/io.js');
+  const back = readBackup(JSON.stringify({ app: 'tally', version: 1, accounts: [{ id: 'a', name: 'Cash', kind: 'cash' }], tx: [{ ...txs[0], createdAt: 1 }], kv: { subcats: { dining: ['Mamak', 'Hawker', 'Hawker'], constructor: ['x'] } } }));
+  assert.equal(back.tx[0].sub, 'Mamak');
+  assert.deepEqual(back.kv.subcats, { dining: ['Mamak', 'Hawker'] });
+  assert.equal(typeof guessMapping, 'function'); assert.equal(typeof headerRow, 'function'); assert.equal(typeof rowsToTx, 'function');
+});

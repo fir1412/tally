@@ -13,7 +13,7 @@ import { dayOf, loggedDays } from '../gamify.js';
 import { filledDays, panelOf, loadBook, bookState, WHO, frame } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
-import { analyticsCards, forecastCard, tilesHtml, affordInputs, act as analyticsAct } from './analytics.js';
+import { analyticsCards, forecastCard, tilesHtml, affordInputs, subHint, act as analyticsAct } from './analytics.js';
 import { goalsCard, act as goalsAct } from './goals.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
@@ -367,7 +367,7 @@ export const insightsView = {
     const curCol = k => (tMonths[k] === M ? ' class="cur"' : '');
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>${scopeChip()}
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M, sd))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
-      ${scopeSwitch()}${tilesHtml(M)}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 2).map(feedItem).join('')}</ul>${feed.length > 2 ? `<details class="card billsugg"><summary>${ICON.chart}${esc(t('{0} more insights', Math.min(6, feed.length) - 2))}</summary><ul class="feed">${feed.slice(2, 6).map(feedItem).join('')}</ul></details>` : ''}` : ''}
+      ${scopeSwitch()}${tilesHtml(M)}${M === cur ? subHint() : ''}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 2).map(feedItem).join('')}</ul>${feed.length > 2 ? `<details class="card billsugg"><summary>${ICON.chart}${esc(t('{0} more insights', Math.min(6, feed.length) - 2))}</summary><ul class="feed">${feed.slice(2, 6).map(feedItem).join('')}</ul></details>` : ''}` : ''}
       ${M === cur ? forecastCard() : ''}
       <section class="card">
         <h2>${esc(t('Where the money went'))}</h2>

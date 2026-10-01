@@ -11,7 +11,7 @@ export const PRESETS = [
   // Tally's own "Export to Excel (CSV)" (io.js toCSV): Date, Type, Amount, Account, To account, Category, Merchant,
   // Item, Note, Time. Transfers name both accounts; an itemised entry is one row per item (each its own entry here).
   { id: 'tally', name: 'Tally', need: ['date', 'type', 'amount', 'account', 'to account', 'category', 'merchant', 'item'],
-    cols: { date: ['date'], time: ['time'], type: ['type'], amount: ['amount'], account: ['account'], category: ['category'], merchant: ['merchant'], note: ['note'] },
+    cols: { date: ['date'], time: ['time'], type: ['type'], amount: ['amount'], account: ['account'], category: ['category'], merchant: ['merchant'], note: ['note'], sub: ['subcategory'] },
     type: c => ({ income: 'income', expense: 'expense' })[low(c.get('type'))] || null,
     transfer: c => low(c.get('type')) === 'transfer' && { dir: 'out', to: c.raw('to account') } },
 
@@ -30,7 +30,7 @@ export const PRESETS = [
   // "How to import bulk data by Excel file", which also gives the older Date, Account… layout accepted here).
   // "Modified Bal." is its balance-correction category.
   { id: 'realbyte', name: 'Money Manager (Realbyte)', need: [['period', 'date'], ['accounts', 'account'], 'category', 'subcategory', 'income/expense'],
-    cols: { date: ['period', 'date'], account: ['accounts', 'account'], category: ['category'], merchant: ['note'], note: ['description'], amount: ['amount', 'myr'], type: ['income/expense'] },
+    cols: { date: ['period', 'date'], account: ['accounts', 'account'], category: ['category'], sub: ['subcategory'], merchant: ['note'], note: ['description'], amount: ['amount', 'myr'], type: ['income/expense'] },
     mdy: true,
     transfer: c => { const m = low(c.get('type')).match(/^transfer-?\s*(out|in)/); return m && { dir: m[1], to: c.get('category') }; },
     adjust: c => /^modified bal/.test(low(c.get('category'))),
@@ -88,7 +88,7 @@ export const PRESETS = [
   // dates "YYYY-MM-DD HH:MM:SS.mmm". A transfer is two "Balance Correction" rows whose note starts "Transferred
   // Balance" (addWalletPage.dart); other Balance Correction rows are corrections.
   { id: 'cashew', name: 'Cashew', need: ['account', 'amount', 'title', 'date', 'income', 'category name'],
-    cols: { date: ['date'], account: ['account'], amount: ['amount'], category: ['category name'], merchant: ['title'], note: ['note'] },
+    cols: { date: ['date'], account: ['account'], amount: ['amount'], category: ['category name'], sub: ['subcategory name'], merchant: ['title'], note: ['note'] },
     type: c => (low(c.raw('income')) === 'true' ? 'income' : low(c.raw('income')) === 'false' ? 'expense' : null),
     transfer: c => low(c.get('category')) === 'balance correction' && /^transferred balance/.test(low(c.get('note'))),
     adjust: c => low(c.get('category')) === 'balance correction',

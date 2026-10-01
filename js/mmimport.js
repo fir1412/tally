@@ -145,13 +145,14 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
     const need = (t, list) => { const c = cols(t); return list.every(x => c.has(x)); };
     if (!need('INOUTCOME', ['uid', 'assetUid', 'DO_TYPE', 'ZMONEY', 'ZDATE']) || !need('ASSETS', ['uid', 'NIC_NAME'])) throw new Error('This Money Manager backup is from a version Tally does not know yet.');
 
-    const customCats = [], catMap = Object.create(null);
+    const customCats = [], catMap = Object.create(null), subOf = Object.create(null);
     if (has('ZCATEGORY') && need('ZCATEGORY', ['uid', 'NAME', 'TYPE'])) {
       const all = rows(`select uid, NAME, TYPE${cols('ZCATEGORY').has('pUid') ? ', pUid' : ", '' as pUid"} from ZCATEGORY where ${live('ZCATEGORY')} limit 2000`);
       const byUid = new Map(all.map(c => [String(c.uid), c]));
       for (const c of all) if (!byUid.get(String(c.pUid)))
         catMap[String(c.uid)] = keepName(cleanText(c.NAME, 40) || 'Category', String(c.TYPE) === '0', customCats, `c_rb_${hash(c.uid)}`, nextColor(customCats.map(x => x.color)));
-      // A subcategory files under its category (Tally has one level), which keeps its name.
+      // A subcategory files under its category and keeps its name as the entry's subcategory.
+      for (const c of all) if (byUid.get(String(c.pUid))) subOf[String(c.uid)] = cleanText(c.NAME, 30);
       for (const c of all) if (byUid.get(String(c.pUid))) catMap[String(c.uid)] = catMap[String(c.pUid)] || (String(c.TYPE) === '0' ? 'income' : 'other');
     }
 
@@ -175,7 +176,7 @@ export async function readRealbyte(buf, SQL, { now = Date.now() } = {}) {
         tx.push({ ...base, type: 'transfer', toAccountId: to, category: 'other' }); transfers++;
       } else if (kind === '0' || kind === '1') {
         const type = kind === '0' ? 'income' : 'expense';
-        tx.push({ ...base, type, category: catMap[String(t.ctgUid)] || (type === 'income' ? 'income' : 'other') });
+        tx.push({ ...base, type, category: catMap[String(t.ctgUid)] || (type === 'income' ? 'income' : 'other'), ...(subOf[String(t.ctgUid)] ? { sub: subOf[String(t.ctgUid)] } : {}) });
       } else skipped++;
     }
     const accounts = accRows.map((a, n) => {

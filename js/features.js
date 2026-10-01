@@ -12,6 +12,7 @@ export const MODULES = [
   ['taxrelief', 'Tax relief (LHDN)', 'Spending that may relate to a tax relief, and its receipts in one download.'],
   ['goals', 'Savings goals', 'Save towards something and see what a month gets you there.'],
   ['split', 'Split with friends', 'Share a bill by who had what.'],
+  ['subcats', 'Subcategories', 'Split a category into smaller ones, like Dining into kopitiam, mamak and delivery.'],
   ['reminders', 'Return and warranty reminders', 'A nudge before a return window or warranty ends.'],
   ['stickers', 'Sticker book', 'A sticker for each day you log.'],
   ['streaks', 'Streaks and badges', 'A logging streak and badges for good habits.'],
@@ -23,7 +24,7 @@ export const MODULES = [
 const all = v => Object.fromEntries(MODULES.map(([k]) => [k, v]));
 export const PRESETS = {
   simple: all(false),   // a plain money tracker: type it, see the list and the month's totals, back it up
-  standard: { ...all(true), streaks: false },
+  standard: { ...all(true), streaks: false, subcats: false },   // subcategories: off until wanted (a hint on Insights shows them)
   everything: all(true),
 };
 /** Is this module on? */

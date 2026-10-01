@@ -3,7 +3,7 @@ import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, c
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
+import { subsOf, fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -34,7 +34,7 @@ export function txRow(x) {
   const cats = x.items?.length ? [...new Set(x.items.map(i => i.category))] : [x.category];
   const title = x.merchant || (x.type === 'transfer' ? t('Transfer') : catLabel(x.category));
   const back = x.type === 'expense' && cached(refundedIds, S.tx).has(x.id) ? ` · ${esc(t('Refunded'))}` : '';
-  const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
+  const sub = x.type === 'transfer' ? `${esc(accName(x.accountId))} → ${esc(accName(x.toAccountId))}` : `${cats.slice(0, 3).map(c => esc(catLabel(c))).join(' · ')}${x.sub && on('subcats') ? ` › ${esc(t(x.sub))}` : ''}${cats.length > 3 ? ` +${cats.length - 3}` : ''} · ${esc(accName(x.accountId))}`;
   const sign = x.type === 'income' ? '+' : x.type === 'transfer' ? '' : '−';
   return `<li><button class="txrow" data-act="tx-open" data-id="${esc(x.id)}">${x.type === 'transfer' ? '<span class="cbadge tbadge" aria-hidden="true">' + ICON.swap + '</span>' : badge(cats[0])}<span class="grow"><b>${esc(title)}</b><small>${sub}${back}${x.receiptId ? ` · ${ICON.receipt.replace('<svg', '<svg class="clip"')}<span class="sr">${esc(t('has photo'))}</span>` : x.items?.length ? ` · ${esc(t('items'))}` : ''}${x.by ? ` · ${esc(x.by)}` : ''}</small></span>
     <span class="amt ${x.type}">${sign}${esc(x.type === 'transfer' || x.fx != null ? fmtAcct(accOf(x.accountId), x.fx ?? x.amount) : fmtRM(x.amount))}</span></button></li>`;
@@ -196,6 +196,7 @@ function sheetHtml() {
     <p class="err" id="tx-err" role="alert"></p>
     ${day ? when : ''}
     ${d.type === 'transfer' ? '' : `<div class="chips cats" role="group" aria-label="${esc(t('Category'))}"><button type="button" class="chip newcat" data-act="tx-newcat">${ICON.plus}${esc(t('New'))}</button>${cats.map(c => `<button type="button" class="chip${d.category === c.id ? ' on' : ''}" aria-pressed="${d.category === c.id}" tabindex="${d.category === c.id || (!cats.some(x => x.id === d.category) && c === cats[0]) ? 0 : -1}" data-act="tx-cat" data-c="${esc(c.id)}">${badge(c)}${esc(t(c.name))}</button>`).join('')}</div>`}
+    ${on('subcats') && d.type !== 'transfer' && d.category && !d.items?.length ? `<div class="chips subs" role="group" aria-label="${esc(t('Subcategory'))}">${subsOf(d.category, S.kv.subcats).map(n => `<button type="button" class="chip small${d.sub === n ? ' on' : ''}" aria-pressed="${d.sub === n}" data-act="tx-sub" data-s="${esc(n)}">${esc(t(n))}</button>`).join('')}<button type="button" class="chip small newcat" data-act="tx-newsub">${ICON.plus}${esc(t('New'))}</button></div>` : ''}
     ${d.type === 'income' && d.category === 'refund' ? `<label class="field"><span>${esc(t('Money back for'))}</span><select id="tx-refcat">${expenseCats().map(c => `<option value="${esc(c.id)}"${(d.cat || 'other') === c.id ? ' selected' : ''}>${esc(t(c.name))}</option>`).join('')}</select><small>${esc(t('Your spending there goes down by this amount.'))}</small></label>${refundPicker(d)}` : ''}
     <div class="${d.type === 'transfer' ? 'grid2' : ''}">
       <label class="field"><span>${esc(d.type === 'transfer' ? t('From') : t('Account'))}</span><select id="tx-acc" data-input="tx-acc">${accOpts(d.accountId)}</select></label>
@@ -416,7 +417,22 @@ export const act = {
     el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) done(x === 'ok'); });
     el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
   },
-  'tx-cat': b => { readForm(); catPicked = true; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
+  'tx-sub': b => { readForm(); draft.sub = draft.sub === b.dataset.s ? undefined : b.dataset.s; reopen(); },   // tap again: none
+  'tx-newsub': () => {
+    readForm();
+    const el = openSheet(`<h2 class="sh-title">${esc(t('New subcategory'))}</h2>
+      <label class="field"><span>${esc(t('Name'))}</span><input id="ns-name" maxlength="30" autocomplete="off" placeholder="${esc(t('e.g. Kopitiam, Toll, Pharmacy'))}" autofocus></label>
+      <div class="row2"><button class="btn ghost" data-x="no">${esc(t('Cancel'))}</button><button class="btn" data-x="ok">${esc(t('Add'))}</button></div>`, { label: t('Subcategory'), stack: true });
+    const done = async ok => {
+      const name = el.querySelector('#ns-name').value.trim().slice(0, 30);
+      if (ok && !name) return el.querySelector('#ns-name').focus();
+      if (ok) { const c = draft.category, own = S.kv.subcats || {}; if (!subsOf(c, own).includes(name)) await setKv('subcats', { ...own, [c]: [...(own[c] || []), name].slice(-30) }); draft.sub = name; }
+      closeSheet(); reopen();
+    };
+    el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) done(x === 'ok'); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+  },
+  'tx-cat': b => { readForm(); catPicked = true; if (b.dataset.c !== draft.category) draft.sub = undefined; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.
   'tx-split': async () => {
     const typed = $('#tx-amt')?.value || '';   // "鱼 25, 菜 8" typed as the amount: those become the items

@@ -4,7 +4,7 @@ import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, sett
 import { t, fmtDate, fmtMonth, cycleShort, getLang, langTag } from '../i18n.js';
 import { esc, short, ICON, openSheet, closeSheet, lineChart, balHidden, MASK } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex,
-  categoryItems, shopPrices, next30, paydayEffect, billChanges, openShares, cpiChange, yearReview, affordMoney, owing, monthOf, monthSpend, cycleKey, daysBetween } from '../engine.js';
+  categoryItems, subSplit, shopPrices, next30, paydayEffect, billChanges, openShares, cpiChange, yearReview, affordMoney, owing, monthOf, monthSpend, cycleKey, daysBetween } from '../engine.js';
 import { CPI } from '../cpi.js';
 import { catLabel, showIds, downloadReceipts, showCategory } from './money.js';
 import { receiptName, csvLine } from '../io.js';
@@ -241,6 +241,16 @@ export function tilesHtml(M) {
       : `<div class="tile"><span class="lbl">${esc(t('Kept'))}</span><b class="num">–</b><small>${esc(t('when money comes in'))}</small></div>`}</section>
     <div class="tilebar"><button class="link" data-act="month-share" data-m="${M}">${ICON.share}${esc(t('Share this month'))}</button><button class="link" data-act="year-open" data-y="${year}">${ICON.award}${esc(t('Your {0}', year))}</button></div>`;
 }
+/** Subcategories are off until wanted: once there is some spending, one card shows what they look like (a drawing, few
+ *  words) and turns them on in one tap. Dismissed or on: never again. */
+export function subHint() {
+  if (on('subcats') || (S.kv.dismissed || []).includes('hint-subcats') || booked().filter(x => x.type === 'expense').length < 10) return '';
+  const parts = [['Kopitiam', 180, '#B5533A'], ['Mamak', 120, '#D97706'], ['Delivery', 90, '#DB2777'], ['Café', 30, '#7C3AED']];
+  let x = 12; const bars = parts.map(([n, v, col]) => { const w = v / 420 * 296, r = `<rect x="${x.toFixed(1)}" y="64" width="${(w - 3).toFixed(1)}" height="16" rx="4" fill="${col}"/><text x="${(x + 2).toFixed(1)}" y="96" font-size="10" fill="var(--ink)">${esc(t(n))}</text><text x="${(x + 2).toFixed(1)}" y="108" font-size="10" fill="var(--mute)">${v}</text>`; x += w; return r; }).join('');
+  const pic = `<svg class="hintpic" viewBox="0 0 320 116" role="img" aria-label="${esc(t('Dining RM 420, split into kopitiam, mamak, delivery and café'))}"><rect x="12" y="10" width="296" height="22" rx="6" fill="${cat('dining').color}"/><text x="20" y="25" font-size="12" font-weight="700" fill="#fff">${esc(t('Dining'))} RM 420</text><path d="M160 36v10m-6-6 6 6 6-6" stroke="var(--mute)" stroke-width="2" fill="none" stroke-linecap="round"/>${bars}</svg>`;
+  return `<section class="card hint"><div class="rowb"><b class="grow">${esc(t('Want more detail? Try subcategories'))}</b><button class="icon-btn" data-act="dismiss" data-id="hint-subcats" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button></div>${pic}
+    <p class="fine">${esc(t('Split a category into smaller ones, like Dining into kopitiam, mamak and delivery. Pick one when you add an entry.'))}</p><button class="btn small" data-act="subcats-on">${esc(t('Turn on subcategories'))}</button></section>`;
+}
 /** A picture to share (WhatsApp, a partner): a title, a subtitle and rows [label, value, bar 0–1?], in the app's dark colours. */
 async function sharePicture(title, sub, rows, name) {
   const W = 1080, H = Math.max(1080, 440 + rows.length * 132), c = Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
@@ -277,12 +287,14 @@ export const act = {
   acard: b => { const d = b.parentElement, id = b.dataset.id; d.open = !d.open; if (d.open) OPEN.add(id); else OPEN.delete(id); },
   // A category on the donut: what was bought in it (receipt items; payments without one by shop), then its entries.
   'cat-items': b => {
-    const c = b.dataset.c, M = b.dataset.m, sd = startDay(), rows = categoryItems(booked(), c, M, sd);
+    const c = b.dataset.c, M = b.dataset.m, sd = startDay(), rows = categoryItems(booked(), c, M, sd), subs = on('subcats') ? subSplit(booked(), c, M, sd) : [];
     openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(`${catLabel(c)} · ${fmtMonth(M, sd)}`)}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      ${subs.some(x => x.sub) ? `<h3>${esc(t('By subcategory'))}</h3>${hbars(subs.map(x => ({ name: x.sub ? t(x.sub) : t('No subcategory'), v: x.v, text: fmtRM(x.v) })), subs[0].v)}<h3>${esc(t('What you bought'))}</h3>` : ''}
       ${rows.length ? hbars(rows.slice(0, 15).map(r => ({ name: r.name, v: r.v, text: r.n > 1 ? t('{0} · {1}×', fmtRM(r.v), r.n) : fmtRM(r.v) })), rows[0].v) : later(t('No spending in {0}.', fmtMonth(M, sd)))}
       ${rows.length > 15 ? later(t('And {0} more.', rows.length - 15)) : ''}<p class="fine">${esc(t('Scanned receipts are split item by item, each with its share of SST and charges. Payments without items show their shop.'))}</p>
       <button class="btn wide" data-act="cat-go" data-c="${esc(c)}" data-m="${M}">${esc(t('See the entries'))}</button>`, { label: catLabel(c) });
   },
+  'subcats-on': async () => { const { setModules } = await import('../features.js'); await setModules({ subcats: true }); (await import('../app.js')).render(); },
   'cat-go': b => { closeSheet(); showCategory(b.dataset.c, b.dataset.m); },
   'month-share': b => {
     const M = b.dataset.m, sd = startDay(), h = headline(M), parts = Object.entries(cached(monthSpends, booked(), [M], sd)[M].byCat).filter(([, v]) => v > 0).sort((a, c) => c[1] - a[1]).slice(0, 5);
