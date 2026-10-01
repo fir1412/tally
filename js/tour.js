@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.8.3': [
+    "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items",
+  ],
   '1.8.2': [
     "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login",
   ],

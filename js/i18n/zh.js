@@ -1503,6 +1503,7 @@ export default {
   "A month's missed stickers can be filled in until the 7th of the next month": "一个月里错过的贴纸，可以在下个月 7 日前补上",
   "Deleting a split bill also takes off what friends paid back for it": "删除分摊账单时，朋友为它还的钱也会一起去掉",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "首屏写清楚了：Tally 从不读取你的短信，也从不要求银行登录",
+  "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab、Shopee 和银行应用付款截图读得更准：日期、商店或餐厅、以及每一项都更准确",
   "At most {0}.": "最多 {0}。",
   "Owed to you": "别人欠你",
   "Paid back": "已还钱",

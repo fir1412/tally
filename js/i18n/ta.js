@@ -1502,6 +1502,7 @@ export default {
   "A month's missed stickers can be filled in until the 7th of the next month": "ஒரு மாதத்தில் விடுபட்ட ஸ்டிக்கர்களை அடுத்த மாதம் 7-ஆம் தேதி வரை நிரப்பலாம்",
   "Deleting a split bill also takes off what friends paid back for it": "பகிர்ந்த பில்லை நீக்கினால், அதற்காக நண்பர்கள் திருப்பித் தந்ததும் நீங்கும்",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "முதல் திரையிலேயே தெளிவாக: Tally உங்கள் SMS-ஐப் படிக்காது, வங்கி உள்நுழைவையும் கேட்காது",
+  "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab, Shopee, வங்கி ஆப் கட்டண ஸ்கிரீன்ஷாட்கள் இன்னும் சரியாகப் படிக்கப்படும்: தேதி, கடை அல்லது உணவகம், பொருட்கள்",
   "At most {0}.": "அதிகபட்சம் {0}.",
   "Owed to you": "உங்களுக்கு வர வேண்டியது",
   "Paid back": "கிடைத்தது",
