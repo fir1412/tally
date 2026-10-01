@@ -856,6 +856,12 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .book-reward { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: 14px; background: var(--panel2); }
 .book-reward p { margin: 0; flex-basis: 100%; }
 .comic .pday { font-weight: 700; color: var(--ink); }
+/* A panel's camera drift (comic.js frame): one slow move from --d0 to --d1, held at the start until home.js sees the
+   panel on screen (.go). px here are the panel's own 320x200 units. Reduced motion: the still frame. */
+.comic .cam-drift { transform-origin: 160px 100px; animation: cam-drift 6s ease-in-out both paused; }
+.comic .cam-drift.go { animation-play-state: running; }
+@keyframes cam-drift { from { transform: var(--d0); } to { transform: var(--d1); } }
+@media (prefers-reduced-motion: reduce) { .comic .cam-drift { animation: none; } }
 /* App colours: a little screen of each palette (background, a card, the accent). */
 .apal { grid-template-rows: auto auto; }
 .apv { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 4px; width: 56px; height: 34px; padding: 5px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(127,127,127,.35); }

@@ -10,7 +10,7 @@ import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip, accName } fr
 import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
 import { dayOf, loggedDays } from '../gamify.js';
-import { filledDays, panelOf, loadBook, bookState, WHO } from '../comic.js';
+import { filledDays, panelOf, loadBook, bookState, WHO, frame } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, tilesHtml, affordInputs, act as analyticsAct } from './analytics.js';
@@ -90,7 +90,7 @@ function bookHtml(book, ym, filled, tdy) {
       const why = end ? t('Fill in every day to see how it ends.') : !st.over && d > +tdy.slice(8, 10) ? t('Opens on day {0}.', d) : st.open ? t('Log something for day {0} to open it.', d) : t('Missed. Next month is a new story.');
       return `<li class="panel locked"><span class="pday">${esc(t('Day {0}', d))}</span><span>${esc(why)}</span></li>`;
     }
-    return `<li class="panel" id="pday-${ym}-${d}"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${p.art}</svg>
+    return `<li class="panel" id="pday-${ym}-${d}"><svg viewBox="0 0 320 200" role="img" aria-label="${esc(t('Day {0}', d))}">${frame(p.art, p.cam)}</svg>
       ${p.lines.map(l => `<p class="say">${l.who === 'narrator' ? '' : `<b>${esc(say(book.who?.[l.who] || WHO[l.who] || l.who))}</b> `}${esc(say(l.text))}</p>`).join('')}
       ${p.tip ? `<p class="tip">${ICON.sparkles || ''}${esc(say(p.tip))}</p>` : ''}</li>`;
   };
@@ -417,6 +417,9 @@ export const act = {
     const el = openSheet(bookHtml(book, ym, filled, today()), { label: t('Sticker book'), stack: !!b?.dataset?.ym });
     // From today's sticker card ("…and today's page of the story"): open on that page
     if (b?.dataset?.jump) requestAnimationFrame(() => el?.querySelector('.comic-jump')?.click());
+    // A panel's slow camera move (comic.js frame, css .cam-drift) starts once the panel is mostly on screen, and runs once.
+    const io = new IntersectionObserver(es => es.forEach(x => { if (x.isIntersecting) { x.target.querySelector('.cam-drift')?.classList.add('go'); io.unobserve(x.target); } }), { threshold: 0.6 });
+    el?.querySelectorAll('.cam-drift').forEach(g => io.observe(g.closest('.panel')));
   },
   'comic-jump': b => document.getElementById(b.dataset.to)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }),
   // A finished month as a picture to share: its stickers (the missed days faint), how many days, no money at all.
