@@ -37,6 +37,15 @@ export function bookState({ ym, filled, today }) {
   // open: gaps can still be filled (this month, or last month until the 7th); grace: a past month still open.
   return { ym, n, got: filled.size, complete: filled.size === n, over, open: today >= `${ym}-01` && today <= end, grace: over && today <= end, end };
 }
+/** Tally's launch month: no book is shelved before it. */
+export const LAUNCH = '2026-10';
+/** The shelf of past months, newest first, at most 24: back to the month this person began (`first`), never before the
+ *  launch, and none for the sample (its entries are made up). */
+export function pastMonths({ today, first, sample = false }) {
+  const out = [], from = first > LAUNCH ? first : LAUNCH;
+  let [y, m] = today.slice(0, 7).split('-').map(Number);
+  for (;;) { if (--m < 1) { m = 12; y--; } const ym = `${y}-${pad(m)}`; if (sample || ym < from || out.length >= 24) return out; out.push(ym); }
+}
 /** The cast's names over their lines, in each language. */
 export const WHO = {
   aina: { en: 'Aina', ms: 'Aina', zh: 'Aina', 'zh-Hant': 'Aina', ja: 'アイナ', ta: 'அய்னா' },

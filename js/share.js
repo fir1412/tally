@@ -94,7 +94,7 @@ export function caption(kind, d, sample) {
   const say = sample ? '' : {
     month: () => t('Where my money went in {0}, sorted by Tally. Free, no sign-up.', d.long || d.label),
     year: () => t('My {0}, sorted with Tally. Free, no sign-up.', d.year),
-    book: () => t('One sticker for every day I log my spending. My {0} sticker book, in Tally.', d.long || d.label),
+    book: () => t('One sticker for every day I fill in. My {0} sticker book, in Tally.', d.long || d.label),
     goal: () => t('Saved for {0}! Tracked with Tally, free.', d.name),
     streak: () => t('{0} days in a row of logging my spending. Tally, free.', d.streak),
     split: () => t('Our bill, split item by item with Tally.'),
@@ -340,7 +340,7 @@ const THANKS = { en: 'Terima kasih · Thank you', ms: 'Terima kasih · Thank you
 const daysLine = (g, got, n, x, y, col) => {   // "28/30 days logged", on one baseline
   const a = text(g, String(got), x, y, { font: F.mono, size: 40, color: col.ink, base: true }).w;
   const b = n ? text(g, `/${n}`, x + a, y, { font: F.mono, size: 40, color: col.soft, base: true }).w : 0;
-  text(g, t('days logged'), x + a + b + 12, y, { font: F.sans(400), size: 28, maxW: 460 - a - b, color: col.soft, base: true });
+  text(g, t('days filled in'), x + a + b + 12, y, { font: F.sans(400), size: 28, maxW: 460 - a - b, color: col.soft, base: true });
 };
 /** The left column of a square (month, year): the hero label, the value (after its ↓), the note; → its bottom. */
 function heroLeft(g, h, y, col, amounts) {
@@ -424,9 +424,9 @@ async function drawBook(g, W, H, d, o) {
   const count = (x, y, size) => {   // "28/30 days logged", on one baseline at y
     const a = text(g, String(d.got), x, y, { font: F.mono, size, color: col.ink, tr: -.05, base: true }).w;
     const b = text(g, `/${d.n}`, x + a, y, { font: F.mono, size, color: d.got === d.n ? accent : (night ? 'rgba(255,255,255,.4)' : '#C4AE9C'), tr: -.05, base: true }).w;
-    text(g, t('days logged'), x + a + b + 18, y, { font: F.sans(500), size: Math.round(size * .31), color: soft, base: true });
+    text(g, t('days filled in'), x + a + b + 18, y, { font: F.sans(500), size: Math.round(size * .31), color: soft, base: true });
   };
-  const kick = `${d.long} · ${t('Sticker book')}`, hook = t('One sticker for every day I log.');
+  const kick = `${d.long} · ${t('Sticker book')}`, hook = t('One sticker for every day I fill in.');
   if (!o.story) {
     g.fillStyle = bg[1]; g.beginPath(); g.roundRect(40, 40, W - 80, 864, 36); g.fill(); g.strokeStyle = bg[2]; g.lineWidth = 2; g.stroke();
     const kh = kicker(g, kick, 96, 88, { size: 22, color: soft, maxW: 680 }).h;

@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tally：马来西亚人的免费收据扫描与记账本</title>
-<meta name="description" content="拍下收据，Tally 就在你的手机上读取，把每个项目分好类，并标出可能符合 LHDN 税务减免的开销。无需账号，什么都不用上传，免费。">
+<meta name="description" content="拍下收据，Tally 在你的手机上把每个项目分好类。无需账号，不读短信，不要银行登录，什么都不用上传。免费，无广告。">
 <meta name="theme-color" content="#070A16">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tallymy.github.io/start.zh.html">
 <meta property="og:title" content="Tally，马来西亚人的免费记账本">
-<meta property="og:description" content="拍下收据，Tally 就在你的手机上读取，把每个项目分好类，并标出可能符合 LHDN 税务减免的开销。无需账号，什么都不用上传，免费。">
+<meta property="og:description" content="拍下收据，Tally 在你的手机上把每个项目分好类。无需账号，不读短信，不要银行登录，什么都不用上传。免费，无广告。">
 <meta property="og:image" content="https://tallymy.github.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -289,8 +289,8 @@ body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil 
 @keyframes lang{0%{opacity:0;transform:translateY(14px)}3.33%,15%{opacity:1;transform:none}18.33%,100%{opacity:0;transform:translateY(-14px)}}
 .ring{position:relative;width:80px;height:80px;flex:none}
 .ring svg{width:80px;height:80px;transform:rotate(-90deg)}
-.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:81.4;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
-@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:81.4}}
+.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:59;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
+@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:59}}
 .ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
 .mini{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#1E2640;color:#C9D0E0;font-size:13px;white-space:nowrap}
 .mini .ico{width:15px;height:15px;color:#8EA4FF}
@@ -433,6 +433,120 @@ html:lang(ta) .ctext h3{font-size:30px}
 @keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
 @supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
 </style>
+<style>
+/* 1.11 refresh: the crumpled receipt photo, the read-out beside it, the relief list, the afford and share bands, the sticker tile */
+.shot{position:absolute;inset:0;z-index:2;animation:shot 12s ease-in-out infinite both}
+.shot img,.photo img,.fan img,.stk img{display:block;width:100%;height:100%}
+.shot img,.photo img{object-fit:cover}
+.sbar{animation:list 12s ease infinite both}
+.scan{top:132px}
+.tag{font-size:9.5px;padding:2px 6px}
+.row{gap:6px;padding:10px 10px}.row .nm{font-size:12.5px}.row .amt{width:36px}
+@keyframes shot{0%,24%{opacity:1;transform:none}29%{opacity:0;transform:scale(1.04)}93%{opacity:0;transform:none}100%{opacity:1;transform:none}}
+@keyframes scan{0%,6%{opacity:0;transform:translateY(0)}8%{opacity:1;transform:translateY(0)}23%{opacity:1;transform:translateY(374px)}25%,100%{opacity:0;transform:translateY(374px)}}
+@keyframes list{0%,25%{opacity:0}27%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes row{0%,26%{opacity:0;transform:translateX(-14px)}31%,100%{opacity:1;transform:none}}
+@keyframes tot{0%,37%{opacity:0;transform:translateY(8px)}41%,100%{opacity:1;transform:none}}
+@keyframes pop{0%,40%{opacity:0;transform:scale(.5)}42%{opacity:1;transform:scale(1.12)}44%,100%{opacity:1;transform:none}}
+@keyframes late{0%,42%{opacity:0;transform:translateY(8px)}46%,100%{opacity:1;transform:none}}
+@keyframes chip{0%,44%{opacity:0;transform:translateY(14px) scale(.94)}48%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+.relief{line-height:1.3}
+/* 01: the photo and what Tally read from it */
+.chapter.ch01{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.snap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;align-items:center}
+.photo{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#1B2550}
+.photo .brk{animation-range:cover 30% cover 45%}
+.photo .brk.tl{top:3%;left:5%}.photo .brk.tr{top:3%;right:5%}.photo .brk.bl{bottom:3%;left:5%}.photo .brk.br{bottom:3%;right:5%}
+.photo .scan2{left:8%;width:84%;top:4%;animation:scan3 3.2s ease-in-out infinite}
+@keyframes scan3{0%,100%{top:4%}50%{top:94%}}
+.readc{display:flex;flex-direction:column;gap:6px;min-width:0}
+.readc .dhead{padding-bottom:0}
+.shopl{font-size:13px;color:#6A6E7E;padding:0 2px 4px}
+.rl{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:#F7F6F2;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 22%}
+.rl .n{flex:1;min-width:0}
+.rl:nth-child(4){animation-range:cover 14% cover 24%}.rl:nth-child(5){animation-range:cover 16% cover 26%}.rl:nth-child(6){animation-range:cover 18% cover 28%}.rl:nth-child(7){animation-range:cover 20% cover 30%}
+.readc .sum{margin-top:6px;font-variant-numeric:tabular-nums}
+.vianote{display:none;justify-content:center;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A8676}
+/* 03: the category as the choice it is */
+.selk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 8px 4px 10px;border-radius:8px;background:#F8E3EF;color:#7A2458}
+.chev{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* 04: the app's relief card: rows, the picker, zakat and donations apart */
+.rsum{margin:-8px 0 0;font-size:14px;color:#C9D0E0;font-variant-numeric:tabular-nums}
+.pick{display:flex;align-items:center;gap:12px;min-height:36px;padding:7px 12px;border-radius:10px;background:#1E2640;border:1px solid #2E3858;font-size:13px;color:#C9D0E0}
+.pick>span:first-child{flex:none;color:#A9B1C6}
+.pick .v{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:#FFFFFF}
+.pick .v span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rlist{display:flex;flex-direction:column}
+.rlist>div{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.rlist .nm{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:14px;line-height:1.4;color:#E7EAF3}
+.rlist small{font-size:12px;color:#A9B1C6}
+.rlist b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rlist.apart>div{opacity:.62}
+.apartk{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#A9B1C6}
+html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
+/* afford band: the app's answer, the next 30 days, the sums */
+.chapter.afd{border-top:0;padding-top:0;padding-bottom:0;align-items:start}
+.verdict{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:600;line-height:1.3;color:#FFFFFF}
+.verdict i{width:10px;height:10px;border-radius:50%;background:#F5C451;flex:none}
+.afd .sm{margin:0;font-size:14px;line-height:1.5;color:#A9B1C6}
+.afd .sm b{color:#F5C451;font-weight:600}
+.chart{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{display:flex;justify-content:space-between;font-size:12px;color:#8C95AD}
+.ckey{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:#C9D0E0}
+.ckey span{display:inline-flex;align-items:center;gap:6px}
+.ckey i{width:8px;height:8px;border-radius:50%;background:#F5C451}.ckey i.p{width:2px;height:12px;border-radius:1px;background:#8EA4FF}
+.arows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#C9D0E0}
+.arows li{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.arows .av{font-variant-numeric:tabular-nums;white-space:nowrap;color:#FFFFFF}
+.arows li.lt{margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-weight:600;color:#FFFFFF}
+/* share band: two real share pictures, fanned */
+.chapter.shr{border-top:0;padding-top:0;align-items:start}
+.fan{position:relative;height:390px}
+.fan picture{position:absolute;width:280px;height:280px;border-radius:14px;overflow:hidden;border:1px solid #E6E3DA;box-shadow:0 1px 2px rgba(10,15,30,.04),0 16px 40px -24px rgba(10,15,30,.28)}
+.fan .back{left:calc(50% - 20px);top:0;transform:rotate(2.5deg)}
+.fan .front{left:calc(50% - 276px);top:76px;transform:rotate(-3deg)}
+.hid{position:absolute;left:calc(50% - 262px);top:350px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#F7F6F2;border:1px solid #E6E3DA;color:#4D5163;font-size:12px;font-weight:600;white-space:nowrap;transform:rotate(-3deg)}
+.hid .ico{width:15px;height:15px}
+/* sticker tile */
+.stk{aspect-ratio:720/282;margin-top:18px;border-radius:14px;overflow:hidden;background:#FDFBF6;border:1px solid #ECE9E0}
+.stk img{object-fit:cover;object-position:50% 30%}
+#t-budget .bvis{flex:1;height:auto;min-height:96px}
+.fit .ft>span{display:none}
+.fit a{gap:12px}
+.pills .subc{color:#8A8676;font-weight:500}
+/* six promises in the free band: two rows of three */
+.cells{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cells>div:nth-child(4){border-left:0;padding-left:0}
+.cells>div:nth-child(n+4){margin-top:28px;border-top:1px solid rgba(255,255,255,.1)}
+@media (max-width:980px){
+.chapter.ch01{grid-template-columns:minmax(0,1fr)}
+.snap{grid-template-columns:minmax(0,1fr);gap:12px}
+.vianote{display:flex}
+.pick{flex-direction:column;align-items:stretch;gap:4px}
+.verdict{font-size:18px}
+.fan{height:222px}
+.fan picture{width:150px;height:150px}
+.fan .back{left:calc(50% - 4px);top:0}
+.fan .front{left:calc(50% - 150px);top:40px}
+.hid{left:calc(50% - 140px);top:190px}
+.readc .rl{display:none}
+.dia{display:none}
+.free-top{gap:0}
+.fit a{padding:14px 16px}
+.c2{right:6px}
+#afford,#share{padding-top:64px}#afford{padding-bottom:64px}
+.chapter{padding:40px 0}
+.rl{padding:7px 10px;font-size:14px}
+.shopl{display:none}
+.cells{grid-template-columns:minmax(0,1fr)}
+.cells>div:nth-child(n+4){margin-top:0}
+}
+/* Tamil: the long "shop name read" chip wraps instead of covering the shop's name */
+html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
+@media (max-width:980px){html:lang(ta) .c2{max-width:150px;top:2px;font-size:11px}}
+@media (prefers-reduced-motion:reduce){.shot{display:none}}
+</style>
 </head>
 <body>
 <div class="lp">
@@ -492,25 +606,17 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="screen">
 <div class="notch"></div><div class="glare"></div>
 <div class="sbar">核对收据</div>
-<div class="slip mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 8px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #B8BFCC; margin-top: 8px; padding-top: 8px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-</div>
+<picture class="shot"><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="" decoding="async"></picture>
 <div class="scan"></div>
 <div class="list">
 <div class="lhead"><span>Kedai Runcit Maju · 5 项</span></div>
 <div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">日常杂货</span><span class="amt">21.90</span></div>
-<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak</span><span class="tag" style="background: #DCF5EC; color: #03543F">日常杂货</span><span class="amt">12.50</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">日常杂货</span><span class="amt">12.50</span></div>
 <div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">家居用品</span><span class="amt">8.90</span></div>
-<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">医疗健康</span><span class="amt">6.40</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">医疗健康</span><span class="amt">6.40</span></div>
 <div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">教育</span><span class="amt">4.20</span></div>
 <div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>合计无误</span></div>
-<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 项减免候选 · 生活方式</div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 项可能的税务减免 · Buku cerita</div>
 <div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
 <div class="leg"><span><i style="background: #009E73"></i>日常杂货 34.40</span><span><i style="background: #A16207"></i>家居用品 8.90</span><span><i style="background: #CC79A7"></i>医疗健康 6.40</span><span><i style="background: #332288"></i>教育 4.20</span></div>
 <div class="save"><span class="ex">示例</span><span class="sbtn">保存收据</span></div>
@@ -518,7 +624,7 @@ html:lang(ta) .ctext h3{font-size:30px}
 </div>
 </div>
 <div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>在这部手机上读取 · <b>不上传</b></span></div>
-<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>已认出商店</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>已读出店名</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
 </div>
 </div>
 <div class="proof">
@@ -541,43 +647,37 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="fit">
 <a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>大采购</b><span>去一趟大型超市，食物、药品和清洁用品都在同一张收据上。</span></span><span class="go"><span class="gl">看它怎么分类</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>减免收据</b><span>你一整年都在收集书本、健身房、体检和天课的收据。</span></span><span class="go"><span class="gl">税务减免</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#t-budget"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg></span><span class="ft"><b>共同理财</b><span>你和伴侣共用一个共同账户。</span></span><span class="go"><span class="gl">预算和账单</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>月底</b><span>你想在买之前就知道，而不是等到发薪后。</span></span><span class="go"><span class="gl">我买得起吗？</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>换应用</b><span>你正从别的记账应用搬过来。</span></span><span class="go"><span class="gl">带上旧记录</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 </div>
 </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how" class="sec" style="padding-bottom: 72px">
+<section id="how" class="sec" style="padding-bottom: 96px">
 <div class="wrap">
 <div class="shead rise">
 <span class="kicker" style="color: #2F54EB">怎么运作</span>
 <h2 class="h2">从皱巴巴的收据，到一目了然的账。</h2>
 </div>
 
-<div class="chapter">
+<div class="chapter ch01">
 <div class="ctext rise">
 <span class="num">01 — 拍下</span>
 <h3>褪色、皱了、拍歪了，照样读得出。</h3>
 <p>Tally 会把照片摆正，在字迹淡的地方看得更仔细，并直接在手机上读取。什么都不用上传。没有收据？直接输入金额就行。</p>
 </div>
-<div class="demo card rise">
-<div class="table">
-<span class="ex">示例</span>
-<div class="pw">
-<div class="paper mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 6px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #CFC9B8; margin-top: 6px; padding-top: 6px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-<div style="text-align: center; padding-top: 8px">TERIMA KASIH</div>
-</div>
-</div>
-<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
-<span class="scan2"></span>
+<div class="demo card rise snap">
+<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="示例：一张来自 Kedai Runcit Maju 的皱巴巴的收据，斜着拍" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
+<div class="readc">
+<div class="dhead"><span>在这部手机上读取</span><span class="ex">示例</span></div>
+<div class="shopl">Kedai Runcit Maju · 15/10/2026</div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Beras 5kg</span><span>21.90</span></div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Minyak masak 2kg</span><span>12.50</span></div>
+<div class="rl"><i class="dot" style="background: #A16207"></i><span class="n">Sabun basuh</span><span>8.90</span></div>
+<div class="rl"><i class="dot" style="background: #CC79A7"></i><span class="n">Ubat batuk</span><span>6.40</span></div>
+<div class="rl"><i class="dot" style="background: #332288"></i><span class="n">Buku cerita</span><span>4.20</span></div>
+<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · 合计无误</span></div>
 </div>
 </div>
 </div>
@@ -622,32 +722,59 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><span><i class="dot" style="background: #332288"></i>教育</span><b>RM 4.20</b></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
-<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">医疗健康</span><span class="changed">原为日常杂货</span></div>
-<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>下次会记住</span>
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">医疗健康<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>点一下就能改。下次 Tally 会记住你的选择。</span>
 </div>
 </div>
 </div>
 
 <div class="chapter" id="reliefs">
 <div class="demo card dk rise">
-<div class="dhead"><span>今年的减免候选</span><span class="exb">示例</span></div>
+<div class="dhead"><span>2026 年可能符合税务减免条件的支出</span><span class="exb">示例</span></div>
+<p class="rsum">有 RM 570.10 支出待核对</p>
 <div class="fly">
 <span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
-<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">可能符合生活方式减免 · 照片已保留</span></span>
-<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #F5C451; transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">可能符合税务减免 · 照片保留 7 年</span></span>
 </div>
-<div class="bars">
-<div><div class="lbl"><span>生活方式<span class="plus tab">+4.20</span></span><b>RM 1,240.00</b></div><div class="bar"><div class="fill" style="width: 62%; background: #F5C451"></div></div></div>
-<div><div class="lbl"><span>医疗</span><b>RM 380.00</b></div><div class="bar"><div class="fill" style="width: 34%; background: #F0A6CE"></div></div></div>
-<div><div class="lbl"><span>教育</span><b>RM 2,150.00</b></div><div class="bar"><div class="fill" style="width: 80%; background: #8EA4FF"></div></div></div>
-<div><div class="lbl"><span>天课</span><b>RM 600.00</b></div><div class="bar"><div class="fill" style="width: 45%; background: #6EE7B7"></div></div></div>
+<div class="pick"><span>税务减免</span><span class="v"><span>自动：书籍、手机、电脑和上网</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<div class="rlist">
+<div><span class="nm"><span>书籍、手机、电脑和上网<span class="plus tab">+4.20</span></span><small>4 笔</small></span><b>RM 322.10</b></div>
+<div><span class="nm"><span>医疗、牙科和疫苗</span><small>1 笔</small></span><b>RM 120.00</b></div>
+<div><span class="nm"><span>运动和健身</span><small>3 笔</small></span><b>RM 128.00</b></div>
 </div>
-<p class="disc">示例数字。仅为减免候选：帮助你提前准备的估算，并非税务建议。预知可申报哪些项目，请查看 LHDN 的规定。</p>
+<div class="apartk">另列，不算减免</div>
+<div class="rlist apart">
+<div><span class="nm"><span>天课与开斋捐（税务回扣）</span><small>1 笔</small></span><b>RM 50.00</b></div>
+<div><span class="nm"><span>捐款（仅限认可机构，需正式收据）</span><small>1 笔</small></span><b>RM 30.00</b></div>
+</div>
+<p class="disc">示例数字。Tally 显示的是你的支出，不是可申报的金额，并非税务建议。预知可申报哪些项目，请查看 LHDN 的规定。</p>
 </div>
 <div class="ctext rise">
 <span class="num">04 — 税务减免</span>
 <h3>报税季，不用再翻一整箱收据。</h3>
-<p>你记账时，Tally 会标出可能算作 LHDN 减免候选的收据和项目，比如书本、健身房、体检或幼儿园学费，并把每张收据的照片放在旁边，报税时可直接下载。你仍需查看 LHDN 的上限和条件，并保留原始收据。</p>
+<p>Tally 根据收据上的字，标出可能符合 LHDN 减免的消费。标错了？改成“不是税务减免”，或选上漏掉的项目。天课和捐款另列。减免收据的照片保留 7 年，可随时下载。请自己核对 LHDN 的上限。</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- CAN I AFFORD IT -->
+<section id="afford" class="sec" style="padding-top: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">买之前</span>
+<h2 class="h2">我买得起吗？ <span class="serif">先问，再买。</span></h2>
+</div>
+<div class="chapter afd">
+<div class="ctext rise">
+<p>输入一个价格。Tally 会把接下来的 30 天逐日走一遍（现有的钱、薪水、账单、平时开销），看的是余额最低的那一天，而不是月底。发薪前钱不够，就算发薪后补得回来，也算“比较紧”。记录只有几天？它会说明这只是粗略估计。</p>
+</div>
+<div class="demo card dk rise">
+<div class="dhead"><span>我买得起吗？·<span class="tab">RM 450.00</span></span><span class="exb">示例</span></div>
+<p class="verdict"><i></i>买得起，但会比较紧。</p>
+<p class="sm"><b>最低：10月27日 时 RM 141.34</b></p>
+<div class="chart" role="img" aria-label="示例：未来 30 天里，余额在 10月27日 最低，正是 10月28日 发薪的前一天。"><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>今天</span><span>30 天</span></div><div class="ckey"><span><i></i>最低的一天</span><span><i class="p"></i>发薪日</span></div></div>
+<ul class="arows"><li><span>现有的钱</span><span class="av">RM 2,035.60</span></li><li><span>10月28日 发薪</span><span class="av">RM 3,500.00</span></li><li><span>账单到期</span><span class="av">−RM 984.00</span></li><li><span>平时的日常开销</span><span class="av">−RM 1,255.26</span></li><li><span>这次购买</span><span class="av">−RM 450.00</span></li><li class="lt"><span>剩下</span><span class="av">RM 2,846.34</span></li></ul>
 </div>
 </div>
 </div>
@@ -686,10 +813,28 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>留在你的手机里。</b><span>除非你自己选择备份到自己的 Google Drive 或文件。</span></div>
 <div><b>开源（MIT）。</b><span>每一行代码都能在 GitHub 上看到。</span></div>
 <div><b>没有付费高级版。</b><span>所有功能，人人可用。</span></div>
+<div><b>收据照片随时可删。</b><span>记录会保留：商店、日期、金额和项目。</span></div>
+<div><b>只在需要时联网。</b><span>只下载自己的文件，或做你要求的事。</span></div>
 </div>
 <div class="sign rise">
 <span>由马来西亚的一位独立开发者制作。</span>
 <a href="https://github.com/tallymy/tallymy.github.io">查看代码 <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</section>
+
+<!-- SHARE PICTURES -->
+<section id="share" class="sec" style="padding-bottom: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">分享</span>
+<h2 class="h2">发给家人群看看。 <span class="serif">金额留给自己。</span></h2>
+</div>
+<div class="chapter shr">
+<div class="ctext rise">
+<p>把你的一个月或一年、贴纸簿或达成的目标做成 WhatsApp 图片：方图适合聊天，长图适合状态。除非你打开，金额都会隐藏。图在手机上生成，除非你发出去，什么都不会离开手机。</p>
+</div>
+<div class="fan rise" role="img" aria-label="示例分享图：本月开销的百分比，以及达成的目标"><picture class="back"><source type="image/webp" srcset="img/share-goal-zh.webp"><img src="img/share-goal-zh.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-zh.webp"><img src="img/share-month-zh.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>金额已隐藏</span></div>
 </div>
 </div>
 </section>
@@ -702,29 +847,29 @@ html:lang(ta) .ctext h3{font-size:30px}
 <h2 class="h2">为马来西亚人的消费习惯而做。</h2>
 </div>
 <div class="bento">
-<div class="tile card dark s4 rise" id="t-budget">
+<div class="tile card dark s3 rise" id="t-budget">
 <span class="ex tex">示例</span>
 <div class="vis bvis">
 <div class="ring">
 <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
-<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 820</b><span style="font-size: 10px; color: #9AA3BA">剩余</span></div>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">剩余</span></div>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>账单提醒 · 3 天后到期</span>
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>共同账户</span>
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"></path></svg>「我买得起吗？」</span>
 </div>
 </div>
 <div class="tx">
-<h3>预算、账单和「我买得起吗？」</h3>
-<p>安心的预算循环、账单到期前的提醒、和伴侣共用的账户，还有在做出大额消费决定前，给你一个直接明确的答案。</p>
+<h3>预算、账单和共同账户</h3>
+<p>安心的预算循环、账单到期前的提醒，以及和伴侣共用的账户。</p>
 </div>
 </div>
-<div class="tile card s2 rise">
-<div class="vis"><div class="langs" role="img" aria-label="用六种语言问好：英语、马来语、简体中文、繁体中文、日语和泰米尔语"><span class="serif" style="animation-delay: 0s">Hello</span><span class="serif" style="animation-delay: 2.5s">Selamat</span><span class="serif" style="animation-delay: 5s">你好</span><span class="serif" style="animation-delay: 7.5s">您好</span><span class="serif" style="animation-delay: 10s">こんにちは</span><span class="serif" lang="ta" style="animation-delay: 12.5s">வணக்கம்</span></div></div>
+<div class="tile card s3 rise">
+<span class="ex tex" style="z-index: 1">示例</span>
+<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="示例：十月的贴纸，每记一天得一张" decoding="async" loading="lazy"></picture></div>
 <div class="tx">
-<h3>说你的语言。</h3>
-<p style="word-break: keep-all">English、Bahasa Melayu、简体中文、繁體中文、日本語和 <span lang="ta">தமிழ்</span>，连收据上的字都懂。</p>
+<h3>每记一天账，得一张贴纸。</h3>
+<p>记一笔，或点“今天没有花钱”，这一天就会得到一张贴纸，和本月故事的一页。十月的贴纸簿是《夜市》：Raju 叔叔摆了 30 年的曼煎糕摊，会不会就此收摊？</p>
 </div>
 </div>
 <div class="tile card s2 rise">
@@ -740,12 +885,12 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="tile card s2 rise">
 <div class="vis"><div class="pills">
 <span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>日常杂货</b></span>
-<span><i class="dot" style="background: #E69F00"></i>Kopitiam<span class="to">→</span><b>餐饮</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>餐饮<span class="subc"> › 嘛嘛档</span></b></span>
 <span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>医疗健康</b></span>
 </div></div>
 <div class="tx">
 <h3>认得商店。</h3>
-<p>超过 3,000 个马来西亚连锁店和店名，从咖啡店到大型超市，按名称认出，归到对的类别。</p>
+<p>超过 3,000 个马来西亚连锁店和店名，从咖啡店到大型超市，按名称认出，归到对的类别。 想看得更细？开启子类别，比如 餐饮 › 嘛嘛档 或 咖啡店。Tally 会根据店名猜，并从你的选择中学习。</p>
 </div>
 </div>
 <div class="tile card s2 rise" id="t-import">
@@ -787,12 +932,11 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Android</b><span>在 Chrome 中点菜单 <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>，再点「安装应用」或「添加到主屏幕」。</span></div>
 </div>
 <p style="font-size: 15px">之后它会像普通应用一样打开，还能离线使用。</p>
-<span class="small" style="font-size: 13px">Play Store 版本即将推出。</span>
 </div>
 <div class="step">
 <span class="stepn serif">3</span>
 <b>拍下第一张收据</b>
-<p>也可以直接输入金额，或先用示例数据试试。正式开始前，什么都不会保存。</p>
+<p>也可以直接输入金额。还没准备好？在第一个画面点“先用示例数据看看”。正式开始前，什么都不会保存。</p>
 </div>
 </div>
 </div>
@@ -809,12 +953,13 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="rise">
 <details class="qa"><summary>真的免费吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>是的。所有功能都免费，没有付费高级版，也没有广告。这是一份热爱之作，而且工作都由你的手机完成，不需要花钱养服务器。</p></details>
 <details class="qa"><summary>我的数据会去哪里？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>留在你的手机里。没有账号。收据在设备上读取，从不上传。如果你要备份，只会在你选择时存到你自己的 Google Drive 或文件。</p></details>
+<details class="qa"><summary>可以删除收据照片吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>可以。在“设置 → 隐私 → 收据照片”里，可以马上全部删除，或让 Tally 删除超过 30 天、90 天或一年的照片。记录会保留：商店、日期、金额和项目。按时间整理时，Tally 会把可能符合税务减免的消费照片保留 7 年（LHDN 可要求查看的期限）。选择全部删除，这些照片也会一起删掉，由你决定。</p></details>
 <details class="qa"><summary>Tally 会读我的短信，或要我的银行登录吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>不会。Tally 从不读取你的短信或验证码（OTP），也从不要求银行登录、银行卡或密码。它唯一会请求使用的是相机，用来拍收据；你也可以拒绝，改为手动输入。只有你自己选择导入对账单文件时，银行记录才会进来。</p></details>
+<details class="qa"><summary>为什么需要联网？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>第一次打开、下载收据识别器（只需一次，约 30 MB）和自动更新时需要联网。之后就能离线使用。除此之外，它只在你要求时联网：你贴上的 Google Sheets 链接、你查询的汇率、你发送的反馈，或你添加的日历提醒。你的记录和收据照片从不会被发送。</p></details>
 <details class="qa"><summary>帮爸妈装？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>在他们的手机上打开 tallymy.github.io，选好语言和较大的字体，然后添加到主屏幕。在“设置 → 功能”里选“简单”，只保留基本功能。不需要账号或密码，记录都留在他们自己的手机里。</p></details>
 <details class="qa"><summary>它读得懂我的收据吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>褪色、皱了、远拍或拍歪的照片它都能应付，还认得超过 3,000 个马来西亚连锁店和店名。它不会每次都对，所以它会核对项目合计是否等于总额，并指出值得再看一眼的行。改一次，下次 Tally 就记住了。</p></details>
-<details class="qa"><summary>从浏览器安装的，算真正的应用吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>它是一个网页应用，可以安装到主屏幕，像应用一样打开，打开过一次后就能离线使用。Play Store 版本即将推出。</p></details>
+<details class="qa"><summary>从浏览器安装的，算真正的应用吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>它是一个网页应用，可以安装到主屏幕，像应用一样打开，打开过一次后就能离线使用。</p></details>
 <details class="qa"><summary>换手机怎么办？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>在「设置」里，「备份与恢复」会生成一个备份文件。把它发给自己（Google Drive、邮箱、WhatsApp），再在新手机上恢复。因为没有账号，换手机前记得先备份。</p></details>
-<details class="qa"><summary>可以把旧数据带过来吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>可以，支持 Money Manager、Cashew、Money Lover、Spendee、Wallet 等应用，以及银行对账单文件。旧的类别也会一起带过来。</p></details>
 <details class="qa"><summary>税务减免功能算税务建议吗？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>不算。Tally 会标出可能算作减免候选的收据和项目，并保存收据照片。它不了解你的情况，也不会计算你能申报多少；每项减免都有上限和条件。这只是帮助你提前准备的估算。预知可申报哪些项目，请查看 LHDN 的规定。</p></details>
 <details class="qa"><summary>谁做的？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>马来西亚的一位独立开发者。它是开源的（MIT），你可以在 GitHub 上查看代码。有意见或发现 bug？<a href="https://github.com/tallymy/tallymy.github.io/issues">在 GitHub 上提 issue</a>。</p></details>
 <details class="qa"><summary>如果我不用了，或者它不再更新呢？<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>你的数据在你的手机里，随时都能做备份文件。代码在 GitHub 上开源（MIT），不会被锁起来。</p></details>

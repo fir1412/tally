@@ -1,7 +1,7 @@
 // The monthly sticker book: which days count, filling in later, and which panel a day shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filledDays, panelOf, daysIn, bookState, loadBook, WHO } from '../js/comic.js';
+import { filledDays, panelOf, daysIn, bookState, loadBook, WHO, pastMonths } from '../js/comic.js';
 import { LANGS } from '../js/i18n.js';
 
 const at = (d, h = 12) => new Date(`${d}T${String(h).padStart(2, '0')}:00:00`).getTime();   // local time, as dayOf reads it
@@ -47,4 +47,12 @@ test('every book speaks every language: theme, sticker names, lines, tips and na
     b.panels.forEach((p, i) => miss.push(...p.lines.flatMap(l => gaps(l.text, `${m} #${i + 1}`)), ...(p.tip ? gaps(p.tip, `${m} #${i + 1} tip`) : [])));
   }
   assert.deepEqual(miss, []);
+});
+
+test('past months: back to when you began, never before the launch (Oct 2026), none in the sample', () => {
+  assert.deepEqual(pastMonths({ today: '2026-10-15', first: '2025-01' }), []);
+  assert.deepEqual(pastMonths({ today: '2027-01-02', first: '2026-03' }), ['2026-12', '2026-11', '2026-10']);
+  assert.deepEqual(pastMonths({ today: '2027-01-02', first: '2026-12' }), ['2026-12']);
+  assert.deepEqual(pastMonths({ today: '2027-01-02', first: '2026-03', sample: true }), []);
+  assert.equal(pastMonths({ today: '2032-01-01', first: '2026-10' }).length, 24);
 });

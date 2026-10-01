@@ -1,11 +1,17 @@
 // First-run tour, What's new after an update, install prompt and update check (pattern from we go gim).
 import { S, settings, setKv, persistStorage } from './state.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
 import { esc, ICON, openSheet, closeSheet, toast, hideToast, announce } from './ui.js';
 import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.11.0': [
+    "November's sticker book has a new story about pay later. A page for each day you fill in",
+    "Can I afford it? now shows your lowest day first, what your everyday spending is made of, and your bills. Weeks you didn't fill in no longer count as weeks you spent nothing",
+    "Pay that changes? Can I afford it? now plans on the latest of your recent paydays and the smallest of your recent pays",
+    "Search in Settings, and a link to Tally's website at the bottom",
+  ],
   '1.10.3': [
     "October's sticker book has a new story: someone is stealing from Uncle Raju's stall. A page for each day you fill in",
   ],
@@ -221,11 +227,15 @@ const cmpVer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').
 /** Everything added after version `from` (all of it when `from` is empty). */
 export const newSince = from => Object.entries(WHATS_NEW).filter(([v]) => !from || cmpVer(v, from) > 0).flatMap(([, l]) => l);
 
+/** Tally's website (the landing page new visitors see), in the reader's language where there is one. Its "Open Tally"
+ *  comes back as ./?app, and first.js never sends someone who has opened Tally before back to it. */
+export const siteUrl = () => `start${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh', ta: '.ta' })[getLang()] || ''}.html`;
 export function showWhatsNew(from = '') {
   const items = newSince(from);
   const el = openSheet(`<div class="tour"><div class="tour-ic">${ICON.sparkles}</div><p class="lbl">${esc(t('Tally {0}', APP_VERSION))}</p><h2 class="sh-title">${esc(t("What's new"))}</h2>
     <ul class="newlist">${items.map(x => `<li>${esc(t(x))}</li>`).join('')}</ul>
-    <div class="row2"><button class="btn ghost" data-t="tour">${esc(t('Take the tour'))}</button><button class="btn" data-t="ok" autofocus>${esc(t('Got it'))}</button></div></div>`,
+    <div class="row2"><button class="btn ghost" data-t="tour">${esc(t('Take the tour'))}</button><button class="btn" data-t="ok" autofocus>${esc(t('Got it'))}</button></div>
+    <p class="fine center"><a class="link" href="${siteUrl()}" target="_blank" rel="noopener">${esc(t("Tally's website"))}</a></p></div>`,
   { label: t("What's new"), onClose: () => seen() });
   el.addEventListener('click', e => {
     const b = e.target.closest('[data-t]'); if (!b) return;

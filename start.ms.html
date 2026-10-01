@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tally: pengimbas resit dan buku belanja percuma untuk rakyat Malaysia</title>
-<meta name="description" content="Imbas resit dan Tally membacanya dalam telefon anda, mengasingkan setiap item, dan menandakan apa yang mungkin layak untuk pelepasan LHDN. Tiada akaun, tiada apa dimuat naik, percuma.">
+<meta name="description" content="Imbas resit dan Tally mengasingkan setiap item, dalam telefon anda. Tiada akaun, tiada SMS, tiada log masuk bank, tiada apa dimuat naik. Percuma, tanpa iklan.">
 <meta name="theme-color" content="#070A16">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tallymy.github.io/start.ms.html">
 <meta property="og:title" content="Tally, buku belanja percuma untuk rakyat Malaysia">
-<meta property="og:description" content="Imbas resit dan Tally membacanya dalam telefon anda, mengasingkan setiap item, dan menandakan apa yang mungkin layak untuk pelepasan LHDN. Tiada akaun, tiada apa dimuat naik, percuma.">
+<meta property="og:description" content="Imbas resit dan Tally mengasingkan setiap item, dalam telefon anda. Tiada akaun, tiada SMS, tiada log masuk bank, tiada apa dimuat naik. Percuma, tanpa iklan.">
 <meta property="og:image" content="https://tallymy.github.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -289,8 +289,8 @@ body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil 
 @keyframes lang{0%{opacity:0;transform:translateY(14px)}3.33%,15%{opacity:1;transform:none}18.33%,100%{opacity:0;transform:translateY(-14px)}}
 .ring{position:relative;width:80px;height:80px;flex:none}
 .ring svg{width:80px;height:80px;transform:rotate(-90deg)}
-.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:81.4;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
-@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:81.4}}
+.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:59;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
+@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:59}}
 .ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
 .mini{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#1E2640;color:#C9D0E0;font-size:13px;white-space:nowrap}
 .mini .ico{width:15px;height:15px;color:#8EA4FF}
@@ -433,6 +433,120 @@ html:lang(ta) .ctext h3{font-size:30px}
 @keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
 @supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
 </style>
+<style>
+/* 1.11 refresh: the crumpled receipt photo, the read-out beside it, the relief list, the afford and share bands, the sticker tile */
+.shot{position:absolute;inset:0;z-index:2;animation:shot 12s ease-in-out infinite both}
+.shot img,.photo img,.fan img,.stk img{display:block;width:100%;height:100%}
+.shot img,.photo img{object-fit:cover}
+.sbar{animation:list 12s ease infinite both}
+.scan{top:132px}
+.tag{font-size:9.5px;padding:2px 6px}
+.row{gap:6px;padding:10px 10px}.row .nm{font-size:12.5px}.row .amt{width:36px}
+@keyframes shot{0%,24%{opacity:1;transform:none}29%{opacity:0;transform:scale(1.04)}93%{opacity:0;transform:none}100%{opacity:1;transform:none}}
+@keyframes scan{0%,6%{opacity:0;transform:translateY(0)}8%{opacity:1;transform:translateY(0)}23%{opacity:1;transform:translateY(374px)}25%,100%{opacity:0;transform:translateY(374px)}}
+@keyframes list{0%,25%{opacity:0}27%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes row{0%,26%{opacity:0;transform:translateX(-14px)}31%,100%{opacity:1;transform:none}}
+@keyframes tot{0%,37%{opacity:0;transform:translateY(8px)}41%,100%{opacity:1;transform:none}}
+@keyframes pop{0%,40%{opacity:0;transform:scale(.5)}42%{opacity:1;transform:scale(1.12)}44%,100%{opacity:1;transform:none}}
+@keyframes late{0%,42%{opacity:0;transform:translateY(8px)}46%,100%{opacity:1;transform:none}}
+@keyframes chip{0%,44%{opacity:0;transform:translateY(14px) scale(.94)}48%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+.relief{line-height:1.3}
+/* 01: the photo and what Tally read from it */
+.chapter.ch01{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.snap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;align-items:center}
+.photo{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#1B2550}
+.photo .brk{animation-range:cover 30% cover 45%}
+.photo .brk.tl{top:3%;left:5%}.photo .brk.tr{top:3%;right:5%}.photo .brk.bl{bottom:3%;left:5%}.photo .brk.br{bottom:3%;right:5%}
+.photo .scan2{left:8%;width:84%;top:4%;animation:scan3 3.2s ease-in-out infinite}
+@keyframes scan3{0%,100%{top:4%}50%{top:94%}}
+.readc{display:flex;flex-direction:column;gap:6px;min-width:0}
+.readc .dhead{padding-bottom:0}
+.shopl{font-size:13px;color:#6A6E7E;padding:0 2px 4px}
+.rl{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:#F7F6F2;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 22%}
+.rl .n{flex:1;min-width:0}
+.rl:nth-child(4){animation-range:cover 14% cover 24%}.rl:nth-child(5){animation-range:cover 16% cover 26%}.rl:nth-child(6){animation-range:cover 18% cover 28%}.rl:nth-child(7){animation-range:cover 20% cover 30%}
+.readc .sum{margin-top:6px;font-variant-numeric:tabular-nums}
+.vianote{display:none;justify-content:center;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A8676}
+/* 03: the category as the choice it is */
+.selk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 8px 4px 10px;border-radius:8px;background:#F8E3EF;color:#7A2458}
+.chev{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* 04: the app's relief card: rows, the picker, zakat and donations apart */
+.rsum{margin:-8px 0 0;font-size:14px;color:#C9D0E0;font-variant-numeric:tabular-nums}
+.pick{display:flex;align-items:center;gap:12px;min-height:36px;padding:7px 12px;border-radius:10px;background:#1E2640;border:1px solid #2E3858;font-size:13px;color:#C9D0E0}
+.pick>span:first-child{flex:none;color:#A9B1C6}
+.pick .v{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:#FFFFFF}
+.pick .v span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rlist{display:flex;flex-direction:column}
+.rlist>div{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.rlist .nm{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:14px;line-height:1.4;color:#E7EAF3}
+.rlist small{font-size:12px;color:#A9B1C6}
+.rlist b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rlist.apart>div{opacity:.62}
+.apartk{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#A9B1C6}
+html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
+/* afford band: the app's answer, the next 30 days, the sums */
+.chapter.afd{border-top:0;padding-top:0;padding-bottom:0;align-items:start}
+.verdict{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:600;line-height:1.3;color:#FFFFFF}
+.verdict i{width:10px;height:10px;border-radius:50%;background:#F5C451;flex:none}
+.afd .sm{margin:0;font-size:14px;line-height:1.5;color:#A9B1C6}
+.afd .sm b{color:#F5C451;font-weight:600}
+.chart{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{display:flex;justify-content:space-between;font-size:12px;color:#8C95AD}
+.ckey{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:#C9D0E0}
+.ckey span{display:inline-flex;align-items:center;gap:6px}
+.ckey i{width:8px;height:8px;border-radius:50%;background:#F5C451}.ckey i.p{width:2px;height:12px;border-radius:1px;background:#8EA4FF}
+.arows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#C9D0E0}
+.arows li{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.arows .av{font-variant-numeric:tabular-nums;white-space:nowrap;color:#FFFFFF}
+.arows li.lt{margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-weight:600;color:#FFFFFF}
+/* share band: two real share pictures, fanned */
+.chapter.shr{border-top:0;padding-top:0;align-items:start}
+.fan{position:relative;height:390px}
+.fan picture{position:absolute;width:280px;height:280px;border-radius:14px;overflow:hidden;border:1px solid #E6E3DA;box-shadow:0 1px 2px rgba(10,15,30,.04),0 16px 40px -24px rgba(10,15,30,.28)}
+.fan .back{left:calc(50% - 20px);top:0;transform:rotate(2.5deg)}
+.fan .front{left:calc(50% - 276px);top:76px;transform:rotate(-3deg)}
+.hid{position:absolute;left:calc(50% - 262px);top:350px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#F7F6F2;border:1px solid #E6E3DA;color:#4D5163;font-size:12px;font-weight:600;white-space:nowrap;transform:rotate(-3deg)}
+.hid .ico{width:15px;height:15px}
+/* sticker tile */
+.stk{aspect-ratio:720/282;margin-top:18px;border-radius:14px;overflow:hidden;background:#FDFBF6;border:1px solid #ECE9E0}
+.stk img{object-fit:cover;object-position:50% 30%}
+#t-budget .bvis{flex:1;height:auto;min-height:96px}
+.fit .ft>span{display:none}
+.fit a{gap:12px}
+.pills .subc{color:#8A8676;font-weight:500}
+/* six promises in the free band: two rows of three */
+.cells{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cells>div:nth-child(4){border-left:0;padding-left:0}
+.cells>div:nth-child(n+4){margin-top:28px;border-top:1px solid rgba(255,255,255,.1)}
+@media (max-width:980px){
+.chapter.ch01{grid-template-columns:minmax(0,1fr)}
+.snap{grid-template-columns:minmax(0,1fr);gap:12px}
+.vianote{display:flex}
+.pick{flex-direction:column;align-items:stretch;gap:4px}
+.verdict{font-size:18px}
+.fan{height:222px}
+.fan picture{width:150px;height:150px}
+.fan .back{left:calc(50% - 4px);top:0}
+.fan .front{left:calc(50% - 150px);top:40px}
+.hid{left:calc(50% - 140px);top:190px}
+.readc .rl{display:none}
+.dia{display:none}
+.free-top{gap:0}
+.fit a{padding:14px 16px}
+.c2{right:6px}
+#afford,#share{padding-top:64px}#afford{padding-bottom:64px}
+.chapter{padding:40px 0}
+.rl{padding:7px 10px;font-size:14px}
+.shopl{display:none}
+.cells{grid-template-columns:minmax(0,1fr)}
+.cells>div:nth-child(n+4){margin-top:0}
+}
+/* Tamil: the long "shop name read" chip wraps instead of covering the shop's name */
+html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
+@media (max-width:980px){html:lang(ta) .c2{max-width:150px;top:2px;font-size:11px}}
+@media (prefers-reduced-motion:reduce){.shot{display:none}}
+</style>
 </head>
 <body>
 <div class="lp">
@@ -492,25 +606,17 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="screen">
 <div class="notch"></div><div class="glare"></div>
 <div class="sbar">Semak resit</div>
-<div class="slip mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 8px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #B8BFCC; margin-top: 8px; padding-top: 8px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-</div>
+<picture class="shot"><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="" decoding="async"></picture>
 <div class="scan"></div>
 <div class="list">
 <div class="lhead"><span>Kedai Runcit Maju · 5 item</span></div>
 <div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Barang dapur</span><span class="amt">21.90</span></div>
-<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak</span><span class="tag" style="background: #DCF5EC; color: #03543F">Barang dapur</span><span class="amt">12.50</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Barang dapur</span><span class="amt">12.50</span></div>
 <div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">Rumah</span><span class="amt">8.90</span></div>
-<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Kesihatan</span><span class="amt">6.40</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Kesihatan</span><span class="amt">6.40</span></div>
 <div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">Pendidikan</span><span class="amt">4.20</span></div>
 <div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Jumlah tepat</span></div>
-<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 calon pelepasan · Gaya hidup</div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 kemungkinan pelepasan cukai · Buku cerita</div>
 <div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
 <div class="leg"><span><i style="background: #009E73"></i>Barang dapur 34.40</span><span><i style="background: #A16207"></i>Rumah 8.90</span><span><i style="background: #CC79A7"></i>Kesihatan 6.40</span><span><i style="background: #332288"></i>Pendidikan 4.20</span></div>
 <div class="save"><span class="ex">Contoh</span><span class="sbtn">Simpan resit</span></div>
@@ -518,7 +624,7 @@ html:lang(ta) .ctext h3{font-size:30px}
 </div>
 </div>
 <div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Dibaca dalam telefon ini · <b>tidak dimuat naik</b></span></div>
-<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Kedai dikenal pasti</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Nama kedai dibaca</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
 </div>
 </div>
 <div class="proof">
@@ -541,43 +647,37 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="fit">
 <a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>Trip pasar raya</b><span>Satu resit pasar raya anda ada makanan, ubat dan barang cucian.</span></span><span class="go"><span class="gl">Lihat cara ia diasing</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>Resit pelepasan cukai</b><span>Anda simpan resit sepanjang tahun untuk buku, gim, pemeriksaan kesihatan dan zakat.</span></span><span class="go"><span class="gl">Pelepasan cukai</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#t-budget"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg></span><span class="ft"><b>Duit bersama</b><span>Anda dan pasangan menguruskan satu akaun bersama.</span></span><span class="go"><span class="gl">Bajet dan bil</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>Hujung bulan</b><span>Anda mahu tahu sebelum membeli, bukan selepas gaji masuk.</span></span><span class="go"><span class="gl">Mampukah saya?</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>Tukar aplikasi</b><span>Anda nak berpindah dari aplikasi kewangan lain.</span></span><span class="go"><span class="gl">Bawa sejarah anda</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 </div>
 </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how" class="sec" style="padding-bottom: 72px">
+<section id="how" class="sec" style="padding-bottom: 96px">
 <div class="wrap">
 <div class="shead rise">
 <span class="kicker" style="color: #2F54EB">Cara ia berfungsi</span>
 <h2 class="h2">Dari resit renyuk kepada gambaran yang jelas.</h2>
 </div>
 
-<div class="chapter">
+<div class="chapter ch01">
 <div class="ctext rise">
 <span class="num">01 — IMBAS</span>
 <h3>Pudar, renyuk, senget. Masih boleh dibaca.</h3>
 <p>Tally meluruskan foto, melihat lebih dekat pada cetakan yang pudar, dan membacanya dalam telefon itu sendiri. Tiada apa dimuat naik. Tiada resit? Taip sahaja jumlahnya.</p>
 </div>
-<div class="demo card rise">
-<div class="table">
-<span class="ex">Contoh</span>
-<div class="pw">
-<div class="paper mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 6px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #CFC9B8; margin-top: 6px; padding-top: 6px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-<div style="text-align: center; padding-top: 8px">TERIMA KASIH</div>
-</div>
-</div>
-<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
-<span class="scan2"></span>
+<div class="demo card rise snap">
+<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="Contoh: resit renyuk dari Kedai Runcit Maju, difoto secara senget" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
+<div class="readc">
+<div class="dhead"><span>Dibaca dalam telefon ini</span><span class="ex">Contoh</span></div>
+<div class="shopl">Kedai Runcit Maju · 15/10/2026</div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Beras 5kg</span><span>21.90</span></div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Minyak masak 2kg</span><span>12.50</span></div>
+<div class="rl"><i class="dot" style="background: #A16207"></i><span class="n">Sabun basuh</span><span>8.90</span></div>
+<div class="rl"><i class="dot" style="background: #CC79A7"></i><span class="n">Ubat batuk</span><span>6.40</span></div>
+<div class="rl"><i class="dot" style="background: #332288"></i><span class="n">Buku cerita</span><span>4.20</span></div>
+<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · Jumlah tepat</span></div>
 </div>
 </div>
 </div>
@@ -622,32 +722,59 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><span><i class="dot" style="background: #332288"></i>Pendidikan</span><b>RM 4.20</b></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
-<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Kesihatan</span><span class="changed">Ditukar daripada Barang dapur</span></div>
-<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Diingat untuk lain kali</span>
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">Kesihatan<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Ketik untuk menukarnya. Tally ingat pilihan anda untuk lain kali.</span>
 </div>
 </div>
 </div>
 
 <div class="chapter" id="reliefs">
 <div class="demo card dk rise">
-<div class="dhead"><span>Calon pelepasan, tahun ini</span><span class="exb">Contoh</span></div>
+<div class="dhead"><span>Perbelanjaan yang mungkin layak untuk pelepasan cukai pada 2026</span><span class="exb">Contoh</span></div>
+<p class="rsum">RM 570.10 perbelanjaan untuk disemak</p>
 <div class="fly">
 <span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
-<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">Mungkin layak untuk Gaya hidup · foto disimpan</span></span>
-<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #F5C451; transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">Mungkin layak untuk pelepasan cukai · foto disimpan 7 tahun</span></span>
 </div>
-<div class="bars">
-<div><div class="lbl"><span>Gaya hidup<span class="plus tab">+4.20</span></span><b>RM 1,240.00</b></div><div class="bar"><div class="fill" style="width: 62%; background: #F5C451"></div></div></div>
-<div><div class="lbl"><span>Perubatan</span><b>RM 380.00</b></div><div class="bar"><div class="fill" style="width: 34%; background: #F0A6CE"></div></div></div>
-<div><div class="lbl"><span>Pendidikan</span><b>RM 2,150.00</b></div><div class="bar"><div class="fill" style="width: 80%; background: #8EA4FF"></div></div></div>
-<div><div class="lbl"><span>Zakat</span><b>RM 600.00</b></div><div class="bar"><div class="fill" style="width: 45%; background: #6EE7B7"></div></div></div>
+<div class="pick"><span>Pelepasan cukai</span><span class="v"><span>Automatik: Buku, telefon, komputer dan internet</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<div class="rlist">
+<div><span class="nm"><span>Buku, telefon, komputer dan internet<span class="plus tab">+4.20</span></span><small>4 catatan</small></span><b>RM 322.10</b></div>
+<div><span class="nm"><span>Perubatan, pergigian dan vaksinasi</span><small>1 catatan</small></span><b>RM 120.00</b></div>
+<div><span class="nm"><span>Sukan dan gim</span><small>3 catatan</small></span><b>RM 128.00</b></div>
 </div>
-<p class="disc">Angka contoh. Calon pelepasan sahaja: anggaran untuk membantu anda bersedia, bukan nasihat cukai. Semak peraturan LHDN untuk apa yang boleh anda tuntut.</p>
+<div class="apartk">Disenaraikan berasingan, bukan pelepasan</div>
+<div class="rlist apart">
+<div><span class="nm"><span>Zakat dan fitrah (rebat cukai)</span><small>1 catatan</small></span><b>RM 50.00</b></div>
+<div><span class="nm"><span>Derma (badan diluluskan sahaja, resit rasmi diperlukan)</span><small>1 catatan</small></span><b>RM 30.00</b></div>
+</div>
+<p class="disc">Angka contoh. Tally tunjukkan apa yang anda belanjakan, bukan apa yang boleh anda tuntut. Bukan nasihat cukai: semak peraturan LHDN sebelum anda memfailkan.</p>
 </div>
 <div class="ctext rise">
 <span class="num">04 — PELEPASAN CUKAI</span>
 <h3>Musim cukai, tanpa sekotak resit.</h3>
-<p>Sambil anda mencatat, Tally menandakan resit dan item yang mungkin layak sebagai calon pelepasan LHDN, seperti buku, gim, pemeriksaan perubatan atau yuran tadika, dan menyimpan foto setiap resit di sebelahnya, sedia dimuat turun pada musim cukai. Anda tetap perlu menyemak had dan syarat LHDN, dan menyimpan resit asal.</p>
+<p>Tally menandakan belian yang mungkin layak untuk pelepasan LHDN, daripada perkataan pada resit. Tersilap? Tandakan “Bukan pelepasan cukai”, atau pilih yang terlepas. Zakat dan derma disenaraikan berasingan. Foto resit pelepasan disimpan 7 tahun, sedia dimuat turun. Semak had LHDN.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- CAN I AFFORD IT -->
+<section id="afford" class="sec" style="padding-top: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Sebelum membeli</span>
+<h2 class="h2">Mampukah saya? <span class="serif">Tanya sebelum, bukan selepas.</span></h2>
+</div>
+<div class="chapter afd">
+<div class="ctext rise">
+<p>Taip satu harga. Tally meneliti 30 hari akan datang (wang sekarang, gaji, bil, perbelanjaan biasa) dan menilai ikut hari paling rendah, bukan hujung bulan. Kekurangan sebelum gaji bermaksud “agak sempit”, walaupun gaji menampungnya. Baru beberapa hari catatan? Ia beritahu jawapannya anggaran kasar.</p>
+</div>
+<div class="demo card dk rise">
+<div class="dhead"><span>Mampukah saya? · <span class="tab">RM 450.00</span></span><span class="exb">Contoh</span></div>
+<p class="verdict"><i></i>Mampu, tetapi agak sempit.</p>
+<p class="sm"><b>Paling rendah: RM 141.34 pada 27 Okt</b></p>
+<div class="chart" role="img" aria-label="Contoh: dalam 30 hari akan datang, baki paling rendah pada 27 Okt, sehari sebelum gaji masuk pada 28 Okt."><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>Hari ini</span><span>30 hari</span></div><div class="ckey"><span><i></i>Hari paling rendah</span><span><i class="p"></i>Hari gaji</span></div></div>
+<ul class="arows"><li><span>Wang sekarang</span><span class="av">RM 2,035.60</span></li><li><span>Gaji masuk 28 Okt</span><span class="av">RM 3,500.00</span></li><li><span>Bil perlu dibayar</span><span class="av">−RM 984.00</span></li><li><span>Perbelanjaan harian biasa</span><span class="av">−RM 1,255.26</span></li><li><span>Pembelian ini</span><span class="av">−RM 450.00</span></li><li class="lt"><span>Baki</span><span class="av">RM 2,846.34</span></li></ul>
 </div>
 </div>
 </div>
@@ -686,10 +813,28 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Kekal dalam telefon anda.</b><span>Kecuali anda buat sandaran ke Google Drive sendiri atau ke fail, hanya bila anda pilih.</span></div>
 <div><b>Sumber terbuka (MIT).</b><span>Baca setiap baris kodnya di GitHub.</span></div>
 <div><b>Tiada pakej premium.</b><span>Setiap ciri, untuk semua orang.</span></div>
+<div><b>Padam foto resit bila-bila masa.</b><span>Catatan kekal: kedai, tarikh, jumlah dan item.</span></div>
+<div><b>Dalam talian hanya bila perlu.</b><span>Untuk failnya sendiri, dan perkara yang anda minta.</span></div>
 </div>
 <div class="sign rise">
 <span>Dibuat di Malaysia oleh seorang pembangun bebas.</span>
 <a href="https://github.com/tallymy/tallymy.github.io">Baca kodnya <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</section>
+
+<!-- SHARE PICTURES -->
+<section id="share" class="sec" style="padding-bottom: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Kongsi</span>
+<h2 class="h2">Tunjuk kepada grup keluarga. <span class="serif">Ringgitnya, simpan sendiri.</span></h2>
+</div>
+<div class="chapter shr">
+<div class="ctext rise">
+<p>Bulan atau tahun anda, buku pelekat atau sasaran yang tercapai, sebagai gambar untuk WhatsApp: segi empat untuk sembang, tinggi untuk status. Jumlah wang disembunyikan kecuali anda hidupkannya. Dibuat dalam telefon anda; tiada apa keluar kecuali anda menghantarnya.</p>
+</div>
+<div class="fan rise" role="img" aria-label="Contoh gambar untuk dikongsi: perbelanjaan bulan ini dalam peratus, dan sasaran yang tercapai"><picture class="back"><source type="image/webp" srcset="img/share-goal-ms.webp"><img src="img/share-goal-ms.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-ms.webp"><img src="img/share-month-ms.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>Jumlah disembunyikan</span></div>
 </div>
 </div>
 </section>
@@ -702,29 +847,29 @@ html:lang(ta) .ctext h3{font-size:30px}
 <h2 class="h2">Dibuat ikut cara rakyat Malaysia berbelanja.</h2>
 </div>
 <div class="bento">
-<div class="tile card dark s4 rise" id="t-budget">
+<div class="tile card dark s3 rise" id="t-budget">
 <span class="ex tex">Contoh</span>
 <div class="vis bvis">
 <div class="ring">
 <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
-<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 820</b><span style="font-size: 10px; color: #9AA3BA">baki</span></div>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">baki</span></div>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>Peringatan bil · lagi 3 hari</span>
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>Akaun bersama</span>
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"></path></svg>“Mampukah saya?”</span>
 </div>
 </div>
 <div class="tx">
-<h3>Bajet, bil dan “Mampukah saya?”</h3>
-<p>Cincin bajet yang tenang, peringatan sebelum bil perlu dibayar, akaun bersama dengan pasangan, dan jawapan terus sebelum belian besar.</p>
+<h3>Bajet, bil dan akaun bersama</h3>
+<p>Cincin bajet yang tenang, peringatan sebelum bil perlu dibayar, dan akaun bersama dengan pasangan.</p>
 </div>
 </div>
-<div class="tile card s2 rise">
-<div class="vis"><div class="langs" role="img" aria-label="Helo dalam enam bahasa: Inggeris, Bahasa Melayu, Cina Ringkas, Cina Tradisional, Jepun dan Tamil"><span class="serif" style="animation-delay: 0s">Hello</span><span class="serif" style="animation-delay: 2.5s">Selamat</span><span class="serif" style="animation-delay: 5s">你好</span><span class="serif" style="animation-delay: 7.5s">您好</span><span class="serif" style="animation-delay: 10s">こんにちは</span><span class="serif" lang="ta" style="animation-delay: 12.5s">வணக்கம்</span></div></div>
+<div class="tile card s3 rise">
+<span class="ex tex" style="z-index: 1">Contoh</span>
+<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="Contoh: pelekat Oktober, satu untuk setiap hari dicatat" decoding="async" loading="lazy"></picture></div>
 <div class="tx">
-<h3>Fasih bahasa anda.</h3>
-<p>English, Bahasa Melayu, 简体中文, 繁體中文, 日本語 dan <span lang="ta">தமிழ்</span>, hingga ke perkataan pada resit.</p>
+<h3>Satu pelekat untuk setiap hari anda mencatat.</h3>
+<p>Catat sesuatu, atau ketik “Tiada perbelanjaan hari ini”, dan hari itu dapat satu pelekat dan satu halaman cerita bulan ini. Buku Oktober ialah Pasar malam: adakah Pak Cik Raju akan menutup gerai apam baliknya selepas 30 tahun?</p>
 </div>
 </div>
 <div class="tile card s2 rise">
@@ -740,12 +885,12 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="tile card s2 rise">
 <div class="vis"><div class="pills">
 <span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>Barang dapur</b></span>
-<span><i class="dot" style="background: #E69F00"></i>Kopitiam<span class="to">→</span><b>Makan</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>Makan<span class="subc"> › Mamak</span></b></span>
 <span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>Kesihatan</b></span>
 </div></div>
 <div class="tx">
 <h3>Kenal kedai-kedai.</h3>
-<p>Lebih 3,000 nama rangkaian dan kedai di Malaysia, dari kopitiam ke pasar raya besar, dikenal pasti ikut nama dan difailkan dengan betul.</p>
+<p>Lebih 3,000 nama rangkaian dan kedai di Malaysia, dari kopitiam ke pasar raya besar, dikenal pasti ikut nama dan difailkan dengan betul. Mahu lebih terperinci? Hidupkan subkategori, seperti Makan › Mamak atau Kopitiam. Tally mengagaknya daripada nama kedai dan belajar daripada pilihan anda.</p>
 </div>
 </div>
 <div class="tile card s2 rise" id="t-import">
@@ -787,12 +932,11 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Android</b><span>Dalam Chrome, ketik menu <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>, kemudian Pasang aplikasi atau Tambah ke Skrin utama.</span></div>
 </div>
 <p style="font-size: 15px">Selepas itu ia dibuka seperti aplikasi biasa dan berfungsi tanpa internet.</p>
-<span class="small" style="font-size: 13px">Versi Play Store akan datang.</span>
 </div>
 <div class="step">
 <span class="stepn serif">3</span>
 <b>Imbas resit pertama anda</b>
-<p>Atau taip jumlah, atau cuba dahulu dengan data contoh. Tiada apa disimpan sehingga anda mula betul-betul.</p>
+<p>Atau taip jumlah. Belum bersedia? Di skrin pertama, ketik “Cuba dahulu dengan data contoh”. Tiada apa disimpan sehingga anda mula betul-betul.</p>
 </div>
 </div>
 </div>
@@ -809,12 +953,13 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="rise">
 <details class="qa"><summary>Betul ke percuma?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Ya. Setiap ciri percuma, tiada pakej premium dan tiada iklan. Ia projek minat, dan kerana telefon anda yang buat kerja, tiada pelayan yang perlu dibayar.</p></details>
 <details class="qa"><summary>Data saya ke mana?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Ia kekal dalam telefon anda. Tiada akaun. Resit dibaca dalam peranti dan tidak pernah dimuat naik. Jika anda buat sandaran, ia pergi ke Google Drive anda sendiri atau ke fail, hanya bila anda pilih.</p></details>
+<details class="qa"><summary>Boleh saya padam foto resit?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Boleh. Dalam Tetapan → Privasi → Foto resit, padam semuanya sekarang, atau biar Tally padam foto yang lebih lama daripada 30 hari, 90 hari atau setahun. Catatannya kekal: kedai, tarikh, jumlah dan item. Bila Tally mengemas ikut usia, ia menyimpan foto belian yang mungkin layak untuk pelepasan cukai selama 7 tahun LHDN boleh memintanya. Padam semua akan membuang foto itu juga, pilihan anda.</p></details>
 <details class="qa"><summary>Adakah Tally baca SMS saya atau minta log masuk bank?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Tidak. Tally tidak pernah membaca SMS atau OTP anda, dan tidak pernah meminta log masuk bank, kad atau PIN anda. Satu-satunya bahagian telefon yang ia minta ialah kamera, untuk mengambil gambar resit, dan anda boleh tolak lalu taip sendiri. Rekod bank hanya masuk apabila anda sendiri memilih fail penyata.</p></details>
+<details class="qa"><summary>Kenapa ia perlukan internet?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Untuk dibuka kali pertama, untuk memuat turun pembaca resit sekali (kira-kira 30 MB), dan untuk mengemas kini dirinya. Selepas itu ia berfungsi tanpa internet. Selain itu ia hanya masuk ke dalam talian bila anda minta: pautan Google Sheets yang anda tampal, kadar tukaran yang anda minta, maklum balas yang anda hantar, atau peringatan kalendar yang anda tambah. Catatan dan foto resit anda tidak pernah dihantar.</p></details>
 <details class="qa"><summary>Mahu pasangkan untuk ibu atau bapa?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Buka tallymy.github.io di telefon mereka, pilih bahasa dan saiz teks yang lebih besar, kemudian tambahkan ke skrin utama. Pilih “Ringkas” dalam Tetapan → Ciri untuk asas sahaja. Tiada akaun atau kata laluan untuk diingat, dan catatan mereka kekal di telefon mereka.</p></details>
 <details class="qa"><summary>Boleh ke ia baca resit saya?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Ia boleh baca foto yang pudar, renyuk, diambil dari jauh atau senget, dan mengenal lebih 3,000 nama rangkaian dan kedai di Malaysia. Ia tidak akan betul setiap kali, sebab itu ia menyemak jumlah item sama dengan jumlah resit dan menunjukkan baris yang patut disemak semula. Betulkan satu dan Tally ingat untuk lain kali.</p></details>
-<details class="qa"><summary>Adakah ia aplikasi sebenar jika dipasang dari pelayar?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Ia aplikasi web yang dipasang ke skrin utama anda, dibuka seperti aplikasi dan berfungsi tanpa internet setelah dibuka. Versi Play Store akan datang.</p></details>
+<details class="qa"><summary>Adakah ia aplikasi sebenar jika dipasang dari pelayar?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Ia aplikasi web yang dipasang ke skrin utama anda, dibuka seperti aplikasi dan berfungsi tanpa internet setelah dibuka.</p></details>
 <details class="qa"><summary>Kalau saya tukar telefon?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Dalam Tetapan, Sandaran &amp; pulih membuat fail sandaran. Hantar kepada diri sendiri (Google Drive, e-mel, WhatsApp), kemudian pulihkan pada telefon baharu. Tiada akaun, jadi buat sandaran sebelum anda tukar.</p></details>
-<details class="qa"><summary>Boleh saya bawa data lama?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Boleh, dari Money Manager, Cashew, Money Lover, Spendee, Wallet dan lain-lain, serta dari fail penyata bank. Kategori lama anda turut dibawa.</p></details>
 <details class="qa"><summary>Adakah bahagian pelepasan cukai itu nasihat cukai?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Bukan. Tally menandakan resit dan item yang mungkin layak sebagai calon pelepasan dan menyimpan foto resitnya. Ia tidak tahu keadaan anda atau mengira apa yang boleh dituntut; setiap pelepasan ada had dan syarat. Ia anggaran untuk membantu anda bersedia. Sila semak peraturan LHDN untuk apa yang boleh anda tuntut.</p></details>
 <details class="qa"><summary>Siapa yang buat?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Seorang pembangun bebas di Malaysia. Ia sumber terbuka (MIT), jadi anda boleh baca kodnya di GitHub. Ada maklum balas atau pepijat? <a href="https://github.com/tallymy/tallymy.github.io/issues">Buka isu di GitHub</a>.</p></details>
 <details class="qa"><summary>Kalau saya berhenti guna, atau ia tidak lagi dikemas kini?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Data anda ada dalam telefon anda, dan anda boleh buat fail sandaran bila-bila masa. Kodnya sumber terbuka (MIT) di GitHub, jadi ia tidak terkunci.</p></details>

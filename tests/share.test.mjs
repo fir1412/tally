@@ -96,7 +96,7 @@ test('year rows: days with nothing spent; the top shop only when asked, never th
 
 test('captions: first person, then the link on its own line; sample data is just the link', () => {
   assert.equal(caption('month', { label: 'Oct 2026' }), 'Where my money went in Oct 2026, sorted by Tally. Free, no sign-up.\nhttps://tallymy.github.io');
-  assert.equal(caption('book', { label: 'Oct 2026' }), 'One sticker for every day I log my spending. My Oct 2026 sticker book, in Tally.\nhttps://tallymy.github.io');   // names the month, never "this month"
+  assert.equal(caption('book', { label: 'Oct 2026' }), 'One sticker for every day I fill in. My Oct 2026 sticker book, in Tally.\nhttps://tallymy.github.io');   // names the month, never "this month"
   assert.equal(caption('month', { label: 'Oct 2026' }, true), 'https://tallymy.github.io');
   for (const k of ['year', 'goal', 'streak', 'split']) assert.ok(caption(k, { year: '2026', name: 'Hari Raya', streak: 30 }).endsWith('.\nhttps://tallymy.github.io'), k);
 });

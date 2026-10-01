@@ -37,7 +37,7 @@ const DOWN = [7, 17, 5.5, 37];
 const POSES = { stand: [DOWN, DOWN], hold: [[6.5, 15, -3, 24.5], [6.5, 15, -3, 24.5]], point: [DOWN, [11.5, 5, 22, 1]], wave: [DOWN, [12.5, -5, 9.5, -24]], cheer: [[12.5, -5, 9.5, -24], [12.5, -5, 9.5, -24]],
   // teh tarik: the back arm crosses the body to hold the low glass out in front, the front hand high pouring
   pull: [[-2, 26, -32, 33], [12.5, -5, 9.5, -24]],
-  hip: [DOWN, [17, 14, 3, 30]], call: [DOWN, [10, -3, -5, -20]], call2: [[14, 6, 22, 10], [10, -3, -5, -20]], chin: [[10, 4, -9, -10], [10, 4, -9, -10]], mouth: [DOWN, [9, -2, -10, -14]],
+  hip: [DOWN, [17, 14, 3, 30]], hips: [[26, 10, 0, 27], [26, 10, 0, 27]], show: [DOWN, [16, 0, 14, -16]], call: [DOWN, [10, -3, -5, -20]], call2: [[14, 6, 22, 10], [10, -3, -5, -20]], chin: [[10, 4, -9, -10], [10, 4, -9, -10]], mouth: [DOWN, [9, -2, -10, -14]], thumbs: [DOWN, [12, 8, 2, -6]], heart: [DOWN, [8, 12, -12, 4]],
   rest: [DOWN, [8, 18, 14, 26]], pointdown: [DOWN, [18, 6, 32, 24]], strap: [DOWN, [8, 12, -8, 6]], wrap: [[4, 26, -18, 12], [4, 26, -18, 14]], gesture: [DOWN, [14, 6, 22, 10]], shout: [[11, 3, -9.5, -13], [11, 3, -9.5, -13]], cross: [[7.5, 37, -20.5, 17], [7.5, 37, -20.5, 19]], flat: [[9, 22, 9, 37], [9, 22, 9, 37]], give: [[-4, 12, -30, 19], [9, 13, 19, 19]] };
 const arms = (sx, sy, pose, k = 1) => { const [a0, b0] = POSES[pose] || POSES.stand, a = k === 1 ? a0 : a0.map(v => f1(v * k)), b = k === 1 ? b0 : b0.map(v => f1(v * k));
   // A raised arm (end above the elbow line) gets its sleeve drawn along the upper arm, not hanging down: a hanging
@@ -77,6 +77,14 @@ const W = { skin: '#E3B48E', shirt: '#D9A441', jeans: '#46557E', shoe: '#E9DFCF'
 const weiHead = d('M-10-117Q-11-131.5 0-131.5Q11-131.5 10-117L10.5-106Q6-104 3.5-107.5H-3.5Q-6-104-10.5-106Z', W.hair) + e(0, -117, 7.2, 9.2, W.skin)
   + d('M-8-118.5Q-9-129.5 0-129.5Q9-129.5 8-118.5Q4-123-1-122Q-5-123-8-118.5Z', W.hair) + RR(3, -127, 4.5, 1.8, 0.8, '#D9A441');
 function weiBody(pose) {
+  if (pose === 'kneel' || pose === 'kneelopen' || pose === 'kneelreach') {
+    const legsBack = e(0, 0, 24, 3, '#120E1E', ' opacity=".35"') + ln('M-4-22L-9-4', W.jeans, 9.5) + ln('M-9-4L-25-3', W.jeans, 7.5) + e(-28, -3.4, 4.4, 2.6, W.shoe) + e(-9, -3.2, 4.6, 3, W.jeans);
+    const legsFront = ln('M3-23L20-25', W.jeans, 10) + shade('M3-19L20-21L20-29Z', 0.15) + ln('M20-25L20-4', W.jeans, 8.4) + e(22, -2.4, 6, 2.6, W.shoe) + e(20, -25, 5, 5, W.jeans);
+    const arm = pose === 'kneelreach' ? ln('M-12.5-58Q-19-44-8-31M12.5-58Q24-60 36-66', W.skin, 4.6) + d('M-9-62.5Q-16-62-19-47L-10-45.5ZM9-62.5Q18-63 22-57L12-52Z', W.shirt) + hands([[-7.5, -30], [37, -66]], W.skin)
+      : pose === 'kneelopen' ? ln('M-12.5-58Q-24-60-32-74M12.5-58Q24-60 32-74', W.skin, 4.6) + d('M-9-62.5Q-18-63-22-57L-12-52ZM9-62.5Q18-63 22-57L12-52Z', W.shirt) + hands([[-33, -75], [33, -75]], W.skin)
+      : ln('M-12.5-58Q-19-44-8-31M12.5-58Q19-44 12-28', W.skin, 4.6) + d('M-9-62.5Q-16-62-19-47L-10-45.5ZM9-62.5Q16-62 19-47L10-45.5Z', W.shirt) + hands([[-7.5, -30], [12, -27]], W.skin);
+    return legsBack + R(-2.6, -70, 5.2, 10, W.skin) + d('M-12-61Q-13-44-11-20H11Q13-44 12-61Q0-64.5-12-61Z', W.shirt) + shade('M4-63Q9-62 12-61Q13-44 11-20H6Q8-44 4-63Z')
+      + legsFront + arm + at(0, 40, 1, weiHead); }
   if (pose === 'hug') return shadowE.replace('rx="17"', 'rx="22"') + d('M10-4Q12 0 6 0H-19Q-22-2-19-5L-16-7L-16.5-27Q-13-35-6-31L9-14Z', W.jeans) + shade('M-2-26L9-14L10-4H3Z') + e(-19, -2.5, 5, 2.6, W.shoe)
     + d('M-5-40Q4-44 11-38L12-4H0Q-5-22-5-40Z', W.shirt) + shade('M5-42Q9-41 11-38L12-4H7Q8-24 5-42Z')
     + ln('M1-37Q-6-28-15-26', W.skin, 4.6) + d('M-3-40L-9-31L-1-29Z', W.shirt) + e(-16, -26, 2.5, 2.7, W.skin) + R(-4.6, -43, 5.2, 6, W.skin) + at(-3, 72, 1, weiHead);
@@ -322,7 +330,7 @@ const cashArt = v => { const [c, t] = NOTE[v] || NOTE[1];
 const envFront = RR(-20, -12, 40, 28, 2, '#E8DCC0') + d('M-20-12L0 1L20-12', '#D9C9A4');
 // Handwriting as strokes (no handwriting font on Android): R, M and a few digits in a 6x10 box, slanted, centred on x 0.
 const GLYPH = { R: 'M0 10V0h3.4a2.6 2.6 0 0 1 0 5.2H0M2.8 5.2L6 10', M: 'M0 10L.4 0L3 6.4L5.6 0L6 10', 0: 'M3 0C-.8 0-.8 10 3 10C6.8 10 6.8 0 3 0Z', 1: 'M1 2.2L3.6 0V10',
-  2: 'M.4 2Q2.6-1 5 1.4Q6 4 .2 10H6', 3: 'M.4 1.2Q3-1 5 1.4Q5.8 4 2.4 4.8Q6.2 5.2 5.6 8.2Q4 11 .2 9.2', 5: 'M5.6 0H1L.6 4.4Q4.6 3 5.6 6.4Q5.6 10 .4 9.4' };
+  2: 'M.4 2Q2.6-1 5 1.4Q6 4 .2 10H6', 3: 'M.4 1.2Q3-1 5 1.4Q5.8 4 2.4 4.8Q6.2 5.2 5.6 8.2Q4 11 .2 9.2', 4: 'M4.4 10V0L0 6.8H6', 5: 'M5.6 0H1L.6 4.4Q4.6 3 5.6 6.4Q5.6 10 .4 9.4' };
 const scrawl = (t, c = '#2E3F6E', w = 1.5) => { const cs = [...String(t)], x0 = -(cs.length * 7.4 - 1.4) / 2;
   return `<g transform="skewX(-10)">${cs.map((ch, i) => GLYPH[ch] ? ln(GLYPH[ch], c, w, ` transform="translate(${f1(x0 + i * 7.4)} -5)"`) : '').join('')}</g>`; };
 const envArt = t => R(-14, -20, 28, 14, '#7FA37A', ' transform="rotate(-6)"') + envFront + `<g transform="translate(0 6) rotate(-4) scale(.92)">${scrawl(t)}</g>` + shade('M-20 13H20V16H-20Z', 0.08);
@@ -364,9 +372,31 @@ Object.assign(ITEMS, {
   // crumpled red wrapping paper with tape, drawn over the bottom of whatever sits in it
   wrapheap: e(0, 4, 24, 3, SH, ' opacity=".2"') + d('M-23 4L-21-7L-15-3L-11-11L-5-5L1-12L6-5L12-10L16-3L22-8L24 4Z', '#B5433A') + d('M-11-11L-5-5L1-12L1 4H-13ZM12-10L16-3L22-8L24 4H14Z', '#8E2F3A', ' opacity=".6"')
     + ln('M-17-3L-10 2M4-9L9-2M15-6L19 1', '#E9EEF0', 2.4, ' opacity=".75"') + ln('M-21-7L-15-3M6-5L12-10', '#D9A441', 1.2),
+  bell: RR(-14, 6, 28, 7, 3.5, '#5A5560') + RR(-5, 4, 10, 11, 2, '#9AA0A6') + R(-5, 8, 10, 2, '#6E6A72') + d('M-10 4Q-10-9 0-9Q10-9 10 4Z', '#D3D7DA')
+    + d('M4-8Q10-5 10 4H5Q6-3 4-8Z', SH, ' opacity=".18"') + e(-4, -3, 2, 3.4, '#FFFFFF', ' opacity=".75"') + R(-11, 3, 22, 2.6, '#9AA0A6') + C(0, -10, 1.6, '#9AA0A6')
+    + d('M8 8L22 0Q26-2 26 2L25 5Q24 7 21 7L10 12Z', '#C44A36') + d('M21 1Q24 0 25 2L24 5Q22 6 20 5Z', '#E06A55'),
+  ding: ln('M0-6l-4-6M8-8l2-7M15-4l6-4', '#E3A24A', 2.2) + ln('M-6 4h-6M24 2h6', '#E3A24A', 1.6, ' opacity=".7"'),
+  phonefall: ln('M-16-16l-6-4M-18-8h-7M-14-22l-4-6', '#8A8378', 1.4) + `<g transform="rotate(-24)">${RR(-9, -16, 18, 32, 3, '#2E2A36') + RR(-7, -12, 14, 22, 1, '#BFE3F0') + R(-5, -9, 10, 3, '#F2C9C0') + R(-5, -4, 10, 3, '#F2C9C0') + ln('M-4 2l6 4-3 3', '#FFFFFF', 0.8)}</g>`
+    + e(0, 22, 14, 2.4, SH, ' opacity=".15"'),
+  crayonchart: RR(-20, -26, 40, 52, 1, '#FBF7EE') + `<g transform="translate(0 -14) scale(.62)">${C(-12, 8, 10, 'none', ' stroke="#3B2723" stroke-width="2"') + C(12, 8, 10, 'none', ' stroke="#3B2723" stroke-width="2"') + ln('M-12 8L-4-6H8L12 8M-4-6L2 8L8-6M2 8H-12', '#C44A36', 2.4)}</g>`
+    + Array.from({ length: 12 }, (_, i) => RR(-16 + (i % 4) * 8.4, 2 + Math.floor(i / 4) * 7.6, 7, 6.4, 0.6, i < 9 ? ['#C44A36', '#D9A441', '#2F6B66', '#5E8B4A'][i % 4] : 'none', ` stroke="#8A8378" stroke-width=".5"${i < 9 ? ' opacity=".85"' : ''}`)).join('')
+    + ln('M-17-24l3 2M15-24l2 3', '#C44A36', 1, ' opacity=".6"') + C(0, -27, 1.6, '#B5533A'),
+  newbike: C(0, 0, 21, '#FFF1D0', ' opacity=".6"') + `<g transform="scale(1.15)">${ITEMS.bicycle}</g>` + ln('M-16-14l-4-4M16-16l4-4M20 2h5M-22 0h-5', '#E3A24A', 1.6),
+  phonebuzz: RR(-9, -16, 18, 32, 3, '#2E2A36') + RR(-7, -12, 14, 22, 1, '#F4EEE2') + R(-5, -9, 10, 3, '#F2C9C0') + R(-5, -4, 10, 3, '#F2C9C0') + R(-5, 1, 10, 3, '#F2C9C0') + R(-5, 6, 10, 3, '#F2C9C0') + C(8, -15, 4, '#C44A36')
+    + ln('M-13-8q-3 8 0 16M-17-11q-5 11 0 22M13-8q3 8 0 16M17-11q5 11 0 22', '#E3A24A', 1.4),
+  phonesorry: RR(-9, -16, 18, 32, 3, '#2E2A36') + RR(-7, -12, 14, 22, 1, '#F4EEE2') + [-8, -3, 2, 7].map(y => RR(-5, y, 9, 3.4, 1.7, '#BFD8E8')).join('') + ln('M-17-18l4 4M-15 14l3-3', '#8A8378', 1.2) + d('M10-22h12v9H15l-3 3v-3h-2Z', '#F4EEE2', ' stroke="#8A8378" stroke-width=".6"') + txt(16, -15.4, '…', 6, '#8A8378'),
+  // November's story stickers (no amounts, no bank or e-wallet look): notification bubbles, an hourglass, an overdue bill
+  reminders: RR(-12, -20, 24, 40, 4, '#2E2A36') + RR(-10, -16, 20, 30, 1.5, '#DCE4EA') + [[-22, -16], [-18, -4], [-24, 8], [-20, 20]].map(([x, y], i) => `<g transform="translate(${x + 2 * i} ${y}) rotate(${i % 2 ? 3 : -3})">`
+      + RR(0, -5, 32, 10, 5, '#F4EEE2', ' stroke="#B6AFA2" stroke-width=".8"') + C(5, 0, 3, '#E3A24A') + d('M3.6 1.4Q3.6-2 5-2Q6.4-2 6.4 1.4Z', '#FFFFFF') + R(10, -1.6, 15, 1.6, '#B6AFA2') + R(10, 1.2, 10, 1.4, '#D3CCC2') + '</g>').join('')
+    + C(10, -19, 4.4, '#C44A36') + ln('M9 -21v3M9-16.4v.2', '#FFFFFF', 1.4),
+  latefee: `<g transform="rotate(-6)">${d('M-14-20H14V20H-14Z', '#F4EEE2') + shade('M6-20H14V20H6Z', 0.08) + R(-14, -20, 28, 6, '#8A8378') + ln('M-9-8H9M-9-3H6M-9 2H8M-9 7H4', '#B6AFA2', 1.6)}</g>`
+    + `<g transform="translate(10 10) rotate(-14)">${C(0, 0, 9.5, 'none', ' stroke="#C44A36" stroke-width="2.4"') + ln('M0-5V1.5M0 4.6v.2', '#C44A36', 2.6)}</g>`
+    + `<g transform="translate(-12 14)">${C(0, 0, 8, '#F1E8D8') + C(0, 0, 8, 'none', ' stroke="#6E4533" stroke-width="1.6"') + ln('M0 0V-5M0 0L3.6 2', INK, 1.2)}</g>`,
   coin: C(0, 0, 4, '#D9A441') + C(0, 0, 2.6, 'none', ' stroke="#B8862E" stroke-width=".8"') + e(-1.4, -1.6, 0.9, 1.3, '#F4E6CC'),
   rag: d('M-8-3Q0-6 8-3L9 4Q0 7-9 4Z', '#EDE7DC') + ln('M-6 0H6', '#C9C1B6', 0.8),
 });
+// sticker aliases: a sticker id that names an existing drawing
+Object.assign(ITEMS, { sixmonths: ITEMS.hourglass, sorry: ITEMS.phonesorry });
 /** An item at (x, y), s scale (1 = about 44 across). */
 export const it = (name, x, y, s = 1) => at(x, y, s, ITEMS[name] || '');
 /** A price tag with any text. */
@@ -402,8 +432,8 @@ export function castKit(pfx) {
   const RIG = { aina: [12.5, -97], wei: [12.5, -98], raju: [14, -94], kamala: [11.5, -95], arjun: [8, -62, 0.65], grace: [12.5, -98] };
   const faceUse = (who, f, x, y) => who === 'grace' ? use(`gf-${f}`, () => faceArt(f) + GLASSES, x, y) : who === 'raju' ? use(`rf-${f}`, () => faceArt(f, 7.2) + MOUSTACHE, x, y) : use(`f-${f}`, () => faceArt(f), x, y);
   const person3 = who => (o = {}) => {
-    const { x = 160, y = 188, s = 1, face = 'happy', pose = 'stand', flip = false, item = null, is = 0.5, apron = null, turn = null, look = null, bend = 0 } = o;
-    const fp = pose === 'kneel' ? [0, FY[who] + 40] : pose === 'hug' ? [-3, FY[who] + 72] : [0, FY[who]];
+    const { x = 160, y = 188, s = 1, face = 'happy', pose = 'stand', flip = false, item = null, is = 0.5, apron = null, turn = null, look = null, bend = 0, inHand = '' } = o;
+    const fp = pose === 'kneel' || pose === 'kneelopen' || pose === 'kneelreach' ? [0, FY[who] + 40] : pose === 'hug' ? [-3, FY[who] + 72] : [0, FY[who]];
     const body = use(`${who}-${pose}${apron ? '-a' : ''}`, () => BODY[who](pose, ...(apron ? [apron] : [])));
     // turn 'l' | 'r' (in the art's own left/right): a three-quarter turn toward a partner. The body narrows, the far
     // cheek goes under the hair or tudung, and the eyes, nose and mouth slide toward the partner, so eyelines meet.
@@ -418,6 +448,10 @@ export function castKit(pfx) {
         + `<g transform="translate(${f1(fp[0] + 2.2 * t)} ${f1(fp[1] + dy)}) scale(.84 1)">${faceUse(who, face, 0, 0)}</g>`;
     const farX = ([hx, hy]) => [f1((t || 1) * (t && hx > 0 ? hx * FAR : hx)), hy];
 
+    if (pose === 'thumbs') { const [hx, hy] = farX(arms(RIG[who][0], RIG[who][1], 'thumbs', RIG[who][2]).hands[1]);
+      inner += e(hx, hy, 3.4, 3.6, SKIN[who]) + RR(f1(hx - 1.4), f1(hy - 8.4), 2.8, 6, 1.4, SKIN[who]) + ln(`M${f1(hx - 2.6)} ${f1(hy)}h5.2`, INK, 0.35, ' opacity=".4"'); }
+    if (inHand) { const [hx, hy] = farX(arms(RIG[who][0], RIG[who][1], pose, RIG[who][2]).hands[1]);
+      inner += `<g transform="translate(${hx} ${hy}) scale(${flip ? -1 : 1} 1)">${inHand}</g>` + mitts([[hx, hy]], SKIN[who]); }
     if (pose === 'chin' || pose === 'mouth') { const k = arms(RIG[who][0], RIG[who][1], pose, RIG[who][2]);
       // the forearm comes up over the tudung or shirt to the hand, which gets an outline so it reads against the face
       const up = k.hands.map((h, i) => [h, i ? 1 : -1]).filter(([[, hy]]) => hy < -100);
@@ -577,7 +611,7 @@ export function castKit(pfx) {
   function scene(kind, o = {}) {
     if (kind === 'stall') { const a = CAN[o.a] || o.a || '#B5533A';
       return use('stall', SCENES.stall) + (o.behind || '') + use(`can${a.slice(1)}`, () => d(canopyD(18, 24, 284, 16, 11), a) + shade(canopyD(18, 34, 284, 6, 11)) + R(16, 21, 288, 4, '#5A3A2A'))
-        + (o.sign ? RR(100, 1, 120, 18, 4, '#E3C27A') + txt(160, 15, o.sign, 12, '#6E2E1A', ' letter-spacing="1"') : '') + (o.steam ? steam(`M${o.steam - 4} 116q-5-8 0-15t0-16`) + steam(`M${o.steam + 6} 114q5-9 0-17t1-18`) : '')
+        + (o.sign ? RR(100, 1, 120, 18, 4, '#E3C27A') + txt(160, 15, o.sign, 12, '#6E2E1A', o.sign.length > 12 ? ' textLength="110" lengthAdjust="spacingAndGlyphs"' : ' letter-spacing="1"') : '') + (o.steam ? steam(`M${o.steam - 4} 116q-5-8 0-15t0-16`) + steam(`M${o.steam + 6} 114q5-9 0-17t1-18`) : '')
         + use('counter', SCENES.counter) + (o.items || ''); }
     if (kind === 'home') return o.back ? use('homeback', SCENES.homeback) : use(o.day ? 'home-d' : 'home-n', SCENES[o.day ? 'home-d' : 'home-n']);
     if (kind === 'xmas') return use(o.day ? 'xmas-d' : 'xmas-n', SCENES[o.day ? 'xmas-d' : 'xmas-n']);
@@ -586,6 +620,9 @@ export function castKit(pfx) {
     if (kind === 'library' || kind === 'rooftop') return use(kind, SCENES[kind]);
     if (kind === 'porch') return use(o.day ? 'porch-d' : 'porch-n', SCENES[o.day ? 'porch-d' : 'porch-n']);
     if (kind === 'kitchen') return use('kitchen', SCENES.kitchen) + (o.items || '');
+    if (kind === 'shop' && o.bikes) return use('shop', SCENES.shop) + R(10, 20, 300, 98, '#C9B596') + ln(Array.from({ length: 14 }, (_, i) => `M${24 + i * 21} 26v86`).join(''), '#B8A384', 0.6, ' stroke-dasharray="1 4"')
+      + [[52, 50, '#4F6D8F'], [118, 46, '#2F6B66'], [200, 50, '#D9A441'], [266, 46, '#6E4A7E']].map(([x, y, c]) => `<g transform="translate(${x} ${y}) scale(1.5)">${ITEMS.bicycle.replace(/#C44A36/g, c)}</g>` + ln(`M${x} ${y - 14}v-8`, '#6E4533', 1.2)).join('')
+      + R(14, 112, 292, 4, '#8A5A3C') + (o.sign ? RR(100, 1, 120, 18, 4, o.signBg || '#C44A36') + txt(160, 15, o.sign, 12, '#F4EEE2', ' letter-spacing="1"') : '') + (o.items || '');
     if (kind === 'shop') return use('shop', SCENES.shop) + (o.sign ? RR(100, 1, 120, 18, 4, '#C44A36') + txt(160, 15, o.sign, 12, '#F4EEE2', ' letter-spacing="1"') : '') + (o.items || '');
     if (kind === 'kopitiam' && o.back) return use('kopiback', SCENES.kopiback) + (o.items || '');
     if (kind === 'kopitiam') { const tx = o.table ?? 262;
@@ -600,6 +637,8 @@ export function castKit(pfx) {
   const side = (s, inner) => s === 'right' ? `<g transform="matrix(-1 0 0 1 320 0)">${inner}</g>` : inner;
   // Backs of heads and shoulders for over-the-shoulder shots, drawn at the left edge; side 'right' mirrors them.
   const BACK = {
+    kamala: () => e(34, 220, 90, 66, KM.blouse) + d('M-10 168Q30 140 80 150L96 210H-10Z', KM.saree) + ln('M-10 168Q30 140 80 150', KM.gold, 3) + R(23, 122, 22, 28, KM.skin)
+      + e(34, 88, 30, 36, KM.hair) + e(34, 124, 14, 11, KM.hair) + C(34, 132, 8, '#1A1517') + ln('M52 118h0M56 124h0M54 130h0', '#F4EEE2', 4),
     aina: () => e(30, 216, 88, 70, A.arm) + d('M30 40C6 40-4 62-2 84C-14 104-38 124-36 150Q-10 172 30 174Q70 172 96 150C98 124 74 104 62 84C64 62 54 40 30 40Z', A.tudung)
       + shade('M30 40C54 40 64 62 62 84C74 104 98 124 96 150Q86 160 70 166C76 136 60 108 52 86C56 64 46 46 30 40Z', 0.25) + ln('M8 92Q30 104 52 92', '#9E524D', 1.6),
     wei: () => e(34, 214, 90, 68, W.shirt) + shade('M80 160Q120 180 124 214H90Z', 0.2) + R(23, 124, 22, 26, W.skin) + shade('M23 128H45V136H23Z', 0.25)
@@ -620,9 +659,12 @@ export function castKit(pfx) {
       + hold + g(e(13, -2, 5, 9, skin, ' transform="rotate(-24 13 -2)"') + ln('M12-8Q15-2 13 5', SH, 0.9, ' opacity=".25"'));
   };
   /** Wei's phone held up in the lower left: an e-wallet list, rows [label, amount, highlight]. */
-  const phone = (rows, dx = 0, sub = 'Today', skin = W.skin, rot = -5) => `<g transform="translate(${dx} 0) rotate(${rot} 76 150)">` + RR(12, 54, 128, 190, 12, '#2E2A36') + RR(19, 66, 114, 170, 4, '#F4EEE2') + R(19, 66, 114, 22, '#2F6B66')
-    + txt(76, 81, 'e-wallet', 10, '#F4EEE2') + txt(76, 102, sub, 8, '#8A8378')
+  const phone = (rows, dx = 0, sub = 'Today', skin = W.skin, rot = -5, title = 'e-wallet') => `<g transform="translate(${dx} 0) rotate(${rot} 76 150)">` + RR(12, 54, 128, 190, 12, '#2E2A36') + RR(19, 66, 114, 170, 4, '#F4EEE2') + R(19, 66, 114, 22, '#2F6B66')
+    + txt(76, 81, title, 10, '#F4EEE2') + txt(76, 102, sub, 8, '#8A8378')
     + rows.map(([l, v, hi, mark], i) => { const y = 110 + i * 26;
+      if (hi === 'btn') return RR(22, y, 108, 22, 8, '#7A3E96') + txt(76, y + 14.5, l, 8.6, '#FFFFFF', ' textLength="96" lengthAdjust="spacingAndGlyphs"');
+      if (hi === 'total') return R(24, y - 2, 104, 1.4, '#3B2723') + `<text x="27" y="${y + 15}" font-family="system-ui,sans-serif" font-weight="800" font-size="10.5" fill="#3B2723">${l}</text>`
+        + `<text x="127" y="${y + 15}" font-family="system-ui,sans-serif" font-weight="800" font-size="11" text-anchor="end" fill="#B5332A">${v}</text>`;
       return (hi ? RR(22, y, 108, 22, 3, '#F2C9C0') : '') + (mark ? C(29, y + 11, 3.4, mark) : '') + `<text x="${mark ? 35 : 27}" y="${y + 15}" font-family="system-ui,sans-serif" font-weight="700" font-size="10" fill="#3B2723"${l.length > 8 ? ' textLength="44" lengthAdjust="spacingAndGlyphs"' : ''}>${l}</text>`
         + `<text x="127" y="${y + 15}" font-family="system-ui,sans-serif" font-weight="800" font-size="10" text-anchor="end" fill="${hi ? '#B5332A' : '#3B2723'}">${v}</text>`; }).join('')
     + '</g>' + e(10 + dx, 196, 12, 22, skin, ` transform="rotate(-10 ${10 + dx} 196)"`);

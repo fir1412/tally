@@ -79,15 +79,15 @@ test('forecast: spent + bills still due + everyday pace; one-offs count once; sa
   assert.equal(paid.upcoming, 0); assert.equal(paid.safe, null);
   assert.equal(paid.rate, 3000);   // a known bill paid by hand does not inflate the everyday pace
   // Payday months: 25 Sep – 24 Oct; the pace is the last 30 days of entries (from the first, 30 Aug), whatever the month.
-  const pd = E.forecast({ txs: [ex('2026-08-30', 31000), ex('2026-09-26', 5000)], today: '2026-09-27', startDay: 25 });
-  assert.equal(pd.end, '2026-10-24'); assert.ok(!pd.early); assert.equal(pd.days, 29); assert.equal(pd.rate, Math.round(36000 / 29));
+  const pd = E.forecast({ txs: [ex('2026-08-30', 31000), ex('2026-09-06', 1000), ex('2026-09-13', 1000), ex('2026-09-20', 1000), ex('2026-09-26', 5000)], today: '2026-09-27', startDay: 25 });   // a week apart: no gap
+  assert.equal(pd.end, '2026-10-24'); assert.ok(!pd.early); assert.equal(pd.days, 29); assert.equal(pd.rate, Math.round(39000 / 29));
   const early = E.forecast({
-    txs: [ex('2026-09-20', 12900, { merchant: 'Unifi' }), ex('2026-09-21', 3000), ex('2026-10-01', 3000)],
+    txs: [ex('2026-09-20', 12900, { merchant: 'Unifi' }), ex('2026-09-21', 3000), ex('2026-09-26', 3000), ex('2026-10-01', 3000)],
     today: '2026-10-02', bills,
   });
   assert.equal(early.upcoming, 12900);
-  assert.equal(early.rate, Math.round(6000 / 13));   // the known Unifi bill is not everyday spending; 13 days of entries from 20 Sep
-  assert.equal(early.projected, 3000 + 12900 + Math.round(6000 / 13 * 29));
+  assert.equal(early.rate, Math.round(9000 / 13));   // the known Unifi bill is not everyday spending; 13 days of entries from 20 Sep
+  assert.equal(early.projected, 3000 + 12900 + Math.round(9000 / 13 * 29));
   // Started logging late in the month: RM 60 typed on the 28th is RM 60 a day, not RM 60 spread over 28 days (owner, 2026-10-01).
   const late = E.forecast({ txs: [ex('2026-10-28', 6000)], today: '2026-10-28' });
   assert.equal(late.rate, 6000);
@@ -147,4 +147,34 @@ test('breakdown still sums exactly after moving onto itemAmounts', () => {
   const tx = { type: 'expense', amount: 1001, items: [{ name: 'A', cents: 333, category: 'x' }, { name: 'B', cents: 333, category: 'y' }, { name: 'C', cents: 334, category: 'x' }] };
   assert.equal(E.itemAmounts(tx).reduce((s, i) => s + i.cents, 0), 1001);
   assert.equal(E.breakdown(tx).reduce((s, i) => s + i.cents, 0), 1001);
+});
+
+test('the pace starts after a logging gap: days not logged are not RM 0 spent (owner, 2026-10-01)', () => {
+  // Years of history, nothing typed from July to 28 Sep, then three days of about RM 26 (a bill Tally posted meanwhile doesn't end the gap).
+  const txs = [ex('2022-03-01', 2000), ex('2026-06-30', 4000), ex('2026-09-15', 15000, { source: 'recurring' }), ex('2026-09-29', 2600), ex('2026-09-30', 2700), ex('2026-10-01', 2650)];
+  const p = E.dailyPace({ txs, today: '2026-10-01' });
+  assert.equal(p.from, '2026-09-29'); assert.equal(p.days, 3); assert.ok(p.early); assert.equal(Math.round(p.rate), 2650);
+  const a = E.affordCheck({ price: 0, balance: 300000, txs, today: '2026-10-01' });
+  assert.equal(a.usual, 2650 * 30); assert.ok(a.early);
+  // Under a week empty is just a quiet week; a gap still running today is left alone.
+  assert.equal(E.dailyPace({ txs: [ex('2026-09-20', 3000), ex('2026-09-26', 3000)], today: '2026-09-27' }).days, 8);
+  assert.equal(E.dailyPace({ txs: [ex('2026-09-01', 3000), ex('2026-09-02', 3000)], today: '2026-09-27' }).days, 27);
+});
+
+test('the pace says what it is made of: categories counted, bills and one-offs left out', () => {
+  const txs = [ex('2026-09-20', 3000), ex('2026-09-21', 1000, { category: 'groceries' }), ex('2026-09-22', 120000, { merchant: 'Laptop' }), ex('2026-09-23', 12900, { merchant: 'Unifi' }), ex('2026-09-24', 65000, { source: 'recurring', merchant: 'Rent' })];
+  const p = E.dailyPace({ txs, today: '2026-09-25', bills: [{ name: 'Unifi', amount: 12900 }] });
+  assert.deepEqual(p.cats, [{ category: 'other', amount: 3000 }, { category: 'groceries', amount: 1000 }]);
+  assert.equal(p.spent, 4000);
+  assert.deepEqual(p.oneOffs.map(x => [x.name, x.amount]), [['Laptop', 120000]]);
+  assert.deepEqual(p.bills.map(x => x.name).sort(), ['Rent', 'Unifi']);
+});
+
+test('the pace\'s category rows add up to what was spent: top 5, then Other', () => {
+  const cats = ['dining', 'groceries', 'transport', 'fun', 'health', 'kids', 'other'].map((category, i) => ex(`2026-09-${20 + i}`, 1000 * (7 - i) + 37, { category }));
+  const p = E.dailyPace({ txs: cats, today: '2026-09-27' }), rows = E.topCats(p.cats);
+  assert.equal(rows.length, 6); assert.equal(rows.at(-1).category, 'other'); assert.equal(rows.filter(r => r.category === 'other').length, 1);
+  assert.equal(rows.reduce((s, r) => s + r.amount, 0), p.spent);
+  assert.equal(Math.round(p.rate * p.days), p.spent);
+  assert.deepEqual(E.topCats(p.cats.slice(0, 3)), p.cats.slice(0, 3));   // 5 or fewer: as they are
 });

@@ -39,7 +39,7 @@ const SUB_RULES = {
     [/\b(kfc|mc ?donald'?s?|mcd|texas chick|marry ?brown|burger king|pizza hut|domino'?s|a&w|subway|kenny rogers|wendy'?s|4 ?fingers|popeyes|jollibee|nando'?s|sushi king)\b/i, 'Fast food'],
     [/kopitiam|kedai kopi|old ?town|kopi ?saigon|uncle don|hainan|kluang (station|rail)/i, 'Kopitiam'],
     [/mamak|nasi kandar|pelita|line clear|syed bistro/i, 'Mamak'],
-    [/starbucks|\bzus\b|luckin|coffee bean|kenangan|gigi coffee|tim hortons|\bcaf[eé]\b|coffee/i, 'Café']],
+    [/starbucks|\bzus\b|luckin|coffee bean|kenangan|gigi coffee|tim hortons|\bcaf(?:e\b|é)|coffee/i, 'Café']],
   transport: [[/petronas|\bshell\b|caltex|petron|\bbhp\b|ron ?9[57]|petrol|diesel|primax|v-?power/i, 'Petrol'],
     [/\bplus\b|\btolls?\b|\btol\b|lebuhraya|smart ?tag/i, 'Toll'], [/parking|parkir|letak kereta|flexi ?parking|parkeasy/i, 'Parking'],
     [/\bgrab\b(?! ?(food|mart|express))|airasia ride|maxim|indrive|e-?hailing/i, 'E-hailing'], [/rapid ?kl|\b(lrt|mrt|ktm|ets)\b|monorail|komuter/i, 'Public transport']],
@@ -238,7 +238,7 @@ const WORDS = [
   ['kids', /diaper|petpet|huggies|anmum|sustagen|cerelac|enfagrow|lactogen|dumex|\bnan pro\b|lampin|pampers|mamypoko|drypers|susu formula|formula|baby|bayi|toy|mainan|crayon|school|sekolah|尿布|奶粉|玩具|婴儿|嬰兒/i],
   ['health', /panadol|claritin|(?<!ber)vitamin|ubat(?! gigi)|minyak angin|fisherman|medicine|medical|doctor|doktor|dental|dentist|clinic|klinik|pharmacy|farmasi|mask|plaster|antiseptic|dettol|strepsils|zyrtec|hospital|药|藥|维他命|維他命|口罩|诊所|診所/i],
   ['personal', /shampoo|deodoran|nivea|rexona|listerine|ubat gigi|syampu|toothpaste|ubat gigi|colgate|darlie|lotion|deodorant|razor|pisau cukur|sunblock|facial|cleanser|conditioner|sanitary|tuala wanita|kotex|laurier|haircut|gunting rambut|洗发|洗髮|牙膏|沐浴/i],
-  ['dining', /nasi|mee |mee$|mi goreng|roti canai|teh |kopi|coffee|latte|milo ais|ais |burger|pizza|chicken rice|laksa|satay|restoran|restaurant|cafe|kafe|food|makan|drink|minum|set meal|\bmeals?\b|kfc|mcd|mamak|饭|面|粉|咖啡|茶|奶茶|套餐|饮料|點心|点心|包子|炒/i],
+  ['dining', /nasi|mee |mee$|mi goreng|roti canai|teh |kopi|coffee|latte|milo ais|ais |burger|pizza|chicken rice|laksa|satay|restoran|restaurant|caf[eé]|kafe|food|makan|drink|minum|set meal|\bmeals?\b|kfc|mcd|mamak|饭|面|粉|咖啡|茶|奶茶|套餐|饮料|點心|点心|包子|炒/i],
   ['groceries', /beras|serbuk|kacang|\bcili\b|\boren\b|kelapa|kubis|krimer|santan|kunyit|\blada\b|marjerin|\bcola\b|\bsoya\b|rempah|kurma|\bsawi\b|capsicum|benggala|\blimau\b|\bepal\b|tembikai|\bdal\b|kordial|lobak|anggur|jambu|tomato|bawang|halia|cendawan|terung|timun|bayam|kangkung|jintan|\bbihun\b|rice|telur|egg|susu|milk|roti|bread|gardenia|gula|sugar|minyak|oil|ayam|chicken|ikan|fish|udang|prawn|sotong|squid|ketam|crab|kerang|daging|beef|kambing|mutton|lamb|sayur|vege|buah|fruit|garam|salt|tepung|flour|kicap|sos |sauce|mineral|air |water|biskut|biscuit|mentega|butter|cheese|yogurt|noodle|maggi|milo|nescafe|tea|bawang|onion|tomato|kentang|potato|米|蛋|鸡|雞|鱼|魚|肉|菜|水果|糖|油|盐|鹽|面包|麵包|牛奶|豆腐|酱|醬|虾|蝦|苹果|蘋果|葱|蔥|姜|薑|榴莲|榴槤|蒜|辣椒|瓜|豆芽|豆|芽|番茄|萝卜|蘿蔔|薯|芋|香蕉|橙|木瓜|西瓜|包菜|芥兰|芥蘭|白菜|菠菜|蘑菇|菇|蛤|蚬|蜆|螃蟹|蟹|鱿鱼|魷魚|江鱼仔|江魚仔|咸鱼|鹹魚|排骨|猪|豬|牛|羊|鸭|鴨|米粉|粿条|粿條|面条|麵條/i],
   ['household', /sabun|soap|detergent|tissue|tisu|bleach|sponge|mop|broom|penyapu|plastic|beg |bag|towel|tuala|bateri|battery|mentol|bulb|span|kitchen|dapur|pinggan|cawan|cup|peg|hanger|clorox|dynamo|downy|breeze|glad|ziploc|纸巾|紙巾|洗衣|清洁|清潔|垃圾袋|电池|電池|毛巾/i],
   ['transport', /petrol|ron ?9[57]|v-?power|diesel|primax|parking|letak kereta|toll|\btol\b|grab|touch ?n ?go|lrt|mrt|bus|teksi|taxi|fuel|汽油|停车|停車|过路费/i],
@@ -250,7 +250,7 @@ const WORDS = [
 const SHOPS = [
   ['groceries', /\bkk ?(super ?)?mart\b/i],   // a convenience store, not "mart" shopping
   ['transport', /^grab$|\bgrab ?(car|taxi|bike|ride|express|share)\b/i],   // a Grab ride: fare and fees are transport (GrabFood stays a meal)
-  ['dining', /restoran|restaurant|kedai makan|cafe|kafe|kopitiam|bakery|mamak|food court|medan selera|kfc|mcdonald|pizza|starbucks|tealive|zus|餐厅|餐廳|茶室|饭店|飯店|咖啡店/i],
+  ['dining', /restoran|restaurant|kedai makan|caf[eé]|kafe|kopitiam|bakery|mamak|food court|medan selera|kfc|mcdonald|pizza|starbucks|tealive|zus|餐厅|餐廳|茶室|饭店|飯店|咖啡店/i],
   ['transport', /petronas|shell|petromart|caltex|bhpetrol|petron/i],
   ['shopping', /shopee|lazada|zalora|tiktok ?shop|uniqlo|padini|vincci|h&m|\bzara\b|cotton on/i],
   ['education', /popular|bookshop|bookstore|kedai buku|mph|kinokuniya|stationery|stationer/i],
@@ -903,13 +903,37 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
 /**
  * The everyday pace in sen a day: typed spending over the last 30 days, or since the first typed spend when that is later
  * (RM 60 typed on the 28th of someone's first month is RM 60 a day, not RM 2), bills and one-off buys left out. No month
- * boundary, so the first days of a month need no fallback. days: how many days it is from; early: under a week of them.
+ * boundary, so the first days of a month need no fallback. A week or more with nothing typed (no spending or income, bills
+ * Tally posts aside) and then entries again: the window starts after it, so days not logged don't count as RM 0 spent.
+ * days: how many days it is from; early: under a week of them. from: its first day; cats: [{category, amount}] counted,
+ * most first; bills, oneOffs: [{name, amount, date}] left out (bills: by tag or a bill's shop; one-offs: RM 500+ or over
+ * a quarter of the budget).
  */
 export function dailyPace({ txs, today, budget = 0, bills = [] }) {
   const billKeys = new Set(bills.map(r => r.key || shopWord(r.name)).filter(Boolean));
-  const first = firstSpend(txs), back = addDays(today, -29), from = first > back ? first : back, days = first && first <= today ? daysBetween(from, today) + 1 : 0;
-  const spent = days ? txs.filter(t => t.type === 'expense' && t.date >= from && t.date <= today && !isBill(t) && !billKeys.has(shopWord(t.merchant)) && !oneOff(t.amount, budget)).reduce((s, t) => s + t.amount, 0) : 0;
-  return { rate: days ? spent / days : 0, days, early: days > 0 && days < 7 };
+  const first = firstSpend(txs), back = addDays(today, -29);
+  let from = first > back ? first : back;
+  // Gaps: the last run of 7+ days without a typed entry that entries follow (a gap still running today is left alone).
+  const typed = [...new Set(txs.filter(t => (t.type === 'expense' || t.type === 'income') && !isBill(t) && t.date >= from && t.date <= today).map(t => t.date))].sort();
+  for (let i = 0, prev = addDays(from, -1); i < typed.length; prev = typed[i++]) if (daysBetween(prev, typed[i]) > 7) from = typed[i];
+  const days = first && first <= today ? daysBetween(from, today) + 1 : 0, cats = {}, out = { bills: [], oneOffs: [] };
+  let spent = 0;
+  if (days) for (const t of txs) {
+    if (t.type !== 'expense' || t.date < from || t.date > today) continue;
+    const line = { name: t.merchant || t.note || t.category, amount: t.amount, date: t.date };
+    if (isBill(t) || billKeys.has(shopWord(t.merchant))) out.bills.push(line);
+    else if (oneOff(t.amount, budget)) out.oneOffs.push(line);
+    else { spent += t.amount; cats[t.category] = (cats[t.category] || 0) + t.amount; }
+  }
+  return { rate: days ? spent / days : 0, days, early: days > 0 && days < 7, from: days ? from : null, spent,
+    cats: Object.entries(cats).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount), ...out };
+}
+/** The pace's categories as listed: the biggest `n`, then the rest (with Other's own) as one Other row, so the rows
+ *  still add up to what was spent. */
+export function topCats(cats, n = 5) {
+  if (cats.length <= n) return cats;
+  const top = cats.filter(c => c.category !== 'other').slice(0, n), rest = cats.filter(c => !top.includes(c)).reduce((s, c) => s + c.amount, 0);
+  return [...top, { category: 'other', amount: rest }];
 }
 /**
  * A savings goal ({target, by?, accountId?}) against its account's balance (`bal`: engine balances().by, in the account's
@@ -931,25 +955,31 @@ export function affordMoney(accounts, txs) {
 }
 /**
  * Can I afford it? The next 30 days [today, today+30) a day at a time: money there today (`balance`) less the price, then
- * each day's pay (the next payday not yet past, or up to 5 days late and not typed yet: the last salary day's lines again; with no salary lately, the usual income
+ * each day's pay (the next payday not yet past, or up to 5 days late and not typed yet: the lowest of the last 3 salary
+ * days' totals, on the latest day of the month among them, so pay that moves around is assumed late and small; with no salary lately, the usual income
  * spread over the days), bills due and everyday spending at the usual pace. The verdict is on the lowest day, not the
  * last: money that runs out before payday is short even if pay refills it. yes: a week of usual spending (at least
  * RM 100) still there on the lowest day, and within the budget if there is one. tight: less than that, over budget, or
  * short only because of a pace from under a week of spending. no: short; `months` of usual saving (the last 3 full
- * months' money in minus out) would cover it. path: the 30 days (next30 draws it).
+ * months' money in minus out) would cover it. path: the 30 days (next30 draws it). How it got there: rate (a day), pace
+ * (dailyPace: its window, categories and what it left out), dues [{name, date, amount}], thin (the spending may be incomplete).
  */
 export function affordCheck({ price, balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
-  const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30), due = new Map();
-  for (const r of bills) for (const d of billDates(r, end)) if (d >= today && d < end && !billPaid(r, d, txs)) due.set(d, (due.get(d) || 0) + r.amount);   // due today and not paid yet: still to pay
+  const f = forecast({ txs, today, startDay, budget, bills }), pace = dailyPace({ txs, today, budget, bills }), end = addDays(today, 30), usual = Math.round(pace.rate * 30), due = new Map(), dues = [];
+  for (const r of bills) for (const d of billDates(r, end)) if (d >= today && d < end && !billPaid(r, d, txs)) { due.set(d, (due.get(d) || 0) + r.amount); dues.push({ name: r.name, date: d, amount: r.amount }); }   // due today and not paid yet: still to pay
   const upcoming = [...due.values()].reduce((s, v) => s + v, 0);
   const salDays = [...new Set(txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date))].sort();
   const last = salDays.at(-1), [p1, p2] = salDays.slice(-2), fromEnd = d => daysInMonth(d.slice(0, 7)) - +d.slice(8, 10);
   const back = startDay < 0 ? -startDay - 1 : p1 && p2 && p1.slice(8) !== p2.slice(8) && fromEnd(p1) === fromEnd(p2) ? fromEnd(p2) : null;   // 29 Sep, 30 Oct: second-last day
-  const payOn = ym => `${ym}-${pad2(back != null ? daysInMonth(ym) - back : Math.min(+last.slice(8, 10), daysInMonth(ym)))}`;   // 31 Aug → 30 Sep
+  // Pay that moves around (25th, 28th, 26th) is expected on the latest of the last 3 days (28th): assume it comes late.
+  const day = Math.max(...salDays.slice(-3).map(d => +d.slice(8, 10)));
+  const payOn = ym => `${ym}-${pad2(back != null ? daysInMonth(ym) - back : Math.min(day, daysInMonth(ym)))}`;   // 31 Aug → 30 Sep
   let next = null;   // the first payday not yet past: a salary not typed yet, or a day late, still comes
   if (last) for (let k = 1; k < 4 && !(next >= addDays(today, -5)); k++) next = payOn(addMonths(last.slice(0, 7), k));
   if (next && next < today) next = today;   // up to 5 days late and not typed yet: still coming, counted from today
-  const pay = next && next >= today && next < end ? txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date === last).reduce((s, x) => s + x.amount, 0) : 0;   // every line of it
+  // How much: the lowest of the last 3 paydays, each day's lines summed (KPI pay moves too): one good month can't make a buy look affordable.
+  const payOf = d => txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date === d).reduce((s, x) => s + x.amount, 0);
+  const pay = next && next >= today && next < end ? Math.min(...salDays.slice(-3).map(payOf)) : 0;
   // No salary lately (riders, freelancers, small sellers): their usual income instead, the lowest of the last 3 full
   // months that have any entries (refunds aside), so one good month can't make a buy look affordable.
   const ym = cycleKey(today, startDay), recentPay = last && last >= addDays(today, -62);
@@ -967,8 +997,10 @@ export function affordCheck({ price, balance, txs, today, startDay = 1, bills = 
   const net = flow.length ? Math.round(flow.reduce((s, m) => s + m.income - m.expense, 0) / flow.length) : 0;
   const short = Math.min(left, low.bal), cover = balance - price - upcoming + pay + earn >= 0;
   const verdict = short < 0 ? (f.early && cover ? 'tight' : 'no') : short < Math.max(100_00, Math.round(f.rate * 7)) || over ? 'tight' : 'yes';
-  return { verdict, balance, pay, payDate: pay ? next : null, earn, upcoming, usual, price, left, low, path, end, over, net, early: f.early, days: f.days,
-    months: short < 0 && net > 0 ? Math.ceil(-short / net) : null };
+  // thin: the spending may be incomplete (under a week of it, or under a tenth of the money coming in): say so first.
+  const thin = f.early || (pay + earn > 0 && usual < (pay + earn) / 10);
+  return { verdict, balance, pay, payDate: pay ? next : null, earn, upcoming, usual, price, left, low, path, end, over, net, early: f.early, days: f.days, rate: f.rate, thin,
+    dues: dues.sort((a, b) => byDate(a.date, b.date)), pace, months: short < 0 && net > 0 ? Math.ceil(-short / net) : null };
 }
 /** A month's spending split into regular payments (bills, and shops that are known or detected bills) and day-to-day spending. */
 export function fixedFlexible(txs, ym, sd = 1, billShops = []) {

@@ -110,3 +110,37 @@ test('LHDN: relief receipts are kept for 7 years after the year the return is fi
   assert.equal(E.keepReceiptUntil(t({ relief: 'none' })), '', 'marked not a relief');
   assert.equal(E.keepReceiptUntil(t({ merchant: 'Kedai' })), '', 'not a relief');
 });
+
+test('pay that moves around (25th, 28th, 26th) is expected on the latest day, the 28th', () => {
+  const txs = [inc('2026-07-25', 400000), inc('2026-08-28', 400000), inc('2026-09-26', 400000), ...daily('2026-09-26', 25, 5000)];
+  const a = E.affordCheck({ price: 0, balance: 35000, txs, today: '2026-10-20' });
+  assert.equal(a.payDate, '2026-10-28');
+  // RM 350 at RM 50 a day lasts to the 26th: pay on the 26th would save it, pay on the 28th doesn't.
+  assert.equal(a.verdict, 'no');
+  assert.equal(a.low.date, '2026-10-27');
+  // The second-last-day pattern still wins: 29 Sep, 30 Oct → 29 Nov, not the 30th.
+  assert.equal(E.affordCheck({ price: 0, balance: 0, txs: [inc('2026-08-25', 1), inc('2026-09-29', 1), inc('2026-10-30', 1)], today: '2026-11-01' }).payDate, '2026-11-29');
+});
+
+test('pay that varies (KPI): the lowest of the last 3 salary days, each day\'s lines summed', () => {
+  const txs = [inc('2026-06-25', 9900000), inc('2026-07-25', 480000), inc('2026-08-25', 300000), inc('2026-08-25', 90000), inc('2026-09-25', 430000)];
+  assert.equal(E.affordCheck({ price: 0, balance: 100000, txs, today: '2026-10-01' }).pay, 390000);   // 4,800 / 3,900 (two lines) / 4,300; June is too old
+  assert.equal(E.affordCheck({ price: 0, balance: 100000, txs: txs.slice(-3), today: '2026-10-01' }).pay, 390000);   // fewer than 3: the lowest there is
+});
+
+test('afford says how it got there: bills due by name and date, the pace, and when the spending looks incomplete', () => {
+  const bills = [{ id: 'b1', name: 'Rumah', amount: 120000, freq: 'monthly', day: 1, start: '2026-01-01' }, { id: 'b2', name: 'Unifi', amount: 12900, freq: 'monthly', day: 20, start: '2026-01-20' }];
+  const txs = [inc('2026-09-25', 400000), ...daily('2026-09-20', 12, 5000)];
+  const a = E.affordCheck({ price: 0, balance: 500000, txs, today: '2026-10-01', bills });
+  assert.deepEqual(a.dues.map(d => [d.name, d.date]), [['Rumah', '2026-10-01'], ['Unifi', '2026-10-20']]);
+  assert.equal(a.rate, 5000); assert.equal(a.pace.days, 12); assert.equal(a.pace.from, '2026-09-20');
+  assert.equal(a.thin, false);
+  // RM 5 a day against RM 4,000 pay: under a tenth, so probably not all typed in.
+  assert.equal(E.affordCheck({ price: 0, balance: 500000, txs: [inc('2026-09-25', 400000), ...daily('2026-09-20', 12, 500)], today: '2026-10-01' }).thin, true);
+  assert.equal(E.affordCheck({ price: 0, balance: 500000, txs: daily('2026-09-29', 3, 5000), today: '2026-10-01' }).thin, true);   // 3 days: early
+});
+
+test('subcategory: "Café" with the accent is a café, like "Cafe"', () => {
+  assert.equal(E.subFor('dining', 'Café Seri'), 'Café');
+  assert.equal(E.subFor('dining', 'Cafe Seri'), 'Café');
+});

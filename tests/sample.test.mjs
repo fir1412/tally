@@ -9,7 +9,8 @@ globalThis.localStorage = { getItem: k => disk.get(k) ?? null, setItem: (k, v) =
 const { S, load, saveAccount, saveTx, setKv, replaceAll, settings } = await import('../js/state.js');
 const { sampleData, startSample, endSample, sampleRows } = await import('../js/sample.js');
 const { splitBill, ME } = await import('../js/views/splitbill.js');
-const { balances, openShares, goalProgress, taxRelief, monthSpend, billStatus, owing } = await import('../js/engine.js');
+const { balances, openShares, goalProgress, taxRelief, reliefGuess, monthSpend, billStatus, owing, subSplit, affordMoney, affordCheck } = await import('../js/engine.js');
+const { categoryOf } = await import('../js/brands.js');
 const { filledDays } = await import('../js/comic.js');
 
 const sum = xs => xs.reduce((s, x) => s + x, 0);
@@ -58,7 +59,7 @@ test('every feature has something to show: a goal on its way, a budget, bills, r
   const spent = monthSpend(d.tx, '2026-10').total;
   assert.ok(spent > 0 && spent < d.budgets.total, 'half way through the month, within the budget');
   assert.ok(d.recurring.every(b => billStatus(b, day, d.tx).next > day && d.tx.filter(x => x.bill === b.id).length === 2), 'two paid, the next one ahead');
-  assert.deepEqual(taxRelief(d.tx, 2026).filter(l => l.entries.length).map(l => l.id).sort(), ['lifestyle', 'medical', 'sports']);
+  assert.deepEqual(taxRelief(d.tx, 2026).filter(l => l.entries.length).map(l => l.id).sort(), ['donation', 'lifestyle', 'medical', 'sports', 'zakat']);
   assert.equal(d.noSpend.length, 2);
   assert.ok(d.noSpend.every(n => n < day && !d.tx.some(x => x.type === 'expense' && x.date === n)), 'nothing spent means nothing spent');
   assert.ok(filledDays({ tx: d.tx, noSpend: d.noSpend, ym: '2026-10', today: day }).size >= 10, 'most of October in the sticker book');
@@ -101,17 +102,44 @@ test('sample mode starts only on an empty app, and "Start for real" removes all 
   assert.deepEqual([S.accounts.length, S.tx.length, S.recurring.length, S.kv.goals.length, settings().onboarded], [0, 0, 0, 0, false]);
 });
 
-test('can I afford it: over the next 30 days, pay in, bills and usual spending out, and how long to save when short', async () => {
-  const { affordCheck } = await import('../js/engine.js');
-  const { accounts, tx } = sampleData('2026-09-29', Date.parse('2026-09-29T12:00:00Z'));
-  const balance = balances(accounts, tx).total, a = price => affordCheck({ price, balance, txs: tx, today: '2026-09-29' });
-  const small = a(10000), big = a(2000000);
-  assert.equal(small.verdict, 'yes');
-  assert.equal(small.payDate, '2026-09-30');   // salary on 31 Aug comes again on 30 Sep, not a 31 Sep that doesn't exist
-  assert.equal(small.left, balance + small.pay - small.upcoming - small.usual - 10000);
-  assert.equal(big.verdict, 'no');
-  assert.ok(big.months >= 1 && big.net > 0);
-  assert.equal(affordCheck({ price: 10000, balance, txs: tx, today: '2026-09-29', budget: 50000 }).verdict, 'tight');   // money there, budget not
+test('can I afford it, as Home asks it: RM 200 yes, RM 450 tight from the lowest day before payday (not the budget), RM 1,000 not yet', () => {
+  for (const day of ['2026-01-01', '2026-03-01', '2026-10-17', '2026-11-11', '2028-02-29']) {
+    const d = sampleData(day, Date.parse(`${day}T12:00:00Z`)), { balance } = affordMoney(d.accounts, d.tx);
+    const a = price => affordCheck({ price, balance, txs: d.tx, today: day, bills: d.recurring, budget: d.budgets.total });
+    const [small, mid, big] = [a(20000), a(45000), a(100000)];
+    assert.equal(small.verdict, 'yes', day);
+    assert.equal(mid.verdict, 'tight', day);
+    assert.ok(mid.over === 0 && mid.low.bal > 0 && mid.low.date < mid.payDate && mid.left > mid.low.bal, `${day}: short of a week's spending only on the day before pay`);
+    assert.equal(mid.left, balance + mid.pay - mid.upcoming - mid.usual - 45000);
+    assert.ok(big.verdict === 'no' && big.months >= 1 && big.net > 0, day);
+  }
+  // The landing's example (start*.html, the "Can I afford it?" tile) is this one, on 17 Oct 2026.
+  const d = sampleData('2026-10-17', Date.parse('2026-10-17T12:00:00Z')), { balance } = affordMoney(d.accounts, d.tx);
+  const r = affordCheck({ price: 45000, balance, txs: d.tx, today: '2026-10-17', bills: d.recurring, budget: d.budgets.total });
+  assert.deepEqual([r.verdict, r.payDate, r.low.date, r.low.bal, r.left], ['tight', '2026-10-28', '2026-10-27', 14134, 284634]);
+});
+
+test('the new features have something to show: the landing receipt, subcategories, the relief picker, zakat apart, and no real brands', () => {
+  const day = '2026-10-17', d = sampleData(day, Date.parse(`${day}T12:00:00Z`));
+  // The landing page's crumpled receipt, line for line, on 15 Oct.
+  const slip = d.tx.find(x => x.merchant === 'Kedai Runcit Maju' && x.items.length === 5);
+  assert.deepEqual([slip.date, slip.amount, slip.items.map(i => [i.name, i.cents, i.category])], ['2026-10-15', 5390,
+    [['Beras 5kg', 2190, 'groceries'], ['Minyak masak 2kg', 1250, 'groceries'], ['Sabun basuh', 890, 'household'], ['Ubat batuk', 640, 'health'], ['Buku cerita', 420, 'education']]]);
+  // Subcategories: Tally's own guesses from the shop's name, and some entries with none (the module is off until turned on).
+  assert.deepEqual(subSplit(d.tx, 'dining', '2026-10').map(x => x.sub).sort(), ['', 'Café', 'Kopitiam', 'Mamak']);
+  assert.ok(['Petrol', 'Pharmacy', 'Dental', 'Movies', 'Zakat', 'Donations'].every(s => d.tx.some(x => x.sub === s)));
+  // The relief picker: one picked by hand that the words miss, one the words match but ruled out; zakat and donations apart.
+  const R = Object.fromEntries(taxRelief(d.tx, 2026).map(l => [l.id, l]));
+  const silat = d.tx.find(x => x.relief === 'sports'), jersey = d.tx.find(x => x.relief === 'none');
+  assert.ok(reliefGuess(silat) === null && R.sports.entries.some(e => e.id === silat.id));
+  assert.ok(reliefGuess(jersey) === 'sports' && !R.sports.entries.some(e => e.id === jersey.id));
+  assert.ok(R.lifestyle.entries.some(e => e.id === slip.id && e.cents === 420), 'Buku cerita on the landing receipt');
+  // The landing's relief card shows these figures.
+  assert.deepEqual(['lifestyle', 'medical', 'sports', 'zakat', 'donation'].map(k => [R[k].total, R[k].entries.length]), [[32210, 4], [12000, 1], [12800, 3], [5000, 1], [3000, 1]]);
+  // No real brands: no shop, item, account or bill is a chain Tally knows by name.
+  const names = [...d.tx.flatMap(x => [x.merchant, ...(x.items || []).map(i => i.name)]), ...d.accounts.map(a => a.name), ...d.recurring.map(r => r.name)];
+  assert.deepEqual(names.filter(n => n && categoryOf(n)), []);
+  assert.ok(!/maybank|touch 'n go|asb|mydin|petronas|uniqlo|watsons|guardian|popular|madam kwan|gsc|sushi king|grab|netflix|unifi|panadol|strepsils|dettol|colgate/i.test(names.join(' ')));
 });
 
 test('paid on the second-last day: the payday month starts there every month, and the next pay is predicted from month-end', async () => {
@@ -126,4 +154,5 @@ test('paid on the second-last day: the payday month starts there every month, an
   assert.equal(a([pay('2027-01-30'), pay('2027-02-27')], '2027-03-28').payDate, '2027-03-30');   // not 27 Mar, which has passed
   assert.equal(a([pay('2026-09-29')], '2026-10-02', -2).payDate, '2026-10-30');                  // one pay, the payday setting says
   assert.equal(a([pay('2026-08-25'), pay('2026-09-25')], '2026-09-29').payDate, '2026-10-25');    // same day number stays
+  assert.equal(a([pay('2026-07-31'), pay('2026-08-31')], '2026-09-29').payDate, '2026-09-30');    // 31 Aug comes again on 30 Sep, not a 31 Sep that doesn't exist
 });

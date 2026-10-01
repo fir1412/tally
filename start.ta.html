@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tally: மலேசியர்களுக்கான இலவச ரசீது ஸ்கேனர், செலவுக் கணக்குப் புத்தகம்</title>
-<meta name="description" content="ரசீதைப் படம் எடுங்கள்; Tally அதை உங்கள் கைப்பேசியிலேயே படித்து, ஒவ்வொரு பொருளையும் வகைப்படுத்தி, LHDN வரிச் சலுகைக்குக் கணக்கில் வரக்கூடியவற்றைக் குறிக்கும். கணக்கு இல்லை, எதுவும் பதிவேற்றப்படாது, இலவசம்.">
+<meta name="description" content="ரசீதைப் படம் எடுங்கள்; Tally உங்கள் கைப்பேசியிலேயே ஒவ்வொரு பொருளையும் வகைப்படுத்தும். கணக்கு இல்லை, SMS இல்லை, வங்கி உள்நுழைவு இல்லை, எதுவும் பதிவேற்றப்படாது. இலவசம், விளம்பரம் இல்லை.">
 <meta name="theme-color" content="#070A16">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tallymy.github.io/start.ta.html">
 <meta property="og:title" content="Tally, மலேசியர்களுக்கான இலவசச் செலவுக் கணக்கு">
-<meta property="og:description" content="ரசீதைப் படம் எடுங்கள்; Tally அதை உங்கள் கைப்பேசியிலேயே படித்து, ஒவ்வொரு பொருளையும் வகைப்படுத்தி, LHDN வரிச் சலுகைக்குக் கணக்கில் வரக்கூடியவற்றைக் குறிக்கும். கணக்கு இல்லை, எதுவும் பதிவேற்றப்படாது, இலவசம்.">
+<meta property="og:description" content="ரசீதைப் படம் எடுங்கள்; Tally உங்கள் கைப்பேசியிலேயே ஒவ்வொரு பொருளையும் வகைப்படுத்தும். கணக்கு இல்லை, SMS இல்லை, வங்கி உள்நுழைவு இல்லை, எதுவும் பதிவேற்றப்படாது. இலவசம், விளம்பரம் இல்லை.">
 <meta property="og:image" content="https://tallymy.github.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -289,8 +289,8 @@ body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil 
 @keyframes lang{0%{opacity:0;transform:translateY(14px)}3.33%,15%{opacity:1;transform:none}18.33%,100%{opacity:0;transform:translateY(-14px)}}
 .ring{position:relative;width:80px;height:80px;flex:none}
 .ring svg{width:80px;height:80px;transform:rotate(-90deg)}
-.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:81.4;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
-@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:81.4}}
+.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:59;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
+@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:59}}
 .ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
 .mini{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#1E2640;color:#C9D0E0;font-size:13px;white-space:nowrap}
 .mini .ico{width:15px;height:15px;color:#8EA4FF}
@@ -433,6 +433,120 @@ html:lang(ta) .ctext h3{font-size:30px}
 @keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
 @supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
 </style>
+<style>
+/* 1.11 refresh: the crumpled receipt photo, the read-out beside it, the relief list, the afford and share bands, the sticker tile */
+.shot{position:absolute;inset:0;z-index:2;animation:shot 12s ease-in-out infinite both}
+.shot img,.photo img,.fan img,.stk img{display:block;width:100%;height:100%}
+.shot img,.photo img{object-fit:cover}
+.sbar{animation:list 12s ease infinite both}
+.scan{top:132px}
+.tag{font-size:9.5px;padding:2px 6px}
+.row{gap:6px;padding:10px 10px}.row .nm{font-size:12.5px}.row .amt{width:36px}
+@keyframes shot{0%,24%{opacity:1;transform:none}29%{opacity:0;transform:scale(1.04)}93%{opacity:0;transform:none}100%{opacity:1;transform:none}}
+@keyframes scan{0%,6%{opacity:0;transform:translateY(0)}8%{opacity:1;transform:translateY(0)}23%{opacity:1;transform:translateY(374px)}25%,100%{opacity:0;transform:translateY(374px)}}
+@keyframes list{0%,25%{opacity:0}27%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes row{0%,26%{opacity:0;transform:translateX(-14px)}31%,100%{opacity:1;transform:none}}
+@keyframes tot{0%,37%{opacity:0;transform:translateY(8px)}41%,100%{opacity:1;transform:none}}
+@keyframes pop{0%,40%{opacity:0;transform:scale(.5)}42%{opacity:1;transform:scale(1.12)}44%,100%{opacity:1;transform:none}}
+@keyframes late{0%,42%{opacity:0;transform:translateY(8px)}46%,100%{opacity:1;transform:none}}
+@keyframes chip{0%,44%{opacity:0;transform:translateY(14px) scale(.94)}48%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+.relief{line-height:1.3}
+/* 01: the photo and what Tally read from it */
+.chapter.ch01{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.snap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;align-items:center}
+.photo{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#1B2550}
+.photo .brk{animation-range:cover 30% cover 45%}
+.photo .brk.tl{top:3%;left:5%}.photo .brk.tr{top:3%;right:5%}.photo .brk.bl{bottom:3%;left:5%}.photo .brk.br{bottom:3%;right:5%}
+.photo .scan2{left:8%;width:84%;top:4%;animation:scan3 3.2s ease-in-out infinite}
+@keyframes scan3{0%,100%{top:4%}50%{top:94%}}
+.readc{display:flex;flex-direction:column;gap:6px;min-width:0}
+.readc .dhead{padding-bottom:0}
+.shopl{font-size:13px;color:#6A6E7E;padding:0 2px 4px}
+.rl{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:#F7F6F2;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 22%}
+.rl .n{flex:1;min-width:0}
+.rl:nth-child(4){animation-range:cover 14% cover 24%}.rl:nth-child(5){animation-range:cover 16% cover 26%}.rl:nth-child(6){animation-range:cover 18% cover 28%}.rl:nth-child(7){animation-range:cover 20% cover 30%}
+.readc .sum{margin-top:6px;font-variant-numeric:tabular-nums}
+.vianote{display:none;justify-content:center;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A8676}
+/* 03: the category as the choice it is */
+.selk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 8px 4px 10px;border-radius:8px;background:#F8E3EF;color:#7A2458}
+.chev{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* 04: the app's relief card: rows, the picker, zakat and donations apart */
+.rsum{margin:-8px 0 0;font-size:14px;color:#C9D0E0;font-variant-numeric:tabular-nums}
+.pick{display:flex;align-items:center;gap:12px;min-height:36px;padding:7px 12px;border-radius:10px;background:#1E2640;border:1px solid #2E3858;font-size:13px;color:#C9D0E0}
+.pick>span:first-child{flex:none;color:#A9B1C6}
+.pick .v{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:#FFFFFF}
+.pick .v span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rlist{display:flex;flex-direction:column}
+.rlist>div{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.rlist .nm{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:14px;line-height:1.4;color:#E7EAF3}
+.rlist small{font-size:12px;color:#A9B1C6}
+.rlist b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rlist.apart>div{opacity:.62}
+.apartk{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#A9B1C6}
+html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
+/* afford band: the app's answer, the next 30 days, the sums */
+.chapter.afd{border-top:0;padding-top:0;padding-bottom:0;align-items:start}
+.verdict{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:600;line-height:1.3;color:#FFFFFF}
+.verdict i{width:10px;height:10px;border-radius:50%;background:#F5C451;flex:none}
+.afd .sm{margin:0;font-size:14px;line-height:1.5;color:#A9B1C6}
+.afd .sm b{color:#F5C451;font-weight:600}
+.chart{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{display:flex;justify-content:space-between;font-size:12px;color:#8C95AD}
+.ckey{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:#C9D0E0}
+.ckey span{display:inline-flex;align-items:center;gap:6px}
+.ckey i{width:8px;height:8px;border-radius:50%;background:#F5C451}.ckey i.p{width:2px;height:12px;border-radius:1px;background:#8EA4FF}
+.arows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#C9D0E0}
+.arows li{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.arows .av{font-variant-numeric:tabular-nums;white-space:nowrap;color:#FFFFFF}
+.arows li.lt{margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-weight:600;color:#FFFFFF}
+/* share band: two real share pictures, fanned */
+.chapter.shr{border-top:0;padding-top:0;align-items:start}
+.fan{position:relative;height:390px}
+.fan picture{position:absolute;width:280px;height:280px;border-radius:14px;overflow:hidden;border:1px solid #E6E3DA;box-shadow:0 1px 2px rgba(10,15,30,.04),0 16px 40px -24px rgba(10,15,30,.28)}
+.fan .back{left:calc(50% - 20px);top:0;transform:rotate(2.5deg)}
+.fan .front{left:calc(50% - 276px);top:76px;transform:rotate(-3deg)}
+.hid{position:absolute;left:calc(50% - 262px);top:350px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#F7F6F2;border:1px solid #E6E3DA;color:#4D5163;font-size:12px;font-weight:600;white-space:nowrap;transform:rotate(-3deg)}
+.hid .ico{width:15px;height:15px}
+/* sticker tile */
+.stk{aspect-ratio:720/282;margin-top:18px;border-radius:14px;overflow:hidden;background:#FDFBF6;border:1px solid #ECE9E0}
+.stk img{object-fit:cover;object-position:50% 30%}
+#t-budget .bvis{flex:1;height:auto;min-height:96px}
+.fit .ft>span{display:none}
+.fit a{gap:12px}
+.pills .subc{color:#8A8676;font-weight:500}
+/* six promises in the free band: two rows of three */
+.cells{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cells>div:nth-child(4){border-left:0;padding-left:0}
+.cells>div:nth-child(n+4){margin-top:28px;border-top:1px solid rgba(255,255,255,.1)}
+@media (max-width:980px){
+.chapter.ch01{grid-template-columns:minmax(0,1fr)}
+.snap{grid-template-columns:minmax(0,1fr);gap:12px}
+.vianote{display:flex}
+.pick{flex-direction:column;align-items:stretch;gap:4px}
+.verdict{font-size:18px}
+.fan{height:222px}
+.fan picture{width:150px;height:150px}
+.fan .back{left:calc(50% - 4px);top:0}
+.fan .front{left:calc(50% - 150px);top:40px}
+.hid{left:calc(50% - 140px);top:190px}
+.readc .rl{display:none}
+.dia{display:none}
+.free-top{gap:0}
+.fit a{padding:14px 16px}
+.c2{right:6px}
+#afford,#share{padding-top:64px}#afford{padding-bottom:64px}
+.chapter{padding:40px 0}
+.rl{padding:7px 10px;font-size:14px}
+.shopl{display:none}
+.cells{grid-template-columns:minmax(0,1fr)}
+.cells>div:nth-child(n+4){margin-top:0}
+}
+/* Tamil: the long "shop name read" chip wraps instead of covering the shop's name */
+html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
+@media (max-width:980px){html:lang(ta) .c2{max-width:150px;top:2px;font-size:11px}}
+@media (prefers-reduced-motion:reduce){.shot{display:none}}
+</style>
 </head>
 <body>
 <div class="lp">
@@ -492,25 +606,17 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="screen">
 <div class="notch"></div><div class="glare"></div>
 <div class="sbar">ரசீதைச் சரிபார்</div>
-<div class="slip mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 8px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #B8BFCC; margin-top: 8px; padding-top: 8px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-</div>
+<picture class="shot"><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="" decoding="async"></picture>
 <div class="scan"></div>
 <div class="list">
 <div class="lhead"><span>Kedai Runcit Maju · 5 பொருட்கள்</span></div>
 <div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">மளிகை</span><span class="amt">21.90</span></div>
-<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak</span><span class="tag" style="background: #DCF5EC; color: #03543F">மளிகை</span><span class="amt">12.50</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">மளிகை</span><span class="amt">12.50</span></div>
 <div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">வீட்டுச் செலவு</span><span class="amt">8.90</span></div>
-<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">சுகாதாரம்</span><span class="amt">6.40</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">சுகாதாரம்</span><span class="amt">6.40</span></div>
 <div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">கல்வி</span><span class="amt">4.20</span></div>
 <div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>கூட்டல் சரி</span></div>
-<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>சலுகை வாய்ப்பு 1 · வாழ்க்கை முறை</div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 வரிச் சலுகை வாய்ப்பு · Buku cerita</div>
 <div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
 <div class="leg"><span><i style="background: #009E73"></i>மளிகை 34.40</span><span><i style="background: #A16207"></i>வீட்டுச் செலவு 8.90</span><span><i style="background: #CC79A7"></i>சுகாதாரம் 6.40</span><span><i style="background: #332288"></i>கல்வி 4.20</span></div>
 <div class="save"><span class="ex">எடுத்துக்காட்டு</span><span class="sbtn">ரசீதைச் சேமி</span></div>
@@ -518,7 +624,7 @@ html:lang(ta) .ctext h3{font-size:30px}
 </div>
 </div>
 <div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>கைப்பேசியிலேயே · <b>பதிவேற்றம் இல்லை</b></span></div>
-<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>கடை அடையாளம் காணப்பட்டது</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>கடைப் பெயர் படிக்கப்பட்டது</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
 </div>
 </div>
 <div class="proof">
@@ -541,43 +647,37 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="fit">
 <a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>பெரிய ஷாப்பிங்</b><span>உங்கள் hypermarket பயணம்: உணவு, மருந்து, சுத்தப் பொருட்கள் எல்லாம் ஒரே ரசீதில்.</span></span><span class="go"><span class="gl">பிரிப்பதைப் பாருங்கள்</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>வரிச் சலுகை ரசீதுகள்</b><span>புத்தகம், gym, மருத்துவப் பரிசோதனை, ஜகாத் ரசீதுகளை ஆண்டு முழுவதும் சேர்த்து வைக்கிறீர்கள்.</span></span><span class="go"><span class="gl">வரிச் சலுகைகள்</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#t-budget"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg></span><span class="ft"><b>பகிர்ந்த பணம்</b><span>நீங்களும் உங்கள் துணையும் ஒரே கூட்டுக் கணக்கை நடத்துகிறீர்கள்.</span></span><span class="go"><span class="gl">பட்ஜெட்டும் பில்களும்</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>மாதக் கடைசி</b><span>சம்பளத்துக்குப் பிறகு அல்ல, வாங்குவதற்கு முன்பே தெரிந்துகொள்ள வேண்டும்.</span></span><span class="go"><span class="gl">வாங்க முடியுமா?</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>App மாற்றுகிறீர்கள்</b><span>வேறொரு பண app-இலிருந்து மாறி வருகிறீர்கள்.</span></span><span class="go"><span class="gl">பழைய பதிவுகள்</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 </div>
 </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how" class="sec" style="padding-bottom: 72px">
+<section id="how" class="sec" style="padding-bottom: 96px">
 <div class="wrap">
 <div class="shead rise">
 <span class="kicker" style="color: #2F54EB">செயல்படும் விதம்</span>
 <h2 class="h2">கசங்கிய ரசீதிலிருந்து தெளிவான கணக்கு வரை.</h2>
 </div>
 
-<div class="chapter">
+<div class="chapter ch01">
 <div class="ctext rise">
 <span class="num">01 — படம் எடுங்கள்</span>
 <h3>மங்கியது, கசங்கியது, சாய்ந்தது. இருந்தும் படிக்க முடியும்.</h3>
 <p>Tally படத்தை நேராக்கி, அச்சு மங்கிய இடங்களை உன்னிப்பாகப் பார்த்து, கைப்பேசியிலேயே படிக்கும். எதுவும் பதிவேற்றப்படாது. ரசீது இல்லையா? தொகையை மட்டும் உள்ளிடுங்கள்.</p>
 </div>
-<div class="demo card rise">
-<div class="table">
-<span class="ex">எடுத்துக்காட்டு</span>
-<div class="pw">
-<div class="paper mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 6px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #CFC9B8; margin-top: 6px; padding-top: 6px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-<div style="text-align: center; padding-top: 8px">TERIMA KASIH</div>
-</div>
-</div>
-<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
-<span class="scan2"></span>
+<div class="demo card rise snap">
+<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="எடுத்துக்காட்டு: Kedai Runcit Maju-வின் கசங்கிய ரசீது, சாய்வாக எடுத்த படம்" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
+<div class="readc">
+<div class="dhead"><span>இந்தக் கைப்பேசியிலேயே படித்தது</span><span class="ex">எடுத்துக்காட்டு</span></div>
+<div class="shopl">Kedai Runcit Maju · 15/10/2026</div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Beras 5kg</span><span>21.90</span></div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Minyak masak 2kg</span><span>12.50</span></div>
+<div class="rl"><i class="dot" style="background: #A16207"></i><span class="n">Sabun basuh</span><span>8.90</span></div>
+<div class="rl"><i class="dot" style="background: #CC79A7"></i><span class="n">Ubat batuk</span><span>6.40</span></div>
+<div class="rl"><i class="dot" style="background: #332288"></i><span class="n">Buku cerita</span><span>4.20</span></div>
+<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · கூட்டல் சரி</span></div>
 </div>
 </div>
 </div>
@@ -622,32 +722,59 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><span><i class="dot" style="background: #332288"></i>கல்வி</span><b>RM 4.20</b></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
-<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">சுகாதாரம்</span><span class="changed">மளிகையிலிருந்து மாற்றப்பட்டது</span></div>
-<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>அடுத்த முறைக்கு நினைவில் வைக்கப்பட்டது</span>
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">சுகாதாரம்<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>மாற்றத் தட்டுங்கள். உங்கள் தேர்வை அடுத்த முறை Tally நினைவில் வைக்கும்.</span>
 </div>
 </div>
 </div>
 
 <div class="chapter" id="reliefs">
 <div class="demo card dk rise">
-<div class="dhead"><span>இந்த ஆண்டின் சலுகை வாய்ப்புகள்</span><span class="exb">எடுத்துக்காட்டு</span></div>
+<div class="dhead"><span>2026-இல் வரிச் சலுகைக்குத் தகுதியாகக்கூடிய செலவுகள்</span><span class="exb">எடுத்துக்காட்டு</span></div>
+<p class="rsum">சரிபார்க்க வேண்டிய செலவு RM 570.10</p>
 <div class="fly">
 <span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
-<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">வாழ்க்கை முறைச் சலுகைக்குக் கணக்கில் வரலாம் · படம் வைக்கப்பட்டது</span></span>
-<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #F5C451; transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">வரிச் சலுகை வாய்ப்பு · படம் 7 ஆண்டுகள் வைக்கப்படும்</span></span>
 </div>
-<div class="bars">
-<div><div class="lbl"><span>வாழ்க்கை முறை<span class="plus tab">+4.20</span></span><b>RM 1,240.00</b></div><div class="bar"><div class="fill" style="width: 62%; background: #F5C451"></div></div></div>
-<div><div class="lbl"><span>மருத்துவம்</span><b>RM 380.00</b></div><div class="bar"><div class="fill" style="width: 34%; background: #F0A6CE"></div></div></div>
-<div><div class="lbl"><span>கல்வி</span><b>RM 2,150.00</b></div><div class="bar"><div class="fill" style="width: 80%; background: #8EA4FF"></div></div></div>
-<div><div class="lbl"><span>ஜகாத்</span><b>RM 600.00</b></div><div class="bar"><div class="fill" style="width: 45%; background: #6EE7B7"></div></div></div>
+<div class="pick"><span>வரி விலக்கு</span><span class="v"><span>தானாக: புத்தகங்கள், கைப்பேசி, கணினி, இணையம்</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<div class="rlist">
+<div><span class="nm"><span>புத்தகங்கள், கைப்பேசி, கணினி, இணையம்<span class="plus tab">+4.20</span></span><small>4 பதிவுகள்</small></span><b>RM 322.10</b></div>
+<div><span class="nm"><span>மருத்துவம், பல், தடுப்பூசி</span><small>1 பதிவு</small></span><b>RM 120.00</b></div>
+<div><span class="nm"><span>விளையாட்டும் ஜிம்மும்</span><small>3 பதிவுகள்</small></span><b>RM 128.00</b></div>
 </div>
-<p class="disc">எடுத்துக்காட்டு எண்கள். சலுகை வாய்ப்புகள் மட்டுமே: நீங்கள் தயாராக உதவும் ஒரு மதிப்பீடு, வரி ஆலோசனை அல்ல. எதைக் கோரலாம் என்பதற்கு LHDN விதிகளைச் சரிபாருங்கள்.</p>
+<div class="apartk">தனியாகக் காட்டப்படுபவை, சலுகைகள் அல்ல</div>
+<div class="rlist apart">
+<div><span class="nm"><span>ஜகாத், ஃபித்ரா (வரித் தள்ளுபடி)</span><small>1 பதிவு</small></span><b>RM 50.00</b></div>
+<div><span class="nm"><span>நன்கொடைகள் (அங்கீகரிக்கப்பட்ட அமைப்புகள் மட்டும், அதிகாரப்பூர்வ ரசீது தேவை)</span><small>1 பதிவு</small></span><b>RM 30.00</b></div>
+</div>
+<p class="disc">எடுத்துக்காட்டு எண்கள். நீங்கள் செலவழித்ததை Tally காட்டும், நீங்கள் கோரக்கூடியதை அல்ல. வரி ஆலோசனை அல்ல: தாக்கல் செய்வதற்கு முன் LHDN விதிகளைச் சரிபாருங்கள்.</p>
 </div>
 <div class="ctext rise">
 <span class="num">04 — வரிச் சலுகைகள்</span>
 <h3>வரிக் காலம், ரசீதுப் பெட்டியைத் தேடாமல்.</h3>
-<p>நீங்கள் பதியும்போதே, புத்தகம், gym, மருத்துவப் பரிசோதனை, பாலர் பள்ளிக் கட்டணம் போன்ற LHDN வரிச் சலுகைக்குக் கணக்கில் வரக்கூடிய ரசீதுகளையும் பொருட்களையும் Tally குறித்து, ஒவ்வொரு ரசீதுப் படத்தையும் அவற்றுடன் வைக்கும்; வரி நேரத்தில் பதிவிறக்கத் தயார். LHDN-இன் வரம்புகளையும் நிபந்தனைகளையும் நீங்களே சரிபார்த்து, அசல் ரசீதுகளை வைத்திருங்கள்.</p>
+<p>ரசீதில் உள்ள சொற்களை வைத்து, LHDN வரிச் சலுகைக்குக் கணக்கில் வரக்கூடிய வாங்குதல்களை Tally குறிக்கும். தவறா? “வரி விலக்கு அல்ல” எனக் குறியுங்கள், அல்லது தவறவிட்டதைத் தேர்ந்தெடுங்கள். ஜகாத்தும் நன்கொடைகளும் தனியாகக் காட்டப்படும். சலுகை ரசீதுப் படங்கள் 7 ஆண்டுகள் இருக்கும், பதிவிறக்கத் தயார். LHDN வரம்புகளைச் சரிபாருங்கள்.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- CAN I AFFORD IT -->
+<section id="afford" class="sec" style="padding-top: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">வாங்குவதற்கு முன்</span>
+<h2 class="h2">வாங்க முடியுமா? <span class="serif">பிறகு அல்ல, முன்பே கேளுங்கள்.</span></h2>
+</div>
+<div class="chapter afd">
+<div class="ctext rise">
+<p>ஒரு விலையை உள்ளிடுங்கள். அடுத்த 30 நாட்களை (இப்போது உள்ள பணம், சம்பளம், பில்கள், வழக்கமான செலவு) Tally பார்த்து, மாதக் கடைசியை அல்ல, மிகக் குறைந்த நாளை வைத்து முடிவு சொல்லும். சம்பளத்துக்கு முன் பணம் போதாவிட்டால், பிறகு சம்பளம் சரிசெய்தாலும் “இறுக்கமாக இருக்கும்”. சில நாள் பதிவுகள் மட்டுமா? அது தோராயம் என்று சொல்லும்.</p>
+</div>
+<div class="demo card dk rise">
+<div class="dhead"><span>வாங்க முடியுமா? · <span class="tab">RM 450.00</span></span><span class="exb">எடுத்துக்காட்டு</span></div>
+<p class="verdict"><i></i>வாங்கலாம், ஆனால் இறுக்கமாக இருக்கும்.</p>
+<p class="sm"><b>மிகக் குறைவு: 27 அக். அன்று RM 141.34</b></p>
+<div class="chart" role="img" aria-label="எடுத்துக்காட்டு: அடுத்த 30 நாட்களில் இருப்பு 27 அக். அன்று மிகக் குறைவு, 28 அக். சம்பளத்துக்கு முந்தைய நாள்."><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>இன்று</span><span>30 நாள்</span></div><div class="ckey"><span><i></i>மிகக் குறைந்த நாள்</span><span><i class="p"></i>சம்பள நாள்</span></div></div>
+<ul class="arows"><li><span>இப்போது உள்ள பணம்</span><span class="av">RM 2,035.60</span></li><li><span>28 அக். சம்பளம்</span><span class="av">RM 3,500.00</span></li><li><span>கெடு வரும் பில்கள்</span><span class="av">−RM 984.00</span></li><li><span>வழக்கமான அன்றாடச் செலவு</span><span class="av">−RM 1,255.26</span></li><li><span>இந்த வாங்குதல்</span><span class="av">−RM 450.00</span></li><li class="lt"><span>மீதம்</span><span class="av">RM 2,846.34</span></li></ul>
 </div>
 </div>
 </div>
@@ -686,10 +813,28 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>உங்கள் கைப்பேசியிலேயே இருக்கும்.</b><span>நீங்களே தேர்ந்தெடுத்து, உங்கள் சொந்த Google Drive-க்கோ ஒரு கோப்புக்கோ காப்புப்பிரதி எடுத்தால் தவிர.</span></div>
 <div><b>Open source (MIT).</b><span>ஒவ்வொரு வரியையும் GitHub-இல் படிக்கலாம்.</span></div>
 <div><b>Premium திட்டம் இல்லை.</b><span>ஒவ்வொரு வசதியும், எல்லோருக்கும்.</span></div>
+<div><b>ரசீதுப் படங்களை எப்போதும் நீக்கலாம்.</b><span>பதிவுகள் இருக்கும்: கடை, தேதி, தொகை, பொருட்கள்.</span></div>
+<div><b>தேவைப்படும்போது மட்டுமே இணையம்.</b><span>அதன் சொந்தக் கோப்புகளுக்கும், நீங்கள் கேட்பவற்றுக்கும் மட்டும்.</span></div>
 </div>
 <div class="sign rise">
 <span>மலேசியாவில் ஒரு தனி டெவலப்பரால் உருவாக்கப்பட்டது.</span>
 <a href="https://github.com/tallymy/tallymy.github.io">குறியீட்டைப் படி <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</section>
+
+<!-- SHARE PICTURES -->
+<section id="share" class="sec" style="padding-bottom: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">பகிருங்கள்</span>
+<h2 class="h2">குடும்ப group-இல் காட்டுங்கள். <span class="serif">ரிங்கிட் கணக்கு உங்களுக்கு மட்டும்.</span></h2>
+</div>
+<div class="chapter shr">
+<div class="ctext rise">
+<p>உங்கள் மாதம் அல்லது ஆண்டு, ஸ்டிக்கர் புத்தகம், அடைந்த இலக்கு: WhatsApp-க்கான படமாக; அரட்டைக்குச் சதுரம், ஸ்டேட்டஸுக்கு நீளம். நீங்கள் இயக்கினால் மட்டுமே தொகைகள் தெரியும். படம் உங்கள் கைப்பேசியிலேயே உருவாகும்; நீங்கள் அனுப்பினால் தவிர எதுவும் வெளியே போகாது.</p>
+</div>
+<div class="fan rise" role="img" aria-label="எடுத்துக்காட்டுப் பகிர்வுப் படங்கள்: இந்த மாதச் செலவு சதவீதங்களில், அடைந்த இலக்கு"><picture class="back"><source type="image/webp" srcset="img/share-goal-ta.webp"><img src="img/share-goal-ta.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-ta.webp"><img src="img/share-month-ta.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>தொகைகள் மறைக்கப்பட்டுள்ளன</span></div>
 </div>
 </div>
 </section>
@@ -702,29 +847,29 @@ html:lang(ta) .ctext h3{font-size:30px}
 <h2 class="h2">மலேசியர்கள் செலவு செய்யும் விதத்துக்கே உருவானது.</h2>
 </div>
 <div class="bento">
-<div class="tile card dark s4 rise" id="t-budget">
+<div class="tile card dark s3 rise" id="t-budget">
 <span class="ex tex">எடுத்துக்காட்டு</span>
 <div class="vis bvis">
 <div class="ring">
 <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
-<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 820</b><span style="font-size: 10px; color: #9AA3BA">மீதம்</span></div>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">மீதம்</span></div>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>பில் நினைவூட்டல் · இன்னும் 3 நாள்</span>
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>கூட்டுக் கணக்கு</span>
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"></path></svg>“வாங்க முடியுமா?”</span>
 </div>
 </div>
 <div class="tx">
-<h3>பட்ஜெட், பில்கள், “வாங்க முடியுமா?”</h3>
-<p>அமைதியான பட்ஜெட் வளையம், பில் கெடுவுக்கு முன் நினைவூட்டல், உங்கள் துணையுடன் கூட்டுக் கணக்கு, பெரிய செலவுக்கு முன் நேரடியான பதில்.</p>
+<h3>பட்ஜெட், பில்கள், கூட்டுக் கணக்கு</h3>
+<p>அமைதியான பட்ஜெட் வளையம், பில் கெடுவுக்கு முன் நினைவூட்டல், உங்கள் துணையுடன் கூட்டுக் கணக்கு.</p>
 </div>
 </div>
-<div class="tile card s2 rise">
-<div class="vis"><div class="langs" role="img" aria-label="ஆறு மொழிகளில் வணக்கம்: ஆங்கிலம், மலாய், எளிய சீனம், மரபுச் சீனம், ஜப்பானியம், தமிழ்"><span class="serif" style="animation-delay: 0s">Hello</span><span class="serif" style="animation-delay: 2.5s">Selamat</span><span class="serif" style="animation-delay: 5s">你好</span><span class="serif" style="animation-delay: 7.5s">您好</span><span class="serif" style="animation-delay: 10s">こんにちは</span><span class="serif" lang="ta" style="animation-delay: 12.5s">வணக்கம்</span></div></div>
+<div class="tile card s3 rise">
+<span class="ex tex" style="z-index: 1">எடுத்துக்காட்டு</span>
+<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="எடுத்துக்காட்டு: அக்டோபர் ஸ்டிக்கர்கள், பதிந்த ஒவ்வொரு நாளுக்கும் ஒன்று" decoding="async" loading="lazy"></picture></div>
 <div class="tx">
-<h3>உங்கள் மொழியில் பேசும்.</h3>
-<p>English, Bahasa Melayu, 简体中文, 繁體中文, 日本語, தமிழ், ரசீதில் உள்ள சொற்கள் வரை.</p>
+<h3>நீங்கள் பதியும் ஒவ்வொரு நாளுக்கும் ஒரு ஸ்டிக்கர்.</h3>
+<p>ஏதாவது பதியுங்கள், அல்லது “இன்று செலவு இல்லை” என்பதைத் தட்டுங்கள்; அந்த நாளுக்கு ஒரு ஸ்டிக்கரும் இந்த மாதக் கதையின் ஒரு பக்கமும் கிடைக்கும். அக்டோபர் புத்தகம் இரவுச் சந்தை: 30 ஆண்டுகளாக நடத்திய apam balik கடையை ராஜு மாமா மூடுவாரா?</p>
 </div>
 </div>
 <div class="tile card s2 rise">
@@ -740,12 +885,12 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="tile card s2 rise">
 <div class="vis"><div class="pills">
 <span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>மளிகை</b></span>
-<span><i class="dot" style="background: #E69F00"></i>Kopitiam<span class="to">→</span><b>உணவகம்</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>உணவகம்<span class="subc"> › மாமாக்</span></b></span>
 <span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>சுகாதாரம்</b></span>
 </div></div>
 <div class="tx">
 <h3>கடைகளைத் தெரியும்.</h3>
-<p>kopitiam முதல் hypermarket வரை, 3,000-க்கும் மேற்பட்ட மலேசிய chain, கடைப் பெயர்களைப் பெயரால் அறிந்து சரியான வகையில் சேர்க்கும்.</p>
+<p>kopitiam முதல் hypermarket வரை, 3,000-க்கும் மேற்பட்ட மலேசிய chain, கடைப் பெயர்களைப் பெயரால் அறிந்து சரியான வகையில் சேர்க்கும். இன்னும் விவரம் வேண்டுமா? உணவகம் › மாமாக், கோப்பிதியாம் போன்ற துணை வகைகளை இயக்குங்கள். கடையின் பெயரை வைத்து Tally ஊகிக்கும், உங்கள் தேர்வுகளிலிருந்து கற்றுக்கொள்ளும்.</p>
 </div>
 </div>
 <div class="tile card s2 rise" id="t-import">
@@ -787,12 +932,11 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Android</b><span>Chrome-இல் menu <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg> தட்டி, பிறகு Install app அல்லது Add to Home screen தட்டுங்கள்.</span></div>
 </div>
 <p style="font-size: 15px">பிறகு மற்ற app போலவே திறக்கும், இணையமின்றி இயங்கும்.</p>
-<span class="small" style="font-size: 13px">Play Store பதிப்பு வரவிருக்கிறது.</span>
 </div>
 <div class="step">
 <span class="stepn serif">3</span>
 <b>உங்கள் முதல் ரசீதைப் படம் எடுங்கள்</b>
-<p>அல்லது தொகையை உள்ளிடுங்கள், அல்லது முதலில் மாதிரித் தரவுடன் முயன்று பாருங்கள். உண்மையாகத் தொடங்கும் வரை எதுவும் சேமிக்கப்படாது.</p>
+<p>அல்லது தொகையை உள்ளிடுங்கள். இன்னும் தயாரில்லையா? முதல் திரையில் “மாதிரித் தரவுடன் சுற்றிப் பாருங்கள்” என்பதைத் தட்டுங்கள். உண்மையாகத் தொடங்கும் வரை எதுவும் சேமிக்கப்படாது.</p>
 </div>
 </div>
 </div>
@@ -809,12 +953,13 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="rise">
 <details class="qa"><summary>உண்மையிலேயே இலவசமா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>ஆம். ஒவ்வொரு வசதியும் இலவசம்; premium திட்டமும் இல்லை, விளம்பரமும் இல்லை. இது ஒரு ஆர்வத் திட்டம்; வேலையை உங்கள் கைப்பேசியே செய்வதால், பணம் கட்ட வேண்டிய server-களும் இல்லை.</p></details>
 <details class="qa"><summary>என் தரவு எங்கே போகும்?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>உங்கள் கைப்பேசியிலேயே இருக்கும். கணக்கு இல்லை. ரசீதுகள் கருவியிலேயே படிக்கப்படும், ஒருபோதும் பதிவேற்றப்படாது. காப்புப்பிரதி எடுத்தால், நீங்கள் தேர்ந்தெடுக்கும்போது மட்டும் உங்கள் சொந்த Google Drive-க்கோ ஒரு கோப்புக்கோ போகும்.</p></details>
+<details class="qa"><summary>ரசீதுப் படங்களை நீக்க முடியுமா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>முடியும். அமைப்புகள் → தனியுரிமை → ரசீது புகைப்படங்கள் என்பதில், எல்லாவற்றையும் இப்போதே நீக்கலாம், அல்லது 30 நாள், 90 நாள், ஒரு ஆண்டுக்கு மேற்பட்ட படங்களை Tally நீக்கும்படி அமைக்கலாம். பதிவு அப்படியே இருக்கும்: கடை, தேதி, தொகை, பொருட்கள். காலத்தை வைத்து நீக்கும்போது, வரிச் சலுகைக்குக் கணக்கில் வரக்கூடிய வாங்குதல்களின் படங்களை LHDN கேட்கக்கூடிய 7 ஆண்டுகளுக்கு Tally வைத்திருக்கும். எல்லாவற்றையும் நீக்கினால் அவையும் போகும்; அது உங்கள் தேர்வு.</p></details>
 <details class="qa"><summary>Tally என் SMS-ஐப் படிக்குமா, வங்கி உள்நுழைவு கேட்குமா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>இல்லை. Tally உங்கள் SMS அல்லது OTP-களை ஒருபோதும் படிக்காது; வங்கி உள்நுழைவு, கார்டு அல்லது PIN எதையும் கேட்காது. உங்கள் கைப்பேசியில் அது பயன்படுத்தக் கேட்பது கேமரா மட்டுமே, ரசீதுகளைப் படம் எடுக்க; வேண்டாம் என்று சொல்லி நீங்களே தட்டச்சும் செய்யலாம். நீங்களே ஒரு வங்கி அறிக்கைக் கோப்பைத் தேர்ந்தெடுத்தால் மட்டுமே வங்கிப் பதிவுகள் வரும்.</p></details>
+<details class="qa"><summary>இதற்கு ஏன் இணையம் தேவை?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>முதல் முறை திறக்க, ரசீது படிப்பானை ஒருமுறை பதிவிறக்க (சுமார் 30 MB), தன்னைப் புதுப்பிக்க. அதன் பிறகு இணையமின்றி இயங்கும். மற்றபடி நீங்கள் கேட்கும்போது மட்டுமே இணையத்துக்குப் போகும்: நீங்கள் ஒட்டும் Google Sheets இணைப்பு, நீங்கள் கேட்கும் நாணய மாற்று விகிதம், நீங்கள் அனுப்பும் கருத்து, நீங்கள் சேர்க்கும் நாட்காட்டி நினைவூட்டல். உங்கள் பதிவுகளும் ரசீதுப் படங்களும் ஒருபோதும் அனுப்பப்படாது.</p></details>
 <details class="qa"><summary>பெற்றோருக்கு அமைத்துக் கொடுக்கிறீர்களா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>அவர்களின் கைப்பேசியில் tallymy.github.io-வைத் திறந்து, மொழியையும் பெரிய எழுத்து அளவையும் தேர்ந்தெடுத்து, முகப்புத் திரையில் சேர்க்கவும். அடிப்படை மட்டும் வேண்டுமென்றால் அமைப்புகள் → அம்சங்களில் “எளிமை”யைத் தேர்ந்தெடுக்கவும். கணக்கோ கடவுச்சொல்லோ நினைவில் வைக்கத் தேவையில்லை, பதிவுகள் அவர்களின் கைப்பேசியிலேயே இருக்கும்.</p></details>
 <details class="qa"><summary>என் ரசீதுகளைப் படிக்குமா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>மங்கிய, கசங்கிய, தொலைவிலிருந்து எடுத்த, சாய்ந்த படங்களையும் சமாளிக்கும்; 3,000-க்கும் மேற்பட்ட மலேசிய chain, கடைப் பெயர்களை அறியும். ஒவ்வொரு முறையும் சரியாக இருக்காது; அதனால்தான் பொருட்கள் மொத்தத்துக்குச் சரியாக வருகின்றனவா என்று சரிபார்த்து, மீண்டும் பார்க்க வேண்டிய வரியைச் சுட்டிக்காட்டும். ஒன்றைத் திருத்தினால், அடுத்த முறை Tally நினைவில் வைக்கும்.</p></details>
-<details class="qa"><summary>Browser-இலிருந்து நிறுவினால் அது உண்மையான app-ஆ?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>இது உங்கள் முகப்புத் திரையில் நிறுவக்கூடிய ஒரு web app; மற்ற app போலவே திறக்கும், ஒருமுறை திறந்த பிறகு இணையமின்றி இயங்கும். Play Store பதிப்பு வரவிருக்கிறது.</p></details>
+<details class="qa"><summary>Browser-இலிருந்து நிறுவினால் அது உண்மையான app-ஆ?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>இது உங்கள் முகப்புத் திரையில் நிறுவக்கூடிய ஒரு web app; மற்ற app போலவே திறக்கும், ஒருமுறை திறந்த பிறகு இணையமின்றி இயங்கும்.</p></details>
 <details class="qa"><summary>கைப்பேசியை மாற்றினால்?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>அமைப்புகளில், காப்புப்பிரதியும் மீட்டெடுப்பும் ஒரு காப்புப்பிரதிக் கோப்பை உருவாக்கும். அதை உங்களுக்கே அனுப்புங்கள் (Google Drive, மின்னஞ்சல், WhatsApp), பிறகு புதிய கைப்பேசியில் மீட்டெடுங்கள். கணக்கு இல்லாததால், மாறுவதற்கு முன் காப்புப்பிரதி எடுங்கள்.</p></details>
-<details class="qa"><summary>என் பழைய தரவைக் கொண்டு வர முடியுமா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>ஆம், Money Manager, Cashew, Money Lover, Spendee, Wallet போன்றவற்றிலிருந்தும், வங்கி அறிக்கைக் கோப்புகளிலிருந்தும். உங்கள் பழைய வகைகளும் கூடவே வரும்.</p></details>
 <details class="qa"><summary>வரிச் சலுகைப் பகுதி வரி ஆலோசனையா?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>இல்லை. வரிச் சலுகைக்குக் கணக்கில் வரக்கூடிய ரசீதுகளையும் பொருட்களையும் Tally குறித்து, ரசீதுப் படத்தை வைக்கும். உங்கள் நிலைமை அதற்குத் தெரியாது, எவ்வளவு கோரலாம் என்றும் கணக்கிடாது; ஒவ்வொரு சலுகைக்கும் வரம்புகளும் நிபந்தனைகளும் உண்டு. நீங்கள் தயாராக உதவும் ஒரு மதிப்பீடு மட்டுமே. எதைக் கோரலாம் என்பதற்கு LHDN விதிகளைச் சரிபாருங்கள்.</p></details>
 <details class="qa"><summary>இதை உருவாக்குவது யார்?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>மலேசியாவில் உள்ள ஒரு தனி டெவலப்பர். இது open source (MIT), அதனால் GitHub-இல் குறியீட்டைப் படிக்கலாம். கருத்து அல்லது bug? <a href="https://github.com/tallymy/tallymy.github.io/issues">GitHub-இல் ஒரு issue திறங்கள்</a>.</p></details>
 <details class="qa"><summary>நான் பயன்படுத்துவதை நிறுத்தினால், அல்லது இது புதுப்பிக்கப்படாமல் போனால்?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>உங்கள் தரவு உங்கள் கைப்பேசியில் உள்ளது; எப்போது வேண்டுமானாலும் காப்புப்பிரதிக் கோப்பை உருவாக்கலாம். குறியீடு GitHub-இல் open source (MIT), அதனால் அது பூட்டப்படவில்லை.</p></details>

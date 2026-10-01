@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tally: free receipt scanner and money book for Malaysians</title>
-<meta name="description" content="Snap a receipt and Tally reads it on your phone, files every item, and flags what may count for LHDN reliefs. No account, nothing uploaded, free.">
+<meta name="description" content="Snap a receipt and Tally sorts every item, on your phone. No account, no SMS, no bank login, nothing uploaded. Free, no ads.">
 <meta name="theme-color" content="#070A16">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tallymy.github.io/start.html">
 <meta property="og:title" content="Tally, the free money book for Malaysians">
-<meta property="og:description" content="Snap a receipt and Tally reads it on your phone, files every item, and flags what may count for LHDN reliefs. No account, nothing uploaded, free.">
+<meta property="og:description" content="Snap a receipt and Tally sorts every item, on your phone. No account, no SMS, no bank login, nothing uploaded. Free, no ads.">
 <meta property="og:image" content="https://tallymy.github.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -289,8 +289,8 @@ body:lang(ta),[lang|=ta]{font-family:'Instrument Sans',"Noto Sans Tamil","Tamil 
 @keyframes lang{0%{opacity:0;transform:translateY(14px)}3.33%,15%{opacity:1;transform:none}18.33%,100%{opacity:0;transform:translateY(-14px)}}
 .ring{position:relative;width:80px;height:80px;flex:none}
 .ring svg{width:80px;height:80px;transform:rotate(-90deg)}
-.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:81.4;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
-@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:81.4}}
+.ring .arc{stroke-dasharray:226.2;stroke-dashoffset:59;animation:ring 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 100% cover 40%}
+@keyframes ring{from{stroke-dashoffset:226.2}to{stroke-dashoffset:59}}
 .ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
 .mini{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#1E2640;color:#C9D0E0;font-size:13px;white-space:nowrap}
 .mini .ico{width:15px;height:15px;color:#8EA4FF}
@@ -433,6 +433,120 @@ html:lang(ta) .ctext h3{font-size:30px}
 @keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
 @supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
 </style>
+<style>
+/* 1.11 refresh: the crumpled receipt photo, the read-out beside it, the relief list, the afford and share bands, the sticker tile */
+.shot{position:absolute;inset:0;z-index:2;animation:shot 12s ease-in-out infinite both}
+.shot img,.photo img,.fan img,.stk img{display:block;width:100%;height:100%}
+.shot img,.photo img{object-fit:cover}
+.sbar{animation:list 12s ease infinite both}
+.scan{top:132px}
+.tag{font-size:9.5px;padding:2px 6px}
+.row{gap:6px;padding:10px 10px}.row .nm{font-size:12.5px}.row .amt{width:36px}
+@keyframes shot{0%,24%{opacity:1;transform:none}29%{opacity:0;transform:scale(1.04)}93%{opacity:0;transform:none}100%{opacity:1;transform:none}}
+@keyframes scan{0%,6%{opacity:0;transform:translateY(0)}8%{opacity:1;transform:translateY(0)}23%{opacity:1;transform:translateY(374px)}25%,100%{opacity:0;transform:translateY(374px)}}
+@keyframes list{0%,25%{opacity:0}27%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes row{0%,26%{opacity:0;transform:translateX(-14px)}31%,100%{opacity:1;transform:none}}
+@keyframes tot{0%,37%{opacity:0;transform:translateY(8px)}41%,100%{opacity:1;transform:none}}
+@keyframes pop{0%,40%{opacity:0;transform:scale(.5)}42%{opacity:1;transform:scale(1.12)}44%,100%{opacity:1;transform:none}}
+@keyframes late{0%,42%{opacity:0;transform:translateY(8px)}46%,100%{opacity:1;transform:none}}
+@keyframes chip{0%,44%{opacity:0;transform:translateY(14px) scale(.94)}48%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+.relief{line-height:1.3}
+/* 01: the photo and what Tally read from it */
+.chapter.ch01{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.snap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;align-items:center}
+.photo{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#1B2550}
+.photo .brk{animation-range:cover 30% cover 45%}
+.photo .brk.tl{top:3%;left:5%}.photo .brk.tr{top:3%;right:5%}.photo .brk.bl{bottom:3%;left:5%}.photo .brk.br{bottom:3%;right:5%}
+.photo .scan2{left:8%;width:84%;top:4%;animation:scan3 3.2s ease-in-out infinite}
+@keyframes scan3{0%,100%{top:4%}50%{top:94%}}
+.readc{display:flex;flex-direction:column;gap:6px;min-width:0}
+.readc .dhead{padding-bottom:0}
+.shopl{font-size:13px;color:#6A6E7E;padding:0 2px 4px}
+.rl{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:#F7F6F2;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;animation:up 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 12% cover 22%}
+.rl .n{flex:1;min-width:0}
+.rl:nth-child(4){animation-range:cover 14% cover 24%}.rl:nth-child(5){animation-range:cover 16% cover 26%}.rl:nth-child(6){animation-range:cover 18% cover 28%}.rl:nth-child(7){animation-range:cover 20% cover 30%}
+.readc .sum{margin-top:6px;font-variant-numeric:tabular-nums}
+.vianote{display:none;justify-content:center;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A8676}
+/* 03: the category as the choice it is */
+.selk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 8px 4px 10px;border-radius:8px;background:#F8E3EF;color:#7A2458}
+.chev{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* 04: the app's relief card: rows, the picker, zakat and donations apart */
+.rsum{margin:-8px 0 0;font-size:14px;color:#C9D0E0;font-variant-numeric:tabular-nums}
+.pick{display:flex;align-items:center;gap:12px;min-height:36px;padding:7px 12px;border-radius:10px;background:#1E2640;border:1px solid #2E3858;font-size:13px;color:#C9D0E0}
+.pick>span:first-child{flex:none;color:#A9B1C6}
+.pick .v{flex:1;min-width:0;display:flex;align-items:center;gap:6px;color:#FFFFFF}
+.pick .v span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rlist{display:flex;flex-direction:column}
+.rlist>div{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.rlist .nm{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:14px;line-height:1.4;color:#E7EAF3}
+.rlist small{font-size:12px;color:#A9B1C6}
+.rlist b{font-weight:600;color:#FFFFFF;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rlist.apart>div{opacity:.62}
+.apartk{margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#A9B1C6}
+html:lang(zh) .apartk,html:lang(ta) .apartk{text-transform:none;letter-spacing:0}
+/* afford band: the app's answer, the next 30 days, the sums */
+.chapter.afd{border-top:0;padding-top:0;padding-bottom:0;align-items:start}
+.verdict{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:600;line-height:1.3;color:#FFFFFF}
+.verdict i{width:10px;height:10px;border-radius:50%;background:#F5C451;flex:none}
+.afd .sm{margin:0;font-size:14px;line-height:1.5;color:#A9B1C6}
+.afd .sm b{color:#F5C451;font-weight:600}
+.chart{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{display:flex;justify-content:space-between;font-size:12px;color:#8C95AD}
+.ckey{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:#C9D0E0}
+.ckey span{display:inline-flex;align-items:center;gap:6px}
+.ckey i{width:8px;height:8px;border-radius:50%;background:#F5C451}.ckey i.p{width:2px;height:12px;border-radius:1px;background:#8EA4FF}
+.arows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#C9D0E0}
+.arows li{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.arows .av{font-variant-numeric:tabular-nums;white-space:nowrap;color:#FFFFFF}
+.arows li.lt{margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-weight:600;color:#FFFFFF}
+/* share band: two real share pictures, fanned */
+.chapter.shr{border-top:0;padding-top:0;align-items:start}
+.fan{position:relative;height:390px}
+.fan picture{position:absolute;width:280px;height:280px;border-radius:14px;overflow:hidden;border:1px solid #E6E3DA;box-shadow:0 1px 2px rgba(10,15,30,.04),0 16px 40px -24px rgba(10,15,30,.28)}
+.fan .back{left:calc(50% - 20px);top:0;transform:rotate(2.5deg)}
+.fan .front{left:calc(50% - 276px);top:76px;transform:rotate(-3deg)}
+.hid{position:absolute;left:calc(50% - 262px);top:350px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#F7F6F2;border:1px solid #E6E3DA;color:#4D5163;font-size:12px;font-weight:600;white-space:nowrap;transform:rotate(-3deg)}
+.hid .ico{width:15px;height:15px}
+/* sticker tile */
+.stk{aspect-ratio:720/282;margin-top:18px;border-radius:14px;overflow:hidden;background:#FDFBF6;border:1px solid #ECE9E0}
+.stk img{object-fit:cover;object-position:50% 30%}
+#t-budget .bvis{flex:1;height:auto;min-height:96px}
+.fit .ft>span{display:none}
+.fit a{gap:12px}
+.pills .subc{color:#8A8676;font-weight:500}
+/* six promises in the free band: two rows of three */
+.cells{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cells>div:nth-child(4){border-left:0;padding-left:0}
+.cells>div:nth-child(n+4){margin-top:28px;border-top:1px solid rgba(255,255,255,.1)}
+@media (max-width:980px){
+.chapter.ch01{grid-template-columns:minmax(0,1fr)}
+.snap{grid-template-columns:minmax(0,1fr);gap:12px}
+.vianote{display:flex}
+.pick{flex-direction:column;align-items:stretch;gap:4px}
+.verdict{font-size:18px}
+.fan{height:222px}
+.fan picture{width:150px;height:150px}
+.fan .back{left:calc(50% - 4px);top:0}
+.fan .front{left:calc(50% - 150px);top:40px}
+.hid{left:calc(50% - 140px);top:190px}
+.readc .rl{display:none}
+.dia{display:none}
+.free-top{gap:0}
+.fit a{padding:14px 16px}
+.c2{right:6px}
+#afford,#share{padding-top:64px}#afford{padding-bottom:64px}
+.chapter{padding:40px 0}
+.rl{padding:7px 10px;font-size:14px}
+.shopl{display:none}
+.cells{grid-template-columns:minmax(0,1fr)}
+.cells>div:nth-child(n+4){margin-top:0}
+}
+/* Tamil: the long "shop name read" chip wraps instead of covering the shop's name */
+html:lang(ta) .c2{max-width:176px;white-space:normal;line-height:1.3}
+@media (max-width:980px){html:lang(ta) .c2{max-width:150px;top:2px;font-size:11px}}
+@media (prefers-reduced-motion:reduce){.shot{display:none}}
+</style>
 </head>
 <body>
 <div class="lp">
@@ -492,25 +606,17 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="screen">
 <div class="notch"></div><div class="glare"></div>
 <div class="sbar">Review receipt</div>
-<div class="slip mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 8px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #B8BFCC; margin-top: 8px; padding-top: 8px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-</div>
+<picture class="shot"><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="" decoding="async"></picture>
 <div class="scan"></div>
 <div class="list">
 <div class="lhead"><span>Kedai Runcit Maju · 5 items</span></div>
 <div class="row r1"><span class="dot" style="background: #009E73"></span><span class="nm">Beras 5kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">21.90</span></div>
-<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">12.50</span></div>
+<div class="row r2"><span class="dot" style="background: #009E73"></span><span class="nm">Minyak masak 2kg</span><span class="tag" style="background: #DCF5EC; color: #03543F">Groceries</span><span class="amt">12.50</span></div>
 <div class="row r3"><span class="dot" style="background: #A16207"></span><span class="nm">Sabun basuh</span><span class="tag" style="background: #F6EBD9; color: #6B3E05">Household</span><span class="amt">8.90</span></div>
-<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="amt">6.40</span></div>
+<div class="row r4"><span class="dot" style="background: #CC79A7"></span><span class="nm">Ubat batuk</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="amt">6.40</span></div>
 <div class="row r5"><span class="dot" style="background: #332288"></span><span class="nm">Buku cerita</span><span class="tag" style="background: #E7E4F6; color: #332288">Education</span><span class="amt">4.20</span></div>
 <div class="tot"><span>RM 53.90</span><span class="ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Adds up</span></div>
-<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 relief candidate · Lifestyle</div>
+<div class="relief"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg>1 possible tax relief · Buku cerita</div>
 <div class="catbar"><i style="width: 64%; background: #009E73"></i><i style="width: 16.5%; background: #A16207"></i><i style="width: 12%; background: #CC79A7"></i><i style="width: 7.5%; background: #332288"></i></div>
 <div class="leg"><span><i style="background: #009E73"></i>Groceries 34.40</span><span><i style="background: #A16207"></i>Household 8.90</span><span><i style="background: #CC79A7"></i>Health 6.40</span><span><i style="background: #332288"></i>Education 4.20</span></div>
 <div class="save"><span class="ex">Example</span><span class="sbtn">Save receipt</span></div>
@@ -518,7 +624,7 @@ html:lang(ta) .ctext h3{font-size:30px}
 </div>
 </div>
 <div class="chip c1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #A9BBFF"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Read on this phone · <b>not uploaded</b></span></div>
-<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Shop recognised</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
+<div class="chip c2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: #8EA4FF"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"></path><path d="M5 11v9h14v-9M10 20v-5h4v5"></path></svg><span><b>Shop name read</b><span class="cs"> · Kedai Runcit Maju</span></span></div>
 </div>
 </div>
 <div class="proof">
@@ -541,43 +647,37 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="fit">
 <a class="card rise" href="#file"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"></path><circle cx="10" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></svg></span><span class="ft"><b>Big shop runs</b><span>Your hypermarket trip is food, medicine and cleaning on one receipt.</span></span><span class="go"><span class="gl">See it sorted</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#reliefs"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span><span class="ft"><b>Relief receipts</b><span>You keep receipts all year for books, the gym, check-ups and zakat.</span></span><span class="go"><span class="gl">Tax reliefs</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
-<a class="card rise" href="#t-budget"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg></span><span class="ft"><b>Shared money</b><span>You and your partner run one joint account.</span></span><span class="go"><span class="gl">Budgets and bills</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
+<a class="card rise" href="#afford"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span><span class="ft"><b>End of the month</b><span>You want to know before you buy, not after payday.</span></span><span class="go"><span class="gl">Can I afford it?</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 <a class="card rise" href="#t-import"><span class="fi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"></path></svg></span><span class="ft"><b>Switching apps</b><span>You’re moving over from another money app.</span></span><span class="go"><span class="gl">Bring your history</span> <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></a>
 </div>
 </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how" class="sec" style="padding-bottom: 72px">
+<section id="how" class="sec" style="padding-bottom: 96px">
 <div class="wrap">
 <div class="shead rise">
 <span class="kicker" style="color: #2F54EB">How it works</span>
 <h2 class="h2">From a crumpled slip to a clear picture.</h2>
 </div>
 
-<div class="chapter">
+<div class="chapter ch01">
 <div class="ctext rise">
 <span class="num">01 — SNAP IT</span>
 <h3>Faded, crumpled, sideways. Still readable.</h3>
 <p>Tally straightens the photo, looks closer where the print is faint, and reads it on the phone itself. Nothing is uploaded. No receipt? Just type an amount.</p>
 </div>
-<div class="demo card rise">
-<div class="table">
-<span class="ex">Example</span>
-<div class="pw">
-<div class="paper mono">
-<div style="text-align: center; font-weight: 700; padding-bottom: 6px; letter-spacing: .05em">KEDAI RUNCIT MAJU</div>
-<div class="ln"><span>BERAS 5KG</span><span>21.90</span></div>
-<div class="ln"><span>MINYAK MASAK 2KG</span><span>12.50</span></div>
-<div class="ln"><span>SABUN BASUH</span><span>8.90</span></div>
-<div class="ln"><span>PANADOL 20S</span><span>6.40</span></div>
-<div class="ln"><span>BUKU CERITA</span><span>4.20</span></div>
-<div class="ln" style="border-top: 1px dashed #CFC9B8; margin-top: 6px; padding-top: 6px; font-weight: 700"><span>TOTAL</span><span>53.90</span></div>
-<div style="text-align: center; padding-top: 8px">TERIMA KASIH</div>
-</div>
-</div>
-<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
-<span class="scan2"></span>
+<div class="demo card rise snap">
+<div class="photo"><picture><source type="image/webp" srcset="img/receipt-crumpled.webp"><img src="img/receipt-crumpled.jpg" width="840" height="1800" alt="Example: a crumpled receipt from Kedai Runcit Maju, photographed at an angle" decoding="async" loading="lazy"></picture><span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span><span class="scan2"></span></div>
+<div class="readc">
+<div class="dhead"><span>Read on this phone</span><span class="ex">Example</span></div>
+<div class="shopl">Kedai Runcit Maju · 15/10/2026</div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Beras 5kg</span><span>21.90</span></div>
+<div class="rl"><i class="dot" style="background: #009E73"></i><span class="n">Minyak masak 2kg</span><span>12.50</span></div>
+<div class="rl"><i class="dot" style="background: #A16207"></i><span class="n">Sabun basuh</span><span>8.90</span></div>
+<div class="rl"><i class="dot" style="background: #CC79A7"></i><span class="n">Ubat batuk</span><span>6.40</span></div>
+<div class="rl"><i class="dot" style="background: #332288"></i><span class="n">Buku cerita</span><span>4.20</span></div>
+<div class="sum"><span style="font-weight: 600">JUMLAH</span><span class="pill-ok"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>RM 53.90 · Adds up</span></div>
 </div>
 </div>
 </div>
@@ -622,32 +722,59 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><span><i class="dot" style="background: #332288"></i>Education</span><b>RM 4.20</b></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #EDEBE4">
-<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Panadol 20s</span><span class="tag" style="background: #F8E3EF; color: #7A2458">Health</span><span class="changed">Changed from Groceries</span></div>
-<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Remembered for next time</span>
+<div class="fixrow"><i class="dot" style="background: #CC79A7"></i><span>Ubat batuk</span><span class="selk">Health<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8A8676; padding-left: 4px"><svg class="chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Tap to change it. Tally remembers your pick next time.</span>
 </div>
 </div>
 </div>
 
 <div class="chapter" id="reliefs">
 <div class="demo card dk rise">
-<div class="dhead"><span>Relief candidates, this year</span><span class="exb">Example</span></div>
+<div class="dhead"><span>Possible tax-relief expenses in 2026</span><span class="exb">Example</span></div>
+<p class="rsum">RM 570.10 in spending to review</p>
 <div class="fly">
 <span class="shield"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path></svg></span>
-<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">May count for Lifestyle · photo kept</span></span>
-<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" style="color: #F5C451; transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-weight: 600; color: #FFFFFF">Buku cerita <span class="tab" style="font-weight: 500; color: #A9B1C6">· RM 4.20</span></b><span style="font-size: 13px; color: #A9B1C6">Possible tax relief · photo kept for 7 years</span></span>
 </div>
-<div class="bars">
-<div><div class="lbl"><span>Lifestyle<span class="plus tab">+4.20</span></span><b>RM 1,240.00</b></div><div class="bar"><div class="fill" style="width: 62%; background: #F5C451"></div></div></div>
-<div><div class="lbl"><span>Medical</span><b>RM 380.00</b></div><div class="bar"><div class="fill" style="width: 34%; background: #F0A6CE"></div></div></div>
-<div><div class="lbl"><span>Education</span><b>RM 2,150.00</b></div><div class="bar"><div class="fill" style="width: 80%; background: #8EA4FF"></div></div></div>
-<div><div class="lbl"><span>Zakat</span><b>RM 600.00</b></div><div class="bar"><div class="fill" style="width: 45%; background: #6EE7B7"></div></div></div>
+<div class="pick"><span>Tax relief</span><span class="v"><span>Automatic: Books, phone, computer and internet</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></div>
+<div class="rlist">
+<div><span class="nm"><span>Books, phone, computer and internet<span class="plus tab">+4.20</span></span><small>4 entries</small></span><b>RM 322.10</b></div>
+<div><span class="nm"><span>Medical, dental and vaccination</span><small>1 entry</small></span><b>RM 120.00</b></div>
+<div><span class="nm"><span>Sports and gym</span><small>3 entries</small></span><b>RM 128.00</b></div>
 </div>
-<p class="disc">Example figures. Relief candidates only: an estimate to help you prepare, not tax advice. Check LHDN’s rules for what you can claim.</p>
+<div class="apartk">Shown apart, not reliefs</div>
+<div class="rlist apart">
+<div><span class="nm"><span>Zakat and fitrah (tax rebate)</span><small>1 entry</small></span><b>RM 50.00</b></div>
+<div><span class="nm"><span>Donations (approved bodies only, official receipt needed)</span><small>1 entry</small></span><b>RM 30.00</b></div>
+</div>
+<p class="disc">Example figures. Tally shows what you spent, not what you can claim. Not tax advice: check LHDN’s rules before you file.</p>
 </div>
 <div class="ctext rise">
 <span class="num">04 — RELIEFS</span>
 <h3>Tax season, without the shoebox of receipts.</h3>
-<p>As you log, Tally flags receipts and items that may count as LHDN relief candidates, like books, a gym, a medical check-up or kindergarten fees, and keeps each receipt photo beside them, ready to download at tax time. You still check LHDN’s limits and conditions, and keep the original receipts.</p>
+<p>Tally flags buys that may count for LHDN relief, from the receipt’s words. Wrong? Mark it “Not a tax relief”, or pick the one it missed. Zakat and donations are listed apart. Relief receipt photos stay 7 years, ready to download. Check LHDN’s limits.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- CAN I AFFORD IT -->
+<section id="afford" class="sec" style="padding-top: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Before you buy</span>
+<h2 class="h2">Can I afford it? <span class="serif">Ask before, not after.</span></h2>
+</div>
+<div class="chapter afd">
+<div class="ctext rise">
+<p>Type a price. Tally walks your next 30 days (money now, pay, bills, usual spending) and judges by your lowest day, not the month’s end. Short before payday means “tight”, even if pay fixes it. Few entries yet? It says it’s a rough guess.</p>
+</div>
+<div class="demo card dk rise">
+<div class="dhead"><span>Can I afford it? · <span class="tab">RM 450.00</span></span><span class="exb">Example</span></div>
+<p class="verdict"><i></i>You can, but it will be tight.</p>
+<p class="sm"><b>Lowest: RM 141.34 on 27 Oct</b></p>
+<div class="chart" role="img" aria-label="Example: over the next 30 days the balance is lowest on 27 Oct, the day before pay comes in on 28 Oct."><svg viewBox="0 0 300 80" aria-hidden="true"><path d="M0 72.0H300" stroke="#2E3858" stroke-width="1" stroke-dasharray="4 4" fill="none"></path><path d="M120 2V72.0" stroke="#8EA4FF" stroke-width="1" stroke-dasharray="2 3" opacity=".6" fill="none"></path><polyline points="0,34.7 10,43.7 20,56.4 30,57.1 40,60.3 50,62.1 60,65.6 70,66.3 80,67.1 90,67.9 100,68.6 110,69.4 120,6.0 130,6.8 140,7.5 150,8.3 160,9.1 170,9.9 180,10.6 190,11.4 200,12.1 210,12.9 220,13.7 230,14.5 240,15.2 250,16.0 260,16.7 270,17.5 280,18.3 290,19.1 300,19.8" fill="none" stroke="#8EA4FF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="110" cy="69.4" r="4.5" fill="#F5C451" stroke="#0A0F1E" stroke-width="2"></circle></svg><div class="ax"><span>Today</span><span>30 days</span></div><div class="ckey"><span><i></i>Lowest day</span><span><i class="p"></i>Payday</span></div></div>
+<ul class="arows"><li><span>Money now</span><span class="av">RM 2,035.60</span></li><li><span>Pay due 28 Oct</span><span class="av">RM 3,500.00</span></li><li><span>Bills due</span><span class="av">−RM 984.00</span></li><li><span>Usual everyday spending</span><span class="av">−RM 1,255.26</span></li><li><span>This buy</span><span class="av">−RM 450.00</span></li><li class="lt"><span>Left</span><span class="av">RM 2,846.34</span></li></ul>
 </div>
 </div>
 </div>
@@ -686,10 +813,28 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Stays on your phone.</b><span>Unless you back up to your own Google Drive or a file, only when you choose.</span></div>
 <div><b>Open source (MIT).</b><span>Read every line on GitHub.</span></div>
 <div><b>No premium tier.</b><span>Every feature, for everyone.</span></div>
+<div><b>Delete receipt photos any time.</b><span>The entries stay: shop, date, amount and items.</span></div>
+<div><b>Online only when needed.</b><span>For its own files, and things you ask for.</span></div>
 </div>
 <div class="sign rise">
 <span>Made in Malaysia by one independent developer.</span>
 <a href="https://github.com/tallymy/tallymy.github.io">Read the code <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</section>
+
+<!-- SHARE PICTURES -->
+<section id="share" class="sec" style="padding-bottom: 0">
+<div class="wrap">
+<div class="shead rise">
+<span class="kicker" style="color: #2F54EB">Share</span>
+<h2 class="h2">Show the family group. <span class="serif">Keep the ringgit to yourself.</span></h2>
+</div>
+<div class="chapter shr">
+<div class="ctext rise">
+<p>Your month or year, a sticker book or a goal reached, as a picture for WhatsApp: square for chats, tall for status. Amounts stay hidden unless you turn them on. Made on your phone; nothing leaves it unless you send it.</p>
+</div>
+<div class="fan rise" role="img" aria-label="Example share pictures: this month’s spending in percentages, and a goal reached"><picture class="back"><source type="image/webp" srcset="img/share-goal-en.webp"><img src="img/share-goal-en.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><picture class="front"><source type="image/webp" srcset="img/share-month-en.webp"><img src="img/share-month-en.jpg" width="560" height="560" alt="" decoding="async" loading="lazy"></picture><span class="hid"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-2.6 3.2M6.4 7.6C4.3 9.1 3 12 3 12s4 6 9 6a8.7 8.7 0 0 0 4-1"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>Amounts hidden</span></div>
 </div>
 </div>
 </section>
@@ -702,29 +847,29 @@ html:lang(ta) .ctext h3{font-size:30px}
 <h2 class="h2">Made for how Malaysians spend.</h2>
 </div>
 <div class="bento">
-<div class="tile card dark s4 rise" id="t-budget">
+<div class="tile card dark s3 rise" id="t-budget">
 <span class="ex tex">Example</span>
 <div class="vis bvis">
 <div class="ring">
 <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" fill="none" stroke="#1E2640" stroke-width="8"></circle><circle class="arc" cx="40" cy="40" r="36" fill="none" stroke="#8EA4FF" stroke-width="8" stroke-linecap="round"></circle></svg>
-<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 820</b><span style="font-size: 10px; color: #9AA3BA">left</span></div>
+<div class="in"><b class="tab" style="font-size: 13px; color: #FFFFFF">RM 2,070</b><span style="font-size: 10px; color: #9AA3BA">left</span></div>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0">
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>Bill reminder · due in 3 days</span>
 <span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7-3.7"></path></svg>Joint account</span>
-<span class="mini"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"></path></svg>“Can I afford it?”</span>
 </div>
 </div>
 <div class="tx">
-<h3>Budgets, bills and “Can I afford it?”</h3>
-<p>A calm budget ring, reminders before bills are due, a joint account with your partner, and a straight answer before a big buy.</p>
+<h3>Budgets, bills and a joint account</h3>
+<p>A calm budget ring, reminders before bills are due, and a joint account with your partner.</p>
 </div>
 </div>
-<div class="tile card s2 rise">
-<div class="vis"><div class="langs" role="img" aria-label="Hello in six languages: English, Bahasa Melayu, Simplified Chinese, Traditional Chinese, Japanese and Tamil"><span class="serif" style="animation-delay: 0s">Hello</span><span class="serif" style="animation-delay: 2.5s">Selamat</span><span class="serif" style="animation-delay: 5s">你好</span><span class="serif" style="animation-delay: 7.5s">您好</span><span class="serif" style="animation-delay: 10s">こんにちは</span><span class="serif" lang="ta" style="animation-delay: 12.5s">வணக்கம்</span></div></div>
+<div class="tile card s3 rise">
+<span class="ex tex" style="z-index: 1">Example</span>
+<div class="stk"><picture><source type="image/webp" srcset="img/stickers-oct.webp"><img src="img/stickers-oct.jpg" width="720" height="282" alt="Example: October’s stickers, one for each day logged" decoding="async" loading="lazy"></picture></div>
 <div class="tx">
-<h3>Speaks your language.</h3>
-<p>English, Bahasa Melayu, 简体中文, 繁體中文, 日本語 and <span lang="ta">தமிழ்</span>, down to the receipt words.</p>
+<h3>A sticker for every day you log.</h3>
+<p>Log something, or tap “Nothing spent today”, and the day gets a sticker and a page of the month’s story. October’s book is Pasar malam: will Uncle Raju close his apam balik stall after 30 years?</p>
 </div>
 </div>
 <div class="tile card s2 rise">
@@ -740,12 +885,12 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="tile card s2 rise">
 <div class="vis"><div class="pills">
 <span><i class="dot" style="background: #009E73"></i>Kedai runcit<span class="to">→</span><b>Groceries</b></span>
-<span><i class="dot" style="background: #E69F00"></i>Kopitiam<span class="to">→</span><b>Dining</b></span>
+<span><i class="dot" style="background: #E69F00"></i>Nasi Kandar Pak Mat<span class="to">→</span><b>Dining<span class="subc"> › Mamak</span></b></span>
 <span><i class="dot" style="background: #CC79A7"></i>Farmasi<span class="to">→</span><b>Health</b></span>
 </div></div>
 <div class="tx">
 <h3>Knows the shops.</h3>
-<p>Over 3,000 Malaysian chains and shop names, from kopitiam to hypermarket, recognised by name and filed the right way.</p>
+<p>Over 3,000 Malaysian chains and shop names, from kopitiam to hypermarket, recognised by name and filed the right way. Want more detail? Turn on subcategories, like Dining › Mamak or Kopitiam. Tally guesses them from the shop’s name and learns from your picks.</p>
 </div>
 </div>
 <div class="tile card s2 rise" id="t-import">
@@ -787,12 +932,11 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div><b>Android</b><span>In Chrome, tap the menu <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"></path></svg>, then Install app or Add to Home screen.</span></div>
 </div>
 <p style="font-size: 15px">It then opens like any app and works offline.</p>
-<span class="small" style="font-size: 13px">A Play Store version is coming.</span>
 </div>
 <div class="step">
 <span class="stepn serif">3</span>
 <b>Snap your first receipt</b>
-<p>Or type an amount, or try it with sample data first. Nothing is kept until you start for real.</p>
+<p>Or type an amount. Not ready? On the first screen, tap “Look around with sample data”. Nothing is kept until you start for real.</p>
 </div>
 </div>
 </div>
@@ -809,12 +953,13 @@ html:lang(ta) .ctext h3{font-size:30px}
 <div class="rise">
 <details class="qa"><summary>Is it really free?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes. Every feature is free, with no premium tier and no ads. It’s a passion project, and because your phone does the work there are no servers to pay for.</p></details>
 <details class="qa"><summary>Where does my data go?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It stays on your phone. There’s no account. Receipts are read on the device and never uploaded. If you back up, it goes to your own Google Drive or a file, only when you choose.</p></details>
+<details class="qa"><summary>Can I delete my receipt photos?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes. In Settings → Privacy → Receipt photos, delete them all now, or let Tally delete photos older than 30 days, 90 days or a year. The entry stays: shop, date, amount and items. When Tally tidies by age, it keeps photos of possible tax-relief buys for the 7 years LHDN can ask for them. Deleting all removes those too, your choice.</p></details>
 <details class="qa"><summary>Does Tally read my SMS or need my bank login?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>No. Tally never reads your SMS or OTPs, and never asks for your bank login, card or PIN. The only part of your phone it asks to use is the camera, to snap receipts, and you can say no and type instead. Bank records come in only when you pick a statement file yourself.</p></details>
+<details class="qa"><summary>Why does it need the internet?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>To open the first time, to download the receipt reader once (about 30 MB), and to update itself. After that it works offline. Otherwise it goes online only when you ask: a Google Sheets link you paste, an exchange rate you ask for, feedback you send, or a calendar reminder you add. Your entries and receipt photos are never sent.</p></details>
 <details class="qa"><summary>Setting it up for a parent?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Open tallymy.github.io on their phone, pick their language and a bigger text size, then add it to the home screen. Choose “Simple” in Settings → Features for just the basics. There’s no account or password for them to remember, and their entries stay on their phone.</p></details>
 <details class="qa"><summary>Will it read my receipts?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It copes with faded, crumpled, far-away and sideways photos, and recognises over 3,000 Malaysian chains and shop names. It won’t be right every time, which is why it checks the items add up to the total and points at any line worth a second look. Fix one and Tally remembers it next time.</p></details>
-<details class="qa"><summary>Is it a real app if I install it from a browser?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It’s a web app that installs to your home screen, opens like an app and works offline once opened. A Play Store version is coming.</p></details>
+<details class="qa"><summary>Is it a real app if I install it from a browser?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>It’s a web app that installs to your home screen, opens like an app and works offline once opened.</p></details>
 <details class="qa"><summary>What if I change phones?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>In Settings, Backup &amp; restore makes a backup file. Send it to yourself (Google Drive, email, WhatsApp), then restore it on the new phone. There’s no account, so back up before you switch.</p></details>
-<details class="qa"><summary>Can I bring my old data?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Yes, from Money Manager, Cashew, Money Lover, Spendee, Wallet and others, and from bank-statement files. Your old categories come along.</p></details>
 <details class="qa"><summary>Is the tax relief part tax advice?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>No. Tally flags receipts and items that may count as relief candidates and keeps the receipt photo with each. It doesn’t know your circumstances or work out what you can claim; each relief has limits and conditions. It’s an estimate to help you prepare. Please check LHDN’s rules for what you can claim.</p></details>
 <details class="qa"><summary>Who makes it?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>One independent developer in Malaysia. It’s open source (MIT), so you can read the code on GitHub. Feedback or a bug? <a href="https://github.com/tallymy/tallymy.github.io/issues">Open an issue on GitHub</a>.</p></details>
 <details class="qa"><summary>What if I stop using it, or it stops being updated?<span class="pl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span></summary><p>Your data is on your phone, and you can make a backup file whenever you like. The code is open source (MIT) on GitHub, so it isn’t locked away.</p></details>

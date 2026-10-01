@@ -1,7 +1,7 @@
 // Welcome (first run), Settings, and every way to bring data in or take it out.
 import { S, settings, setSetting, setKv, saveAccount, deleteAccount, saveTxs, addCategory, removeCategory, bringBackCategory, savePhoto, deletePhotos, dropPhotos, getPhoto, replaceAll, addAll, eraseAll, uid, today, nowTime, expenseCats, hasJoint, jointIds, putAll, startDay, thisMonth, storage, persistStorage, setCatColor, setCatIcon, allCats, cat, storageMode } from '../state.js';
-import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth } from '../i18n.js';
-import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, haptic } from '../ui.js';
+import { t, setLang, getLang, LANGS, langTag, fmtDate, fmtMonth, fuzzyScore, english } from '../i18n.js';
+import { esc, ICON, MASK, balHidden, openSheet, closeSheet, confirmSheet, toast, $, $$, haptic, announce } from '../ui.js';
 import { lockOn, lockSheet, lockOff, askCode, encOn, encryptOn, encryptOff } from '../lock.js';
 import { keepReceiptUntil, fmtRM, parseAmount, balances, ACCOUNT_KINDS, CATEGORIES, INCOME_CATEGORIES, calcAmount, nextColor, fmtAcct, tooLarge, isFx, rateOf, FX_START, ownCategories, incomeCategory, owing } from '../engine.js';
 import { ownKey, fileToRows, reshape, guessMapping, headerRow, rowsToTx, openingFromBalance, mapCategory, sameCategory, OTHER_NAME, catName as theirCatName, photosToWrite, fitCats, overCap, overCapAfter, SEALED_MAX, backupFits, parseCSV, sheetCsvUrl, sealBackup, openBackup, isSealed, toCSV, toTSV, toXlsx, txRows, toQIF, makeBackup, readBackup, mergeBackup, backupSettings, download, shareFile, cleanText, importIds, LIMITS, zipStore, unzip, BACKUP_JSON, makeJointShare, relinkReloads, mergeJoint, readCapped, imageInfo, splitDups, pairTransfers, asTransfer, hash, cleanDesc, accountNames, isMoneyRow, rowCategory, reloadTransfers, typedShift, isAtm } from '../io.js';
@@ -10,7 +10,7 @@ import { parseStatement, statementToTx, linesFromItems, detectProvider, guessKin
 import { render, go, APP_VERSION, MAKER, CONTACT } from '../app.js';
 import { openFeedback } from '../feedback.js';
 import { dailyEvent, ics, googleUrl } from '../calendar.js';
-import { showTour, showWhatsNew, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, holdUpdates, iosBrowser } from '../tour.js';
+import { showTour, showWhatsNew, siteUrl, afterSetup, markSeen, canInstall, promptInstall, checkForUpdates, holdUpdates, iosBrowser } from '../tour.js';
 import { settingsCard as learnCard, tickQuietly, gameOn, firstWord } from './learn.js';
 import { demoCard } from './home.js';
 import { badge } from './money.js';
@@ -172,9 +172,47 @@ async function dailyReminder() {
   await setSetting('remindAt', at);
   return dailyEvent({ at, title: t("Tally: add today's spending"), details: `${t('A minute is enough: snap the receipts or type what you spent.')} ${location.origin}${location.pathname}` });
 }
+// ---- Settings search: the titles and labels on the page, in the language shown and in English ----------------------
+let findQ = '', hits = [];
+/** Each card's title and the labels in it (once each per card; an icon button by its name), with the element to show. */
+const findables = () => $$('#view .card').flatMap(card => {
+  const title = card.querySelector('h2, summary .lbl')?.textContent.trim() || '', seen = new Set();
+  return [[title, card], ...$$('label.toggle b, label.field > span, .rowb b, .lookrow > span, summary, .btn, .segs [aria-label]', card).map(el => [(el.matches('.segs *') && el.getAttribute('aria-label')) || el.textContent.trim(), el])]
+    .filter(([s]) => s && !seen.has(s) && seen.add(s)).map(([s, el]) => ({ s, el, card: title }));
+});
+function findSettings() {
+  const list = $('#set-hits'), none = $('#set-none'); if (!list) return;
+  hits = findQ.trim() ? findables().map(x => ({ ...x, n: Math.max(fuzzyScore(findQ, x.s), fuzzyScore(findQ, english(x.s))) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 6) : [];
+  list.innerHTML = hits.map((x, i) => `<li><button class="txrow" data-act="set-find" data-i="${i}"><span class="grow"><b>${esc(x.s)}</b>${x.card && x.card !== x.s ? `<small>${esc(x.card)}</small>` : ''}</span></button></li>`).join('');
+  none.textContent = findQ.trim() && !hits.length ? t('No setting matches. Try another word.') : '';
+}
+/** Show a found setting: open what folds it away, scroll to it, flash it and put the focus there. */
+function showFound(x) {
+  if (!x?.el.isConnected) return;
+  findQ = ''; $('#set-q').value = ''; findSettings();
+  for (let d = x.el.closest('details'); d; d = d.parentElement.closest('details')) { d.open = true; if (d.id === 's-features') featOpen = true; }
+  const box = x.el.classList.contains('card') ? x.el : x.el.closest('.toggle, .field, .rowb, .lookrow, .btn, summary') || x.el;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash');
+  const to = box.matches('.card') ? box.querySelector('h2, summary') : x.el.matches('button, a, summary') ? x.el : box.querySelector('input, select, button, a') || box;
+  if (to.matches('h2, .rowb, .lookrow')) to.tabIndex = -1;
+  to.focus({ preventScroll: true });
+}
 export const settingsView = {
   title: 'Settings',
   async after() {   // the reader card says so when the reader is already on this phone
+    // Search: Down from the box to the matches, Up/Down between them, Enter takes the best, Escape clears.
+    $('#set-q')?.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); $('#set-hits button')?.focus(); }
+      else if (e.key === 'Enter') { e.preventDefault(); showFound(hits[0]); }
+      else if (e.key === 'Escape' && findQ) { e.preventDefault(); findQ = e.target.value = ''; findSettings(); }
+    });
+    $('#set-hits')?.addEventListener('keydown', e => {
+      const all = $$('#set-hits button'), i = all.indexOf(document.activeElement), k = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+      if (!k || i < 0) return;
+      e.preventDefault(); (all[i + k] || (k < 0 ? $('#set-q') : all[i]))?.focus();
+    });
+    if (findQ) findSettings();
     const { ocrReady, ocrSaved } = await import('../scan.js');
     if (!(ocrReady() || await ocrSaved()) || !$('#reader-state')) return;
     $('#reader-state').textContent = t('The receipt reader is ready on this phone and works offline.');
@@ -184,6 +222,8 @@ export const settingsView = {
     const rules = Object.entries(S.kv.rules), names = Object.entries(S.kv.itemNames || {}), bal = balances(S.accounts, S.tx, today()).by;
     const last = S.kv.lastBackup;
     return `<header class="top"><button class="icon-btn" data-act="back" data-to="home" aria-label="${esc(t('Back'))}">${ICON.back}</button><h1>${esc(t('Settings'))}</h1><span></span></header>
+      <div class="sfind" role="search"><label class="search">${ICON.search}<input id="set-q" type="search" data-input="set-q" value="${esc(findQ)}" placeholder="${esc(t('Search settings'))}" aria-label="${esc(t('Search settings'))}" aria-controls="set-hits" autocomplete="off"></label>
+        <ul class="list" id="set-hits" aria-label="${esc(t('Search settings'))}"></ul><p class="fine" id="set-none" role="status"></p></div>
       <nav class="jumps chips" aria-label="${esc(t('Go to'))}">${[['s-backup', t('Backup & restore')], ['s-accounts', t('Accounts')], ['s-cats', t('Categories')], ['look', t('Language & text size')], ['remind', t('Daily reminder')], ['s-help', t('Help and feedback')]].map(([id, l]) => `<button class="chip" data-act="jump" data-to="${id}">${esc(l)}</button>`).join('')}</nav>
       ${featuresCard()}
       ${lookCard()}
@@ -239,11 +279,13 @@ export const settingsView = {
         <p class="fine">${esc(t('Tell the developer about a bug or an idea. Sent: your message, the contact you add, and app and device details. Nothing about your money.'))}</p>
         <button class="btn ghost wide" data-act="feedback">${ICON.chat}${esc(t('Send feedback'))}</button>
         <p class="fine center">${esc(t('Or email the developer ({0}):', MAKER))} ${mailLink()}</p></section>
+      <section class="card" id="s-about"><h2>${esc(t('About Tally'))}</h2><a class="btn ghost wide" href="${siteUrl()}" target="_blank" rel="noopener">${ICON.globe}${esc(t("Tally's website"))}</a></section>
       ${whyFree()}
       <p class="fine center">Tally ${APP_VERSION}<span id="build">${buildLink()}</span> · <a class="link" href="https://github.com/tallymy/tallymy.github.io/commits/main" target="_blank" rel="noopener">${esc(t("Every change, with its code"))}</a></p>`;
   },
 };
 export const input = {
+  'set-q': el => { findQ = el.value; findSettings(); if (hits.length) announce(t('{0} found', hits.length)); },
 module: async el => { await setModules({ [el.dataset.k]: el.checked }); render(); $(`[data-input="module"][data-k="${el.dataset.k}"]`)?.focus(); },
   'text-size': el => setSize(+el.value),
   'ask-update': async el => { await setSetting('askUpdate', el.checked); await holdUpdates(el.checked); },
@@ -856,6 +898,7 @@ export const act = {
     if (!(await confirmSheet({ title: t('Delete this account?'), ok: t('Delete'), danger: true }))) return;
     try { await deleteAccount(b.dataset.id); render(); toast(t('Deleted')); } catch { toast(t('This account has transactions. Move or delete them first.'), { k: 'warn' }); }
   },
+  'set-find': b => showFound(hits[+b.dataset.i]),
   'features-open': b => { const d = b.parentElement; d.open = featOpen = !d.open; },   // taps are handled here, not by the browser
   'cat-add': () => catAddSheet(),
   'cat-add-color': async b => { const name = $('#cat-name').value; catAddSheet(name, (await pickColor({ value: b.dataset.v })) || b.dataset.v); },

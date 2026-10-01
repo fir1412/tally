@@ -47,3 +47,14 @@ if (process.argv.includes('--list')) {
     assert.deepEqual(bad, [], 'placeholders differ');
   });
 }
+
+test('Settings search: partial words and typos find a setting, in any language and in English', async () => {
+  const { fuzzyScore: f, setLang, english } = await import('../js/i18n.js');
+  assert.ok(f('recipt', 'Receipt photos') > 0, 'a typo');
+  assert.equal(f('bud', 'Budgets'), 1, 'the start of a word');
+  assert.ok(f('bud', 'Budgets') > f('recipt', 'Receipt photos'), 'exact beats a typo');
+  assert.ok(f('backup', 'Back up now') > 0 && f('rcpt', 'Receipt reader') > 0 && f('remnder daily', 'Daily reminder') > 0);
+  assert.equal(f('xyz', 'Budgets'), 0); assert.equal(f('', 'Budgets'), 0); assert.equal(f('pin', 'Lock Tally'), 0);
+  assert.equal(f('tema', 'Tema gelap'), 1); assert.equal(f('贴纸', '贴纸簿'), 1);
+  await setLang('ms'); assert.equal(english('Cari tetapan'), 'Search settings'); await setLang('en');
+});

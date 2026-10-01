@@ -80,3 +80,10 @@ test('October\'s book has no shot problems', async () => {
   const b = (await import('../js/books/10.js')).default;
   assert.deepEqual(lintShots(b.panels, b.defs), []);
 });
+
+test('every sticker in the camera books has drawn art (an unknown item name used to render an empty sticker)', async () => {
+  for (const m of ['10', '11']) {
+    const b = (await import(`../js/books/${m}.js`)).default;
+    assert.deepEqual(b.stickers.filter(s => /scale\(1\.2 1\.2\)"><\/g>/.test(s.svg)).map(s => s.id), [], `month ${m}`);
+  }
+});

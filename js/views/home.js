@@ -2,7 +2,7 @@
 import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite, saveTx, keepToday, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort, getLang } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet, closeSheet, landed } from '../ui.js';
-import { firstSpend, fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso, affordMoney } from '../engine.js';
+import { firstSpend, fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, topCats, calcAmount, recurringCandidates, owing, openShares, validIso, affordMoney } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, okMs } from '../io.js';
 import { render, go } from '../app.js';
@@ -10,7 +10,7 @@ import { txRow, catLabel, dot, openTxSheet, scopeSwitch, scopeChip, accName } fr
 import { learnHome, streakHome } from './learn.js';
 import { byUser } from '../learn.js';
 import { dayOf, loggedDays } from '../gamify.js';
-import { filledDays, panelOf, loadBook, bookState, WHO, frame } from '../comic.js';
+import { filledDays, panelOf, loadBook, bookState, WHO, frame, pastMonths } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, tilesHtml, affordInputs, subHint, act as analyticsAct } from './analytics.js';
@@ -44,17 +44,32 @@ const movedCard = () => `<section class="card moved"><h2>${esc(t('Tally has move
   <ol><li><button class="btn small" data-act="backup">${esc(t('1. Back up here'))}</button></li>
   <li><a class="btn small ghost" href="${NEW_HOME}" target="_blank" rel="noopener">${esc(t('2. Open the new address and restore the backup'))}</a></li>
   <li><button class="btn small ghost danger" data-act="old-erase">${esc(t("3. Erase Tally's data here"))}</button></li></ol></section>`;
-/** The answer and the sums behind it. */
+/** The answer and the sums behind it: the lowest day first (the verdict is on it), and how each sum was worked out. */
 function affordHtml(r) {
   const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
-  const rows = [[t('Money now'), r.balance], r.pay && [t('Pay due {0}', fmtDate(r.payDate)), r.pay], r.earn && [t('Usual income (your lowest month lately)'), r.earn], [t('Bills due'), -r.upcoming], [t('Usual everyday spending'), -r.usual], [t('This buy'), -r.price]].filter(Boolean);
+  const amt = v => `${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}`, p = r.pace, list = xs => xs.map(x => `${x.name} ${fmtRM(x.amount)}`).join(', ');
+  // A row; with `more`, it opens to show what it is made of.
+  const row = (l, v, sub = '', more = '') => { const cells = `<span class="grow">${esc(l)}${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="num">${amt(v)}</span>`; return more ? `<li class="af-more"><details><summary>${cells}</summary>${more}</details></li>` : `<li>${cells}</li>`; };
+  const legend = xs => `<ul class="slegend">${xs.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${esc(fmtRM(v))}</span></li>`).join('')}</ul>`;
+  const perDay = !p.days ? '' : p.days === 1 ? t("{0} a day, from today's entries", fmtRM(r.rate)) : t('{0} a day, from your last {1} days of entries', fmtRM(r.rate), p.days);
+  // What was actually spent in the window (the headline is that at the same pace over 30 days).
+  const spendMore = (p.cats.length ? `<p class="fine">${esc(p.days === 1 ? t('What you spent today') : t('What you spent in those {0} days', p.days))}</p>${legend(topCats(p.cats).map(c => [catLabel(c.category), c.amount]))}` : '')
+    + (p.bills.length ? `<p class="fine">${esc(t('Bills, counted on their own: {0}', list(p.bills)))}</p>` : '')
+    + (p.oneOffs.length ? `<p class="fine">${esc(t('Big one-off buys, not counted as usual: {0}', list(p.oneOffs)))}</p>` : '');
+  const rows = [row(t('Money now'), r.balance), r.pay && row(t('Pay due {0}', fmtDate(r.payDate)), r.pay), r.earn && row(t('Usual income (your lowest month lately)'), r.earn),
+    row(t('Bills due'), -r.upcoming, '', r.dues.length ? legend(r.dues.map(d => [`${d.name} · ${fmtDate(d.date)}`, d.amount])) : ''),
+    row(t('Usual everyday spending'), -r.usual, perDay, spendMore), row(t('This buy'), -r.price)].filter(Boolean);
   const why = r.left >= 0 ? t('{0} left over the next 30 days, after this, your bills and your usual spending.', fmtRM(r.left)) : t('You would be {0} short over the next 30 days.', fmtRM(-r.left));
-  // The verdict is on the lowest day: money that runs out before payday is short even if pay refills it.
-  const dip = r.low && r.low.bal < r.left ? `<p>${esc(r.low.bal < 0 ? t('You may run short around {0}.', fmtDate(r.low.date)) : t('Lowest: {0} on {1}', fmtRM(r.low.bal), fmtDate(r.low.date)))}</p>` : '';
+  // The verdict is on the lowest day: money that runs out before payday is short even if pay refills it. So it leads.
+  const eve = r.pay && r.low.date === addDaysIso(r.payDate, -1), d = fmtDate(r.low.date);
+  const low = r.low.bal < 0 ? (eve ? t('You may run short around {0}, the day before pay.', d) : t('You may run short around {0}.', d)) : eve ? t('Lowest: {0} on {1}, the day before pay', fmtRM(r.low.bal), d) : t('Lowest: {0} on {1}', fmtRM(r.low.bal), d);
+  const lines = r.low.bal < r.left ? [low, r.pay && r.left >= 0 ? t('After pay, in 30 days: {0}', fmtRM(r.left)) : why] : [why];
   const save = r.verdict !== 'no' ? '' : r.months ? (r.months === 1 ? t('At your usual saving ({0} a month), you could buy it next month.', fmtRM(r.net)) : t('At your usual saving ({0} a month), you could buy it in {1} months.', fmtRM(r.net), r.months))
     : t('You usually spend what you earn, so saving for it means spending less first.');
-  return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${dip}${r.early ? `<p>${esc(t('Your usual spending is from {0} days of entries so far, so it is a rough guess.', r.days))}</p>` : ''}${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
-    <ul class="slegend">${rows.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}</span></li>`).join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${r.left < 0 ? '−' : ''}${esc(fmtRM(Math.abs(r.left)))}</b></li></ul>
+  // Too little spending typed to trust: said before the answer, not after it.
+  const thin = !r.thin ? '' : `<p class="warnbox">${ICON.alert}<span>${esc(r.early ? t('Only {0} days of spending are in so far, so some may be missing and this may look better than it is.', r.days) : t('The spending typed in looks low next to your pay, so some may be missing and this may look better than it is.'))}</span></p>`;
+  return `${thin}<div class="afford ${head[1]}"><b>${esc(head[0])}</b>${lines.map(l => `<p>${esc(l)}</p>`).join('')}${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
+    <ul class="slegend af-rows">${rows.join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${amt(r.left)}</b></li></ul>
     ${r.savings ? `<p class="fine">${esc(t('Savings, not counted: {0}', balHidden() ? MASK : fmtRM(r.savings)))}</p>` : ''}
     <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))} ${esc(t('A guide from your own entries, not financial advice.'))}</p>`;
 }
@@ -100,8 +115,7 @@ function bookHtml(book, ym, filled, tdy) {
   // The latest page that's open (today's, once something is logged today), one tap away: nobody scrolls past 31 stickers.
   const latest = book.panels.length ? days.filter(d => filled.has(d) && !(d === st.n && !st.complete)).at(-1) : null, isToday = latest === +tdy.slice(8, 10) && tdy.slice(0, 7) === ym;
   const jump = latest ? `<button class="btn wide comic-jump" data-act="comic-jump" data-to="pday-${ym}-${latest}">${ICON.sparkles || ''}${esc(isToday ? t("Read today's page of the story") : t('Read the story'))}</button>` : '';
-  const first = began() < Infinity ? dayOf(began()).slice(0, 7) : ym, past = [];
-  for (let m = addMonths(tdy.slice(0, 7), -1); m >= first && past.length < 24; m = addMonths(m, -1)) past.push(m);
+  const past = pastMonths({ today: tdy, first: began() < Infinity ? dayOf(began()).slice(0, 7) : ym, sample: settings().sample });
   // The book's shared drawings (cast, scenes, paint grain), once for all its panels. Not display:none: gradients and
   // filters inside a hidden-by-display svg stop painting in some browsers.
   return `${book.defs ? `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${book.defs}</defs></svg>` : ''}<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
