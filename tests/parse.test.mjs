@@ -156,6 +156,15 @@ test('app screenshot items: columns run together, a one-item order, rental fees,
   const s = p(['9:01 94%', 'My Purchases', 'Kedai Contoh Sdn Bhd To Ship', 'Ubat Gigi Contoh 100g', 'x1', '15DaysFreeReturns* RM44.00', 'Order Total:RM44.00']);
   assert.deepEqual(s.items.map(i => [i.name, i.cents]), [['Ubat Gigi Contoh 100g', 4400]]);
 });
+test('coffee app pickup screen: the price on a "Voucher Applied" line is the drink, the voucher lines are only notes', () => {
+  const r = parseReceipt(['34', 'Pickup (Dine-in)', 'Tap "Authorize" for exclusive deals and', 'Authorize', 'promotions!', 'Order Pickup Instructions', 'Step 1 Step 2 Step 3',
+    'Visit Store Show your QR Collect your', 'code order', 'Order Summary ****264', 'Kopi Contoh x1', '16oz/Iced/Less sweet', ' Voucher Applied RM 4.99', 'SST(6%) RM 0.30',
+    'Total Discount -RM 9.01', 'Voucher Applied -RM 9.01', 'Total· 1 Item RM 5.29', 'Order Placed 01/10/2026 11:22am'].join('\n'));
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['Kopi Contoh', 499]]);
+  assert.equal(r.tax, 30); assert.equal(r.total, 529); assert.equal(r.check.ok, true);
+  assert.equal(r.merchant, null);   // the screen never names the shop: nothing made up
+  assert.equal(r.date, '2026-10-01'); assert.equal(r.time, '11:22');
+});
 test('dates: day-first, ISO, impossible dates rejected', () => {
   assert.equal(parseDate('05/03/2026'), '2026-03-05');
   assert.equal(parseDate('2026-09-01 10:00'), '2026-09-01');

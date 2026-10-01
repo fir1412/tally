@@ -12,7 +12,7 @@ const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[
 // A delivery rider's plate and bike with a rating ("VFV4311·WM110 5.00"); a drink's options ("Dairy| Less Sweet| Less Ice")
 // with its price before a discount; a shop app's badges ("15 Days Free Returns", "Preferred+"): never things bought.
 const NOT_ITEM = /\b[A-Z]{1,3}\s?\d{3,4}[A-Z]?\s*[·•]\s*[A-Z]|[A-Z]\s*[·•]\s*[A-Z]{1,3}\s?\d{3,4}\b|\|.*\|/;
-const BADGE = /(\d+\s*days?\s*)?free\s*returns\W*|guarantee|my\s*purchases|preferred\s*\+?|visit\s*shop|chat\s*now|\bmall\b|expected\s*delivery|contact\s*seller|support\s*cent(er|re)|you\s*may\s*also\s*like/i;
+const BADGE = /(\d+\s*days?\s*)?free\s*returns\W*|guarantee|voucher\s*applied|my\s*purchases|preferred\s*\+?|visit\s*shop|chat\s*now|\bmall\b|expected\s*delivery|contact\s*seller|support\s*cent(er|re)|you\s*may\s*also\s*like/i;
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g|l|ltrs?|litres?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit|l|ltr|litre))?\s*/i;   // weighed "1.438 KG X 6.90/KG", pumped "26.615L@ RM2.05/L"
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
@@ -156,7 +156,7 @@ export function parseItemLines(text) {
 const NOT_SHOP = new RegExp([
   /^\d{1,2}:\d{2}\b|\d+\s*%|\d+\.\d{2}\b|\b\d{1,2}\s*[:.]\d{2}\s*(am|pm)\b|\b\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*\d{2,4}/.source,   // times, percentages, amounts, dates
   /order\s*(summary|details|number|no|id|on)|your\s*(order|receipt|payment)|official\s*receipt|tax\s*invoice|deal\s*details|contact\s*support|my\s*purchases|seller\s*will/.source,
-  /we'?ll\s*(let|notify)|your\s*seller|hope\s*you\s*enjoy|to\s*make\s*changes|arriv|estimated|preparing|note\s*to\s*driver|^items\W*$|my\s*tickets|\bcopy$|deliver\s*to|track\s*your\s*order|thank\s*you\s*for\s*using|we\s*are\s*pleased|transfer\s*money|successful/.source,   // app screens' own words
+  /we'?ll\s*(let|notify)|your\s*seller|hope\s*you\s*enjoy|to\s*make\s*changes|arriv|estimated|preparing|note\s*to\s*driver|^items\W*$|my\s*tickets|\bcopy$|deliver\s*to|track\s*your\s*order|thank\s*you\s*for\s*using|we\s*are\s*pleased|transfer\s*money|successful|pick-?\s*up|dine-?\s*in|visit\s*store|show\s*your\s*qr|collect\s*your|authori[sz]e|exclusive\s*deals|^\W*promotions?\W*$|^\W*step\s*\d/.source,   // app screens' own words
   /ro[lu]n?ding|sub\s*-?t[o0]tal|\bt[o0]tal\b|\bqty\b|kuantiti|delivery|note\s*to|to\s*pay|visit\s*shop|premium|payment\s*successful|tbl\s*no/.source,   // money-part and app-screen words
   /^\W*(invoice|receipt|resit|welcome|selamat|thank|terima\s*kasih|date|time|ticket|table|cashier|pos\s*no|bill\s*no|payment|quantity|description)\b/.source,
   /^(tel|fax|gst|sst|co\.?\s*(no|reg)|reg\.?\s*no|company\s*(no|reg)|registration)|^\(|^\d{3,}|^[\d\W]+$/.source,   // numbers, a "(Perub…)" or "(123456-X)" line
@@ -177,7 +177,7 @@ function joinNameLines(lines) {
   return out.flatMap((l, i, a) => (/^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(l.trim()) && a[i + 1] ? [] : [i && /^(restoran|restaurant|kedai(\s*makan)?|rumah\s*makan)$/i.test(a[i - 1].trim()) ? `${a[i - 1].trim()} ${l}` : l]));
 }
 // A screenshot of a shopping, delivery or bank app: the phone's status bar on top ("9:37 95%") or an app's own heading.
-const appScreen = lines => /^\W*\d{1,2}[:.]\d{2}\b.{0,30}\d{1,3}\s*%/.test(lines[0] ?? '') || lines.slice(0, 5).some(l => /order\s*(summary|details)|booking\s*code|transfer\s*money|deal\s*details/i.test(l));
+const appScreen = lines => /^\W*\d{1,2}[:.]\d{2}\b.{0,30}\d{1,3}\s*%/.test(lines[0] ?? '') || lines.slice(0, 12).some(l => /order\s*(summary|details)|booking\s*code|transfer\s*money|deal\s*details/i.test(l));
 const PLATFORM = /^(GrabFood|Grab|foodpanda|ShopeeFood)$/;
 /** On an app screen the shop is often far down: Shopee by its own words; else any known brand on the screen that isn't the
  *  delivery app; a Grab order's restaurant from its "Name-Branch" line; else the delivery app itself. → name or null. */
@@ -203,7 +203,8 @@ export function shopName(lines) {
   // The bank, card or wallet printed on the slip is how it was paid, never the shop (card-terminal slips put it on top).
   const pool = lines.filter(l => !PAID_WITH.test(l));
   const brand = brandOf(pool) || knownShop(pool.slice(0, 10).filter(l => !ADDRESS.test(l) && !/\d[.,]\d{2}/.test(l)))?.name; if (brand) return brand;   // not "Jalan Setia", not "Cheese Burger 4.50"
-  const top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, ''))).slice(0, 8);   // a lone "Bhd" is no name
+  // a lone "Bhd" is no name; on an app screen, nor is a line starting in lower case (a wrapped "code order", "promotions!")
+  const app = appScreen(lines), top = joinNameLines(lines.slice(0, 10)).filter(l => !NOT_SHOP.test(l) && !BANK_SLIP.test(l) && /\p{L}{3}/u.test(l.replace(CO_TAIL, '')) && !(app && /^\P{L}*\p{Ll}/u.test(l))).slice(0, 8);
   const co = top.find(l => COMPANY.test(l)) || top.find(l => !ADDRESS.test(l));
   if (!co) return null;
   const name = co.replace(CO_TAIL, '').replace(/\(?\s*(co\.?\s*(no|reg)|company)[^)]*\)?/i, '').replace(/\(\s*[\w-]*\d[\w-]*\s*\)/g, '').replace(/[\s.,:;*-]+$/, '').trim()
@@ -255,7 +256,7 @@ export function parseReceipt(text) {
     const m = line.match(AMOUNT);
     const label = m ? line.slice(0, m.index).trim() : line;
     if (!m) {
-      if (app) block = /^\W*(preferred|mall)\b|visit\s*shop|chat\s*now|\bto\s*(ship|receive|pay)\b/i.test(line) ? [] : [...block, line];   // a shop's header ("… To Ship"), or the tabs
+      if (app) block = /^\W*(preferred|mall)\b|visit\s*shop|chat\s*now|\bto\s*(ship|receive|pay)\b|order\s*summary/i.test(line) ? [] : [...block, line];   // a shop's header ("… To Ship"), or the tabs
       // "Item (s):1 Qty(s):1" is a footer and "QTY ITEM", "Table: 8", "Payment :" are headers: never an item's name
       const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !BADGE.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
@@ -271,7 +272,8 @@ export function parseReceipt(text) {
     // Money off first: "Shipping Discount Subtotal -4.90" and "Shopee Voucher -5.00" are discounts, not the subtotal.
     // Money off: a negative amount, or a short line led or ended by the word ("MEMBER DISC 2.00", "Voucher 5.00");
     // "MILO PROMO PACK 17.50" and "TNG RELOAD VOUCHER 50.00" are things bought.
-    const offWord = cents < 0 || (key.split(/\s+/).length <= 3 && (DISCOUNT.test(key.split(/\s+/)[0]) || DISCOUNT.test(key.split(/\s+/).at(-1))));
+    // On an app, a positive price on a "Voucher Applied" line is what was paid for the product above, not money off
+    const offWord = cents < 0 || (!(app && /^\W*voucher\s*applied\W*$/i.test(key)) && key.split(/\s+/).length <= 3 && (DISCOUNT.test(key.split(/\s+/)[0]) || DISCOUNT.test(key.split(/\s+/).at(-1))));
     const offKey = DISCOUNT.test(key) && offWord;
     const off = offKey && !!cents && r.total === null && !/^\W*(sub\s*-?\s*)?t[o0]tal\b/i.test(key);
     if (off && r.subtotal === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });
@@ -296,7 +298,8 @@ export function parseReceipt(text) {
       // also a badge or an old price with only a scrap of the variant left ("SPcs RM175.00", OCR's 5Pcs)
       const XN = /\bx\s*(\d{1,2})\s*$/i, badgeOnly = (BADGE.test(name) || /(?:RM|MYR)\s*\d/i.test(name))
         && name.replace(BADGE, '').replace(/(?:RM|MYR)\s*\d+[.,]\d{2}/gi, '').replace(/[^a-z]/gi, '').length <= 4;
-      const product = app && (qtyOnly || badgeOnly) && block.find(l => /\p{L}{3}/u.test(l) && !BADGE.test(l) && !XN.test(l));
+      // the product's own line may carry its quantity ("Velvet Latte x1"): the name is what comes before it
+      const product = app && (qtyOnly || badgeOnly) && block.map(l => l.replace(XN, '').trim()).find(l => /\p{L}{3}/u.test(l) && !BADGE.test(l));
       const times = product ? +(block.findLast(l => XN.test(l))?.match(XN)[1] ?? 1) : 1;
       // Number-only line: its name is the line above, or (code-qty-price layout) the line below, filled in above
       const unit = line.match(UNIT_ONLY);   // "2 x 10.90" with no line total: the total is on the line next to it
@@ -347,6 +350,8 @@ export function parseReceipt(text) {
     if (name) r.items.push({ name: name.trim(), cents: r.subtotal });   // not cleanName: "10pcs" isn't a quantity 1
   }
   r.check = checksum(r);
+  // An app's voucher line under a price it already took off ("Voucher Applied -RM 9.01" under RM 4.99): only a note.
+  if (app && !r.check.ok && r.items.some(i => i.cents < 0)) { const kept = r.items; r.items = kept.filter(i => i.cents > 0); r.check = checksum(r); if (!r.check.ok) { r.items = kept; r.check = checksum(r); } }
   // A summary line misread past recognition ("Qty 4.50" read as "aly 4.50"): the last line is the sum of those above it.
   if (!r.check.ok && r.items.length > 1) {
     const last = r.items.at(-1);
