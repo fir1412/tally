@@ -280,7 +280,7 @@ function topItemsOf(txs, M, sd) {
 }
 /** A receipt turning into categories: what "item by item" means, before anyone has to read the list below. */
 export const demoCard = () => {
-  const lines = [['MILO 1KG', 'groceries', 2890], ['GARDENIA', 'groceries', 450], ['DYNAMO 2.8KG', 'household', 3290], ['NASI LEMAK', 'dining', 600]];
+  const lines = [['SUSU TEPUNG 1KG', 'groceries', 2890], ['ROTI GANDUM', 'groceries', 450], ['SABUN BASUH 2.8KG', 'household', 3290], ['NASI LEMAK', 'dining', 600]];
   const by = {}; for (const [, c, v] of lines) by[c] = (by[c] || 0) + v;
   return `<div class="demo" aria-hidden="true"><div class="demo-r"><b>KEDAI RUNCIT JAYA</b>${lines.map(([n, , v]) => `<span><i>${n}</i><i>${(v / 100).toFixed(2)}</i></span>`).join('')}<span class="tot"><i>TOTAL</i><i>72.30</i></span></div>
     <div class="demo-a">${ICON.back}</div><ul class="demo-c">${Object.entries(by).map(([c, v]) => `<li>${dotFor(c)}<span class="grow">${esc(t(CATEGORIES.find(x => x.id === c).name))}</span><b>${esc(fmtRM(v))}</b></li>`).join('')}</ul></div>`;

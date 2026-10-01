@@ -14,7 +14,7 @@ import { on } from './features.js';
 
 applySavedLook();   // theme and accent before anything is drawn (the database copy is applied on every render)
 
-export const APP_VERSION = '1.12.2';
+export const APP_VERSION = '1.12.3';
 export const MAKER = 'fir1412', CONTACT = 'fir1412dev@gmail.com';   // the developer, and the data user for feedback (privacy pages)
 // Checking a receipt and Settings (with Welcome and imports) load the first time they are needed, not before Home
 // shows. sw.js still caches them for offline use.
@@ -86,7 +86,7 @@ export function render() {
     selection: typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null,
   } : null;
   if (!view) {   // its code is still loading: a moment's placeholder, then the screen
-    app.innerHTML = `<main id="view" class="view-${r}"><p class="loading">Tally…</p></main>${nav}`;
+    app.innerHTML = `<main id="view" class="view-${r}"><div class="skel"><span class="sk-sr" role="status">Tally…</span><i class="sk-hero" aria-hidden="true"></i><i class="sk-row" aria-hidden="true"></i><i class="sk-row" aria-hidden="true"></i></div></main>${nav}`;   // the loading outline from index.html
     need(LAZY_VIEW[r]).then(() => render(), err => toast(t('Something went wrong: {0}', err.message || String(err)), { k: 'bad' }));
     return;
   }

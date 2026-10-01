@@ -32,11 +32,62 @@
 <link rel="preload" href="fonts/plex-sans-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/plex-sans-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/plex-mono-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/app.css">
+<link rel="modulepreload" href="js/app.js">
+<link rel="modulepreload" href="js/calendar.js">
+<link rel="modulepreload" href="js/camcheck.js">
+<link rel="modulepreload" href="js/camera.js">
+<link rel="modulepreload" href="js/caticons.js">
+<link rel="modulepreload" href="js/colorpicker.js">
+<link rel="modulepreload" href="js/comic.js">
+<link rel="modulepreload" href="js/cpi.js">
+<link rel="modulepreload" href="js/db.js">
+<link rel="modulepreload" href="js/delight.js">
+<link rel="modulepreload" href="js/engine.js">
+<link rel="modulepreload" href="js/features.js">
+<link rel="modulepreload" href="js/feedback.js">
+<link rel="modulepreload" href="js/gamify.js">
+<link rel="modulepreload" href="js/i18n.js">
+<link rel="modulepreload" href="js/io.js">
+<link rel="modulepreload" href="js/learn.js">
+<link rel="modulepreload" href="js/lock.js">
+<link rel="modulepreload" href="js/share-art.js">
+<link rel="modulepreload" href="js/share.js">
+<link rel="modulepreload" href="js/state.js">
+<link rel="modulepreload" href="js/sticker-export.js">
+<link rel="modulepreload" href="js/stickers.js">
+<link rel="modulepreload" href="js/tour.js">
+<link rel="modulepreload" href="js/ui.js">
+<link rel="modulepreload" href="js/views/analytics.js">
+<link rel="modulepreload" href="js/views/goals.js">
+<link rel="modulepreload" href="js/views/home.js">
+<link rel="modulepreload" href="js/views/learn.js">
+<link rel="modulepreload" href="js/views/money.js">
+<style>
+/* The loading outline: drawn from this page alone, before the stylesheet and the code arrive (on a slow phone, seconds).
+   The same colours as css/app.css, in the saved theme (js/first.js puts it on <html>) or the phone's own. */
+:root { --sk-bg: #0F172A; --sk-a: #192134; --sk-b: #1F2A42; --sk-ink: #9AA6C0; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --sk-bg: #F3F5F9; --sk-a: #FFFFFF; --sk-b: #EAEEF5; --sk-ink: #55607A; } }
+:root[data-theme="light"] { --sk-bg: #F3F5F9; --sk-a: #FFFFFF; --sk-b: #EAEEF5; --sk-ink: #55607A; }
+html { background: var(--sk-bg); }
+body { margin: 0; }
+.skel { max-width: 640px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.skel i, .skel b { display: block; border-radius: 14px; background: var(--sk-a); }
+.sk-top { display: flex; justify-content: space-between; align-items: center; min-height: 48px; }
+.sk-brand { font: 700 1.125rem system-ui, sans-serif; color: var(--sk-ink); }
+.skel .sk-dot { width: 36px; height: 36px; border-radius: 50%; }
+.sk-hero { height: 180px; } .sk-row { height: 56px; } .sk-row.short { width: 60%; }
+.sk-tabs { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--sk-a); display: flex; justify-content: space-around; align-items: center; }
+.skel .sk-tabs i { width: 28px; height: 28px; border-radius: 8px; background: var(--sk-b); }
+.skel .sk-tabs b { width: 56px; height: 56px; border-radius: 50%; margin-top: -24px; background: var(--sk-b); }
+.sk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) { .skel i, .skel b { animation: sk-pulse 1.2s ease-in-out infinite alternate; } }
+@keyframes sk-pulse { to { opacity: .55; } }
+</style>
 </head>
 <body>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
-<div id="app"><p class="loading">Tally…</p></div>
+<div id="app"><div class="skel"><span class="sk-sr" role="status">Tally…</span><div class="sk-top" aria-hidden="true"><span class="sk-brand">Tally</span><i class="sk-dot"></i></div><i class="sk-hero" aria-hidden="true"></i><i class="sk-row" aria-hidden="true"></i><i class="sk-row" aria-hidden="true"></i><i class="sk-row short" aria-hidden="true"></i><div class="sk-tabs" aria-hidden="true"><i></i><i></i><b></b><i></i><i></i></div></div></div>
+<link rel="stylesheet" href="css/app.css">
 <input type="file" id="scan-input" accept="image/*" multiple hidden>
 <div id="sr-status" class="sr" role="status" aria-live="polite"></div>
 <noscript>Tally needs JavaScript to run.</noscript>

@@ -1751,6 +1751,7 @@ export default {
   "Pick the saved sticker": "選擇已儲存的貼紙",
   "WhatsApp does this step, not Tally.": "這一步由 WhatsApp 完成，不是 Tally。",
   "The sticker could not be made. Try again.": "無法製作貼紙，請再試一次。",
+  "Tally shows its outline at once while it opens, instead of a blank screen, and starts faster on slow connections": "Tally 開啟時會立即顯示介面輪廓，不再是空白螢幕；網路慢時也啟動得更快",
   "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once": "外送平台的電郵收據現在能正確讀取：實付金額、稅額，運費只算一次",
   "Clearer Malay and Tamil wording across the app": "全應用程式的馬來文和淡米爾文用詞更清楚",
   "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Tally 網站現在支援全部六種語言，新增日文和繁體中文頁面",

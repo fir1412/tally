@@ -1751,6 +1751,7 @@ export default {
   "Pick the saved sticker": "சேமித்த ஸ்டிக்கரைத் தேர்ந்தெடு",
   "WhatsApp does this step, not Tally.": "இந்தப் படியை WhatsApp செய்கிறது, Tally அல்ல.",
   "The sticker could not be made. Try again.": "ஸ்டிக்கரை உருவாக்க முடியவில்லை. மீண்டும் முயலவும்.",
+  "Tally shows its outline at once while it opens, instead of a blank screen, and starts faster on slow connections": "Tally திறக்கும்போது வெற்றுத் திரைக்குப் பதிலாக அதன் வடிவமைப்பு உடனே தெரியும்; மெதுவான இணைப்பிலும் வேகமாகத் தொடங்கும்",
   "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once": "டெலிவரி செயலிகள் மின்னஞ்சலில் அனுப்பும் ரசீதுகள் இப்போது சரியாகப் படிக்கப்படும்: செலுத்திய தொகை, வரி, டெலிவரி கட்டணம் ஒருமுறை மட்டும்",
   "Clearer Malay and Tamil wording across the app": "செயலி முழுவதும் மலாய், தமிழ்ச் சொற்கள் இன்னும் தெளிவாக",
   "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Tally இணையதளம் இப்போது ஆறு மொழிகளிலும் உள்ளது, ஜப்பானிய மற்றும் பாரம்பரிய சீன பக்கங்களுடன்",

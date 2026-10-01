@@ -1752,6 +1752,7 @@ export default {
   "Pick the saved sticker": "Pilih pelekat yang disimpan",
   "WhatsApp does this step, not Tally.": "Langkah ini dibuat oleh WhatsApp, bukan Tally.",
   "The sticker could not be made. Try again.": "Pelekat tidak dapat dibuat. Cuba lagi.",
+  "Tally shows its outline at once while it opens, instead of a blank screen, and starts faster on slow connections": "Tally kini memaparkan rangkanya serta-merta semasa dibuka, bukan skrin kosong, dan bermula lebih pantas di talian perlahan",
   "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once": "Resit e-mel daripada aplikasi penghantaran kini dibaca dengan betul: jumlah dibayar, cukai, dan caj penghantaran dikira sekali sahaja",
   "Clearer Malay and Tamil wording across the app": "Perkataan bahasa Melayu dan Tamil yang lebih jelas di seluruh aplikasi",
   "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Laman web Tally kini dalam keenam-enam bahasa, termasuk halaman bahasa Jepun dan Cina Tradisional",

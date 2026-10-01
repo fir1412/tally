@@ -3,8 +3,10 @@
 // for zh-Hant, zh-TW, zh-HK and zh-MO), else start.html; its
 // "Open Tally" comes back as ./?app. Never the installed app, anyone who has opened Tally here before (the look is
 // saved on every open), a link with anything in it (?app, a shared file, a sample), or a window where storage is blocked.
-// A classic script in <head>, so it runs before anything is drawn (the CSP allows no inline script).
+// A classic script in <head>, so it runs before anything is drawn (the CSP allows no inline script). It also puts the
+// saved light or dark choice on <html> first, so the loading outline is drawn in the right colours.
 (() => {
+  try { const th = (JSON.parse(localStorage.getItem('tally-look')) || {}).theme; if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch { /* none saved */ }
   try {
     if (location.search || location.hash) return;
     if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
