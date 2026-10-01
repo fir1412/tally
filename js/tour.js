@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.12.2': [
+    "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once",
+    "Clearer Malay and Tamil wording across the app",
+  ],
   '1.12.1': [
     "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages",
   ],

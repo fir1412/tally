@@ -419,3 +419,12 @@ test('a petrol line: the litres and price per litre are the quantity, the fuel a
   const r = parseReceipt('CALTEX IOI\nPump:12\nRON95 TECHRON\n26.615L@ RM2.05/L 54.56\nWINDSCREEN WASHER 7.30\nTOTAL RM 61.86');
   assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['RON95 TECHRON', 5456], ['WINDSCREEN WASHER', 730]]);
 });
+
+test('a delivery e-mail receipt: "Amount:" is the total, a fee above the subtotal is inside it, the tax rate alone under "Tax", a price between the halves of a name', () => {
+  const mail = 'Qty Item Detail Item Price\nNasi Lemak Set + 2pcs\nRM 18.68\nAyam Goreng Pedas\n1 Nasi Lemak Set +\n2pcs Ayam Goreng Pedas\n1 Iced Lemon Tea RM 0.85\n1 3pcs Chicken Strips\nRM 9.34\nPedas Ala Carte\n1 Cheese Sauce\nProcessing&Delivery Fee RM 5.19\nSub-Total: RM 34.06\nTax Tax Amount\n6.0 % RM 2.04';
+  const r = parseReceipt(mail + '\nAmount: RM 36.10');
+  assert.deepEqual(r.items.map(i => [i.name, i.cents]), [['Nasi Lemak Set + 2pcs Ayam Goreng Pedas', 1868], ['Iced Lemon Tea', 85], ['3pcs Chicken Strips Pedas Ala Carte', 934]]);
+  assert.deepEqual([r.total, r.tax, r.service, r.check.ok], [3610, 204, 519, true]);
+  const cut = parseReceipt(mail);   // the "Amount" line cut off: the guess doesn't add the fee twice
+  assert.deepEqual([cut.total, cut.totalGuessed], [3610, true]);
+});

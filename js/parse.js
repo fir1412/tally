@@ -243,12 +243,15 @@ export function parseReceipt(text) {
   let block = [];         // the text lines since the last item or shop header
   let paid = false;       // after TOTAL, the first payment line (Cash, Visa, Change...) ends the money part
   let billOff = 0;        // a discount on the whole bill
+  let svcInSub = false;   // a fee printed above the subtotal ("Processing&Delivery Fee") is already inside it
+  let prevLine = '', boundary = false, pendingAt = null;   // the line before; an item or column-header line just ended; where pendingName was read
   const below = namesBelow(lines);
 
   r.merchant = shopName(lines);
   r.shopCat = r.merchant && categoryOf(r.merchant);   // a known shop's usual category (Parkson: shopping)
   r.date = receiptDate(lines);
   for (const line of lines) {
+    const before = prevLine, wasBoundary = boundary; prevLine = line; boundary = false;
     if (!r.time) r.time = parseTime(line);
     if (r.total !== null && PAYMENT.test(line)) paid = true;
     if (paid) continue; // payment, change, tax summary follow. Only the date is still wanted.
@@ -260,15 +263,18 @@ export function parseReceipt(text) {
       // "Item (s):1 Qty(s):1" is a footer and "QTY ITEM", "Table: 8", "Payment :" are headers: never an item's name
       const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !BADGE.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
-      if (hasText && last && last.name === null) { last.name = line; pendingName = null; } // name printed under the price
+      if (hasText && last && last.name === null) { last.name = last.pre ? `${last.pre} ${line}` : line; delete last.pre; pendingName = null; } // name printed under the price (its first half above it, when the price sat between)
       else { pendingName = hasText ? (pendingName && r.items.length && line.length <= 14 && pendingName.length < 40 && !TOTAL.test(line) && !PAYMENT.test(line) ? `${pendingName} ${line}` : line) : null; }   // a name wrapped onto a short second line ("SPECIAL"): both halves; never the shop's header
+      if (!hasText && /^\s*(qty|quantity|item|description)\b/i.test(line)) boundary = true;   // a column header: what follows starts an item
+      else if (pendingName === line) pendingAt = wasBoundary;
       continue;
     }
     const cents = toCents(m);
     // "Total Saving 0.00 Total 77.20": classify by the words after the last number
     const key = label.replace(/^.*\d[.,]\d{2}\s*/, '') || label;
 
-    const adj = ROUNDING.test(key) ? 'rounding' : SERVICE.test(key) ? 'service' : TAX.test(key) ? 'tax' : null;
+    // "6.0 % RM 3.14" under a "Tax  Tax Amount" heading: the rate alone on the line, the word on the line above
+    const adj = ROUNDING.test(key) ? 'rounding' : SERVICE.test(key) ? 'service' : TAX.test(key) || (/^\W*\d{1,2}(?:[.,]\d+)?\s*%\W*$/.test(key) && TAX.test(before)) ? 'tax' : null;
     // Money off first: "Shipping Discount Subtotal -4.90" and "Shopee Voucher -5.00" are discounts, not the subtotal.
     // Money off: a negative amount, or a short line led or ended by the word ("MEMBER DISC 2.00", "Voucher 5.00");
     // "MILO PROMO PACK 17.50" and "TNG RELOAD VOUCHER 50.00" are things bought.
@@ -284,7 +290,8 @@ export function parseReceipt(text) {
     else if (TOTAL.test(key) && NOT_TOTAL.test(key)) { /* a count or group total: skip */ }
     else if (TOTAL.test(key) && r.total !== null && /\b(SGD|USD|EUR|GBP|IDR|THB|RMB|CNY|JPY|AUD|HKD)\b|S\$|US\$/i.test(line)) { /* the same total in another currency, printed after ours */ }
     else if (TOTAL.test(key) && (!adj || TOTAL_WINS.test(key))) r.total =Math.max(Math.abs(cents), ...amountsIn(line)); // "Total (incl Tax) 17.80 0.00"; "RM-38.80" is OCR noise
-    else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; }
+    else if (!adj && r.subtotal !== null && /^\W*amount\s*[:：]?\s*$/i.test(key)) r.total = Math.abs(cents);   // an e-mail receipt's last line, "Amount: RM 55.45"
+    else if (adj) { r[adj] = (r[adj] ?? 0) + cents; if (adj === 'tax' && /incl/i.test(key)) r.taxIncluded = true; if (adj === 'service' && r.subtotal === null && r.items.length) svcInSub = true; }
     else if (DISCOUNT.test(key) && !cents) { /* "Discount 0.00": nothing to record */ }
     else if (offKey && r.subtotal === null && r.total === null && r.items.length) r.items.push({ name: 'Discount', cents: -Math.abs(cents) });   // its own line, always money off ("-0.20", read "~0.20")
     else if (offKey && cents && r.total === null) billOff += Math.abs(cents);   // "Member discount -5.00" between subtotal and total
@@ -307,12 +314,13 @@ export function parseReceipt(text) {
       if (NOT_ITEM.test(line)) { /* a rider's plate and rating, a drink's options: not bought */ }
       else if (qtyOnly && !unit && prev?.q && prev.q * prev.cents === cents) { prev.cents = cents; delete prev.q; }   // "2 x 10.90" then "21.80": one item
       else if (product) r.items.push({ name: product, cents: cents * times, ...(times > 1 ? { one: cents } : {}) });
-      else r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents, ...(unit ? { q: +unit[1] } : {}) });
+      else r.items.push({ name: qtyOnly ? (below ? null : pendingName) : name, cents, ...(unit ? { q: +unit[1] } : {}), ...(qtyOnly && below && pendingName && pendingAt && pendingName === before ? { pre: pendingName } : {}) });
+      boundary = !qtyOnly;   // an item line with its own name: the next text line starts a new item
     }
     pendingName = null; block = [];
   }
   if (r.total === 0) r.total = null;   // "Total (MYR) 0.00" on tax-inclusive templates is never what was paid
-  if (r.total === null) guessTotal(r, lines);
+  if (r.total === null) guessTotal(r, lines, svcInSub);
   // Cash rounding: 68.12 is paid as 68.10. When the rounded amount is printed too, that is the total.
   if (r.total > 0 && r.total % 5) {
     const r5 = Math.round(r.total / 5) * 5;
@@ -321,7 +329,7 @@ export function parseReceipt(text) {
   // A tax line printed after the payment ("TOTAL 6% Service Tax 0.98" under "Cash 20.00") counts only when it is exactly
   // the gap between the subtotal and the total: a tax summary table there never adds a guess.
   if (r.tax === null && r.subtotal !== null && r.total > r.subtotal) {
-    const gap = r.total - r.subtotal - (r.service ?? 0) - (r.rounding ?? 0);
+    const gap = r.total - r.subtotal - (svcInSub ? 0 : r.service ?? 0) - (r.rounding ?? 0);
     if (gap > 0 && lines.some(l => TAX.test(l) && amountsIn(l).includes(gap))) r.tax = gap;
   }
   // A misread line can land in tax/service/rounding: none can be a third of the bill, and rounding is at most 5 sen.
@@ -340,7 +348,7 @@ export function parseReceipt(text) {
     if (odd) odd.cents = odd.one;
     else if (sum(r.items.map(it => ({ cents: it.one ?? it.cents }))) === r.subtotal) for (const it of r.items) it.cents = it.one ?? it.cents;
   }
-  for (const it of r.items) { delete it.q; delete it.one; }
+  for (const it of r.items) { delete it.q; delete it.one; delete it.pre; }
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.items = dropSummaryLines(r.items);
   // An app's one-item order with no price beside it (McDonald's): the line under "Order Summary", at the subtotal.
@@ -403,18 +411,18 @@ export function dropSummaryLines(items) {
 /** An item name as people read it: no barcode or SKU in front ("4208915 SAN REMO"), no unit price behind ("(4.50/ea)"), no glued quantity ("1x Teh O",
  *  "1NESCAFE"), and OCR's 0 inside a word back to O ("0NE ZER0THIN" → "ONE ZEROTHIN"). */
 export const cleanName = n => n.replace(/\s*@\s*\d+[.,]\d{2}\b/g, '').replace(/(?<=[A-Za-z)])(?<![Rr][Mm])\s*\d+[.,]\d{2}(\s+[x×]?\d{1,3})?\s*$/, '')   // a unit price (and qty) left in the name: "ICED TEA 1.20 5", "@200.00"
-  .replace(/\s+(unit|units|pkt|pkts|pck|ea)$/i, '').replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
+  .replace(/\s+(unit|units|pkt|pkts|pck|ea)$/i, '').replace(/^\d{4,}\s*(?=\S)/, '').replace(/\s*\(\s*\d+\.\d{2}\s*\/\s*(ea|each|pc|pcs|unit)\s*\)/i, '').replace(/^\d{1,2}\s*[x×]\s+/i, '').replace(/^1\s+(?=(?:\d+\s*)?[A-Za-z]{3})/, '').replace(/^1(?=[A-Za-z][A-Za-z])/, '').replace(/^1(?=0[A-Za-z]{2})/, '')
   .replace(/(?<=[A-Za-z])0(?![\d.,])|(?<![\dA-Za-z.])0(?=[A-Za-z]{2})/g, 'O')
   .replace(/(?<=\d[0O]*)O(?=[0O]*(?:\d|ML|G|KG|L|S|PCS|PC|X)\b)/g, '0').trim() || n;   // and O inside a number back to 0: "1OS", "50OML", "5OPCS"   // "20OZ" keeps its digits
 /**
  * No "Total" line (e-wallet and bank slips, torn receipts): subtotal plus adjustments, else the amount printed
  * most often (slips repeat it), else the largest RM amount. Marked totalGuessed so the review screen flags it.
  */
-function guessTotal(r, lines) {
+function guessTotal(r, lines, svcInSub) {
   const on = re => { for (const l of lines) if (re.test(l)) { const a = amountsIn(l).filter(c => c > 0); if (a.length) return a.at(-1); } return null; };
   const cash = on(/\b(cash|tunai)\b(?!\s*(back|out))/i), change = on(/\b(change|baki)\b/i);
   const paid = on(/\b(my\s*debit|visa|master|amex|card|e-?wallet|grab\s*pay|boost|tng|touch\s*'?n|duit\s*now|qr\s*pay|shopee\s*pay|debit|credit)\b/i);
-  if (r.subtotal !== null) r.total = r.subtotal + (r.service ?? 0) + (r.taxIncluded ? 0 : r.tax ?? 0) + (r.rounding ?? 0);
+  if (r.subtotal !== null) r.total = r.subtotal + (svcInSub ? 0 : r.service ?? 0) + (r.taxIncluded ? 0 : r.tax ?? 0) + (r.rounding ?? 0);
   else if (cash && change !== null && cash > change) r.total = cash - change;   // no Total line: what was handed over, less the change
   else if (paid) r.total = paid;   // a card or e-wallet line carries the amount charged
   else {

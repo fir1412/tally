@@ -1751,6 +1751,8 @@ export default {
   "Pick the saved sticker": "保存したシールを選ぶ",
   "WhatsApp does this step, not Tally.": "この手順は Tally ではなく WhatsApp で行います。",
   "The sticker could not be made. Try again.": "シールを作れませんでした。もう一度お試しください。",
+  "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once": "デリバリーアプリのメール領収書を正しく読み取れるようになりました。支払額と税額を読み取り、配達料は一度だけ数えます",
+  "Clearer Malay and Tamil wording across the app": "アプリ全体のマレー語とタミル語の表現をわかりやすくしました",
   "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Tally のウェブサイトが6言語すべてに対応し、日本語と繁体字中国語のページが加わりました",
   "Save your day's sticker and add it to WhatsApp with Create sticker": "その日のシールを保存して、WhatsApp の「ステッカーを作成」で追加できます",
   "Deepavali!": "ディーパバリ！",

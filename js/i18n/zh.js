@@ -1752,6 +1752,8 @@ export default {
   "Pick the saved sticker": "选择保存的贴纸",
   "WhatsApp does this step, not Tally.": "这一步由 WhatsApp 完成，不是 Tally。",
   "The sticker could not be made. Try again.": "无法制作贴纸，请再试一次。",
+  "Receipts e-mailed by delivery apps read right: the amount paid, the tax, and the delivery fee counted once": "外送平台的电邮收据现在能正确读取：实付金额、税额，运费只算一次",
+  "Clearer Malay and Tamil wording across the app": "全应用的马来文和淡米尔文措辞更清楚",
   "Tally's website now comes in all six languages, with Japanese and Traditional Chinese pages": "Tally 网站现在支持全部六种语言，新增日文和繁体中文页面",
   "Save your day's sticker and add it to WhatsApp with Create sticker": "保存当天的贴纸，再用 WhatsApp 的“创建贴图”把它加进去",
   "Deepavali!": "屠妖节快乐",
