@@ -1501,6 +1501,7 @@ export default {
   "{0} of {1} days. Missed days can still be filled in until {2}.": "{1}日中{0}日。見逃した日は{2}まで埋められます。",
   "A month's missed stickers can be filled in until the 7th of the next month": "見逃したステッカーは翌月7日まで埋められます",
   "Deleting a split bill also takes off what friends paid back for it": "割り勘の記録を消すと、友だちがその分として返したお金も消えます",
+  "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "最初の画面で明記：Tally は SMS を読まず、銀行のログイン情報も求めません",
   "At most {0}.": "最大{0}です。",
   "Owed to you": "立て替え分",
   "Paid back": "返してもらった",

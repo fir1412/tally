@@ -1502,6 +1502,7 @@ export default {
   "{0} of {1} days. Missed days can still be filled in until {2}.": "{0} daripada {1} hari. Hari yang terlepas masih boleh diisi sehingga {2}.",
   "A month's missed stickers can be filled in until the 7th of the next month": "Pelekat yang terlepas dalam sebulan boleh diisi sehingga 7 hari bulan berikutnya",
   "Deleting a split bill also takes off what friends paid back for it": "Memadam bil kongsi turut membuang bayaran balik kawan untuknya",
+  "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "Dinyatakan dengan jelas di skrin pertama: Tally tidak pernah membaca SMS anda atau meminta log masuk bank",
   "At most {0}.": "Paling banyak {0}.",
   "Owed to you": "Orang berhutang kepada anda",
   "Paid back": "Sudah bayar balik",

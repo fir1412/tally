@@ -1501,6 +1501,7 @@ export default {
   "{0} of {1} days. Missed days can still be filled in until {2}.": "{1} நாட்களில் {0}. விடுபட்ட நாட்களை {2} வரை இன்னும் நிரப்பலாம்.",
   "A month's missed stickers can be filled in until the 7th of the next month": "ஒரு மாதத்தில் விடுபட்ட ஸ்டிக்கர்களை அடுத்த மாதம் 7-ஆம் தேதி வரை நிரப்பலாம்",
   "Deleting a split bill also takes off what friends paid back for it": "பகிர்ந்த பில்லை நீக்கினால், அதற்காக நண்பர்கள் திருப்பித் தந்ததும் நீங்கும்",
+  "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "முதல் திரையிலேயே தெளிவாக: Tally உங்கள் SMS-ஐப் படிக்காது, வங்கி உள்நுழைவையும் கேட்காது",
   "At most {0}.": "அதிகபட்சம் {0}.",
   "Owed to you": "உங்களுக்கு வர வேண்டியது",
   "Paid back": "கிடைத்தது",

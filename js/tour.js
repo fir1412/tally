@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.8.2': [
+    "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login",
+  ],
   '1.8.1': [
     "Deleting a split bill also takes off what friends paid back for it",
   ],
