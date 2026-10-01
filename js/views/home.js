@@ -13,7 +13,7 @@ import { dayOf, loggedDays } from '../gamify.js';
 import { filledDays, panelOf, loadBook, bookState, WHO } from '../comic.js';
 import { on, setModules } from '../features.js';
 import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
-import { analyticsCards, forecastCard, act as analyticsAct } from './analytics.js';
+import { analyticsCards, forecastCard, tilesHtml, affordInputs, act as analyticsAct } from './analytics.js';
 import { goalsCard, act as goalsAct } from './goals.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
@@ -364,11 +364,13 @@ export const insightsView = {
     const curCol = k => (tMonths[k] === M ? ' class="cur"' : '');
     return `<header class="top"><h1>${esc(t('Insights'))}</h1>${scopeChip()}
         <span class="monthnav"><button class="icon-btn" data-act="ins-month" data-d="-1" aria-label="${esc(t('Previous month'))}">${ICON.back}</button><b>${esc(fmtMonth(M, sd))}</b><button class="icon-btn flip" data-act="ins-month" data-d="1" ${M >= cur ? 'disabled' : ''} aria-label="${esc(t('Next month'))}">${ICON.back}</button></span></header>
-      ${scopeSwitch()}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 2).map(feedItem).join('')}</ul>${feed.length > 2 ? `<details class="card billsugg"><summary>${ICON.chart}${esc(t('{0} more insights', Math.min(6, feed.length) - 2))}</summary><ul class="feed">${feed.slice(2, 6).map(feedItem).join('')}</ul></details>` : ''}` : ''}
+      ${scopeSwitch()}${tilesHtml(M)}${feed.length && M === cur ? `<ul class="feed">${feed.slice(0, 2).map(feedItem).join('')}</ul>${feed.length > 2 ? `<details class="card billsugg"><summary>${ICON.chart}${esc(t('{0} more insights', Math.min(6, feed.length) - 2))}</summary><ul class="feed">${feed.slice(2, 6).map(feedItem).join('')}</ul></details>` : ''}` : ''}
       ${M === cur ? forecastCard() : ''}
       <section class="card">
         <h2>${esc(t('Where the money went'))}</h2>
-        ${now.total ? `<div class="donutrow">${d.html}<ul class="legend">${parts.map(p => `<li><button class="link" data-act="cat-show" data-c="${esc(p.id)}" data-m="${M}">${dot(p.id)}<span class="grow">${esc(p.name)}</span><span class="num">${esc(fmtRM(p.v))}</span><span class="fine">${Math.round(p.v / total * 100)}%</span></button></li>`).join('')}</ul></div>` : `<p class="empty">${esc(t('No spending in {0}.', fmtMonth(M, sd)))}</p>`}
+        ${now.total ? `<div class="donutrow">${d.html}<ul class="legend">${parts.map(p => { const cap = budgetsFor().byCat[p.id], of = cap ? p.v / cap : 0;   // its budget, when it has one
+          return `<li><button class="link" data-act="cat-items" data-c="${esc(p.id)}" data-m="${M}">${dot(p.id)}<span class="grow">${esc(p.name)}${cap ? `<small class="bud ${of > 1 ? 'bad' : of > 0.85 ? 'warn' : 'good'}">${esc(t('{0}% of budget', Math.round(of * 100)))}</small>` : ''}</span><span class="num">${esc(fmtRM(p.v))}</span><span class="fine">${Math.round(p.v / total * 100)}%</span></button></li>`; }).join('')}</ul></div>
+          <p class="fine">${esc(t('Tap a category to see what you bought in it.'))}</p>` : `<p class="empty">${esc(t('No spending in {0}.', fmtMonth(M, sd)))}</p>`}
       </section>
       ${recs.length && M === cur ? `<ul class="feed">${recs.slice(0, 2).map(feedItem).join('')}</ul>${recs.length > 2 ? `<details class="card billsugg"><summary>${ICON.bell}${esc(t('{0} more possible bills', recs.length - 2))}</summary><ul class="feed">${recs.slice(2).map(feedItem).join('')}</ul></details>` : ''}` : ''}
       ${analyticsCards(M)}
@@ -459,13 +461,11 @@ export const act = {
     await wipeSite(); location.replace(NEW_HOME);
   },
   'afford': () => {
-    const accts = scopedAccounts(), counted = accts.filter(a => a.typed !== false && !owing(a) && a.kind !== 'savings');   // everyday money: engine affordMoney
+    const { balance, savings, bills, counted } = affordInputs();   // the same money and bills as Insights' next 30 days
     const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Can I afford it?'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
       <label class="field"><span>${esc(t('Price (RM)'))}</span><input id="af-amt" inputmode="decimal" placeholder="0.00" autocomplete="off" autofocus></label>
-      <div id="af-out" aria-live="polite">${counted.length ? '' : `<p class="warnbox">${esc(t('Set how much is in your accounts first: Tally needs a starting point.'))}</p>`}</div>`, { label: t('Can I afford it?') });
-    if (!counted.length) return;
-    const { balance, savings } = affordMoney(accts, booked()), known = S.recurring.filter(b => inScope(b));
-    const bills = [...known, ...cached(recurringCandidates, booked(), known.map(b => b.key)).map(c => ({ id: `c-${c.key}`, name: c.merchant, amount: c.amount, freq: 'monthly', day: c.day, start: `${monthOf(today())}-01` }))];   // spotted bills: monthly, on their usual day
+      <div id="af-out" aria-live="polite">${counted ? '' : `<p class="warnbox">${esc(t('Set how much is in your accounts first: Tally needs a starting point.'))}</p>`}</div>`, { label: t('Can I afford it?') });
+    if (!counted) return;
     el.querySelector('#af-amt').addEventListener('input', e => {
       const price = calcAmount(e.target.value), out = el.querySelector('#af-out');
       if (!(price > 0)) return (out.innerHTML = '');

@@ -1,10 +1,12 @@
 // Insights analytics: the month-end forecast (this month, near the top) and cards below it, each closed to one line
 // with its headline figure. Sums come from engine.js; every chart has its numbers in text next to it or in a hidden table.
-import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached } from '../state.js';
+import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, settings, cat, cached, scopedAccounts } from '../state.js';
 import { t, fmtDate, fmtMonth, cycleShort, getLang, langTag } from '../i18n.js';
-import { esc, short, ICON } from '../ui.js';
-import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex } from '../engine.js';
-import { catLabel, showIds, downloadReceipts } from './money.js';
+import { esc, short, ICON, openSheet, closeSheet, lineChart, balHidden, MASK } from '../ui.js';
+import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex,
+  categoryItems, shopPrices, next30, paydayEffect, billChanges, openShares, cpiChange, yearReview, affordMoney, owing, monthOf, monthSpend, cycleKey, daysBetween } from '../engine.js';
+import { CPI } from '../cpi.js';
+import { catLabel, showIds, downloadReceipts, showCategory } from './money.js';
 import { receiptName, csvLine } from '../io.js';
 import { on } from '../features.js';
 
@@ -52,8 +54,11 @@ function fixedCard(M) {
   const found = cached(recurringCandidates, booked(), S.recurring.map(b => b.key)).map(r => ({ name: r.merchant, v: r.amount }));
   const regular = [...known, ...found].sort((a, b) => b.v - a.v), perMo = regular.reduce((s, r) => s + r.v, 0);
   const body = ff.fixed + ff.flexible ? split([{ label: t('Bills and subscriptions'), v: ff.fixed, color: 'var(--warn)' }, { label: t('Day to day'), v: ff.flexible, color: 'var(--accent)' }], t('Fixed and flexible spending')) : later(t('No spending in {0}.', fmtMonth(M, sd)));
+  // A subscription's price going up shows here before it shows in the month's total.
+  const changed = cached(billChanges, booked(), [...S.recurring.filter(b => inScope(b)).map(b => ({ id: b.id, name: b.name, key: b.key })), ...cached(recurringCandidates, booked(), S.recurring.map(b => b.key)).map(r => ({ name: r.merchant, key: r.key }))]);
   return card('fixed', t('Fixed vs flexible'), ff.fixed + ff.flexible ? t('Fixed {0} · flexible {1}', fmtRM(ff.fixed), fmtRM(ff.flexible)) : t('No spending yet'), `${body}
-    ${regular.length ? `<h3>${esc(t('Bills and subscriptions: {0} a month', fmtRM(perMo)))}</h3>${hbars(regular.slice(0, 6).map(r => ({ ...r, text: fmtRM(r.v) })), regular[0].v)}${found.length ? `<p class="fine">${esc(t('Includes {0} Tally spotted that are not set up as bills yet.', found.length))}</p>` : ''}` : later(t('Bills you add in Budgets, and ones Tally spots, are listed here.'))}`);
+    ${regular.length ? `<h3>${esc(t('Bills and subscriptions: {0} a month, {1} a year', fmtRM(perMo), fmtRM(perMo * 12)))}</h3>${hbars(regular.slice(0, 6).map(r => ({ ...r, text: t('{0} · {1} a year', fmtRM(r.v), fmtRM(r.v * 12)) })), regular[0].v)}${found.length ? `<p class="fine">${esc(t('Includes {0} Tally spotted that are not set up as bills yet.', found.length))}</p>` : ''}` : later(t('Bills you add in Budgets, and ones Tally spots, are listed here.'))}
+    ${changed.length ? `<h3>${esc(t('Price changes'))}</h3><ul class="list">${changed.slice(0, 4).map(c => `<li class="rowb"><span class="grow">${esc(c.name)}<small>${esc(fmtDate(c.date))}</small></span><span class="num ${c.to > c.from ? 'bad' : 'good'}">${c.to > c.from ? '▲' : '▼'} ${esc(t('{0} to {1}', fmtRM(c.from), fmtRM(c.to)))}</span></li>`).join('')}</ul>` : ''}`);
 }
 
 // ---- 5. when and where -------------------------------------------------------------------------------------------------------
@@ -75,7 +80,10 @@ function whenCard(M) {
       : shops.money[0] ? t('Most at {0}: {1}', shops.money[0].name, fmtRM(shops.money[0].v)) : t('No spending yet');
   const shopHtml = shops.money.length ? `<div class="two"><div><h3>${esc(t('Top shops by money'))}</h3>${hbars(shops.money.map(s => ({ ...s, text: fmtRM(s.v) })), shops.money[0].v)}</div>
     <div><h3>${esc(t('Top shops by visits'))}</h3>${hbars(shops.visits.map(s => ({ ...s, v: s.n, text: `${s.n}×` })), shops.visits[0].n)}</div></div>` : '';
-  return card('when', t('When and where'), head, `<h3>${esc(fmtMonth(M, sd))}</h3>${cal}${grid}${shopHtml}`);
+  // The week after payday against the rest of the pay period: only worth saying when it really is different.
+  const pd = cached(paydayEffect, booked(), today());
+  const payday = pd && pd.ratio >= 1.25 ? `<p class="callout">${esc(t('In the week after payday you spend {0}× your usual week: {1} against {2}.', (Math.round(pd.ratio * 10) / 10).toLocaleString(langTag()), fmtRM(pd.after), fmtRM(pd.usual)))}</p>` : '';
+  return card('when', t('When and where'), head, `${payday}<h3>${esc(fmtMonth(M, sd))}</h3>${cal}${grid}${shopHtml}`);
 }
 
 // ---- 6. payment mix and savings rate ------------------------------------------------------------------------------------------
@@ -107,11 +115,60 @@ function payCard(M) {
 
 // ---- 7. eating out vs cooking --------------------------------------------------------------------------------------------------
 function foodCard(M) {
-  const sd = startDay(), f = cached(foodSplit, booked(), M, sd), year = M.slice(0, 4), tx = cached(taxPaid, booked(), year), out = f.dining + f.delivery;
+  const sd = startDay(), f = cached(foodSplit, booked(), M, sd), out = f.dining + f.delivery;   // SST and charges: their own card
   const body = f.groceries + out ? split([{ label: t('Groceries (cooking)'), v: f.groceries, color: cat('groceries').color }, { label: t('Dining out'), v: f.dining, color: cat('dining').color }, { label: t('Delivery'), v: f.delivery, color: '#DB2777' }], t('Food')) : later(t('Appears after some food spending.'));
   return card('food', t('Eating out vs cooking'), f.groceries + out ? t('Eating out {0} · cooking {1}', fmtRM(out), fmtRM(f.groceries)) : t('No food spending yet'), `${body}
-    <p class="fine">${esc(t('Delivery: GrabFood, foodpanda, ShopeeFood and the like.'))}</p>
-    <h3>${esc(t('SST and service charge in {0}', year))}</h3>${tx.n ? `<p class="rowb"><span>${esc(t('SST'))} <b class="num">${esc(fmtRM(tx.sst))}</b></span><span>${esc(t('Service charge'))} <b class="num">${esc(fmtRM(tx.service))}</b></span></p><p class="fine">${esc(t('From {0} receipts that show them.', tx.n))}</p>` : later(t('Appears when scanned receipts show SST or a service charge.'))}`);
+    <p class="fine">${esc(t('Delivery: GrabFood, foodpanda, ShopeeFood and the like.'))}</p>`);
+}
+
+// ---- fees: SST and charges over the year -----------------------------------------------------------------------------------------
+function feesCard(M) {
+  const year = M.slice(0, 4), tx = cached(taxPaid, booked(), year), fees = tx.sst + tx.service, y = cached(yearReview, booked(), year);
+  const end = year === today().slice(0, 4) ? today() : `${year}-12-31`, perDay = y.spent / (daysBetween(`${year}-01-01`, end) + 1), worth = perDay ? Math.round(fees / perDay) : 0;
+  return card('fees', t('SST and charges in {0}', year), tx.n ? t('{0} in SST and charges', fmtRM(fees)) : t('Nothing found yet for {0}', year), tx.n
+    ? `<p class="rowb"><span>${esc(t('SST'))} <b class="num">${esc(fmtRM(tx.sst))}</b></span><span>${esc(t('Service, delivery and app fees'))} <b class="num">${esc(fmtRM(tx.service))}</b></span></p>
+      ${worth >= 1 ? `<p class="callout">${esc(worth === 1 ? t('About 1 day of your usual spending.') : t('About {0} days of your usual spending.', worth))}</p>` : ''}<p class="fine">${esc(t('From {0} receipts that show them.', tx.n))}</p>`
+    : later(t('Appears when scanned receipts show SST or a service charge.')));
+}
+
+// ---- the same item at different shops --------------------------------------------------------------------------------------------
+function shopsCard() {
+  const rows = cached(shopPrices, booked(), today()).slice(0, 5), r = rows[0];
+  return card('shops', t('Same item, different shops'), r ? t('{0}: {1} less at {2}', r.name, fmtRM(r.save), r.shops[0].shop) : t('Nothing to compare yet'), rows.length
+    ? `<ul class="cmp">${rows.map(x => `<li><b>${esc(x.name)}</b><ul class="list">${x.shops.map((s, i) => `<li class="rowb"><span class="grow">${esc(s.shop)}<small>${esc(fmtDate(s.date))}</small></span><span class="num${i === 0 ? ' good' : ''}">${esc(fmtRM(s.unit))}</span></li>`).join('')}</ul></li>`).join('')}</ul>
+      <p class="fine">${esc(t('From your own receipts in the last 6 months: the price on the day you last bought it at each shop.'))}</p>`
+    : later(t('Appears when you buy the same item at two shops.')));
+}
+
+// ---- friends: who owes what, and since when ---------------------------------------------------------------------------------------
+function owedCard() {
+  const o = openShares(booked()), tdy = today(), sum = l => l.reduce((s, f) => s + f.sen, 0);
+  if (!o.owedMe.length && !o.iOwe.length) return '';
+  const age = f => (f.since ? daysBetween(f.since, tdy) : 0), oldest = l => [...l].sort((a, b) => age(b) - age(a));
+  const row = (f, mine) => `<li class="rowb"><span class="grow"><b>${esc(f.name)}</b><small>${esc(age(f) ? t('for {0} days', age(f)) : t('since today'))}</small></span><span class="num">${esc(fmtRM(f.sen))}</span>${mine
+    ? `<a class="btn small ghost" href="https://wa.me/?text=${encodeURIComponent(t('Hi {0}, a small reminder: {1} for the bill we split. Thanks!', f.name, fmtRM(f.sen)))}" target="_blank" rel="noopener noreferrer">${ICON.chat}${esc(t('Remind'))}</a>` : ''}</li>`;
+  return card('owed', t('Between friends'), [o.owedMe.length && t('Owed to you {0}', fmtRM(sum(o.owedMe))), o.iOwe.length && t('You owe {0}', fmtRM(sum(o.iOwe)))].filter(Boolean).join(' · '),
+    `${o.owedMe.length ? `<h3>${esc(t('Owed to you'))}</h3><ul class="list">${oldest(o.owedMe).map(f => row(f, true)).join('')}</ul>` : ''}${o.iOwe.length ? `<h3>${esc(t('You owe'))}</h3><ul class="list">${oldest(o.iOwe).map(f => row(f, false)).join('')}</ul>` : ''}
+    <p class="fine">${esc(t('"Remind" opens WhatsApp with a message for you to send; Tally sends nothing itself.'))}</p>`);
+}
+
+// ---- the next 30 days ------------------------------------------------------------------------------------------------------------
+/** What "Can I afford it?" and the next 30 days count: everyday money, and bills (yours and the ones Tally spotted, monthly
+ *  on their usual day). counted: an everyday account with a balance given (none: no starting point). */
+export function affordInputs() {
+  const accts = scopedAccounts(), known = S.recurring.filter(b => inScope(b)), tdy = today();
+  const bills = [...known, ...cached(recurringCandidates, booked(), known.map(b => b.key)).map(c => ({ id: `c-${c.key}`, name: c.merchant, amount: c.amount, freq: 'monthly', day: c.day, start: `${monthOf(tdy)}-01` }))];
+  return { ...affordMoney(accts, booked()), bills, counted: accts.some(a => a.typed !== false && !owing(a) && a.kind !== 'savings') };
+}
+const next30Of = (txs, o) => next30({ txs, ...o });
+function next30Card() {
+  const a = affordInputs(); if (!a.counted) return '';
+  const n = cached(next30Of, booked(), { balance: a.balance, today: today(), startDay: startDay(), bills: a.bills }), hide = balHidden(), money = v => (hide ? MASK : fmtRM(v));
+  const base = Math.min(...n.days.slice(1).map(d => d.in)), events = n.days.filter(d => d.out || d.in - base > 50), dip = n.days.find(d => d.bal < 0);
+  return card('next30', t('Next 30 days'), hide ? t('Lowest on {0}', fmtDate(n.low.date)) : t('Lowest: {0} on {1}', fmtRM(n.low.bal), fmtDate(n.low.date)),
+    `${dip ? `<p class="callout bad">${esc(t('You may run short around {0}.', fmtDate(dip.date)))}</p>` : ''}${hide ? '' : lineChart(n.days.map(d => ({ date: d.date, v: d.bal })), { label: t('Your money over the next 30 days') })}
+    ${events.length ? `<ul class="list">${events.map(d => `<li class="rowb"><span class="grow">${esc(fmtDate(d.date))}</span>${d.in - base > 50 ? `<span class="num good">+${esc(money(d.in - base))} ${esc(t('pay'))}</span>` : ''}${d.out ? `<span class="num bad">−${esc(money(d.out))} ${esc(t('bills'))}</span>` : ''}</li>`).join('')}</ul>` : ''}
+    <p class="fine">${esc(t('Your money today, with pay and bills on their days and your usual everyday spending each day: the same sums as "Can I afford it?".'))}</p>`);
 }
 
 // ---- 2. your prices --------------------------------------------------------------------------------------------------------------
@@ -128,7 +185,10 @@ function pricesCard() {
     return `<li>${spark(h.points)}<span class="grow"><b>${esc(h.name)}</b><small>${esc(t('{0} buys', h.points.length))}</small><span class="sr">${esc(h.points.map(p => `${fmtDate(p.date)} ${fmtRM(p.unit)}`).join(', '))}</span></span>
       <span class="pr"><b class="num">${esc(fmtRM(last))}</b><small class="${ch > 0.005 ? 'bad' : ch < -0.005 ? 'good' : 'fine'}">${Math.abs(ch) < 0.005 ? esc(t('same')) : `${ch > 0 ? '▲' : '▼'} ${esc(pct(Math.abs(ch)).replace('+', ''))}`}</small></span></li>`;
   }).join('');
-  return card('prices', t('Your prices'), head, hist.length ? `${b ? `<p class="fine">${esc(t('Your usual basket ({0} items) at today\'s prices against {1}: {2} then, {3} now.', b.n, fmtDate(b.since), fmtRM(b.then), fmtRM(b.now)))}</p>` : ''}<ul class="prices">${rows}</ul>`
+  // Malaysia's food prices (DOSM CPI) over about the same months, the nearest ones published
+  const my = b && cpiChange(CPI.food, b.since.slice(0, 7), today().slice(0, 7));
+  const vs = my ? `<p class="callout">${esc(t("Malaysia's food prices over about the same time: {0} ({1} to {2}).", pct(my.pct), fmtMonth(my.from), fmtMonth(my.to)))}<small>${esc(t('Source: DOSM consumer price index, food and drinks.'))}</small></p>` : '';
+  return card('prices', t('Your prices'), head, hist.length ? `${b ? `<p class="fine">${esc(t('Your usual basket ({0} items) at today\'s prices against {1}: {2} then, {3} now.', b.n, fmtDate(b.since), fmtRM(b.then), fmtRM(b.now)))}</p>${vs}` : ''}<ul class="prices">${rows}</ul>`
     : later(t('Appears once an item is on 3 receipts.')));
 }
 
@@ -158,11 +218,84 @@ export function analyticsCards(M) {
   const n = booked().filter(x => x.type === 'expense').length, need = 5;
   // Tax relief doesn't wait for 5 entries: people come to Tally for it at tax time (a zakat payment, a child's books).
   if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${on('taxrelief') && cached(taxRelief, booked(), reliefYear(M)).some(l => l.entries.length) ? reliefCard(M) : ''}`;
-  return [scope() === 'joint' && jointCard(M), fixedCard(M), foodCard(M), whenCard(M), payCard(M), pricesCard(), on('taxrelief') && reliefCard(M)].filter(Boolean).join('');
+  return [scope() === 'joint' && jointCard(M), M === thisMonth() && next30Card(), owedCard(), fixedCard(M), foodCard(M), feesCard(M), whenCard(M), shopsCard(), payCard(M), pricesCard(), on('taxrelief') && reliefCard(M)].filter(Boolean).join('');
+}
+
+// ---- top of Insights: three numbers first, then a picture to share, then the year -----------------------------------------------------
+/** Spent, money in and kept in month M; spent against last month (this month: up to the same day of it). */
+export function headline(M) {
+  const sd = startDay(), all = booked(), pm = addMonths(M, -1), cur = M === thisMonth();
+  const spent = cached(monthSpends, all, [M], sd)[M].total, inn = cached(monthIncomes, all, [M], sd)[M];
+  const ps = cycleSpan(pm, sd).start, into = daysBetween(cycleSpan(M, sd).start, today());
+  const before = cur ? monthSpend(all.filter(x => cycleKey(x.date, sd) !== pm || daysBetween(ps, x.date) <= into), pm, sd).total : cached(monthSpends, all, [pm], sd)[pm].total;
+  return { spent, inn, kept: inn - spent, change: before ? (spent - before) / before : null, cur };
+}
+export function tilesHtml(M) {
+  const sd = startDay(), h = headline(M), year = M.slice(0, 4);
+  if (!h.spent && !h.inn) return '';
+  const ch = h.change == null ? '' : Math.abs(h.change) < 0.005 ? t('same as {0}', cycleShort(addMonths(M, -1), sd)) : `${h.change > 0 ? '▲' : '▼'} ${t('{0} vs {1}', pct(Math.abs(h.change)).replace('+', ''), cycleShort(addMonths(M, -1), sd))}`;
+  return `<section class="tiles" aria-label="${esc(fmtMonth(M, sd))}">
+    <div class="tile"><span class="lbl">${esc(t('Spent'))}</span><b class="num">${esc(fmtRM(h.spent))}</b>${ch ? `<small class="${h.change > 0.005 ? 'bad' : h.change < -0.005 ? 'good' : ''}">${esc(ch)}${h.cur ? ` ${esc(t('(same day)'))}` : ''}</small>` : ''}</div>
+    <div class="tile"><span class="lbl">${esc(t('Money in'))}</span><b class="num">${esc(fmtRM(h.inn))}</b></div>
+    ${h.inn ? `<div class="tile"><span class="lbl">${esc(h.kept >= 0 ? t('Kept') : t('Over'))}</span><b class="num ${h.kept >= 0 ? 'good' : 'bad'}">${esc(fmtRM(Math.abs(h.kept)))}</b></div>`
+      : `<div class="tile"><span class="lbl">${esc(t('Kept'))}</span><b class="num">–</b><small>${esc(t('when money comes in'))}</small></div>`}</section>
+    <div class="tilebar"><button class="link" data-act="month-share" data-m="${M}">${ICON.share}${esc(t('Share this month'))}</button><button class="link" data-act="year-open" data-y="${year}">${ICON.award}${esc(t('Your {0}', year))}</button></div>`;
+}
+/** A picture to share (WhatsApp, a partner): a title, a subtitle and rows [label, value, bar 0–1?], in the app's dark colours. */
+async function sharePicture(title, sub, rows, name) {
+  const W = 1080, H = Math.max(1080, 440 + rows.length * 132), c = Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
+  g.fillStyle = '#0F172A'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1E293B'; g.beginPath(); g.roundRect(48, 48, W - 96, H - 96, 40); g.fill();
+  g.textAlign = 'left'; g.fillStyle = '#FFFFFF'; g.font = '700 64px "Bricolage Grotesque", system-ui, sans-serif'; g.fillText(title, 110, 190);
+  g.fillStyle = 'rgba(255,255,255,.65)'; g.font = '500 38px "IBM Plex Sans", system-ui, sans-serif'; g.fillText(sub, 110, 250);
+  // Each row: the label, and its value on the line under it (a long one, "Rent & housing · RM 1,300.00", never runs into
+  // the label), shrunk to fit the card's width.
+  rows.forEach(([label, value, bar], i) => {
+    const y = 340 + i * 132;
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '500 32px "IBM Plex Sans", system-ui, sans-serif'; g.fillText(label, 110, y);
+    let size = 46; do g.font = `700 ${size}px "IBM Plex Mono", ui-monospace, monospace`; while (g.measureText(value).width > W - 220 && (size -= 2) > 22);
+    g.fillStyle = '#FFFFFF'; g.fillText(value, 110, y + 54);
+    if (bar != null) { g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(110, y + 72, W - 220, 12); g.fillStyle = '#60A5FA'; g.fillRect(110, y + 72, Math.max(6, (W - 220) * bar), 12); }
+  });
+  g.fillStyle = '#60A5FA'; g.font = '600 34px "IBM Plex Sans", system-ui, sans-serif'; g.fillText('tallymy.github.io', 110, H - 110);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png')); if (!blob) return;
+  const file = new File([blob], `${name}.png`, { type: 'image/png' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title }); } catch { /* closed */ } return; }
+  const url = URL.createObjectURL(blob), a = Object.assign(document.createElement('a'), { href: url, download: file.name });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+/** The year in a few big numbers. */
+function yearRows(year) {
+  const y = yearReview(booked(), year, settings().noSpend || []);
+  return [[t('Spent'), fmtRM(y.spent)], y.income && [t('Money in'), fmtRM(y.income)], y.income && [y.income >= y.spent ? t('Kept') : t('Over'), fmtRM(Math.abs(y.income - y.spent))],
+    y.cat && [t('Most went to'), `${catLabel(y.cat.id)} · ${fmtRM(y.cat.v)}`], y.shop && [t('Your most-visited shop'), `${y.shop.name} · ${t('{0} visits', y.shop.n)}`],
+    y.item && [t('What you bought most'), `${y.item.name} · ${y.item.n}×`], [t('Days you logged'), String(y.logged)], y.noSpend && [t('Days with nothing spent'), String(y.noSpend)],
+    y.fees && [t('SST and charges'), fmtRM(y.fees)]].filter(Boolean);
 }
 
 export const act = {
   acard: b => { const d = b.parentElement, id = b.dataset.id; d.open = !d.open; if (d.open) OPEN.add(id); else OPEN.delete(id); },
+  // A category on the donut: what was bought in it (receipt items; payments without one by shop), then its entries.
+  'cat-items': b => {
+    const c = b.dataset.c, M = b.dataset.m, sd = startDay(), rows = categoryItems(booked(), c, M, sd);
+    openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(`${catLabel(c)} · ${fmtMonth(M, sd)}`)}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      ${rows.length ? hbars(rows.slice(0, 15).map(r => ({ name: r.name, v: r.v, text: r.n > 1 ? t('{0} · {1}×', fmtRM(r.v), r.n) : fmtRM(r.v) })), rows[0].v) : later(t('No spending in {0}.', fmtMonth(M, sd)))}
+      ${rows.length > 15 ? later(t('And {0} more.', rows.length - 15)) : ''}<p class="fine">${esc(t('Scanned receipts are split item by item, each with its share of SST and charges. Payments without items show their shop.'))}</p>
+      <button class="btn wide" data-act="cat-go" data-c="${esc(c)}" data-m="${M}">${esc(t('See the entries'))}</button>`, { label: catLabel(c) });
+  },
+  'cat-go': b => { closeSheet(); showCategory(b.dataset.c, b.dataset.m); },
+  'month-share': b => {
+    const M = b.dataset.m, sd = startDay(), h = headline(M), parts = Object.entries(cached(monthSpends, booked(), [M], sd)[M].byCat).filter(([, v]) => v > 0).sort((a, c) => c[1] - a[1]).slice(0, 5);
+    return sharePicture(fmtMonth(M, sd), t('My month with Tally'), [[t('Spent'), fmtRM(h.spent)], h.inn ? [h.kept >= 0 ? t('Kept') : t('Over'), fmtRM(Math.abs(h.kept))] : null,
+      ...parts.map(([c, v]) => [catLabel(c), fmtRM(v), v / (h.spent || 1)])].filter(Boolean), `tally-${M}`);
+  },
+  'year-open': b => {
+    const y = b.dataset.y;
+    openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('Your {0}', y))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+      <ol class="yr">${yearRows(y).map(([l, v]) => `<li><span class="lbl">${esc(l)}</span><b>${esc(v)}</b></li>`).join('')}</ol>
+      <button class="btn wide" data-act="year-share" data-y="${y}">${ICON.share}${esc(t('Share as a picture'))}</button><p class="fine">${esc(t('The picture is made on this phone. Nothing leaves it unless you share it.'))}</p>`, { label: t('Your {0}', y) });
+  },
+  'year-share': b => sharePicture(t('My {0} with Tally', b.dataset.y), b.dataset.y === today().slice(0, 4) ? t('So far this year') : t('The whole year'), yearRows(b.dataset.y), `tally-${b.dataset.y}`),
   // Every relief's receipt photos in a folder of its own, with a list of all its entries (photo or not) for the tax form.
   'relief-dl': b => {
     const y = b.dataset.y, byId = new Map(S.tx.map(x => [x.id, x])), taken = new Set(), rows = [], csv = [csvLine(['Relief', 'Date', 'Shop', 'Amount (RM)', 'Photo'])];

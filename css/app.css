@@ -900,3 +900,23 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 /* Savings goals (Home) */
 .goallist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .goallist li { display: grid; gap: 6px; }
+
+/* Insights: three numbers first, a picture to share, the year, a category's items, one item across shops */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.tile { background: var(--panel); border-radius: var(--radius); padding: var(--sp-3); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile .lbl { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.tile b { font: 750 var(--fs-md)/1.2 var(--display); overflow-wrap: anywhere; }
+.tile small { font-size: var(--fs-xs); }
+.tilebar { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); justify-content: flex-end; }
+.tilebar .link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.callout { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: calc(var(--radius) - 4px); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.callout.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: inherit; }
+.callout small { display: block; color: var(--mute); font-size: var(--fs-xs); margin-top: 2px; }
+.legend small.bud { display: block; font-size: var(--fs-xs); }
+.cmp { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.cmp small, .list .grow small { display: block; color: var(--mute); font-size: var(--fs-xs); }
+.yr { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.yr li { background: var(--panel); border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
+.yr .lbl { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.yr b { font: 750 var(--fs-lg)/1.25 var(--display); overflow-wrap: anywhere; }
+@media (max-width: 359px) { .tiles { grid-template-columns: 1fr; } }
