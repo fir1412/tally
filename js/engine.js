@@ -32,6 +32,47 @@ export const SUBS = {
   shopping: ['Clothes', 'Online', 'Gifts'], fun: ['Movies', 'Sports', 'Travel'], education: ['Courses', 'Books'], giving: ['Zakat', 'Donations'],
 };
 export const subsOf = (c, own = {}) => [...new Set([...(SUBS[c] || []), ...(own?.[c] || [])])];
+// A subcategory guessed from the shop's name and the items, per category, cautious: a wrong guess is worse than none.
+// Groceries has none on purpose (one trip is fresh food, snacks and drinks at once).
+const SUB_RULES = {
+  dining: [[/grab ?food|food ?panda|shopee ?food|deliveroo|airasia food|mcdelivery|beep delivery/i, 'Delivery'],
+    [/\b(kfc|mc ?donald'?s?|mcd|texas chick|marry ?brown|burger king|pizza hut|domino'?s|a&w|subway|kenny rogers|wendy'?s|4 ?fingers|popeyes|jollibee|nando'?s|sushi king)\b/i, 'Fast food'],
+    [/kopitiam|kedai kopi|old ?town|kopi ?saigon|uncle don|hainan|kluang (station|rail)/i, 'Kopitiam'],
+    [/mamak|nasi kandar|pelita|line clear|syed bistro/i, 'Mamak'],
+    [/starbucks|\bzus\b|luckin|coffee bean|kenangan|gigi coffee|tim hortons|\bcaf[eé]\b|coffee/i, 'Café']],
+  transport: [[/petronas|\bshell\b|caltex|petron|\bbhp\b|ron ?9[57]|petrol|diesel|primax|v-?power/i, 'Petrol'],
+    [/\bplus\b|\btolls?\b|\btol\b|lebuhraya|smart ?tag/i, 'Toll'], [/parking|parkir|letak kereta|flexi ?parking|parkeasy/i, 'Parking'],
+    [/\bgrab\b(?! ?(food|mart|express))|airasia ride|maxim|indrive|e-?hailing/i, 'E-hailing'], [/rapid ?kl|\b(lrt|mrt|ktm|ets)\b|monorail|komuter/i, 'Public transport']],
+  bills: [[/\btnb\b|tenaga nasional|my ?tnb|\bsesb\b|sesco/i, 'Electricity'], [/air selangor|indah water|syabas|ranhill|\bpba\b|\bsaj\b|\blaku\b/i, 'Water'],
+    [/unifi|time ?fibre|maxis ?fibre|celcom ?home|broadband|internet/i, 'Internet'], [/celcom|\bdigi\b|maxis|u ?mobile|yes ?4g|tune ?talk|hotlink|\bxox\b|redone|prepaid|postpaid/i, 'Phone']],
+  health: [[/watsons|guardian|caring pharmacy|alpro|big ?pharmacy|aa pharmacy|farmasi|pharmacy/i, 'Pharmacy'], [/pergigian|dental|dentist/i, 'Dental'], [/klinik|clinic|medical cent/i, 'Clinic']],
+  personal: [[/barber|salon|gunting rambut|haircut/i, 'Haircut']],
+  housing: [[/\bsewa\b|\brent(al)?\b/i, 'Rent']],
+  fun: [[/\bgsc\b|golden screen|\btgv\b|\bmbo\b|cinema|wayang|\blfs\b/i, 'Movies'], [/airasia(?! (food|ride))|malaysia airlines|batik air|firefly|\bhotel\b|agoda|booking\.com|airbnb|trip\.com/i, 'Travel']],
+  shopping: [[/shopee(?! ?(food|pay))|lazada|zalora|taobao|tiktok shop|\btemu\b|shein/i, 'Online'], [/uniqlo|h&m|\bzara\b|padini|brands outlet|cotton on/i, 'Clothes']],
+  giving: [[/zakat|\bpzs\b|maiwp/i, 'Zakat'], [/derma|donation|tabung|wakaf|sumbangan/i, 'Donations']],
+  education: [[/kinokuniya|popular book|\bmph\b|book ?xcess|bookstore/i, 'Books'], [/kursus|tuition|udemy|coursera/i, 'Courses']],
+};
+const ITEM_SAYS = { Petrol: /ron ?9[57]|diesel|primax|v-?power|\bpetrol\b/i, Mamak: /nasi kandar/i };
+/** An entry's subcategory, guessed: the one you gave this shop before (learned: {shopKey: [category, sub]}), else a rule on
+ *  the shop's name and its items, else none (''). */
+export function subFor(category, merchant = '', items = [], learned = {}) {
+  const k = shopWord(merchant || ''), was = k && Object.hasOwn(learned || {}, k) ? learned[k] : null;
+  if (was?.[0] === category) return was[1];
+  // The shop's name decides; an item only where the item says it (RON95 is petrol, nasi kandar is mamak): a kopi or a
+  // "Hainan chicken rice" on the bill doesn't make the place a kopitiam (owner's bench: 3 bistros were).
+  const names = items.slice(0, 12).map(i => i.name).filter(Boolean).join(' ');
+  for (const [re, sub] of SUB_RULES[category] || []) if (re.test(merchant || '') || (ITEM_SAYS[sub]?.test(names))) return sub;
+  return '';
+}
+/** What saving an entry teaches: its shop's subcategory (or forgets it when cleared). → the new learned map, or null. */
+export function learnSub(learned = {}, tx) {
+  const k = tx.merchant && shopWord(tx.merchant); if (!k || tx.type === 'transfer') return null;
+  const was = Object.hasOwn(learned, k) ? learned[k] : null;
+  if (tx.sub && !(was?.[0] === tx.category && was[1] === tx.sub)) return Object.fromEntries([...Object.entries(learned).filter(([x]) => x !== k), [k, [tx.category, tx.sub]]].slice(-1000));
+  if (!tx.sub && was?.[0] === tx.category) { const { [k]: _, ...rest } = learned; return rest; }
+  return null;
+}
 /** A category's spending in a month split by subcategory: [{sub ('' = none), v}], most first. Receipt items count with
  *  their entry's subcategory. */
 export function subSplit(txs, c, ym, sd = 1) {

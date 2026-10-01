@@ -3,7 +3,7 @@ import { S, jointIds, saveTx, keepToday, saveAccount, addCategory, incomeCats, c
 import { t, fmtDate, fmtMonth, monShort, getLang, langTag } from '../i18n.js';
 import { esc, ICON, openSheet, closeSheet, confirmSheet, toast, lineChart, $, landed, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { subsOf, fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
+import { subsOf, subFor, learnSub, fmtRM, unmarkedPayments, parseAmount, itemKey, categorize, addMonths, monthOf, monthSpend, monthSpends, byDate, leftOverPaybacks, pace, validIso, findDuplicate, recurringCandidates, billKey, INCOME_CATEGORIES, calcAmount, cycleKey, cycleSpan, addDays, billDates, billStatus, dueBillTxs, tooLarge, isFx, fmtAcct, owing } from '../engine.js';
 import { billEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, receiptName, zipStore, toCSV } from '../io.js';
 import { catIcon } from '../caticons.js';
@@ -432,7 +432,7 @@ export const act = {
     el.addEventListener('click', e => { const x = e.target.closest('[data-x]')?.dataset.x; if (x) done(x === 'ok'); });
     el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
   },
-  'tx-cat': b => { readForm(); catPicked = true; if (b.dataset.c !== draft.category) draft.sub = undefined; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
+  'tx-cat': b => { readForm(); catPicked = true; if (b.dataset.c !== draft.category) draft.sub = on('subcats') ? subFor(b.dataset.c, draft.merchant, [], S.kv.subRules) || undefined : undefined; draft.category = b.dataset.c; if (draft.items?.length) draft.items.forEach(i => { i.category = b.dataset.c; }); reopen(); },
   // Several things in one payment (a phone and fish at the mall): list them and each is sorted into its category.
   'tx-split': async () => {
     const typed = $('#tx-amt')?.value || '';   // "鱼 25, 菜 8" typed as the amount: those become the items
@@ -461,6 +461,7 @@ export const act = {
     b.disabled = true;
     const x = { ...draft, createdAt: draft.createdAt || Date.now() }, was = S.tx.find(y => y.id === x.id);
     await saveTx(x);
+    { const L = on('subcats') && learnSub(S.kv.subRules, x); if (L) await setKv('subRules', L); }   // this shop's subcategory, next time
     if (was) await keepToday(was, -1);   // an edit: the old version's move out, the new one's in
     await keepToday(x);   // an old receipt doesn't change the balance typed today
     await rateFrom(x);

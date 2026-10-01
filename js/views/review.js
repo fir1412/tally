@@ -1,10 +1,10 @@
 // Scan → review → save. Photos are read one at a time in a queue, so capture never waits on the screen.
 // Only uncertain lines are flagged; the checksum says whether the items add up to the printed total.
-import { S, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, defaultAccount } from '../state.js';
+import { S, cat, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, learn, expenseCats, today, nowTime, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames, owing } from '../engine.js';
+import { subFor, learnSub, subsOf, fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames, owing } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { on } from '../features.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES, readPct } from '../scan.js';
@@ -146,6 +146,7 @@ function toDraft(r) {
   return {
     id: uid('t'), type: 'expense', source: 'receipt', merchant, readName: read, returnDays: r.returnDays, warrantyMonths: r.warrantyMonths, date: r.date && r.date <= today() ? r.date : today(), dateFound: !!r.date, time: r.time || nowTime(),
     accountId: defaultAccount('receipt', { amount: r.total || 0, shop: merchant, category, pay: r.pay, currency: r.currency }), currency: r.currency, category, items,
+    sub: on('subcats') ? subFor(category, merchant, items, S.kv.subRules) : '',   // guessed from the shop and the items, or learned
     total: r.total, totalGuessed: !!r.totalGuessed, tax: r.tax ?? 0, service: r.service ?? 0, rounding: r.rounding ?? 0, taxIncluded: !!r.taxIncluded,
     ...(r.refund ? { refund: true } : {}),
   };
@@ -231,6 +232,8 @@ export const reviewView = {
       ${dup ? `<p class="warnbox">${ICON.alert}${esc(t('Looks like you already added this: {0} on {1}.', fmtRM(dup.amount), fmtDate(dup.date)))}</p>` : ''}
       <section class="card">
         <label class="field"><span>${esc(t('Shop'))}</span><input id="rv-merchant" maxlength="80" value="${esc(d.merchant)}" data-input="rv-f" data-k="merchant"></label>
+        ${on('subcats') && !d.refund ? (() => { const c = d.items.length ? mostSpent(d.items) : d.category;   // a subcategory of what most of it was
+          return `<div class="field"><span>${esc(t('Subcategory'))} · ${esc(t(cat(c).name))}</span><div class="chips subs" role="group" aria-label="${esc(t('Subcategory'))}">${subsOf(c, S.kv.subcats).map(n => `<button type="button" class="chip small${d.sub === n ? ' on' : ''}" aria-pressed="${d.sub === n}" data-act="rv-sub" data-s="${esc(n)}">${esc(t(n))}</button>`).join('')}</div></div>`; })() : ''}
         <div class="grid2"><label class="field"><span>${esc(t('Date'))}${d.dateFound ? '' : ` <em class="warn">${esc(t('(not found, check)'))}</em>`}</span><input id="rv-date" type="date" min="1990-01-01" value="${esc(d.date)}" max="${esc(today())}" data-input="rv-f" data-k="date"></label>
         <label class="field"><span>${esc(t('Paid from'))}</span><select id="rv-acc" data-input="rv-f" data-k="accountId">${S.accounts.filter(a => !owing(a) || a.id === d.accountId).map(a => `<option value="${esc(a.id)}"${d.accountId === a.id ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}<option value="+">${esc(t('+ Add an account…'))}</option></select></label></div>
         ${(() => { const a = S.accounts.find(x => x.id === d.accountId), cur = a?.currency || 'MYR';   // the receipt's money vs the account's: said, never silently mixed
@@ -265,6 +268,7 @@ export const input = {
   'rv-remind': el => { const d = current?.draft; if (d) { d[el.dataset.k] = el.checked; persist(); } },
   'rv-pick': el => { const s = current.picked ||= new Set(), n = +el.dataset.n; if (el.checked) s.add(n); else s.delete(n); const c = $('.bulkbar .fine'); if (c) c.textContent = t('{0} selected', s.size); },
   'rv-refund': el => { const d = current?.draft; if (d) { d.refund = el.checked; if (el.checked) d.accountId = $('#rv-acc')?.value || d.accountId; persist(); } },
+  'rv-sub': b => { const d = current?.draft; if (!d) return; d.sub = d.sub === b.dataset.s ? '' : b.dataset.s; persist(); render(); },   // tap again: none
   'rv-f': el => {
     const d = current?.draft; if (!d) return;
     const k = el.dataset.k;
@@ -438,7 +442,9 @@ export const act = {
     const spentOn = items.length ? mostSpent(items) : d.category;   // a refund lowers spending there instead
     const tx = { ...was, id: d.id, date: d.date, time: d.time, type: d.refund ? 'income' : 'expense', amount: d.total, accountId: d.accountId, merchant: (d.merchant || '').trim(), note: d.note || '',
       category: d.refund ? 'refund' : spentOn, ...(d.refund ? { cat: spentOn, refundOf: d.refundOf || refundTarget(d) } : { cat: undefined }), ...(d.remindReturn && d.returnDays ? { returnBy: returnDate(d) } : {}), ...(d.remindWarranty && d.warrantyMonths ? { warranty: warrantyDate(d) } : {}), items, tax: d.tax || 0, service: d.service || 0, rounding: d.rounding || 0, source: was.source || 'receipt', createdAt: d.createdAt || Date.now(), ...(d.receiptId ? { receiptId: d.receiptId } : {}) };
+    if (on('subcats') && !d.refund) { if (d.sub) tx.sub = d.sub; else delete tx.sub; }   // off: an edit keeps what it had
     await saveTx(tx);
+    { const L = on('subcats') && learnSub(S.kv.subRules, tx); if (L) await setKv('subRules', L); }   // this shop's subcategory, next time
     if (!current.existing) await keepToday(tx);   // an old receipt doesn't change the balance typed today
     clearTimeout(persistT); await setKv('reviewDraft', null);   // saved: nothing to resume, even if the tab dies now
     if (d.readName && tx.merchant && tx.merchant !== d.readName && itemKey(d.readName))   // remember the name they gave this shop

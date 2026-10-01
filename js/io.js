@@ -962,6 +962,8 @@ export function readBackup(text) {
     if (isObj(d.kv.itemNames)) kv.itemNames = Object.fromEntries(Object.entries(d.kv.itemNames).slice(-2000).map(([k, v]) => [cleanText(k, 60), cleanText(v, 80)]).filter(([k, v]) => k && v && !RESERVED.has(k)));
     // A category's own subcategories: up to 30 short names each, under a known-looking category id
     if (isObj(d.kv.subcats)) kv.subcats = Object.fromEntries(Object.entries(d.kv.subcats).filter(([k, v]) => /^[\w-]{1,40}$/.test(k) && !RESERVED.has(k) && Array.isArray(v)).slice(0, 80).map(([k, v]) => [k, [...new Set(v.map(x => cleanText(x, 30)).filter(Boolean))].slice(0, 30)]));
+    // What a shop's subcategory was: {shopKey: [category, sub]}
+    if (isObj(d.kv.subRules)) kv.subRules = Object.fromEntries(Object.entries(d.kv.subRules).filter(([k, v]) => cleanText(k, 60) && !RESERVED.has(k) && Array.isArray(v) && /^[\w-]{1,40}$/.test(v[0]) && cleanText(v[1], 30)).slice(-1000).map(([k, v]) => [cleanText(k, 60), [v[0], cleanText(v[1], 30)]]));
     if (Array.isArray(d.kv.dismissed)) kv.dismissed = d.kv.dismissed.filter(x => typeof x === 'string' && x.length <= 120).slice(-300);
     if (Array.isArray(d.kv.customCats)) kv.customCats = customCats;
     if (isObj(d.kv.catColors)) kv.catColors = Object.fromEntries(Object.entries(d.kv.catColors).slice(0, 100).filter(([k, v]) => cat(k) === k && /^#[0-9a-f]{6}$/i.test(v)));
@@ -1023,6 +1025,7 @@ export function mergeBackup(local, incoming) {
       rules: { ...(incoming.kv.rules || {}), ...(local.kv.rules || {}) },
       shopNames: { ...(incoming.kv.shopNames || {}), ...(local.kv.shopNames || {}) },
       itemNames: { ...(incoming.kv.itemNames || {}), ...(local.kv.itemNames || {}) },
+      subRules: { ...(incoming.kv.subRules || {}), ...(local.kv.subRules || {}) },
       subcats: Object.fromEntries([...new Set([...Object.keys(incoming.kv.subcats || {}), ...Object.keys(local.kv.subcats || {})])].map(k => [k, [...new Set([...(local.kv.subcats?.[k] || []), ...(incoming.kv.subcats?.[k] || [])])].slice(0, 30)])),
       customCats: merge(local.kv.customCats || [], incoming.kv.customCats || []),
       catColors: { ...(incoming.kv.catColors || {}), ...(local.kv.catColors || {}) },

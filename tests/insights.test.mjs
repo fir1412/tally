@@ -98,3 +98,19 @@ test('subcategories: suggested and own ones, a category split by them, kept in b
   assert.deepEqual(back.kv.subcats, { dining: ['Mamak', 'Hawker'] });
   assert.equal(typeof guessMapping, 'function'); assert.equal(typeof headerRow, 'function'); assert.equal(typeof rowsToTx, 'function');
 });
+
+test('subcategory guesses: the shop name decides, items only where they say it, and what you chose is learned', () => {
+  assert.equal(E.subFor('dining', 'KFC Bangsar'), 'Fast food');
+  assert.equal(E.subFor('dining', 'GrabFood'), 'Delivery');
+  assert.equal(E.subFor('dining', 'Restoran ABC One Bistro', [{ name: 'Hainan Chicken Rice' }, { name: 'Kopi O' }]), '');   // a dish doesn't make a kopitiam
+  assert.equal(E.subFor('dining', 'Restoran Contoh Maju', [{ name: 'Nasi Kandar Ayam' }]), 'Mamak');
+  assert.equal(E.subFor('transport', 'Stesen Contoh', [{ name: 'RON95 20.50L' }]), 'Petrol');
+  assert.equal(E.subFor('transport', 'Grab'), 'E-hailing');
+  assert.equal(E.subFor('dining', 'Grab'), '');   // a category without that subcategory gets none
+  assert.equal(E.subFor('groceries', 'Mydin', [{ name: 'Snek Contoh' }]), '');   // groceries: never guessed
+  const L = E.learnSub({}, { type: 'expense', merchant: 'Restoran Maju Jaya', category: 'dining', sub: 'Mamak' });
+  assert.equal(E.subFor('dining', 'RESTORAN MAJU JAYA', [], L), 'Mamak');
+  assert.equal(E.subFor('fun', 'Restoran Maju Jaya', [], L), '');   // learned for dining only
+  assert.deepEqual(E.learnSub(L, { type: 'expense', merchant: 'Restoran Maju Jaya', category: 'dining' }), {});   // cleared: forgotten
+  assert.equal(E.learnSub(L, { type: 'expense', merchant: 'Restoran Maju Jaya', category: 'dining', sub: 'Mamak' }), null);   // nothing new
+});

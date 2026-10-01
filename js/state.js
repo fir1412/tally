@@ -4,7 +4,7 @@ import { typedShift, CAPS, CAT_CODE, catName, sameCategory, mapCategory } from '
 import { CATEGORIES, INCOME_CATEGORIES, itemKey, cycleKey, nextColor, pickAccount, balances, isFx, rateOf, toRM, ownCategories, movedCategories, owing } from './engine.js';
 
 export const S = { accounts: [], tx: [], recurring: [], kv: {} };
-const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames', 'itemNames', 'goals', 'subcats'];   // every key setKv writes must be here, or it is lost on restart
+const KV_KEYS = ['settings', 'budgets', 'rules', 'customCats', 'dismissed', 'lastBackup', 'reviewDraft', 'scanQueue', 'catColors', 'catIcons', 'jointGone', 'shopNames', 'itemNames', 'goals', 'subcats', 'subRules'];   // every key setKv writes must be here, or it is lost on restart
 
 /** Encrypted and not unlocked yet: nothing but the settings is loaded, and nothing may be saved. */
 export const locked = () => !!S.kv.settings?.lock?.enc && !db.getKey();
@@ -29,6 +29,7 @@ export async function load() {
   S.kv.catIcons ||= {};
   S.kv.goals ||= [];
   S.kv.subcats ||= {};
+  S.kv.subRules ||= {};
   S.accounts.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return mode;
 }
@@ -333,7 +334,7 @@ export async function sweepPhotos() {
 }
 
 // ---- whole-data operations (restore, erase) ---------------------------------------------------------------------
-const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames', 'itemNames', 'catColors', 'catIcons', 'goals', 'subcats'];
+const BACKUP_KV = ['budgets', 'rules', 'customCats', 'dismissed', 'shopNames', 'itemNames', 'catColors', 'catIcons', 'goals', 'subcats', 'subRules'];
 const kvRows = kv => Object.entries(kv || {}).filter(([k, v]) => KV_KEYS.includes(k) && v != null).map(([key, value]) => ({ key, value }));
 /** Replace everything with a backup, all or nothing: old photos and the settings a backup carries go too. */
 export async function replaceAll({ accounts, tx, recurring, kv }) {
