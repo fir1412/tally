@@ -130,7 +130,7 @@ const track = (g, px) => { if ('letterSpacing' in g) g.letterSpacing = `${px}px`
 // doesn't arrive (offline before the first share) leaves the fallback after ms: never block the share.
 const FILES = [['Instrument Sans', 'instrument-sans-latin.woff2', { weight: '400 700' }], ['Instrument Serif', 'instrument-serif-italic-latin.woff2', { style: 'italic' }], ['JetBrains Mono', 'jetbrains-mono-500-latin.woff2', { weight: '500' }]];
 let fontsP;
-const brandFonts = (ms = 3000) => Promise.race([fontsP ||= Promise.all(FILES.map(([f, file, d]) => {
+export const brandFonts = (ms = 3000) => Promise.race([fontsP ||= Promise.all(FILES.map(([f, file, d]) => {
   const ff = new FontFace(f, `url(${new URL(`../fonts/${file}`, import.meta.url)})`, d); document.fonts.add(ff); return ff.load().catch(() => {});
 })), new Promise(r => setTimeout(r, ms))]);
 
@@ -171,11 +171,12 @@ function display(g, s, x, y, { size, maxW, color, dry, align }) {
 }
 
 /** Tally's mark, the app icon (icons/icon.svg): a receipt with a green tick on navy. Below 24 px, the simple one
- *  (icons/mark-small.svg): no printed lines, a bigger tick. */
-function mark(g, x, y, s) {
+ *  (icons/mark-small.svg): no printed lines, a bigger tick. small: the simple one at any size (a sticker's label is 24 px
+ *  on its 512 canvas but about 7 px in a chat). */
+export function mark(g, x, y, s, small = s < 24) {
   const line = (d, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = g.lineJoin = 'round'; g.stroke(new Path2D(d)); };
   g.save(); g.translate(x, y);
-  if (s >= 24) {
+  if (!small) {
     g.scale(s / 512, s / 512);
     g.fillStyle = '#0F172A'; g.beginPath(); g.roundRect(0, 0, 512, 512, 112); g.fill();
     g.fillStyle = '#F4F4EF'; g.fill(new Path2D('M160 104h192v304l-32-22-32 22-32-22-32 22-32-22-32 22z'));

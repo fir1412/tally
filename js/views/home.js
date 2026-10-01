@@ -16,6 +16,7 @@ import { ring, weekRecap, niceFinds, pickFind } from '../delight.js';
 import { analyticsCards, forecastCard, tilesHtml, affordInputs, subHint, act as analyticsAct } from './analytics.js';
 import { goalsCard, act as goalsAct } from './goals.js';
 import { shareSheet, monthName } from '../share.js';
+import { stickerCanvas, encode, fileName, canSave, wordOf } from '../sticker-export.js';
 
 /** Fill an insight template: [English, ...values] where a value may be {cat}, {raw}, {date} or {list}. */
 export function fill([tpl, ...vals]) {
@@ -82,6 +83,53 @@ const bookOf = ym => { if (!books.has(ym)) { books.set(ym, null); loadBook(ym).t
 const filledIn = ym => filledDays({ tx: S.tx, noSpend: settings().noSpend || [], me: settings().myName || '', ym, today: today() });
 const say = o => (typeof o === 'string' ? t(o) : o?.[getLang()] ?? o?.en ?? '');   // a book's own words, in the app's language
 const stkSvg = (s, on = true, cls = 'stk') => `<svg class="${cls}${on ? '' : ' off'}" viewBox="0 0 64 64" aria-hidden="true">${s.svg}</svg>`;
+/** The way to an earned sticker's Save sheet: an icon button (today's card) or the sticker itself (the book). */
+const stkSaveBtn = (ym, day, cls, inner, name) => `<button class="${cls}" data-act="sticker-sheet" data-ym="${ym}" data-day="${day}" aria-label="${esc(name ? `${name} · ${t('Save sticker')}` : t('Save sticker'))}">${inner}</button>`;
+let stkUrl = null;   // the open sticker sheet's picture, for the how-to's frames
+/** One sticker as a WhatsApp-ready file (sticker-export.js): the picture as it will be saved, on the chat colour of the
+ *  app's theme, [Save sticker], and "?" for how WhatsApp's own Create sticker adds it (a web app can't add stickers).
+ *  Only for earned stickers checked for saving (book data share: true). The how-to opens by itself after the first save. */
+async function stickerSheet(b) {
+  const ym = b.dataset.ym, day = +b.dataset.day, book = bookOf(ym) || await loadBook(ym), filled = filledIn(ym);
+  const s = book.stickers[panelOf(day, bookState({ ym, filled, today: today() }).n)];
+  if (!filled.has(day) || !canSave(s)) return;
+  let url = null;
+  const el = openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(say(s.name))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+    <div class="stk-swatch">${stkSvg(s, true, 'stk-prev')}</div>
+    <div class="stk-row"><button class="btn wide busy" data-x="save" disabled>${ICON.download}${esc(t('Save sticker'))}</button><button class="icon-btn stk-help" data-act="sticker-howto" aria-label="${esc(t('How to add it to WhatsApp'))}">?</button></div>`,
+  { label: say(s.name), stack: !!b.closest('.sheet'), onClose: () => { if (url) URL.revokeObjectURL(url); if (stkUrl === url) stkUrl = null; } });
+  if (!el) return;
+  const go = el.querySelector('[data-x="save"]');
+  try {
+    const blob = await encode((await stickerCanvas(s, wordOf(book.id, s.id))).c), file = new File([blob], fileName(blob.type), { type: blob.type });
+    stkUrl = url = URL.createObjectURL(blob);
+    el.querySelector('.stk-swatch').innerHTML = `<img class="stk-prev" src="${url}" alt="${esc(say(s.name))}">`;
+    go.disabled = false; go.classList.remove('busy');
+    go.addEventListener('click', async () => {
+      download(file.name, file, file.type); toast(t('Sticker saved.'), { k: 'good', icon: 'check' });
+      if (!settings().stickerHowto) { await setSetting('stickerHowto', true); howTo(url); }
+    });
+  } catch (e) { console.error(e); toast(t('The sticker could not be made. Try again.')); }
+}
+/** How the saved file becomes a WhatsApp sticker, in three drawn frames (a generic phone, never WhatsApp's own look):
+ *  saved → open the sticker tray and tap Create → pick it. Moving frames loop; still with reduced motion. */
+function howTo(url) {
+  const stk = (x, y, s, cls = '') => url ? `<image class="${cls}" href="${url}" x="${x}" y="${y}" width="${s}" height="${s}"/>` : `<rect class="${cls}" x="${x + 3}" y="${y + 3}" width="${s - 6}" height="${s - 6}" rx="6" fill="var(--accent)"/>`;
+  const phone = inner => `<svg viewBox="0 0 100 150" aria-hidden="true"><rect x="8" y="4" width="84" height="142" rx="12" fill="var(--panel2)" stroke="var(--line)" stroke-width="2"/>${inner}</svg>`;
+  const tiles = (skip = -1) => [0, 1, 2, 3, 4, 5].filter(i => i !== skip).map(i => `<rect x="${18 + (i % 3) * 22}" y="${40 + Math.floor(i / 3) * 22}" width="18" height="18" rx="3" fill="var(--line)"/>`).join('');
+  const frames = [
+    [phone(`${tiles(0)}<rect x="18" y="40" width="18" height="18" rx="3" fill="var(--line)"/>${stk(16, 38, 22, 'drop')}`), t('Sticker saved.')],
+    [phone(`<rect x="16" y="20" width="44" height="12" rx="6" fill="var(--line)"/><rect x="40" y="38" width="44" height="12" rx="6" fill="var(--line)"/>
+      <rect x="14" y="70" width="72" height="50" rx="6" fill="var(--panel)"/>${[0, 1].map(i => `<rect x="${20 + i * 22}" y="78" width="18" height="18" rx="3" fill="var(--line)"/>`).join('')}
+      <g class="pulse"><rect x="64" y="78" width="18" height="18" rx="3" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/><path d="M73 82v10M68 87h10" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></g>
+      <rect x="14" y="126" width="72" height="12" rx="6" fill="var(--panel)"/><rect class="pulse" x="70" y="128" width="8" height="8" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.6"/>`), t('In WhatsApp: stickers, then Create')],
+    [phone(`${tiles(4)}${stk(38, 60, 22)}<circle class="pulse" cx="49" cy="71" r="14" fill="none" stroke="var(--accent)" stroke-width="2"/><circle class="tap" cx="58" cy="80" r="5" fill="var(--ink)" opacity=".5"/>`), t('Pick the saved sticker')],
+  ];
+  openSheet(`<div class="sheethead"><h2 class="sh-title">${esc(t('How to add it to WhatsApp'))}</h2><button class="icon-btn" data-act="sheet-close" aria-label="${esc(t('Close'))}">${ICON.x}</button></div>
+    <ol class="howto">${frames.map(([svg, cap], i) => `<li><span class="howto-n" aria-hidden="true">${i + 1}</span>${svg}<span>${esc(cap)}</span></li>`).join('')}</ol>
+    <p class="fine" style="text-align:center">${esc(t('WhatsApp does this step, not Tally.'))}</p>
+    <div class="sheetfoot"><button class="btn ghost wide" data-act="sheet-close">${esc(t('Got it'))}</button></div>`, { label: t('How to add it to WhatsApp'), stack: true });
+}
 /** Today's sticker (and page of the story), once something is logged today, until dismissed: a small reward for the
  *  day, never a score to keep up. */
 function stickerCard(tdy) {
@@ -91,7 +139,7 @@ function stickerCard(tdy) {
   const st = bookState({ ym, filled, today: tdy }), s = book.stickers[panelOf(day, st.n)];
   return `<section class="card sticker"><button class="stk-go" data-act="stickers-open" data-jump="1">${stkSvg(s, true, 'stk pop')}<span class="grow"><b>${esc(t("Today's sticker: {0}", say(s.name)))}</b>
     <small>${esc(book.panels.length ? t("{0} of {1} this month, and today's page of the story.", st.got, st.n) : t('{0} of {1} this month. One for each day you log.', st.got, st.n))}</small></span></button>
-    <button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
+    ${canSave(s) ? stkSaveBtn(ym, day, 'icon-btn', ICON.download) : ''}<button class="icon-btn" data-act="dismiss" data-id="stk-${tdy}" aria-label="${esc(t('Dismiss'))}">${ICON.x}</button><button class="link stk-off" data-act="stickers-off">${esc(t('Stop showing stickers'))}</button></section>`;
 }
 /** The way into the book on days without today's card (nothing logged yet, or the card dismissed): one small line. */
 function stickerLink(tdy) {
@@ -120,7 +168,7 @@ function bookHtml(book, ym, filled, tdy) {
   // filters inside a hidden-by-display svg stop painting in some browsers.
   return `${book.defs ? `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>${book.defs}</defs></svg>` : ''}<h2 class="sh-title">${esc(book.theme ? `${say(book.theme)} · ${fmtMonth(ym)}` : fmtMonth(ym))}</h2>
     <p class="sh-body">${esc(st.complete ? t('Every day of {0} is in. The whole story is yours.', fmtMonth(ym)) : st.grace ? t('{0} of {1} days. Missed days can still be filled in until {2}.', st.got, st.n, fmtDate(st.end)) : st.open ? t('{0} of {1} days. One for each day you log; fill in a missed day any time this month.', st.got, st.n) : t('{0} of {1} days.', st.got, st.n))}</p>
-    ${jump}<ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); return `<li>${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span></li>`; }).join('')}</ul>
+    ${jump}<ul class="stkgrid">${days.map(d => { const s = book.stickers[panelOf(d, st.n)], on = filled.has(d); const inner = `${stkSvg(s, on)}<span>${esc(on ? say(s.name) : String(d))}</span>`; return `<li>${on && canSave(s) ? stkSaveBtn(ym, d, 'stk-btn', inner, say(s.name)) : inner}</li>`; }).join('')}</ul>
     ${book.panels.length ? `<h3 class="comic-h">${esc(t('The story'))}</h3><ol class="comic">${days.map(panel).join('')}</ol><p class="fine">${esc(t('A work of fiction. Any resemblance to real people, shops, businesses or events is coincidental.'))}</p>` : ''}
     ${st.complete || st.over ? `<div class="book-reward">${st.complete && book.colours ? `<p><b>${esc(t('Your reward: the colours of {0}', fmtMonth(ym)))}</b></p><span class="apv" aria-hidden="true" style="background:${book.colours.dark[0]}"><i style="background:${book.colours.dark[2]}"></i><b style="background:${book.colours.accent}"></b></span><button class="btn small" data-act="set-app-palette" data-v="book-${ym}">${esc(t('Use these colours'))}</button>` : ''}<button class="btn small ghost" data-act="book-share" data-ym="${ym}">${esc(t('Share this month'))}</button></div>` : ''}
     ${past.length ? `<h3 class="comic-h">${esc(t('Past months'))}</h3><div class="chips">${past.map(m => `<button class="chip" data-act="stickers-open" data-ym="${m}">${esc(fmtMonth(m))} · ${filledIn(m).size}</button>`).join('')}</div>` : ''}
@@ -438,6 +486,8 @@ export const act = {
     const io = new IntersectionObserver(es => es.forEach(x => { if (x.isIntersecting) { x.target.querySelector('.cam-drift')?.classList.add('go'); io.unobserve(x.target); } }), { threshold: 0.6 });
     el?.querySelectorAll('.cam-drift').forEach(g => io.observe(g.closest('.panel')));
   },
+  'sticker-sheet': b => stickerSheet(b),
+  'sticker-howto': () => howTo(stkUrl),
   'comic-jump': b => document.getElementById(b.dataset.to)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }),
   // A finished month as a picture to share: its stickers (the missed days faint), how many days, no money at all.
   'book-share': async b => {

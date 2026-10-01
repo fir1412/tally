@@ -33,7 +33,10 @@ const peanuts = (x, y) => [[0, 0], [3, 5], [-2, 9], [4, 13], [1, 17]].map(([a, b
 
 const T = (en, ms, zh, zht, ja, ta) => ({ en, ms, zh, 'zh-Hant': zht, ja, ta });
 const L = (who, ...t) => ({ who, text: T(...t) });
-const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item) });
+// Stickers checked for saving as a WhatsApp sticker (sticker-export.js): no amounts, QR codes, promo or pay-later look.
+// Opt-in: a sticker added later stays unsaveable until it is checked and listed here. Left out: price (RM5) and qrstand (a QR code).
+const SHARE = new Set('envelope apambalik coins tehtarik jar airtebu receipt ewallet sotong ckt lekor pisanggoreng loklok otakotak rojak putupiring kuihlapis popiah buahpotong umbrella cendolcup notebook jagung burger apron present airbungkus raintin diya'.split(' '));
+const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item), share: SHARE.has(id) });
 
 const panels = [
   // ---- Act 1: the envelope ----

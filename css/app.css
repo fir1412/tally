@@ -817,7 +817,7 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 /* Type-first Home: typing and scanning side by side, right under the balance. */
 .addrow { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .card.sample { flex-direction: row; gap: var(--sp-2); align-items: center; justify-content: space-between; flex-wrap: wrap; border: 2px dashed var(--accent); }   /* made-up data: impossible to mistake for your own */
-.card.sticker { flex-wrap: wrap; }
+.card.sticker { flex-direction: row; flex-wrap: wrap; }   /* [sticker + words][save][✕], then "Stop showing" (.card is a column) */
 .card.sticker .stk-off { font-size: var(--fs-sm); flex-basis: 100%; text-align: right; }
 .afford-btn { align-self: flex-start; }
 .afford { color: var(--ink); border-left: 4px solid var(--good); padding: var(--sp-2) var(--sp-3); background: var(--panel2); border-radius: var(--radius); margin: var(--sp-2) 0; }
@@ -843,7 +843,7 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .langrow.top { margin-bottom: var(--sp-2); }
 /* Sticker book */
 .card.sticker { display: flex; align-items: center; gap: var(--sp-2); }
-.stk-go { all: unset; box-sizing: border-box; flex: 1; display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; min-height: 44px; }
+.stk-go { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; min-height: 44px; }
 .stk-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 .stk-go small { display: block; color: var(--mute); font-size: var(--fs-sm); }
 .stk { width: 56px; height: 56px; flex: none; }
@@ -858,6 +858,28 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 .stkgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--sp-3); text-align: center; }
 .stkgrid li { display: grid; justify-items: center; gap: 4px; font-size: var(--fs-sm); }
 .stkgrid .stk { width: 64px; height: 64px; }
+/* A sticker that can be saved for WhatsApp (sticker-export.js): the sticker itself is the button. */
+.stk-btn { all: unset; box-sizing: border-box; display: grid; justify-items: center; gap: 4px; cursor: pointer; border-radius: 12px; padding: 2px; min-height: 44px; transition: transform .12s; }
+.stk-btn:active { transform: scale(.96); }
+.stk-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Its Save sheet: the picture on the chat colour of the app's theme (WhatsApp's dark and light chat backgrounds). */
+.stk-swatch { background: #0B141A; border-radius: 16px; height: 240px; display: grid; place-items: center; margin-bottom: var(--sp-3); }
+:root[data-theme="light"] .stk-swatch { background: #EFEAE2; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .stk-swatch { background: #EFEAE2; } }
+.stk-prev { width: 200px; height: 200px; }
+.stk-row { display: flex; gap: var(--sp-2); align-items: center; }
+.stk-help { font-weight: 700; font-size: var(--fs-md); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line); flex: none; }
+/* How WhatsApp's Create sticker adds it: three drawn frames, looping; still with reduced motion. */
+.howto { list-style: none; margin: 0 0 var(--sp-3); padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); text-align: center; font-size: var(--fs-sm); }
+.howto li { display: grid; gap: 6px; justify-items: center; align-content: start; position: relative; }
+.howto svg { width: 100%; max-width: 110px; height: auto; }
+.howto-n { position: absolute; top: 0; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg); font-weight: 700; display: grid; place-items: center; font-size: var(--fs-xs); }
+.howto .drop { animation: stkdrop 2.4s ease-in-out infinite; transform-box: fill-box; }
+.howto .pulse { animation: stkpulse 1.2s ease-in-out infinite; }
+.howto .tap { animation: stkpulse 1.2s ease-in-out infinite reverse; }
+@keyframes stkdrop { 0% { transform: translateY(-34px); opacity: 0; } 25% { opacity: 1; } 45%, 100% { transform: none; opacity: 1; } }
+@keyframes stkpulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .howto .drop, .howto .pulse, .howto .tap { animation: none; } }
 .comic-h { font: 700 var(--fs-md)/1.3 var(--display); margin: var(--sp-4) 0 var(--sp-2); }
 .comic { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .comic .panel { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }

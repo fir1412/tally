@@ -50,7 +50,10 @@ const TORN = '<path d="M150 24L160 40L150 52L164 66L172 40Z" fill="#1E2340"/><pa
 
 const T = (en, ms, zh, zht, ja, ta) => ({ en, ms, zh, 'zh-Hant': zht, ja, ta });
 const L = (who, ...t) => ({ who, text: T(...t) });
-const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item) });
+// Stickers checked for saving as a WhatsApp sticker (sticker-export.js): no amounts, QR codes, promo or pay-later look.
+// Opt-in: a sticker added later stays unsaveable until it is checked and listed here. Left out: giftexchange (RM30) and rainyjar (RM notes).
+const SHARE = new Set('fundmeter bicycle roof picnic books bonusplan scamtext slips raintin raincloud patch xmaslights hourglass bonus wreath cookies ricecooker friedrice xmasstar card invitecrumple umbrella redbike xmastree bell yearchart goal hotdrink fireworks'.split(' '));
+const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item), share: SHARE.has(id) });
 
 const panels = [
   // ---- Act 1: the plan ----

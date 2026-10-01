@@ -33,7 +33,10 @@ const payList = n => it('list', 0, 0) + [-8, 0, 8].slice(0, n).map(y => `<path d
 
 const T = (en, ms, zh, zht, ja, ta) => ({ en, ms, zh, 'zh-Hant': zht, ja, ta });
 const L = (who, ...t) => ({ who, text: T(...t) });
-const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item) });
+// Stickers checked for saving as a WhatsApp sticker (sticker-export.js): no amounts, QR codes, promo or pay-later look.
+// Opt-in: a sticker added later stays unsaveable until it is checked and listed here. Left out: paylater (reads as a pay-later promotion) and salebag (30%).
+const SHARE = new Set('calendar kurta kolamdots redbike claypot press agal packet newbike apambalik reminders savingstin sixmonths murukku balloon latefee jasmine payasam sorry phonefall budgetlist thoranam coconut adhirasam jalebi bell present kandil chart'.split(' '));
+const stk = (id, en, ms, zh, zht, ja, ta, item = id) => ({ id, name: T(en, ms, zh, zht, ja, ta), svg: K.sticker(item), share: SHARE.has(id) });
 
 const panels = [
   // ---- Act 1: the promise ----

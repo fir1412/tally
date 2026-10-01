@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.12.0': [
+    "Save your day's sticker and add it to WhatsApp with Create sticker",
+  ],
   '1.11.1': [
     "December's sticker book has a new story about saving for a rainy day. A page for each day you fill in",
     "Share pictures now carry the same receipt-and-tick logo as Tally's app icon",

@@ -27,7 +27,7 @@ export function filledDays({ tx = [], noSpend = [], me = '', ym, today }) {
 export const panelOf = (day, n) => (day === n ? 30 : day - 1);
 
 /** The month's book, or the classic stickers (twelve, round again) when it has none yet. */
-const classic = { id: 'classic', theme: null, colours: null, panels: [], stickers: Array.from({ length: 31 }, (_, i) => { const [id, name, svg] = STICKERS[i % STICKERS.length]; return { id, name, svg }; }) };
+const classic = { id: 'classic', theme: null, colours: null, panels: [], stickers: Array.from({ length: 31 }, (_, i) => { const [id, name, svg] = STICKERS[i % STICKERS.length]; return { id, name, svg, share: true }; }) };   // all twelve checked for saving (sticker-export.js)
 export async function loadBook(ym) {
   try { return (await import(`./books/${ym.slice(5, 7)}.js`)).default; } catch { return classic; }
 }
