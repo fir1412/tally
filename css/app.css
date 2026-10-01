@@ -936,6 +936,8 @@ body.calc-on :is(input, select) { scroll-margin-bottom: 72px; }   /* the calcula
 /* Tamil words are long and don't break: a habit's Remind me drops under its text rather than squeezing "போக்குவரத்து" out. */
 :lang(ta) .rowb:has(> [data-act="habit-cal"]) { flex-wrap: wrap; } :lang(ta) .rowb:has(> [data-act="habit-cal"]) > .grow { flex-basis: 10em; }
 :lang(ta) .rowb > [data-act="habit-cal"] { margin-left: auto; }
+/* A tab label is one Tamil word ("பதிவுகள்" ≈ 5em): on a small phone with big text it shrinks to fit its tab, never cut to "…". */
+:lang(ta) .tabs > .tab span { font-size: min(1em, 3.75vw); }
 .segs.lang { flex-wrap: wrap; }
 .seg .beta { font-size: var(--fs-xs); font-weight: 500; opacity: .8; }
 .betanote { display: grid; justify-items: start; gap: 2px; font-size: var(--fs-sm); margin-top: var(--sp-1); }

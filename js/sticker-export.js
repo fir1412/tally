@@ -5,6 +5,7 @@
 // Design and checks: D:\tally-stickers (r1–r4); the pure parts are tested in tests/sticker-export.test.mjs.
 import { t } from './i18n.js';
 import { mark, brandFonts, latin } from './share.js';
+import { crc32 } from './io.js';
 
 const S = 512, R = 12, NUDGE = 10, SHADOW = { color: 'rgba(10,15,30,.22)', blur: 10, y: 4 };
 // The shadow reaches 12 px up, 16 to the sides and 20 down past the white, so the white keeps 28 / 32 / 36 px from the
@@ -130,15 +131,52 @@ export async function stickerCanvas(s, word = null) {
 }
 
 const blobOf = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+/** RGBA pixels → at most 256 colours by median cut over the colours (5 bits a channel); clear pixels share one entry.
+ *  → { pal: [[r, g, b, a]…], idx: Uint8Array (a palette index per pixel) } */
+export function quantise(px) {
+  const keys = new Map(), cols = [], of = new Int32Array(px.length / 4);
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3], k = a ? (px[i] >> 3) << 15 | (px[i + 1] >> 3) << 10 | (px[i + 2] >> 3) << 5 | a >> 3 : -1;
+    let j = keys.get(k); if (j === undefined) { keys.set(k, j = cols.length); cols.push([0, 0, 0, 0, 0, j]); }
+    const e = cols[j]; e[0]++; if (a) { e[1] += px[i]; e[2] += px[i + 1]; e[3] += px[i + 2]; e[4] += a; }
+    of[i / 4] = j;
+  }
+  const mean = (e, ch) => e[ch + 1] / e[0], clear = keys.get(-1);
+  const boxes = [cols.filter((e, j) => j !== clear)].filter(b => b.length);
+  const spread = b => { let best = [-1, 0]; for (let ch = 0; ch < 4; ch++) { let lo = 255, hi = 0; for (const e of b) { const v = mean(e, ch); if (v < lo) lo = v; if (v > hi) hi = v; } if (hi - lo > best[0]) best = [hi - lo, ch]; } return best; };
+  while (boxes.length < 256 - (clear !== undefined)) {   // split the box with most pixels × widest channel at its pixel median
+    let pick = -1, score = 0, ch = 0;
+    boxes.forEach((b, i) => { if (b.length < 2) return; const [r, c] = spread(b), s = r * b.reduce((n, e) => n + e[0], 0); if (s > score) { score = s; pick = i; ch = c; } });
+    if (pick < 0) break;
+    const b = boxes[pick].sort((x, y) => mean(x, ch) - mean(y, ch)), half = b.reduce((n, e) => n + e[0], 0) / 2;
+    let n = 0, cut = 1; for (; cut < b.length - 1; cut++) if ((n += b[cut - 1][0]) >= half) break;
+    boxes.splice(pick, 1, b.slice(0, cut), b.slice(cut));
+  }
+  const pal = boxes.map(b => { const t = b.reduce((s, e) => s.map((v, i) => v + e[i]), [0, 0, 0, 0, 0]); return [1, 2, 3, 4].map(i => Math.round(t[i] / t[0])); });
+  const to = new Uint8Array(cols.length); boxes.forEach((b, i) => { for (const e of b) to[e[5]] = i; });
+  if (clear !== undefined) { to[clear] = pal.length; pal.push([0, 0, 0, 0]); }
+  return { pal, idx: Uint8Array.from(of, j => to[j]) };
+}
+/** An 8-bit palette PNG (PLTE + tRNS): a quarter of the bytes of the canvas's own RGBA PNG. → Blob */
+export async function indexedPng(w, h, pal, idx) {
+  const raw = new Uint8Array((w + 1) * h); for (let y = 0; y < h; y++) raw.set(idx.subarray(y * w, (y + 1) * w), y * (w + 1) + 1);   // filter 0 a row
+  const z = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+  const chunk = (type, d) => { const c = new Uint8Array(12 + d.length), v = new DataView(c.buffer); v.setUint32(0, d.length); c.set(new TextEncoder().encode(type), 4); c.set(d, 8); v.setUint32(8 + d.length, crc32(c.subarray(4, 8 + d.length))); return c; };
+  const ihdr = new Uint8Array(13), v = new DataView(ihdr.buffer); v.setUint32(0, w); v.setUint32(4, h); ihdr.set([8, 3, 0, 0, 0], 8);
+  return new Blob([Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10), chunk('IHDR', ihdr), chunk('PLTE', Uint8Array.from(pal.flatMap(p => p.slice(0, 3)))), chunk('tRNS', Uint8Array.from(pal, p => p[3])), chunk('IDAT', z), chunk('IEND', new Uint8Array())], { type: 'image/png' });
+}
 /** The canvas as WebP at quality .8 → .7 → .6, the first under 100 KB; where the browser can't make WebP (it hands back
- *  a PNG for 'image/webp', so the type is checked, never trusted), a PNG. → Blob */
+ *  a PNG for 'image/webp', so the type is checked, never trusted), a 256-colour PNG: the canvas's own PNG is 120–390 KB,
+ *  lossless RGBA with the paint grain in it. → Blob */
 export async function encode(c) {
   for (const q of [.8, .7, .6]) {
     const b = await blobOf(c, 'image/webp', q);
     if (!b || b.type !== 'image/webp') break;
     if (b.size <= 100 * 1024) return b;
   }
-  return blobOf(c, 'image/png');
+  if (typeof CompressionStream === 'undefined') return blobOf(c, 'image/png');   // Safari before 16.4
+  const { pal, idx } = quantise(c.getContext('2d').getImageData(0, 0, c.width, c.height).data);
+  return indexedPng(c.width, c.height, pal, idx);
 }
 /** A book's sticker as the file to save. → File (tally-sticker.webp, or .png) */
 export async function stickerFile(s, bookId) {

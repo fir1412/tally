@@ -60,7 +60,7 @@ const panels = [
     tip: T('Set a festive budget before the rush, and shop your wardrobe first.', 'Tetapkan bajet perayaan sebelum musim sibuk, dan tengok almari dulu.', '购物热潮前先定好节日预算，也先逛逛自己的衣柜。', '購物熱潮前先定好節日預算，也先逛逛自己的衣櫃。', '混む前にお祝いの予算を決めて、まず自分のクローゼットを見よう。', 'நெரிசலுக்கு முன்பே பண்டிகை பட்ஜெட் அமையுங்கள், முதலில் உங்கள் அலமாரியைப் பாருங்கள்.'),
     lines: [
       L('aina', 'Festive budget: RM80 each. Clothes, gift, everything.', 'Bajet perayaan: RM80 seorang. Baju, hadiah, semua sekali.', '节日预算：每人RM80。衣服、礼物，全包。', '節日預算：每人RM80。衣服、禮物，全包。', 'お祝いの予算は一人RM80。服もプレゼントも全部。', 'பண்டிகை பட்ஜெட்: ஆளுக்கு RM80. உடுப்பு, பரிசு, எல்லாம்.'),
-      L('wei', 'This kurta is RM89. Over budget… unless?', 'Kurta ni RM89. Lebih bajet… melainkan?', '这件库尔塔要RM89。超预算了……除非？', '這件庫爾塔要RM89。超預算了……除非？', 'このクルタ、RM89。予算オーバー…でも、もしかして？', 'இந்த குர்தா RM89. பட்ஜெட்டுக்கு மேல… இல்லன்னா?'),
+      L('wei', 'This kurta is RM89. Over budget… unless?', 'Kurta ni RM89. Lebih bajet… melainkan?', '这件库尔塔要RM89。超预算了……除非？', '這件印度長衫要RM89。超預算了……除非？', 'このクルタ、RM89。予算オーバー…でも、もしかして？', 'இந்த குர்தா RM89. பட்ஜெட்டுக்கு மேல… இல்லன்னா?'),
       L('aina', 'Or wear the one from the wedding. Worn once. Free.', 'Atau pakai yang dari kenduri kahwin tu. Pakai sekali je. Percuma.', '或者穿婚礼那件。只穿过一次。免费。', '或者穿婚禮那件。只穿過一次。免費。', 'それか、結婚式の服を着たら？一回着ただけ。タダ。', 'இல்லன்னா கல்யாணத்துக்குப் போட்டதைப் போடு. ஒரே தடவை போட்டது. இலவசம்.'),
     ],
   },
@@ -163,7 +163,7 @@ const panels = [
       + wei({ x: 228, y: 176, s: 0.8, face: 'happy', pose: 'kneel', flip: true, turn: 'l', look: 'down' }) + it('phone', 220, 156, 0.26)
       + aina({ x: 58, y: 142, s: 0.76, face: 'think', turn: 'r' }) + K.dark([222, 120], 0.72, 46, 22),
     scene: 'home', cam: { shot: 'wide', on: [160, 80], angle: 'high', fg: `<g transform="translate(104 -26) scale(.6)">${fg.phone([['Earbuds', 'RM20/mo'], ['PAY LATER', '', 'btn'], ['Shoes', 'RM25/mo'], ['PAY LATER', '', 'btn']], 0, 'My list', 'none', -4, '11.11 SALE')}</g>` },
-    tip: T('List what you need before a sale. Discounted extras still cost money.', 'Senaraikan keperluan sebelum jualan. Barang lebih yang didiskaun tetap makan duit.', '促销前先列出需要的东西。打折的多余东西也还是花钱。', '促銷前先列出需要的東西。打折的多餘東西也還是花錢。', 'セール前に必要なものを書き出そう。割引でも、余計なものは出費。', 'Sale-க்கு முன் தேவையானதைப் பட்டியலிடுங்கள். கழிவில் வாங்கும் தேவையற்றதும் செலவுதான்.'),
+    tip: T('List what you need before a sale. Discounted extras still cost money.', 'Senaraikan keperluan sebelum jualan. Barang lebih yang didiskaun tetap makan duit.', '促销前先列出需要的东西。打折的多余东西也还是花钱。', '促銷前先列出需要的東西。打折的多餘東西也還是花錢。', 'セール前に必要なものを書き出そう。割引でも、余計なものは出費。', 'Sale-க்கு முன் தேவையானதைப் பட்டியலிடுங்கள். தள்ளுபடியில் வாங்கும் தேவையற்றவையும் செலவுதான்.'),
     lines: [
       L('wei', '11.11 sale! Earbuds, only RM20 a month!', 'Jualan 11.11! Earbuds, RM20 sebulan je!', '11.11大促！耳机，每个月才RM20！', '11.11大促！耳機，每個月才RM20！', '11.11セール！イヤホンが月たったRM20！', '11.11 sale! Earbuds, மாசத்துக்கு RM20 தான்!'),
       L('aina', 'Are earbuds on your list?', 'Earbuds ada dalam senarai kau?', '耳机在你的清单上吗？', '耳機在你的清單上嗎？', 'イヤホンって、リストにあった？', 'Earbuds உன் பட்டியல்ல இருக்கா?'),
@@ -240,7 +240,7 @@ const panels = [
     tip: T('Pay later has due dates, and late fees can apply. Note every one.', 'Pay later ada tarikh akhir, dan caj lewat boleh dikenakan. Catat setiap satu.', '先买后付有到期日，逾期可能要付逾期费。每一笔都记下来。', '先買後付有到期日，逾期可能要付逾期費。每一筆都記下來。', '後払いには期日があり、延滞料がかかることも。全部メモしよう。', 'Pay later-க்குக் கடைசித் தேதிகள் உண்டு, தாமதக் கட்டணமும் விதிக்கப்படலாம். ஒவ்வொன்றையும் குறித்து வையுங்கள்.'),
     lines: [
       L('wei', 'A RM10 late fee? I was one day late!', 'Caj lewat RM10? Aku lambat sehari je!', '逾期费RM10？我才迟了一天！', '逾期費RM10？我才遲了一天！', '延滞料RM10？1日遅れただけなのに！', 'RM10 late fee-ஆ? நான் ஒரு நாள் தான் லேட்!'),
-      L('narrator', 'The RM89 kurta had now cost RM99.', 'Kurta RM89 tu kini dah jadi RM99.', '那件RM89的库尔塔，现在花了RM99。', '那件RM89的庫爾塔，現在花了RM99。', 'RM89のクルタは、これでRM99になった。', 'RM89 குர்தா இப்போது RM99 ஆகிவிட்டது.'),
+      L('narrator', 'The RM89 kurta had now cost RM99.', 'Kurta RM89 tu kini dah jadi RM99.', '那件RM89的库尔塔，现在花了RM99。', '那件RM89的印度長衫，現在花了RM99。', 'RM89のクルタは、これでRM99になった。', 'RM89 குர்தா இப்போது RM99 ஆகிவிட்டது.'),
     ],
   },
   { // 19 Thu: this one goes WHOOSH. Back at the bike stall from the seller's side; Arjun's hand on the red saddle, Wei a step behind.
@@ -309,7 +309,7 @@ const panels = [
     lines: [
       L('kamala', 'Pay later is still paying, Wei. Every month, every app.', 'Pay later tetap kena bayar, Wei. Setiap bulan, setiap aplikasi.', '先买后付，还是要付的，Wei。每个月，每个app。', '先買後付，還是要付的，Wei。每個月，每個app。', '後払いも支払いよ、ウェイ。毎月、アプリごとに。', 'Pay later-உம் கட்டுறது தான், வெய். ஒவ்வொரு மாசமும், ஒவ்வொரு app-உம்.'),
       L('kamala', 'No new ones. Clear the smallest first.', 'Jangan tambah yang baru. Langsaikan yang paling kecil dulu.', '不要再开新的。先还清最小的。', '不要再開新的。先還清最小的。', '新しいのはなし。一番小さいのから片づけて。', 'புதுசா எதுவும் வேணாம். சின்னதை முதல்ல அடைச்சிடு.'),
-      L('wei', 'Kurta first. Then the earbuds. Then the shoes.', 'Kurta dulu. Lepas tu earbuds. Lepas tu kasut.', '先还库尔塔。然后耳机。然后鞋子。', '先還庫爾塔。然後耳機。然後鞋子。', 'まずクルタ。次にイヤホン。それから靴。', 'முதல்ல குர்தா. அப்புறம் earbuds. அப்புறம் ஷூ.'),
+      L('wei', 'Kurta first. Then the earbuds. Then the shoes.', 'Kurta dulu. Lepas tu earbuds. Lepas tu kasut.', '先还库尔塔。然后耳机。然后鞋子。', '先還印度長衫。然後耳機。然後鞋子。', 'まずクルタ。次にイヤホン。それから靴。', 'முதல்ல குர்தா. அப்புறம் earbuds. அப்புறம் ஷூ.'),
     ],
   },
   { // 25 Wed: RM74. The honest number, seen.
@@ -374,7 +374,7 @@ const panels = [
     art: scene('kopitiam', { table: 160 }) + it('tinopen', 160, 186, 1.5) + duit({ x: 160, y: 184, s: 1, pose: 'sleep' }),
     cam: { shot: 'close', on: [160, 150] },
     lines: [
-      L('narrator', 'Duit found the best use for an empty murukku tin.', 'Duit jumpa guna terbaik untuk tin murukku kosong.', 'Duit找到了空murukku罐的最佳用途。', 'Duit找到了空murukku罐的最佳用途。', 'ドゥイットは空のムルック缶の一番いい使い道を見つけた。', 'காலி முறுக்கு டின்னுக்குச் சிறந்த பயனைத் துயிட் கண்டுபிடித்தது.'),
+      L('narrator', 'Duit found the best use for an empty murukku tin.', 'Duit jumpa guna terbaik untuk tin murukku kosong.', 'Duit找到了空螺旋脆饼罐的最佳用途。', 'Duit給空的螺旋脆餅罐找到了最好的用途。', 'ドゥイットは空のムルック缶の一番いい使い道を見つけた。', 'காலி முறுக்கு டின்னுக்குச் சிறந்த பயனைத் துயிட் கண்டுபிடித்தது.'),
     ],
   },
   // ---- Payoff ----
@@ -399,13 +399,13 @@ export default {
   colours: { dark: ['#1F1520', '#2A1D2B', '#352536'], light: ['#F8EFE4', '#FFFBF5', '#F1E0D2'], accent: '#A63D5B' },
   /** Speakers new this month (the engine's WHO covers the rest). */
   who: {
-    kamala: T('Aunty Kamala', 'Mak Cik Kamala', 'Kamala 阿姨', 'Kamala 阿姨', 'カマラおばさん', 'கமலா அத்தை'),
+    kamala: T('Aunty Kamala', 'Aunty Kamala', 'Kamala 阿姨', 'Kamala 阿姨', 'カマラおばさん', 'கமலா அத்தை'),
     arjun: T('Arjun', 'Arjun', 'Arjun', 'Arjun', 'アルジュン', 'அர்ஜுன்'),
   },
   // one sticker a day, in story order (sticker N is day N's)
   stickers: [
     stk('calendar', 'Deepavali day', 'Hari Deepavali', '屠妖节当天', '屠妖節當天', 'ディーパバリの日', 'தீபாவளித் திருநாள்'),
-    stk('kurta', 'New kurta', 'Kurta baru', '新库尔塔', '新庫爾塔', '新しいクルタ', 'புது குர்தா'),
+    stk('kurta', 'New kurta', 'Kurta baru', '新库尔塔', '新印度長衫', '新しいクルタ', 'புது குர்தா'),
     stk('paylater', 'Pay later', 'Pay later', '先买后付', '先買後付', '後払い', 'Pay later', 'phone'),
     stk('kolamdots', 'Dot kolam', 'Kolam titik', '点点彩米画', '點點彩米畫', '点のコーラム', 'புள்ளிக் கோலம்'),
     stk('redbike', 'Red bicycle', 'Basikal merah', '红色脚车', '紅色腳車', '赤い自転車', 'சிவப்புச் சைக்கிள்', 'bicycle'),

@@ -429,12 +429,12 @@ html:lang(ta) .h1{line-height:1.28}
 html:lang(ta) :is(.h2,h3){line-height:1.3}
 html:lang(ta) .kicker{letter-spacing:.04em}
 @media (max-width:980px){html:lang(ta) .trust{grid-template-columns:repeat(2,minmax(0,max-content))}}
-html:lang(ta) .h1{font-size:52px}
+html:lang(ta) .h1{font-size:min(46px,3.6vw)}   /* "ரசீதைப் படம் எடுங்கள்." (13.3em) keeps one line in the hero column */
 @media (max-width:1240px){html:lang(ta) .navlinks{display:none !important}}
 html:lang(ta) :is(.h2,.free .h2,.cta .h2){font-size:42px}
 html:lang(ta) .h2.h2s{font-size:32px}
 html:lang(ta) .ctext h3{font-size:30px}
-@media (max-width:980px){html:lang(ta) .h1{font-size:36px}html:lang(ta) :is(.h2,.free .h2,.cta .h2){font-size:28px}html:lang(ta) .h2.h2s{font-size:24px}html:lang(ta) .ctext h3{font-size:24px}}
+@media (max-width:980px){html:lang(ta) .h1{font-size:min(36px,calc((100vw - 40px) / 13.8))}html:lang(ta) :is(.h2,.free .h2,.cta .h2){font-size:28px}html:lang(ta) .h2.h2s{font-size:24px}html:lang(ta) .ctext h3{font-size:24px}}
 @keyframes mbar-fade{from{opacity:0;visibility:hidden}to{opacity:1;visibility:visible}}
 @supports (animation-timeline: scroll()){@media (prefers-reduced-motion:reduce) and (max-width:980px){.mbar{animation:mbar-fade linear both !important;animation-timeline:--hero !important;animation-range:cover calc(100% - 120px) cover 100% !important}}}
 </style>

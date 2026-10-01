@@ -250,7 +250,7 @@ const panels = [
     art: scene('kitchen') + '<path d="M0 118H320V124H0Z" fill="#C9B28A"/>' + it('friedrice', 157, 114, 0.42) + it('friedrice', 187, 116, 0.42) + '<path d="M168 119l9-2" stroke="#B9BEC2" stroke-width="1.4" stroke-linecap="round"/>',
     scene: 'kitchen', cam: { shot: 'insert', on: [172, 112], fg: `<g transform="translate(-2 -26) scale(.5)">${fg.phone([['Fried rice ×2', 'RM38'], ['Not ordered', '', 1]], 0, 'Delivery basket', 'none', -6, 'Food app')}</g>`
       + fg.hand(SK.wei, 'right', { x: 246, y: 130, s: 0.85, a: -14 }) },
-    tip: T('Rainy day in? Cooking together costs a fraction of delivery.', 'Hujan, duduk rumah? Masak bersama jauh lebih murah daripada order.', '下雨待在家？一起煮饭，花费只是外卖的零头。', '下雨待在家？一起煮飯，花費只是外賣的零頭。', '雨で家にいる日は、一緒に料理。デリバリーよりずっと安い。', 'மழையில் வீட்டிலா? சேர்ந்து சமைப்பது delivery செலவில் ஒரு சிறு பங்குதான்.'),
+    tip: T('Rainy day in? Cooking together costs a fraction of delivery.', 'Hujan, duduk rumah? Masak bersama jauh lebih murah daripada order.', '下雨待在家？一起煮饭，花费只是外卖的零头。', '下雨待在家？一起煮飯，花費只是外賣的零頭。', '雨で家にいる日は、一緒に料理。デリバリーよりずっと安い。', 'மழையில் வீட்டிலா? சேர்ந்து சமைப்பது டெலிவரி செலவில் ஒரு சிறு பங்குதான்.'),
     lines: [
       L('wei', 'Fried rice for two: RM6. Delivery would\'ve been RM38.', 'Nasi goreng untuk dua orang: RM6. Kalau order, RM38.', '两人份炒饭：RM6。叫外卖要RM38。', '兩人份炒飯：RM6。叫外賣要RM38。', '2人分のチャーハンでRM6。デリバリーならRM38。', 'ரெண்டு பேருக்கு நாசி கோரெங்: RM6. Delivery-ன்னா RM38 ஆயிருக்கும்.'),
       L('aina', '…It tastes like home.', '…Rasa macam masakan rumah.', '……有家的味道。', '……有家的味道。', '…家の味がする。', '…வீட்டுச் சாப்பாடு மாதிரியே இருக்கு.'),
@@ -297,7 +297,7 @@ const panels = [
     art: closer(scene('kopitiam', { table: false }) + aina({ x: 150, y: 212, s: 1.12, face: 'think', pose: 'flat', turn: 'r', look: 'up' })
       + '<path d="M-10 150H330V210H-10Z" fill="#8A5A3C"/><path d="M-10 150H330V155H-10Z" fill="#A9744C"/>' + it('raintin', 188, 138, 0.62) + it('teh', 112, 140, 0.4), 1.2, 150, 110),
     scene: 'kopitiam', cam: { shot: 'medium', on: [160, 108], fg: fg.ots('raju', 'right') },
-    tip: T('An emergency fund is meant to be used. Using it is the plan working.', 'Tabung kecemasan memang untuk digunakan. Menggunakannya bermakna rancangan berjaya.', '应急基金本来就是要用的。用了，就是计划成功了。', '應急基金本來就是要用的。用了，就是計劃成功了。', '緊急用の貯金は使うためのもの。使えたなら、計画はうまくいった。', 'அவசரகால நிதி பயன்படுத்தவே. அதைப் பயன்படுத்துவதே திட்டம் வேலை செய்வது.'),
+    tip: T('An emergency fund is meant to be used. Using it is the plan working.', 'Tabung kecemasan memang untuk digunakan. Menggunakannya bermakna rancangan berjaya.', '应急基金本来就是要用的。用了，就是计划成功了。', '應急基金本來就是要用的。用了，就是計劃成功了。', '緊急用の貯金は使うためのもの。使えたなら、計画はうまくいった。', 'அவசரகால நிதி இருப்பதே பயன்படுத்தத்தான். அதைப் பயன்படுத்தினால், திட்டம் வேலை செய்கிறது என்று அர்த்தம்.'),
     lines: [
       L('aina', 'I emptied my emergency fund, Uncle. Three months, gone.', 'Saya dah kosongkan tabung kecemasan, Uncle. Tiga bulan, lesap.', '叔叔，我的应急基金花光了。三个月，没了。', '叔叔，我的應急基金花光了。三個月，沒了。', 'おじさん、緊急用の貯金を使い切っちゃった。3か月分が消えた。', 'மாமா, என் அவசரகால நிதியைக் காலி பண்ணிட்டேன். மூணு மாசம், போச்சு.'),
       L('raju', 'Gone? It\'s over your mother\'s head, keeping her dry.', 'Lesap? Duit tu ada atas kepala mak kamu, jaga dia daripada basah.', '没了？它就在你妈妈头顶上，帮她挡雨呢。', '沒了？它就在你媽媽頭頂上，幫她擋雨呢。', '消えた？お母さんの頭の上で、雨から守ってるじゃないか。', 'போச்சா? அது உன் அம்மா தலைக்கு மேல இருக்கு, அவங்களை நனையாமக் காக்குது.'),
@@ -323,7 +323,7 @@ const panels = [
       + '<circle cx="164" cy="116" r="46" fill="#F6D08A" opacity=".62" filter="url(#b12-bl)"/>' + aina({ x: 112, y: 206, s: 1.18, face: 'surprised', pose: 'give', turn: 'r' }) + wei({ x: 210, y: 206, s: 1.18, face: 'happy', pose: 'give', item: 'rainyjar', is: 1.25, flip: true, turn: 'l' }),
     scene: 'xmas', cam: { shot: 'medium', on: [160, 108] },
     lines: [
-      L('wei', 'I drew you. A jar and RM25: RM30 exactly. For rainy days.', 'Aku dapat nama kau. Balang dan RM25: tepat RM30. Untuk hari hujan.', '我抽到你。罐子加RM25：刚好RM30。留给下雨天。', '我抽到你。罐子加RM25：剛好RM30。留給下雨天。', 'あなたを引いたの。びんとRM25で、ぴったりRM30。雨の日用に。', 'எனக்கு உன் பேரு வந்துச்சு. ஜாடியும் RM25-உம்: சரியா RM30. மழை நாளுக்கு.'),
+      L('wei', 'I drew you. A jar and RM25: RM30 exactly. For rainy days.', 'Aku dapat nama kau. Balang dan RM25: tepat RM30. Untuk hari hujan.', '我抽到你。罐子加RM25：刚好RM30。留给下雨天。', '我抽到你。罐子加RM25：剛好RM30。留給下雨天。', '引いたのはアイナの名前。びんとRM25で、ぴったりRM30。雨の日用に。', 'எனக்கு உன் பேரு வந்துச்சு. ஜாடியும் RM25-உம்: சரியா RM30. மழை நாளுக்கு.'),
       L('aina', 'Wei, I can\'t take this.', 'Wei, aku tak boleh terima ni.', 'Wei，这个我不能收。', 'Wei，這個我不能收。', 'ウェイ、これは受け取れないよ。', 'வெய், இதை என்னால வாங்க முடியாது.'),
       L('wei', 'October. RM20. When I had RM11. My turn.', 'Oktober. RM20. Masa aku tinggal RM11. Giliran aku pula.', '十月。RM20。我只剩RM11的时候。换我了。', '十月。RM20。我只剩RM11的時候。換我了。', '10月。RM20。私の残りがRM11だったとき。今度は私の番。', 'அக்டோபர். RM20. என்கிட்ட RM11 இருந்தப்போ. இப்போ என் முறை.'),
     ],
@@ -391,7 +391,7 @@ const panels = [
       + kamala({ x: 36, y: 192, s: 0.88, face: 'laugh', pose: 'chin', turn: 'r' }) + grace({ x: 302, y: 194, s: 0.88, face: 'laugh', pose: 'cheer', flip: true, turn: 'l' })
       + riding(250, 198, 0.86, true) + aina({ x: 110, y: 214, s: 1.12, face: 'laugh', pose: 'show', turn: 'r', inHand: it('rainyjar', 0, -8, 0.5) }) + wei({ x: 150, y: 216, s: 1.14, face: 'laugh', pose: 'gesture', flip: true, turn: 'l' }),
     scene: 'market', cam: { shot: 'wide', on: [160, 100], drift: 'out' },
-    tip: T('A new year starts with one small habit. You already have one.', 'Tahun baru bermula dengan satu tabiat kecil. Anda sudah ada satu.', '新的一年从一个小习惯开始。你已经有一个了。', '新的一年從一個小習慣開始。你已經有一個了。', '新しい年は小さな習慣ひとつから。あなたにはもうある。', 'புத்தாண்டு ஒரு சிறிய பழக்கத்துடன் தொடங்குகிறது. உங்களிடம் ஏற்கெனவே ஒன்று உள்ளது.'),
+    tip: T('A new year starts with one small habit. You already have one.', 'Tahun baru bermula dengan satu tabiat kecil. Anda sudah ada satu.', '新的一年从一个小习惯开始。你已经有一个了。', '新的一年從一個小習慣開始。你已經有一個了。', '新しい年は小さな習慣ひとつから。もう、ひとつ身についているはず。', 'புத்தாண்டு ஒரு சிறிய பழக்கத்துடன் தொடங்குகிறது. உங்களிடம் ஏற்கெனவே ஒன்று உள்ளது.'),
     lines: [
       L('wei', 'Three, two, one… Happy New Year!', 'Tiga, dua, satu… Selamat Tahun Baru!', '三、二、一……新年快乐！', '三、二、一……新年快樂！', '3、2、1…あけましておめでとう！', 'மூணு, ரெண்டு, ஒண்ணு… புத்தாண்டு வாழ்த்துகள்!'),
       L('aina', 'A new year, and a jar to fill. Again.', 'Tahun baru, dan balang untuk diisi. Sekali lagi.', '新的一年，又有一个罐子要存满。', '新的一年，又有一個罐子要存滿。', '新しい年と、満たすびん。また一から。', 'புது வருஷம், நிரப்ப ஒரு ஜாடி. மறுபடியும்.'),
@@ -406,7 +406,7 @@ export default {
   colours: { dark: ['#121C1E', '#1A2629', '#243236'], light: ['#F3F1EA', '#FFFFFF', '#E6E2D6'], accent: '#2F6B55' },
   /** Speakers new this month (the engine's WHO covers the rest). */
   who: {
-    kamala: T('Aunty Kamala', 'Mak Cik Kamala', 'Kamala 阿姨', 'Kamala 阿姨', 'カマラおばさん', 'கமலா அத்தை'),
+    kamala: T('Aunty Kamala', 'Aunty Kamala', 'Kamala 阿姨', 'Kamala 阿姨', 'カマラおばさん', 'கமலா அத்தை'),
     arjun: T('Arjun', 'Arjun', 'Arjun', 'Arjun', 'アルジュン', 'அர்ஜுன்'),
     grace: T('Grace', 'Grace', 'Grace', 'Grace', 'グレース', 'கிரேஸ்'),
   },
@@ -422,7 +422,7 @@ export default {
     stk('scamtext', 'Scam text', 'Mesej scam', '诈骗短信', '詐騙簡訊', '詐欺メッセージ', 'மோசடி மெசேஜ்'),
     stk('slips', 'Secret Santa', 'Secret Santa', '圣诞交换礼物', '聖誕交換禮物', 'シークレットサンタ', 'Secret Santa'),
     stk('raintin', 'Rainy-day tin', 'Tin kecemasan', '未雨绸缪罐', '未雨綢繆罐', 'もしもの時の缶', 'அவசரச் சேமிப்பு டின்'),
-    stk('raincloud', 'Monsoon rain', 'Hujan monsun', '季候雨', '季候雨', 'モンスーンの雨', 'பருவமழை'),
+    stk('raincloud', 'Monsoon rain', 'Hujan monsun', '季候雨', '季候風雨', 'モンスーンの雨', 'பருவமழை'),
     stk('patch', 'Patch kit', 'Kit tampal', '补胎工具', '補胎工具', 'パンク修理キット', 'பஞ்சர் ஒட்டும் கிட்'),
     stk('xmaslights', 'Fairy lights', 'Lampu lip-lap', '圣诞灯串', '聖誕燈串', '電飾', 'மின்மினி விளக்குகள்'),
     stk('hourglass', 'Hourglass', 'Jam pasir', '沙漏', '沙漏', '砂時計', 'மணல் கடிகாரம்'),

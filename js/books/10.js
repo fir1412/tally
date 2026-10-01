@@ -56,7 +56,7 @@ const panels = [
     scene: 'market', cam: { shot: 'close', on: [190, 86], fg: fg.ots('aina', 'left') },
     lines: [
       L('raju', 'Apam balik! Crispy or soft, adik?', 'Apam balik! Nak rangup ke lembut, adik?', '曼煎糕！要脆的还是软的，妹妹？', '曼煎糕！要脆的還是軟的，妹妹？', 'アパム・バリックだよ！カリカリ？ふんわり？', 'அப்பம் பாலிக்! மொறுமொறுப்பா, மென்மையா, தங்கச்சி?'),
-      L('aina', 'Uncle Raju? From the kopitiam?', 'Uncle Raju? Yang kat kopitiam tu?', 'Raju叔叔？你不是咖啡店的吗？', 'Raju叔叔？你不是咖啡店的嗎？', 'ラジュおじさん？コピティアムの？', 'ராஜு மாமா? நம்ம kopitiam மாமாவா?'),
+      L('aina', 'Uncle Raju? From the kopitiam?', 'Uncle Raju? Yang kat kopitiam tu?', 'Raju叔叔？你不是咖啡店的吗？', 'Raju叔叔？你不是咖啡店的嗎？', 'ラジュおじさん？コピティアムの？', 'ராஜு மாமா? நம்ம கோப்பிதியாம் மாமாவா?'),
       L('raju', 'Thirty years, every Thursday! Extra peanuts, on me.', 'Tiga puluh tahun, setiap Khamis! Kacang lebih, uncle belanja.', '三十年了，每个星期四都在！花生加多点，算我的。', '三十年了，每個星期四都在！花生加多點，算我的。', '30年、毎週木曜さ！ピーナッツ多めはおまけだよ。', 'முப்பது வருஷம், ஒவ்வொரு வியாழனும்! கடலை extra, என் செலவு.'),
     ],
   },
@@ -69,7 +69,7 @@ const panels = [
       L('narrator', '…said Wei, for the fourth time.', '…kata Wei, buat kali keempat.', '……Wei第四次这样说。', '……Wei第四次這樣說。', '…とウェイは言った。これで4回目。', '…என்றாள் வெய், நான்காவது முறையாக.'),
       L('aina', 'And it\'s RM4 two stalls down.', 'Dua gerai kat sana, RM4 je.', '再过两档只要RM4。', '再過兩檔只要RM4。', '2軒先ならRM4だよ。', 'ரெண்டு கடை தள்ளி RM4 தான்.'),
     ],
-    tip: T('Small buys add up. Four "only RM5" buys make RM20.', 'Belian kecil pun bertambah. Empat kali “RM5 je” jadi RM20.', '小钱会累积。四次“才RM5”就是RM20。', '小錢會累積。四次「才RM5」就是RM20。', '小さな買い物も積み重なる。「たったRM5」も4回でRM20。', 'சிறிய செலவுகளும் கூடும். நான்கு “RM5 தான்” சேர்ந்தால் RM20.'),
+    tip: T('Small buys add up. Four "only RM5" buys make RM20.', 'Belian kecil pun lama-lama jadi banyak. Empat kali “RM5 je” dah RM20.', '小钱会累积。四次“才RM5”就是RM20。', '小錢會累積。四次「才RM5」就是RM20。', '小さな買い物も積み重なる。「たったRM5」も4回でRM20。', 'சிறிய செலவுகளும் கூடும். நான்கு “RM5 தான்” சேர்ந்தால் RM20.'),
   },
   { // 4 Sun: the phone is money too. From the door side of the room: the night laid out like evidence, Duit on the empty envelope.
     art: lifted(scene('home', { back: true }), 26, '#5A3A2E') + '<ellipse cx="160" cy="184" rx="160" ry="22" fill="#2F5D5A"/><ellipse cx="236" cy="170" rx="30" ry="13" fill="#B5533A"/><ellipse cx="236" cy="166" rx="26" ry="9" fill="#C45F45"/>'
@@ -141,9 +141,9 @@ const panels = [
     lines: [
       L('wei', 'Why does my e-wallet show RM3 twice?', 'Kenapa e-wallet aku tunjuk RM3 dua kali?', '为什么我的电子钱包扣了两次RM3？', '為什麼我的電子錢包扣了兩次RM3？', 'なんで電子マネーにRM3が2回あるの？', 'என் e-wallet-ல RM3 ஏன் ரெண்டு தடவை காட்டுது?'),
       L('aina', 'Double tap at the drinks stall. Ask them on Thursday.', 'Tertekan dua kali kat gerai air. Tanya dia hari Khamis.', '饮料档扫了两次吧。星期四去问问老板。', '飲料檔掃了兩次吧。星期四去問問老闆。', 'ドリンク屋で2回タップしたんだね。木曜に聞いてみよう。', 'பானக் கடையில ரெண்டு தடவை tap ஆயிருக்கு. வியாழன் அன்னைக்குக் கேளு.'),
-      L('wei', 'I\'ve never actually read this thing before.', 'Sebelum ni aku tak pernah baca pun benda ni.', '我以前从来没认真看过这个。', '我以前從來沒認真看過這個。', 'これ、ちゃんと読んだの初めて。', 'இதை இதுவரைக்கும் நான் ஒழுங்கா படிச்சதே இல்ல.'),
+      L('wei', 'I\'ve never actually read this thing before.', 'Sebelum ni aku tak pernah baca pun benda ni.', '我以前从来没认真看过这个。', '我以前從來沒認真看過這個。', 'これ、ちゃんと見たの初めて。', 'இதை இதுவரைக்கும் நான் ஒழுங்கா படிச்சதே இல்ல.'),
     ],
-    tip: T('Read your e-wallet history every week. Double charges happen.', 'Baca sejarah e-wallet setiap minggu. Caj berganda boleh berlaku.', '每个星期看一次电子钱包记录。重复扣款是会发生的。', '每個星期看一次電子錢包紀錄。重複扣款是會發生的。', '電子マネーの履歴は毎週読もう。二重請求は起こりうる。', 'உங்கள் e-wallet வரலாற்றை வாரந்தோறும் படியுங்கள். இரட்டைக் கட்டணம் நடக்கலாம்.'),
+    tip: T('Read your e-wallet history every week. Double charges happen.', 'Baca sejarah e-wallet setiap minggu. Caj berganda boleh berlaku.', '每个星期看一次电子钱包记录。重复扣款是会发生的。', '每個星期看一次電子錢包紀錄。重複扣款是會發生的。', '電子マネーの履歴は毎週チェックしよう。二重請求もありうる。', 'உங்கள் இ-வாலட் வரலாற்றை வாரந்தோறும் படியுங்கள். இரட்டைக் கட்டணம் நடக்கலாம்.'),
   },
   { // 11 Sun: a small hole. The coin's path across the floor is the joke.
     art: scene('kopitiam', { table: false }) + raju({ x: 100, y: 194, s: 1, face: 'laugh', pose: 'give', item: 'rag', is: 0.6, turn: 'r' })
@@ -163,7 +163,7 @@ const panels = [
     cam: { shot: 'close', on: [150, 94] },
     lines: [
       L('aina', 'Uncle, do you check what you take in each night?', 'Uncle, ada kira tak berapa dapat setiap malam?', '叔叔，你每晚有没有对一下收了多少钱？', '叔叔，你每晚有沒有對一下收了多少錢？', 'おじさん、毎晩の売り上げ、確かめてる？', 'மாமா, ஒவ்வொரு ராத்திரியும் எவ்வளவு வந்துச்சுன்னு பார்க்கிறீங்களா?'),
-      L('raju', 'Never! Kamala does the books at month-end. I trust.', 'Tak pernah! Kamala buat kira-kira hujung bulan. Uncle percaya.', '从来不！月底Kamala会算账。我相信大家啦。', '從來不！月底Kamala會算帳。我相信大家啦。', 'まさか！帳簿は月末にカマラがつける。信じてるから。', 'ஒருநாளும் இல்ல! மாசக் கடைசியில கமலா கணக்குப் பார்ப்பா. நான் எல்லாரையும் நம்புறவன்.'),
+      L('raju', 'Never! Kamala does the books at month-end. I trust.', 'Tak pernah! Kamala buat kira-kira hujung bulan. Uncle percaya.', '从来不！月底Kamala会算账。我相信大家啦。', '從來沒有！月底Kamala會算帳。我相信大家啦。', 'まさか！帳簿は月末にカマラがつける。信じてるから。', 'ஒருநாளும் இல்ல! மாசக் கடைசியில கமலா கணக்குப் பார்ப்பா. நான் எல்லாரையும் நம்புறவன்.'),
       L('narrator', 'Aina wanted to say more. She didn\'t.', 'Aina nak cakap lagi. Tapi dia diam.', 'Aina还想说什么，但没说出口。', 'Aina還想說什麼，但沒說出口。', 'アイナはもっと言いたかった。でも言わなかった。', 'ஐனா இன்னும் ஏதோ சொல்ல நினைத்தாள். சொல்லவில்லை.'),
     ],
   },
@@ -220,7 +220,7 @@ const panels = [
       L('aina', 'Call your bank and 997 today, Uncle. Right now.', 'Telefon bank dan 997 hari ni, Uncle. Sekarang juga.', '叔叔，今天就打给银行和997。现在就打。', '叔叔，今天就打給銀行和997。現在就打。', 'おじさん、今日中に銀行と997に電話して。今すぐ。', 'மாமா, இன்னைக்கே bank-க்கும் 997-க்கும் call பண்ணுங்க. இப்பவே.'),
       L('raju', 'Maybe it\'s time I closed the night stall.', 'Mungkin dah tiba masa uncle tutup gerai malam.', '也许是时候把夜市的摊子收掉了。', '也許是時候把夜市的攤子收掉了。', '夜の屋台も、もうたたむ潮時かもしれない。', 'இரவுக் கடையை மூடுற நேரம் வந்துடுச்சோ என்னவோ.'),
     ],
-    tip: T('Scammed? Call your bank or e-wallet, and 997 (scam hotline), fast.', 'Kena scam? Cepat hubungi bank atau e-wallet, dan 997 (talian aduan scam).', '被骗了？马上联络银行或电子钱包，并拨997（反诈骗热线）。', '被騙了？馬上聯絡銀行或電子錢包，並撥997（反詐騙熱線）。', '詐欺にあったら、すぐ銀行か電子マネー会社と997（詐欺相談窓口）へ。', 'ஏமாற்றப்பட்டீர்களா? உடனே வங்கி அல்லது e-wallet-ஐயும், 997 (மோசடி உதவி எண்)-ஐயும் அழையுங்கள்.'),
+    tip: T('Scammed? Call your bank or e-wallet, and 997 (scam hotline), fast.', 'Kena scam? Cepat hubungi bank atau e-wallet, dan 997 (talian aduan scam).', '被骗了？马上联络银行或电子钱包，并拨997（反诈骗热线）。', '被騙了？馬上聯絡銀行或電子錢包，並撥997（反詐騙熱線）。', '詐欺にあったら、すぐ銀行か電子マネー会社と997（詐欺相談窓口）へ。', 'ஏமாற்றப்பட்டீர்களா? உடனே வங்கியையோ இ-வாலட்டையோ, 997 (மோசடி உதவி எண்)-ஐயும் அழையுங்கள்.'),
   },
   { // 18 Sun: whose place? Their first time apart; the space between them is the argument.
     art: scene('night') + aina({ x: 88, y: 178, s: 0.86, face: 'worried', pose: 'strap', flip: true, turn: 'l', look: 'down' })
@@ -239,9 +239,9 @@ const panels = [
     lines: [
       L('wei', 'Payday\'s the 25th, and I have RM11 left.', 'Gaji masuk 25 hari bulan, dan aku tinggal RM11.', '25号才发薪水，我只剩RM11。', '25號才發薪水，我只剩RM11。', '給料日は25日なのに、残りはRM11。', 'சம்பளம் 25-ஆம் தேதி, என்கிட்ட RM11 தான் இருக்கு.'),
       L('aina', 'I\'ll lend you RM20. Pay me back… whenever.', 'Aku pinjamkan RM20. Bayar balik… bila-bila je lah.', '我借你RM20。什么时候还……都可以啦。', '我借你RM20。什麼時候還……都可以啦。', 'RM20貸すね。返すのは…いつでもいいよ。', 'நான் RM20 கடன் தரேன். திருப்பித் தர்றது… எப்போ வேணும்னாலும்.'),
-      L('wei', 'The 25th. Write it down. I know you\'ll never ask.', '25 hari bulan. Tulis. Aku tahu kau takkan minta.', '25号。写下来。我知道你绝对不会开口要。', '25號。寫下來。我知道你絕對不會開口要。', '25日。書いといて。あなたは絶対催促しないから。', '25-ஆம் தேதி. எழுதி வை. நீ ஒருநாளும் கேட்க மாட்டேன்னு எனக்குத் தெரியும்.'),
+      L('wei', 'The 25th. Write it down. I know you\'ll never ask.', '25 hari bulan. Tulis. Aku tahu kau takkan minta.', '25号。写下来。我知道你绝对不会开口要。', '25號。寫下來。我知道你絕對不會開口要。', '25日ね。メモしといて。アイナは絶対催促しないでしょ。', '25-ஆம் தேதி. எழுதி வை. நீ ஒருநாளும் கேட்க மாட்டேன்னு எனக்குத் தெரியும்.'),
     ],
-    tip: T('Lending to a friend? Agree the amount and the day, kindly.', 'Pinjam duit kepada kawan? Setuju jumlah dan tarikh, dengan baik.', '借钱给朋友？好好说清楚金额和还钱的日子。', '借錢給朋友？好好說清楚金額和還錢的日子。', '友だちにお金を貸すなら、金額と返す日を気持ちよく決めよう。', 'நண்பருக்குக் கடனா? தொகையையும் தேதியையும் அன்பாகப் பேசி முடிவு செய்யுங்கள்.'),
+    tip: T('Lending to a friend? Agree the amount and the day, kindly.', 'Pinjamkan duit kepada kawan? Setujui jumlah dan tarikh bayar balik, dengan baik.', '借钱给朋友？好好说清楚金额和还钱的日子。', '借錢給朋友？好好說清楚金額和還錢的日子。', '友だちにお金を貸すなら、金額と返す日を気持ちよく決めよう。', 'நண்பருக்குக் கடனா? தொகையையும் தேதியையும் அன்பாகப் பேசி முடிவு செய்யுங்கள்.'),
   },
   { // 20 Tue: Aina's leak. The planner has one too, shown as plainly as Wei's.
     art: `<g filter="url(#b10-b2)">${scene('home')}</g>`, scene: 'home',
@@ -300,7 +300,7 @@ const panels = [
       L('aina', 'Month-end is too late. Count one night with me, properly.', 'Hujung bulan dah terlambat. Kira satu malam dengan saya, betul-betul.', '等到月底就太迟了。跟我好好数一个晚上。', '等到月底就太遲了。跟我好好數一個晚上。', '月末じゃ遅いの。一晩だけ、私とちゃんと数えて。', 'மாசக் கடைசி ரொம்ப லேட். ஒரு ராத்திரி என்கூட ஒழுங்கா எண்ணிப் பாருங்க.'),
       L('raju', '…One night. Then I decide.', '…Satu malam. Lepas tu uncle putuskan.', '……一个晚上。然后我再决定。', '……一個晚上。然後我再決定。', '…一晩だけ。それから決める。', '…ஒரு ராத்திரி. அப்புறம் நான் முடிவு பண்றேன்.'),
     ],
-    tip: T('Look at your money every day. Month-end is too late to catch a leak.', 'Tengok duit anda setiap hari. Hujung bulan dah terlambat untuk kesan kebocoran.', '每天看一看你的钱。等到月底才找漏洞就太迟了。', '每天看一看你的錢。等到月底才找漏洞就太遲了。', 'お金は毎日見よう。月末では、もれに気づくのが遅すぎる。', 'உங்கள் பணத்தை தினமும் பாருங்கள். கசிவைக் கண்டுபிடிக்க மாதக் கடைசி மிகத் தாமதம்.'),
+    tip: T('Look at your money every day. Month-end is too late to catch a leak.', 'Tengok duit anda setiap hari. Hujung bulan dah terlambat untuk kesan kebocoran.', '每天看一看你的钱。等到月底才找漏洞就太迟了。', '每天看一看你的錢。等到月底才找漏洞就太遲了。', 'お金は毎日見よう。月末では、もれに気づくのが遅すぎる。', 'உங்கள் பணத்தைத் தினமும் பாருங்கள். கசிவைக் கண்டுபிடிக்க மாதக் கடைசி மிகத் தாமதம்.'),
   },
   { // 25 Sun: as written. The promised money, seen; "only RM5" becomes "RM5 for the jar".
     art: scene('kopitiam', { table: false }) + MARBLE + it('jarD', 132, 148, 0.55) + `<g transform="rotate(-10 156 152)">${cash(20, 156, 152, 0.55)}</g>` + `<g transform="rotate(6 174 161)">${cash(5, 174, 161, 0.55)}</g>` + it('teh', 128, 168, 0.32),
@@ -371,7 +371,7 @@ const panels = [
     lines: [
       L('aina', 'Tonight: RM520. Every ringgit to the right name.', 'Malam ni: RM520. Setiap ringgit masuk nama yang betul.', '今晚：RM520。每一令吉都付对了人。', '今晚：RM520。每一令吉都付對了人。', '今夜はRM520。1リンギットも残らず、正しい名前へ。', 'இன்னைக்கு: RM520. ஒவ்வொரு ரிங்கிட்டும் சரியான பேருக்கு.'),
       L('raju', 'Money is like apam balik. Count it while it\'s hot!', 'Duit ni macam apam balik. Kira masa panas-panas!', '钱就像曼煎糕。要趁热数！', '錢就像曼煎糕。要趁熱數！', 'お金はアパム・バリックと同じ。熱いうちに数えろ！', 'பணம் அப்பம் பாலிக் மாதிரி. சூடா இருக்கும்போதே எண்ணிடணும்!'),
-      L('wei', 'Uncle, that actually makes sense. So… do you stay?', 'Uncle, kali ni masuk akal pula. Jadi… uncle teruskan?', '叔叔，这次真的说得通。那……你还会继续摆吗？', '叔叔，這次真的說得通。那……你還會繼續擺嗎？', 'おじさん、今度は本当に意味わかる。で…続けるの？', 'மாமா, இது உண்மையிலேயே அர்த்தமா இருக்கு. அப்போ… கடையைத் தொடர்வீங்களா?'),
+      L('wei', 'Uncle, that actually makes sense. So… do you stay?', 'Uncle, kali ni masuk akal pula. Jadi… uncle teruskan?', '叔叔，这次真的说得通。那……你还会继续摆吗？', '叔叔，這次真的說得通。那……你還會繼續擺嗎？', 'おじさん、今のは本当に意味わかる。で…続けるの？', 'மாமா, இது உண்மையிலேயே அர்த்தமா இருக்கு. அப்போ… கடையைத் தொடர்வீங்களா?'),
     ],
     tip: T('Keep a rainy-day fund. Even RM5 a week adds up.', 'Simpan duit kecemasan. RM5 seminggu pun lama-lama jadi banyak.', '存一笔应急钱。每星期RM5也会积少成多。', '存一筆應急錢。每星期RM5也會積少成多。', 'もしもの時の貯金を。週RM5でも積み重なる。', 'அவசரகால நிதி வையுங்கள். வாரத்துக்கு RM5 கூடச் சேர்ந்து பெருகும்.'),
   },
@@ -386,7 +386,7 @@ const panels = [
       + [20, 38, 56, 74, 90].map((x, i) => `<circle cx="${x}" cy="${60 - (i % 2) * 4 + 2}" r="3" fill="#F6D08A" opacity=".8"/><circle cx="${x}" cy="${62 - (i % 2) * 4}" r="7" fill="#F6D08A" opacity=".25"/>`).join('')
       + '<path d="M120 16L140 16L80 192H62Z" fill="#FFFFFF" opacity=".1"/><g transform="translate(160 10)"><text x="0" y="4" font-family="system-ui,sans-serif" font-weight="800" font-size="11" text-anchor="middle" fill="#E3B54A" letter-spacing="2">KOPITIAM</text></g>' },
     lines: [
-      L('aina', 'Happy early Deepavali, Uncle! Big pockets, no holes.', 'Selamat Hari Deepavali awal-awal, Uncle! Poket besar, tak berlubang.', '提前祝你屠妖节快乐，叔叔！口袋大，没有洞。', '提前祝你屠妖節快樂，叔叔！口袋大，沒有洞。', '早めのディーパバリおめでとう！大きいポケット、穴なし。', 'முன்கூட்டியே தீபாவளி வாழ்த்துகள், மாமா! பெரிய பைகள், ஓட்டை இல்ல.'),
+      L('aina', 'Happy early Deepavali, Uncle! Big pockets, no holes.', 'Selamat Hari Deepavali awal-awal, Uncle! Poket besar, tak berlubang.', '提前祝你屠妖节快乐，叔叔！口袋大，没有洞。', '提前祝你屠妖節快樂，叔叔！口袋大，沒有洞。', 'ちょっと早いけど、ディーパバリおめでとう！大きいポケット、穴なし。', 'முன்கூட்டியே தீபாவளி வாழ்த்துகள், மாமா! பெரிய பைகள், ஓட்டை இல்ல.'),
       L('raju', 'An apron like this needs a stall. The stall stays!', 'Apron macam ni mesti ada gerai. Gerai ni kekal!', '这样的围裙，一定要有个摊子配。摊子不收了！', '這樣的圍裙，一定要有個攤子配。攤子不收了！', 'こんなエプロンには、屋台がいる。屋台は続けるぞ！', 'இப்படிப்பட்ட apron-க்கு ஒரு கடை வேணும். கடை தொடரும்!'),
       L('narrator', 'The jar kept RM15. The street kept its apam balik.', 'Balang masih ada RM15. Jalan kita masih ada apam balik.', '罐子留住了RM15。这条街留住了它的曼煎糕。', '罐子留住了RM15。這條街留住了它的曼煎糕。', 'びんにはRM15が残った。通りには、アパム・バリックが残った。', 'ஜாடியில் RM15 மிஞ்சியது. தெருவுக்கு அதன் அப்பம் பாலிக் மிஞ்சியது.'),
     ],

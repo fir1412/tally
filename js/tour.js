@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.12.4': [
+    "Clearer, more natural wording in Bahasa Melayu, 中文, 繁體中文, 日本語 and தமிழ்",
+    "Saved stickers are much smaller, so they send faster",
+  ],
   '1.12.3': [
     "Tally shows its outline at once while it opens, instead of a blank screen, and starts faster on slow connections",
   ],
@@ -246,7 +250,7 @@ export const newSince = from => Object.entries(WHATS_NEW).filter(([v]) => !from 
 
 /** Tally's website (the landing page new visitors see), in the reader's language where there is one. Its "Open Tally"
  *  comes back as ./?app, and first.js never sends someone who has opened Tally before back to it. */
-export const siteUrl = () => `start${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh', ta: '.ta' })[getLang()] || ''}.html`;
+export const siteUrl = () => `start${({ ms: '.ms', zh: '.zh', 'zh-Hant': '.zh-Hant', ja: '.ja', ta: '.ta' })[getLang()] || ''}.html`;
 export function showWhatsNew(from = '') {
   const items = newSince(from);
   const el = openSheet(`<div class="tour"><div class="tour-ic">${ICON.sparkles}</div><p class="lbl">${esc(t('Tally {0}', APP_VERSION))}</p><h2 class="sh-title">${esc(t("What's new"))}</h2>

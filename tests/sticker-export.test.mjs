@@ -3,7 +3,8 @@
 // margin are checked by the sticker harness (D:\tally-stickers\proto\run.mjs) in a browser.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WORDS, wordOf, canSave, fileName, exportArt } from '../js/sticker-export.js';
+import { inflateSync, crc32 } from 'node:zlib';
+import { WORDS, wordOf, canSave, fileName, exportArt, quantise, indexedPng } from '../js/sticker-export.js';
 import { STICKERS } from '../js/stickers.js';
 
 const books = Object.fromEntries(await Promise.all(['10', '11', '12'].map(async m => [m, (await import(`../js/books/${m}.js`)).default])));
@@ -59,4 +60,22 @@ test('the export copy of the art: floor shadows go, the paint grain is finer, ev
   assert.ok(out.includes('fill="#C44A36"'), 'other ellipses kept');
   assert.ok(out.includes('baseFrequency="4.4"') && !out.includes('baseFrequency="1.1"'));
   for (const b of Object.values(books)) for (const s of b.stickers.filter(canSave)) assert.ok(/<(path|rect|circle|ellipse|g|text)/.test(exportArt(s.svg).replace(/<defs>.*?<\/defs>/s, '')), `${b.id}:${s.id} is empty once its floor shadow goes`);
+});
+
+test('the PNG fallback (no WebP, e.g. Safari): 256 colours, clear stays clear, a valid palette PNG (WhatsApp takes ≤ 100 KB)', async () => {
+  const W = 64, H = 48, px = new Uint8ClampedArray(W * H * 4);   // a 2,880-colour ramp under a soft shadow edge, a clear border
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; px.set(x < 4 ? [0, 0, 0, 0] : [x * 4, y * 5, 128, y < 8 ? y * 32 : 255], i); }
+  const { pal, idx } = quantise(px);
+  assert.ok(pal.length <= 256 && idx.length === W * H && idx.every(j => j < pal.length));
+  let err = 0; for (let i = 0; i < idx.length; i++) for (let c = 0; c < 4; c++) err += Math.abs(pal[idx[i]][c] - px[i * 4 + c]);
+  assert.ok(err / px.length < 4, `mean error ${err / px.length} of 255`);
+  for (let y = 0; y < H; y++) assert.equal(pal[idx[y * W]][3], 0, 'a clear pixel stays clear');
+  const png = new Uint8Array(await (await indexedPng(W, H, pal, idx)).arrayBuffer()), v = new DataView(png.buffer);
+  assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  const chunks = {}; for (let o = 8; o < png.length;) { const n = v.getUint32(o), type = String.fromCharCode(...png.subarray(o + 4, o + 8)), body = png.subarray(o + 8, o + 8 + n); assert.equal(v.getUint32(o + 8 + n), crc32(png.subarray(o + 4, o + 8 + n)), `${type} crc`); chunks[type] = body; o += 12 + n; }
+  assert.deepEqual(Object.keys(chunks), ['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND']);
+  assert.deepEqual([...chunks.IHDR], [0, 0, 0, W, 0, 0, 0, H, 8, 3, 0, 0, 0], '8-bit palette');
+  assert.equal(chunks.PLTE.length, pal.length * 3); assert.equal(chunks.tRNS.length, pal.length);
+  const raw = inflateSync(chunks.IDAT); assert.equal(raw.length, (W + 1) * H);
+  for (let y = 0; y < H; y++) { assert.equal(raw[y * (W + 1)], 0); assert.deepEqual([...raw.subarray(y * (W + 1) + 1, (y + 1) * (W + 1))], [...idx.subarray(y * W, (y + 1) * W)]); }
 });
