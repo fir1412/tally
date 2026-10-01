@@ -273,19 +273,20 @@ export function balances(accounts, txs, upTo = null) {
 /**
  * What is still open per friend after split bills: owedMe (their shares, owedBy, less what they paid back, repaidBy) and
  * iOwe (my shares of bills they paid, owedTo, less what I paid back, repaidTo). → {owedMe, iOwe}: [{name, sen, from}],
- * `from`: the account that paid their oldest share not yet paid back (paid back first-in, first-out).
+ * `from`: the account that paid their oldest share not yet paid back (paid back first-in, first-out); `since`: its date.
  */
 export function openShares(txs) {
   const me = new Map(), them = new Map(), got = (m, k) => m.get(k) || m.set(k, { sen: 0, shares: [] }).get(k);
   for (const x of [...txs].sort((a, b) => byDate(a.date, b.date))) {
     if (x.type === 'transfer' && x.owedBy) { const f = got(me, x.owedBy); f.sen += x.amount; f.shares.push(x); }
     else if (x.type === 'transfer' && x.repaidBy) got(me, x.repaidBy).sen -= x.amount;
-    else if (x.type === 'expense' && x.owedTo) got(them, x.owedTo).sen += x.amount;
+    else if (x.type === 'expense' && x.owedTo) { const f = got(them, x.owedTo); f.sen += x.amount; f.shares.push(x); }
     else if (x.type === 'transfer' && x.repaidTo) got(them, x.repaidTo).sen -= x.amount;
   }
   const open = m => [...m].filter(([, f]) => f.sen > 0).map(([name, f]) => {
     let paid = f.shares.reduce((s, x) => s + x.amount, 0) - f.sen;   // what came back, set against the oldest shares first
-    return { name, sen: f.sen, from: f.shares.find(x => (paid -= x.amount) < 0)?.accountId };
+    const oldest = f.shares.find(x => (paid -= x.amount) < 0);
+    return { name, sen: f.sen, from: oldest?.accountId, since: oldest?.date };   // since: the oldest share still open
   });
   return { owedMe: open(me), iOwe: open(them) };
 }
@@ -972,4 +973,105 @@ export function jointIn(txs, jointIds, ym, sd = 1) {
     (by[k] ||= { me: !t.spouse, name: t.spouse ? t.by || '' : '', v: 0 }).v += t.amount;
   }
   return Object.values(by).sort((a, b) => b.v - a.v);
+}
+
+// ---- Insights: items, shops, the next 30 days, payday, bills, the year -------------------------------------------------------
+/** What one category was spent on in a month: receipt items (each with its share of tax and charges) and, for payments
+ *  without items, the shop. → [{name, v (sen), n, shop (true: a payment, not an item)}], most money first. */
+export function categoryItems(txs, c, ym, sd = 1) {
+  const by = new Map();
+  for (const t of txs) {
+    if (t.type !== 'expense' || cycleKey(t.date, sd) !== ym) continue;
+    for (const it of itemAmounts(t)) {
+      if (it.category !== c) continue;
+      const name = it.name || t.merchant || t.note || '', k = it.name ? `i:${itemKey(it.name) || name}` : `s:${(t.merchant || '').toLowerCase()}`;
+      const r = by.get(k) || by.set(k, { name, v: 0, n: 0, shop: !it.name }).get(k);
+      r.v += it.cents; r.n++;
+    }
+  }
+  return [...by.values()].sort((a, b) => b.v - a.v);
+}
+/** The same item bought at 2+ shops in the last `days`: its latest price at each, cheapest first. → [{name, shops:
+ *  [{shop, unit, date}], save (sen: dearest − cheapest)}], biggest difference first. */
+export function shopPrices(txs, today, days = 180) {
+  const since = addDays(today, -days), by = new Map();
+  for (const t of txs) {
+    if (t.type !== 'expense' || !t.items?.length || !t.merchant || t.date < since || t.date > today) continue;
+    for (const it of t.items) {
+      const k = itemKey(it.name), unit = it.unit ?? it.cents;
+      if (!plainItem(it.name) || !(unit > 0)) continue;
+      const r = by.get(k) || by.set(k, { name: it.name, at: new Map() }).get(k), s = t.merchant.trim(), was = r.at.get(s.toLowerCase());
+      if (!was || t.date >= was.date) r.at.set(s.toLowerCase(), { shop: s, unit, date: t.date });
+    }
+  }
+  return [...by.values()].filter(r => r.at.size > 1).map(r => { const shops = [...r.at.values()].sort((a, b) => a.unit - b.unit); return { name: r.name, shops, save: shops.at(-1).unit - shops[0].unit }; })
+    .filter(r => r.save > 0).sort((a, b) => b.save - a.save);
+}
+/** The next 30 days a day at a time, from the same sums as "Can I afford it?" (affordCheck, nothing bought): bills on
+ *  their days, pay on its day, usual income and everyday spending spread evenly. Day 30's balance is affordCheck's left.
+ *  → {days: [{date, bal, in, out}] (day 0 is today), low: the lowest day} */
+export function next30({ balance, txs, today, startDay = 1, bills = [] }) {
+  const a = affordCheck({ price: 0, balance, txs, today, startDay, bills }), due = new Map();
+  for (const r of bills) for (const d of billDates(r, a.end)) if (d >= today && !billPaid(r, d, txs)) due.set(d, (due.get(d) || 0) + r.amount);
+  let bal = balance; const days = [];
+  for (let i = 0; i <= 30; i++) {
+    const date = addDays(today, i), inn = (date === a.payDate ? a.pay : 0) + (i ? a.earn / 30 : 0), out = due.get(date) || 0;
+    bal += inn - out - (i ? a.usual / 30 : 0);
+    days.push({ date, bal: Math.round(bal), in: Math.round(inn), out });
+  }
+  return { days, low: days.reduce((m, d) => (d.bal < m.bal ? d : m), days[0]) };
+}
+/** Everyday spending (no bills, no one-off buys of RM 500+) in the 7 days from each payday against the rest of that pay
+ *  period, per day, over the last 3 periods. → {ratio, after (sen a week), usual (sen a week)} or null. */
+export function paydayEffect(txs, today) {
+  const pays = [...new Set(txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date))].sort().slice(-4);
+  let after = 0, rest = 0, restDays = 0;
+  for (let i = 0; i + 1 < pays.length; i++) {
+    const p = pays[i], q = pays[i + 1], wk = addDays(p, 6);
+    for (const t of txs) if (t.type === 'expense' && !isBill(t) && t.amount < 500_00 && t.date >= p && t.date < q) { if (t.date <= wk) after += t.amount; else rest += t.amount; }
+    restDays += Math.max(0, daysBetween(wk, q) - 1);
+  }
+  if (pays.length < 2 || restDays < 7 || !rest || !after) return null;
+  const a = after / ((pays.length - 1) * 7), u = rest / restDays;
+  return { ratio: a / u, after: Math.round(a * 7), usual: Math.round(u * 7) };
+}
+/** Bills whose last payment differs from the one before (a subscription's price going up, or down). bills: [{id?, name,
+ *  key?}]. → [{name, from, to, date}], latest first. */
+export function billChanges(txs, bills) {
+  const out = [];
+  for (const r of bills) {
+    // A bill typed as one word ("Netflix") is paid to "NETFLIX.COM": its first word is enough
+    const key = r.key || shopWord(r.name), one = key && !key.includes(' '), same = m => { const w = shopWord(m); return w === key || (one && w.split(' ')[0] === key); };
+    const paid = txs.filter(t => t.type === 'expense' && ((r.id && t.bill === r.id) || (key && t.merchant && same(t.merchant)))).sort((a, b) => byDate(a.date, b.date));
+    const [p, q] = paid.slice(-2);
+    if (q && Math.abs(q.amount - p.amount) > Math.max(100, p.amount * 0.01)) out.push({ name: r.name, from: p.amount, to: q.amount, date: q.date });
+  }
+  return out.sort((a, b) => byDate(b.date, a.date));
+}
+/** Malaysia's price change (DOSM CPI, {from: 'YYYY-MM', v: [index per month]}) between two months, the nearest
+ *  published ones. → {pct, from, to} or null. */
+export function cpiChange(cpi, fromYm, toYm) {
+  const at = ym => { const k = (+ym.slice(0, 4) - +cpi.from.slice(0, 4)) * 12 + +ym.slice(5, 7) - +cpi.from.slice(5, 7); return Math.max(0, Math.min(cpi.v.length - 1, k)); };
+  const i = at(fromYm), j = at(toYm), ym = k => addMonths(cpi.from, k);
+  return j > i ? { pct: cpi.v[j] / cpi.v[i] - 1, from: ym(i), to: ym(j) } : null;
+}
+/** A year in a few numbers: spent, money in, top category, shop and item, days with nothing spent, days logged, SST and
+ *  charges. → {spent, income, cat: {id, v}, shop: {name, v, n} (most visits), item: {name, n}, noSpend, logged, fees} */
+export function yearReview(txs, year, noSpend = []) {
+  const y = String(year), cats = {}, shops = {}, items = {}, days = new Set();
+  let spent = 0, income = 0;
+  for (const t of txs) {
+    if (t.date.slice(0, 4) !== y) continue;
+    days.add(t.date);
+    if (t.type === 'income' && !isRefund(t)) income += t.amount;
+    if (t.type !== 'expense') continue;
+    spent += t.amount;
+    for (const { category, cents } of breakdown(t)) cats[category] = (cats[category] || 0) + cents;
+    if (t.merchant) { const s = (shops[t.merchant.toLowerCase()] ||= { name: t.merchant, v: 0, n: 0 }); s.v += t.amount; s.n++; }
+    for (const it of t.items || []) if (plainItem(it.name)) (items[itemKey(it.name)] ||= { name: it.name, n: 0 }).n++;
+  }
+  const top = o => Object.values(o).sort((a, b) => b.n - a.n || b.v - a.v)[0] || null, tp = taxPaid(txs, y);   // the shop gone to most
+  const c = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+  return { spent, income, cat: c ? { id: c[0], v: c[1] } : null, shop: top(shops), item: Object.values(items).sort((a, b) => b.n - a.n)[0] || null,
+    noSpend: noSpend.filter(d => d.slice(0, 4) === y).length, logged: days.size, fees: tp.sst + tp.service };
 }

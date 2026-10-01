@@ -152,8 +152,8 @@ test('paid back: the oldest share first, and part of it leaves the rest open', (
     { id: 'b', type: 'transfer', date: '2026-09-10', amount: 2500, accountId: 'bank', toAccountId: 'owed', owedBy: 'Ali' },
     { id: 'c', type: 'transfer', date: '2026-09-20', amount: 1200, accountId: 'owed', toAccountId: 'cash', repaidBy: 'Ali' },
   ];
-  assert.deepEqual(openShares(tx).owedMe, [{ name: 'Ali', sen: 2300, from: 'bank' }]);
-  assert.deepEqual(openShares(tx.slice(0, 2)).owedMe, [{ name: 'Ali', sen: 3500, from: 'cash' }]);
+  assert.deepEqual(openShares(tx).owedMe, [{ name: 'Ali', sen: 2300, from: 'bank', since: '2026-09-10' }]);
+  assert.deepEqual(openShares(tx.slice(0, 2)).owedMe, [{ name: 'Ali', sen: 3500, from: 'cash', since: '2026-09-01' }]);
   assert.deepEqual(openShares([...tx, { id: 'd', type: 'transfer', date: '2026-09-21', amount: 2300, accountId: 'owed', toAccountId: 'bank', repaidBy: 'Ali' }]).owedMe, []);
 });
 
