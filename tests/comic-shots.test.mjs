@@ -61,9 +61,13 @@ test('lintShots: repeats, too few shot sizes, scenes opened close, dutch, focus,
   assert.deepEqual(lintShots([P('wide'), P('wide')]), ['panel 2: same shot as panel 1 (wide eye)']);
   assert.deepEqual(lintShots([P('wide'), P('wide', { angle: 'low' }), P('wide', { flip: true })]), []);
   assert.deepEqual(lintShots(['wide', 'medium', 'wide', 'medium', 'close', 'wide', 'medium'].map(s => P(s))), ['panels 1-7: fewer than 4 shot sizes']);
-  assert.deepEqual(lintShots([P('wide'), P('close', {}, '<use href="#b10-home-n"/>')]), ['panel 2: a new scene (home) opens on a close shot, not wide']);
-  assert.deepEqual(lintShots([P('medium')]), ['panel 1: a new scene (street) opens on a medium shot, not wide']);
-  assert.deepEqual(lintShots([P('wide'), { ...P('close'), scene: 'stall' }]), ['panel 2: a new scene (stall) opens on a close shot, not wide']);   // the scene hint wins
+  assert.deepEqual(lintShots([P('wide'), P('close', {}, '<use href="#b10-home-n"/>')]), ['panel 2: first visit to home opens on a close shot, not wide']);
+  assert.deepEqual(lintShots([P('medium')]), ['panel 1: first visit to street opens on a medium shot, not wide']);
+  assert.deepEqual(lintShots([P('wide'), { ...P('close'), scene: 'stall' }]), ['panel 2: first visit to stall opens on a close shot, not wide']);   // the scene hint wins
+  // back at a place seen before: a medium re-establishes it, a close-up does not
+  const H = '<use href="#b10-home-n"/>';
+  assert.deepEqual(lintShots([P('wide', {}, H), P('wide', { angle: 'low' }), P('medium', {}, H)]), []);
+  assert.deepEqual(lintShots([P('wide', {}, H), P('wide', { angle: 'low' }), P('close', {}, H)]), ['panel 3: back at home on a close shot (wide or medium re-establishes it)']);
   assert.deepEqual(lintShots(['wide', 'medium', 'close', 'medium', 'close'].map(s => P(s, { dutch: 4 }))), ['panel 4: dutch angle number 4 (3 a book at most)', 'panel 5: dutch angle number 5 (3 a book at most)']);
   assert.deepEqual(lintShots([P('wide', { on: [330, 10] })]), ['panel 1: focus 330,10 is outside the scene']);
   assert.deepEqual(lintShots([P('wide', { angle: 'worm' })]), ['panel 1: unknown shot, angle or drift']);

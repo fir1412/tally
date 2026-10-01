@@ -90,7 +90,13 @@ export function lintShots(panels, defs = '') {
     if (!ZOOM[c.shot || 'wide'] || !TILT[c.angle || 'eye'] || (c.drift && !DRIFT[c.drift])) out.push(`${n}: unknown shot, angle or drift`);
     if (i && key(p) === key(panels[i - 1])) out.push(`${n}: same shot as panel ${i} (${key(p)})`);
     if (i >= 6 && new Set(panels.slice(i - 6, i + 1).map(q => cam(q).shot || 'wide')).size < 4) out.push(`panels ${i - 5}-${i + 1}: fewer than 4 shot sizes`);
-    if (sc && sc !== (i ? sceneOf(panels[i - 1]) : null) && (c.shot || 'wide') !== 'wide') out.push(`${n}: a new scene (${sc}) opens on a ${c.shot} shot, not wide`);
+    // A place is established once, on its first visit (wide); coming back after being elsewhere needs a wide or a medium
+    // that re-orients, a daily strip re-opening every return on a wide would be 1 panel in 2.
+    if (sc && sc !== (i ? sceneOf(panels[i - 1]) : null)) {
+      const shot = c.shot || 'wide', before = panels.slice(0, i).some(q => sceneOf(q) === sc);
+      if (!before && shot !== 'wide') out.push(`${n}: first visit to ${sc} opens on a ${shot} shot, not wide`);
+      else if (before && !['wide', 'medium'].includes(shot)) out.push(`${n}: back at ${sc} on a ${shot} shot (wide or medium re-establishes it)`);
+    }
     if (c.dutch && ++dutch > 3) out.push(`${n}: dutch angle number ${dutch} (3 a book at most)`);
     if (c.on && !(c.on[0] >= 0 && c.on[0] <= 320 && c.on[1] >= 0 && c.on[1] <= 200)) out.push(`${n}: focus ${c.on} is outside the scene`);
     if (c.flip && [...(p.art || '').matchAll(/href="#([^"]+)"/g)].some(m => worded.has(m[1]))) out.push(`${n}: flipped, but its backdrop has painted words that would read backwards`);
