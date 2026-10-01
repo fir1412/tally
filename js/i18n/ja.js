@@ -1630,6 +1630,7 @@ export default {
   "kept {0} days": "{0}日間保存",
   "{0} on this phone": "このスマホに{0}枚",
   "{0} photos deleted. The entries are kept.": "写真を{0}枚削除しました。記録は残っています。",
+  "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights": "サブカテゴリー（任意）：外食 › Mamak、ファストフードなど。Tally が店名から推測し、あなたの選択を覚えます。「分析」からオンにできます",
   "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "分析：今月を3つの数字で、カテゴリーをタップして買ったものを確認、これからの30日、誰が誰に借りているか、同じ品物のお店ごとの値段",
   "Save and split with friends straight from a scanned receipt": "スキャンしたレシートからそのまま保存して友だちと割り勘",
   "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)": "記録は残したままレシート写真を削除：今すぐ、または一定期間後に自動で（設定 › プライバシー）",
