@@ -6,6 +6,13 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.9.0': [
+    "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops",
+    "Save and split with friends straight from a scanned receipt",
+    "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)",
+    "Today's sticker opens the comic on today's page",
+    "Can I afford it? now counts the usual income of riders, freelancers and sellers",
+  ],
   '1.8.4': [
     "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges",
   ],

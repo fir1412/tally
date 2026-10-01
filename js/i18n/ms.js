@@ -1631,4 +1631,9 @@ export default {
   "kept {0} days": "disimpan {0} hari",
   "{0} on this phone": "{0} dalam telefon ini",
   "{0} photos deleted. The entries are kept.": "{0} foto dipadam. Catatannya kekal.",
+  "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "Wawasan: bulan anda dalam tiga angka, ketik kategori untuk lihat apa yang dibeli, 30 hari akan datang, siapa berhutang dengan siapa, dan barang sama di kedai berbeza",
+  "Save and split with friends straight from a scanned receipt": "Simpan dan kongsi dengan kawan terus dari resit yang diimbas",
+  "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)": "Padam foto resit dan kekalkan catatan anda, sekarang atau secara automatik selepas tempoh tertentu (Tetapan, Privasi)",
+  "Today's sticker opens the comic on today's page": "Pelekat hari ini membuka komik pada halaman hari ini",
+  "Can I afford it? now counts the usual income of riders, freelancers and sellers": "Mampukah saya? kini mengambil kira pendapatan biasa penghantar, pekerja bebas dan peniaga",
 };

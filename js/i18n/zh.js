@@ -1631,4 +1631,9 @@ export default {
   "kept {0} days": "保留 {0} 天",
   "{0} on this phone": "这部手机上有 {0} 张",
   "{0} photos deleted. The entries are kept.": "已删除 {0} 张照片，记录都保留了。",
+  "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "分析：用三个数字看这个月，点类别看看买了什么，未来 30 天，谁欠谁，以及同一样东西在不同店的价格",
+  "Save and split with friends straight from a scanned receipt": "扫描收据后可直接保存并和朋友分摊",
+  "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)": "删除收据照片并保留记录，可立即删除或一段时间后自动删除（设置 › 隐私）",
+  "Today's sticker opens the comic on today's page": "今天的贴纸会直接打开今天的漫画",
+  "Can I afford it? now counts the usual income of riders, freelancers and sellers": "“我买得起吗？”现在也计算外送员、自由职业者和小商家的平常收入",
 };

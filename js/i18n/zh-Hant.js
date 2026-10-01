@@ -1630,4 +1630,9 @@ export default {
   "kept {0} days": "保留 {0} 天",
   "{0} on this phone": "這部手機上有 {0} 張",
   "{0} photos deleted. The entries are kept.": "已刪除 {0} 張照片，記錄都保留了。",
+  "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "分析：用三個數字看這個月，點類別看看買了什麼，未來 30 天，誰欠誰，以及同一樣東西在不同店的價格",
+  "Save and split with friends straight from a scanned receipt": "掃描收據後可直接儲存並和朋友分攤",
+  "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)": "刪除收據照片並保留記錄，可立即刪除或一段時間後自動刪除（設定 › 隱私）",
+  "Today's sticker opens the comic on today's page": "今天的貼紙會直接打開今天的漫畫",
+  "Can I afford it? now counts the usual income of riders, freelancers and sellers": "「我買得起嗎？」現在也計算外送員、自由工作者和小商家的平常收入",
 };

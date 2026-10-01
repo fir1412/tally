@@ -1630,4 +1630,9 @@ export default {
   "kept {0} days": "{0} நாட்கள் வைக்கப்படும்",
   "{0} on this phone": "இந்தக் கைப்பேசியில் {0}",
   "{0} photos deleted. The entries are kept.": "{0} புகைப்படங்கள் நீக்கப்பட்டன. பதிவுகள் இருக்கின்றன.",
+  "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "பகுப்பாய்வு: உங்கள் மாதம் மூன்று எண்களில், வாங்கியதைப் பார்க்க ஒரு வகையைத் தட்டுங்கள், அடுத்த 30 நாட்கள், யார் யாருக்குக் கடன், வெவ்வேறு கடைகளில் ஒரே பொருள்",
+  "Save and split with friends straight from a scanned receipt": "ஸ்கேன் செய்த ரசீதிலிருந்தே சேமித்து நண்பர்களுடன் பகிருங்கள்",
+  "Delete receipt photos and keep your entries, now or automatically after a while (Settings, Privacy)": "பதிவுகளை வைத்துக்கொண்டு ரசீது புகைப்படங்களை நீக்குங்கள், இப்போதோ சிறிது காலம் கழித்து தானாகவோ (அமைப்புகள், தனியுரிமை)",
+  "Today's sticker opens the comic on today's page": "இன்றைய ஸ்டிக்கர் இன்றைய காமிக் பக்கத்தைத் திறக்கும்",
+  "Can I afford it? now counts the usual income of riders, freelancers and sellers": "\"நான் வாங்க முடியுமா?\" இப்போது டெலிவரி ஓட்டுநர்கள், சுயதொழில் செய்பவர்கள், விற்பனையாளர்களின் வழக்கமான வருமானத்தையும் கணக்கிடும்",
 };
