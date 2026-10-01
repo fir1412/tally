@@ -63,6 +63,11 @@ const TUDUNG = d('M0-133C-12-133-14.5-121-13.5-113C-15.5-106-19.5-99-16.5-90Q0-8
   + shade('M4-132C10-130 14-122 13.5-113C15.5-106 19.5-99 16.5-90Q12-88 8-87C12-96 12-104 10-112C11-120 9-128 4-132Z')
   + e(0, -117.5, 7, 9, A.skin) + ln('M-8-128Q0-133 8-128', '#9E524D', 0.7) + C(0, -88, 1.3, '#D9A441');
 function ainaBody(pose) {
+  // sitting on the floor hugging her knees, head down on them: hips behind, shins and feet in front of the tudung,
+  // arms round the shins
+  if (pose === 'hug') return shadowE.replace('rx="17"', 'rx="26"') + d('M-24-2Q-27-16-16-22H6L10-2Z', A.skirt) + d('M-18-20Q-22-34-12-46H6Q4-30 6-20Z', A.tunic)
+    + d('M6-34L15-38L22-3H12Z', A.skirt) + e(19, -2.4, 5.2, 2.6, A.shoe) + d('M12-36L22-40L30-3H20Z', '#3A7F79') + e(27, -2.4, 5.4, 2.6, A.shoe) + e(17, -38, 6, 4.4, '#3A7F79') + shade('M20-38L22-40L30-3H25Z', 0.14)
+    + at(-3, 72, 1, TUDUNG) + ln('M2-36Q14-31 22-25M-2-30Q10-25 19-19', A.arm, 4.6) + e(23, -24, 2.6, 2.8, A.skin) + e(20, -18, 2.6, 2.8, A.skin);
   if (pose === 'kneel') { const k = arms(12.5, -57, 'hold');
     return e(-16, -2, 5.4, 2.4, A.shoe) + d('M2-16Q18-20 25-8Q26-1 18 0H2Z', A.skirt) + shade('M14-18Q22-16 25-8Q26-1 18 0H14Z', 0.18) + d('M-12-60Q-16-34-20-4Q0 0 20-4Q16-34 12-60Z', A.tunic) + shade('M4-60Q9-60 12-60Q16-34 20-4Q13-2 8-2Q8-30 4-60Z')
       + ln('M-12.5-57Q-19-42-8-29M12.5-57Q19-42 9-27', A.arm, 6) + at(0, 40, 1, TUDUNG) + hands([[-7.5, -28], [8.5, -26]], A.skin); }
@@ -120,6 +125,18 @@ function kamalaBody(pose) {
 const AJ = { skin: '#8E5B3E', kurta: '#4F7A9A', trim: '#D9A441', pants: '#EFE6D3', hair: '#1F1A1C', shoe: '#6E4533' };
 /** Arjun, their grandson (about eight): kurta and white trousers. */
 function arjunBody(pose) {
+  if (pose === 'ride') {
+    const H = [0, -34], th = 22 * Math.PI / 180, rot = ([x, y]) => [f1(H[0] + (x - H[0]) * Math.cos(th) - (y - H[1]) * Math.sin(th)), f1(H[1] + (x - H[0]) * Math.sin(th) + (y - H[1]) * Math.cos(th))];
+    const leg = (P, col) => { const dx = P[0] - H[0], dy = P[1] - H[1], dd = Math.hypot(dx, dy), L1 = 16, L2 = 17, a = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+      const kx = f1(H[0] + a * dx / dd - h * dy / dd), ky = f1(H[1] + a * dy / dd + h * dx / dd);
+      return ln(`M${H[0]} ${H[1]}L${kx} ${ky}L${P[0]} ${P[1]}`, col, 6.4) + e(P[0] + 1.5, P[1] + 1, 3.6, 1.8, AJ.shoe); };
+    const [sf, sb] = [rot([8, -62]), rot([-8, -62])], G = [[20, -36], [23, -37.5]];
+    return leg([3.75, -3.2], '#D9CFBE') + ln(`M${sb[0]} ${sb[1]}Q${f1((sb[0] + G[0][0]) / 2 - 2)} ${f1((sb[1] + G[0][1]) / 2 - 4)} ${G[0][0]} ${G[0][1]}`, AJ.kurta, 4)
+      + `<g transform="rotate(22 0 -34)">${R(-2, -68, 4, 6, AJ.skin) + d('M-8-64Q-10-48-11-28Q0-25 11-28Q10-48 8-64Q0-66.5-8-64Z', AJ.kurta) + shade('M3-66Q6-65 8-64Q10-48 11-28Q8-27 6-27Q6-48 3-66Z')
+        + ln('M0-64V-50M-3-64Q0-61 3-64', AJ.trim, 1) + e(-7.3, -73.5, 1.5, 2.2, AJ.skin) + e(7.3, -73.5, 1.5, 2.2, AJ.skin) + e(0, -74, 7.4, 8.4, AJ.skin)
+        + d('M-7.6-75Q-8.4-84.6 0-84.8Q8.4-84.6 7.6-75Q6-79.5 1-80Q-5-80-7.6-75Z', AJ.hair) + ln('M1-84.5Q2.5-87.5 4.5-86.5', AJ.hair, 1.4)}</g>`
+      + leg([13.75, -4.8], AJ.pants) + ln(`M${sf[0]} ${sf[1]}Q${f1((sf[0] + G[1][0]) / 2 + 2)} ${f1((sf[1] + G[1][1]) / 2 - 2)} ${G[1][0]} ${G[1][1]}`, AJ.kurta, 4) + mitts(G, AJ.skin);
+  }
   const k = arms(8, -62, pose, 0.65);
   return e(0, 0, 11, 2.6, '#120E1E', ' opacity=".35"') + e(-3.6, -1.8, 3.6, 1.8, AJ.shoe) + e(3.6, -1.9, 3.6, 1.8, AJ.shoe)
     + d('M-7-36L-6.5-3H-1.5L0-26L1.5-3H6.5L7-36Z', AJ.pants) + R(-2, -68, 4, 6, AJ.skin)
@@ -305,7 +322,10 @@ const ITEMS = {
   roastchicken: e(0, 9, 22, 8, '#EDE3D2') + e(0, 3, 15, 10, '#C98A45') + e(-4, 0, 8, 5, '#DDA35C') + ln('M12 4L20-4', '#EFE6D3', 3.4) + ln('M-12 4L-20-4', '#EFE6D3', 3.4) + ln('M-8 13h0M8 13h0M0 15h0', '#7FA35A', 3),
   yearchart: R(-20, 16, 40, 2, '#6B6570') + RR(-17, 4, 7, 12, 1, '#9AABB4') + RR(-7, -3, 7, 19, 1, '#4F7A9A') + RR(3, -8, 7, 24, 1, '#2F6B66') + RR(13, -16, 7, 32, 1, '#5E8B4A') + ln('M-14-4L-4-10L6-14L17-22', '#C44A36', 1.6) + d('M17-22L11-21L15-17Z', '#C44A36'),
   goal: C(0, 0, 19, '#C44A36') + C(0, 0, 14, '#F4EEE2') + C(0, 0, 9, '#C44A36') + C(0, 0, 4, '#F4EEE2') + ln('M0 0L16-16', '#6E4533', 2) + d('M16-16L14-22L18-20L22-18L20-14Z', '#2F6B66'),
-  pillow: d('M-4-19A17 17 0 1 0 14 7A14 14 0 1 1-4-19Z', '#E3B54A') + shade('M14 7A17 17 0 0 1-15 8Q0 12 14 7Z', 0.12) + ln('M-14-12h0M18-14h0M8 16h0', '#F4EEE2', 2) + txt(10, -6, 'z', 10, '#8FA7C9') + txt(17, -14, 'z', 7.5, '#8FA7C9'),
+  // a cushion with a sleeping moon stitched on it: one clean outline (no separate dots or floating letters), so a
+  // die-cut sticker keeps a single rim
+  pillow: d('M-21-13Q-23-19-17-19Q0-16 17-19Q23-19 21-13Q19 0 21 13Q23 19 17 19Q0 16-17 19Q-23 19-21 13Q-19 0-21-13Z', '#4F6D8F') + shade('M8-17Q17-19 21-13Q19 0 21 13Q23 19 17 19Q12 18 8 17Z', 0.16)
+    + d('M-4-10A11 11 0 1 0 9 6A8.5 8.5 0 1 1-4-10Z', '#E3B54A') + ln('M8-11h5l-5 6h5M13-4h3.4l-3.4 4h3.4', '#C9D3DC', 1.3) + ln('M-21-13Q-23-19-17-19M17-19Q23-19 21-13M21 13Q23 19 17 19M-17 19Q-23 19-21 13', '#3B5577', 1.4),
   planner: RR(-16, -20, 32, 40, 3, '#2F6B66') + RR(-12, -16, 26, 32, 2, '#F4EEE2') + ln('M-16-12h4M-16-4h4M-16 4h4M-16 12h4', '#D9A441', 2) + ln('M-6-8H10M-6 0H10M-6 8H6', '#B6AFA2', 1.8) + R(-9, -10, 3, 3, 'none', ' stroke="#2F6B66" stroke-width="1"') + ln('M-8.6-7.5L-7.8-6.4L-6-9', '#C44A36', 1),
   clock: C(0, 0, 19, '#8A5A3C') + C(0, 0, 16, '#F4EEE2') + ln('M0-13V-10M13 0H10M0 13V10M-13 0H-10', '#8A8378', 1.6) + ln('M0 0V-11M0 0L-1.8-8', '#3B2723', 1.8) + C(0, 0, 1.6, '#C44A36'),
   fireworks: [[-8, -6, 12, '#E3B54A'], [10, -10, 9, '#C4607A'], [6, 10, 8, '#6FA3B8']].map(([x, y, r, c]) => C(x, y, r * 1.1, c, ' opacity=".15"') + ln(Array.from({ length: 12 }, (_, i) => { const a = i / 12 * Math.PI * 2; return `M${f1(x + Math.cos(a) * r * 0.3)} ${f1(y + Math.sin(a) * r * 0.3)}L${f1(x + Math.cos(a) * r)} ${f1(y + Math.sin(a) * r)}`; }).join(''), c, 1.5)).join(''),
@@ -392,6 +412,21 @@ Object.assign(ITEMS, {
   latefee: `<g transform="rotate(-6)">${d('M-14-20H14V20H-14Z', '#F4EEE2') + shade('M6-20H14V20H6Z', 0.08) + R(-14, -20, 28, 6, '#8A8378') + ln('M-9-8H9M-9-3H6M-9 2H8M-9 7H4', '#B6AFA2', 1.6)}</g>`
     + `<g transform="translate(10 10) rotate(-14)">${C(0, 0, 9.5, 'none', ' stroke="#C44A36" stroke-width="2.4"') + ln('M0-5V1.5M0 4.6v.2', '#C44A36', 2.6)}</g>`
     + `<g transform="translate(-12 14)">${C(0, 0, 8, '#F1E8D8') + C(0, 0, 8, 'none', ' stroke="#6E4533" stroke-width="1.6"') + ln('M0 0V-5M0 0L3.6 2', INK, 1.2)}</g>`,
+  // December's story stickers
+  fundmeter: RR(-15, -22, 30, 44, 2, '#F4EEE2') + RR(-4, -16, 8, 30, 4, '#FFFFFF', ' stroke="#B6AFA2" stroke-width="1"') + C(0, 15, 6.4, '#C44A36') + RR(-2, -8, 4, 22, 2, '#C44A36')
+    + ln('M5-14h4M5-8h3M5-2h4M5 4h3M5 10h4', '#8A8378', 0.9) + d('M-9-10L-5-8L-9-6Z', '#2F6B66') + shade('M7-22H15V22H7Z', 0.07),
+  roof: d('M-22 2L0-18L22 2Z', '#B5533A') + ln('M-14-5h28M-8-11h16', '#8E3A26', 1.2) + R(-16, 2, 32, 18, '#E9D8B8') + R(-5, 8, 10, 12, '#6E4533') + R(8, 6, 6, 6, '#A9C8CF')
+    + shade('M0-18L22 2H0Z', 0.1) + ln('M-20 1L0-17L20 1', '#E3B54A', 1.4, ' opacity=".8"'),
+  scamtext: RR(-12, -20, 24, 40, 4, '#2E2A36') + RR(-10, -16, 20, 30, 1.5, '#F4EEE2') + RR(-8, -12, 16, 9, 3, '#DCE4EA') + R(-6, -9, 10, 1.4, '#8A8378') + R(-6, -6.4, 7, 1.4, '#8A8378')
+    + ln('M-6 2h12', '#4F6D8F', 1.6, ' stroke-dasharray="2 1.4"') + `<g transform="translate(10 8)">${C(0, 0, 9, '#C44A36') + ln('M-5-5L5 5M5-5L-5 5', '#FFFFFF', 2.4)}</g>`,
+  slips: d('M-11-6H11L9 20H-9Z', '#4F7A9A') + d('M-9-2H9L8 18H-8Z', '#6F95B2') + [[-6, -10, -14], [1, -13, 8], [6, -8, 20], [-2, -6, -4]].map(([x, y, r]) => `<g transform="translate(${x} ${y}) rotate(${r})">${R(-4, -6, 8, 12, '#FFFFFF') + R(-4, -6, 8, 2.6, '#C44A36') + ln('M-2-1h4M-2 2h3', '#8A8378', 0.8)}</g>`).join('')
+    + R(-12, -7, 24, 2.4, '#2E4A6A') + shade('M4-6H11L9 20H4Z', 0.18) + RR(-8, 4, 3, 12, 1.5, '#FFFFFF', ' opacity=".35"'),
+  invitecrumple: d('M-17-11L-6-19L7-15L18-6L15 9L4 17L-11 15L-19 4Z', '#FBF7EE') + d('M-6-19L-2-4L7-15ZM18-6L-2-4L15 9ZM-11 15L-2-4L-19 4Z', SH, ' opacity=".07"')
+    + ln('M-6-19L-2-4L7-15M-2-4L18-6M-2-4L15 9M-2-4L4 17M-2-4L-11 15M-2-4L-19 4', '#C9C1B6', 1) + d('M3-17L13-9L6-5Z', '#3F6B4A') + d('M-14 6l6-2 1 5Z', '#C44A36'),
+  patch: d('M-11-8a13 13 0 1 0 26 0a13 13 0 1 0-26 0ZM-7-8a9 9 0 1 1 18 0a9 9 0 1 1-18 0Z', '#3E3A40', ' fill-rule="evenodd"') + C(2, -8, 3.2, '#8A8378') + ln('M2-8L2-18M2-8L11-3M2-8L-7-3', '#8A8378', 0.8)
+    + RR(-18, 0, 30, 20, 3, '#C44A36') + R(-18, 0, 30, 5, '#A33B30') + RR(-13, 8, 9, 9, 2, '#2E2A36') + RR(-1, 9, 9, 7, 3.5, '#E3B54A') + C(3.5, 12.5, 1.4, '#B8862E'),
+  rainyjar: jar(0.25).replace(/<rect x="-3"[^>]*\/><circle[^>]*\/>$/, '') + RR(-14, -13, 28, 11, 1.5, '#F1E3C8') + txt(0, -5.3, 'RAINY DAY', 6.5, '#2E4A7A', ' textLength="25" lengthAdjust="spacingAndGlyphs"')
+    + `<g transform="translate(-3 9) rotate(-8) scale(.32)">${cashArt(20)}</g><g transform="translate(5 12) rotate(10) scale(.3)">${cashArt(5)}</g>`,
   coin: C(0, 0, 4, '#D9A441') + C(0, 0, 2.6, 'none', ' stroke="#B8862E" stroke-width=".8"') + e(-1.4, -1.6, 0.9, 1.3, '#F4E6CC'),
   rag: d('M-8-3Q0-6 8-3L9 4Q0 7-9 4Z', '#EDE7DC') + ln('M-6 0H6', '#C9C1B6', 0.8),
 });
@@ -433,7 +468,7 @@ export function castKit(pfx) {
   const faceUse = (who, f, x, y) => who === 'grace' ? use(`gf-${f}`, () => faceArt(f) + GLASSES, x, y) : who === 'raju' ? use(`rf-${f}`, () => faceArt(f, 7.2) + MOUSTACHE, x, y) : use(`f-${f}`, () => faceArt(f), x, y);
   const person3 = who => (o = {}) => {
     const { x = 160, y = 188, s = 1, face = 'happy', pose = 'stand', flip = false, item = null, is = 0.5, apron = null, turn = null, look = null, bend = 0, inHand = '' } = o;
-    const fp = pose === 'kneel' || pose === 'kneelopen' || pose === 'kneelreach' ? [0, FY[who] + 40] : pose === 'hug' ? [-3, FY[who] + 72] : [0, FY[who]];
+    const fp = pose === 'ride' ? [15, FY[who] + 2.4] : pose === 'kneel' || pose === 'kneelopen' || pose === 'kneelreach' ? [0, FY[who] + 40] : pose === 'hug' ? [-3, FY[who] + 72] : [0, FY[who]];
     const body = use(`${who}-${pose}${apron ? '-a' : ''}`, () => BODY[who](pose, ...(apron ? [apron] : [])));
     // turn 'l' | 'r' (in the art's own left/right): a three-quarter turn toward a partner. The body narrows, the far
     // cheek goes under the hair or tudung, and the eyes, nose and mouth slide toward the partner, so eyelines meet.

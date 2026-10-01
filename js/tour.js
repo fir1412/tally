@@ -6,6 +6,10 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.11.1': [
+    "December's sticker book has a new story about saving for a rainy day. A page for each day you fill in",
+    "Share pictures now carry the same receipt-and-tick logo as Tally's app icon",
+  ],
   '1.11.0': [
     "November's sticker book has a new story about pay later. A page for each day you fill in",
     "Can I afford it? now shows your lowest day first, what your everyday spending is made of, and your bills. Weeks you didn't fill in no longer count as weeks you spent nothing",

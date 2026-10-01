@@ -170,10 +170,26 @@ function display(g, s, x, y, { size, maxW, color, dry, align }) {
   return { ...r, h: r.h + (lat ? 0 : 12) };
 }
 
+/** Tally's mark, the app icon (icons/icon.svg): a receipt with a green tick on navy. Below 24 px, the simple one
+ *  (icons/mark-small.svg): no printed lines, a bigger tick. */
 function mark(g, x, y, s) {
-  g.save(); g.translate(x, y); g.scale(s / 32, s / 32);
-  g.fillStyle = C.blue; g.beginPath(); g.roundRect(0, 0, 32, 32, 9); g.fill();
-  g.strokeStyle = '#fff'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(9, 10); g.lineTo(23, 10); g.moveTo(16, 10); g.lineTo(16, 23); g.stroke();
+  const line = (d, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = g.lineJoin = 'round'; g.stroke(new Path2D(d)); };
+  g.save(); g.translate(x, y);
+  if (s >= 24) {
+    g.scale(s / 512, s / 512);
+    g.fillStyle = '#0F172A'; g.beginPath(); g.roundRect(0, 0, 512, 512, 112); g.fill();
+    g.fillStyle = '#F4F4EF'; g.fill(new Path2D('M160 104h192v304l-32-22-32 22-32-22-32 22-32-22-32 22z'));
+    line('M196 176h120M196 224h120M196 272h72', 16, '#94A3B8');
+    g.fillStyle = '#059669'; g.beginPath(); g.arc(330, 330, 62, 0, Math.PI * 2); g.fill();
+    line('M302 330l20 20 36-40', 16, '#fff');
+  } else {
+    g.scale(s / 32, s / 32);
+    g.fillStyle = '#0F172A'; g.beginPath(); g.roundRect(0, 0, 32, 32, 8); g.fill();
+    g.fillStyle = '#F4F4EF'; g.fill(new Path2D('M8.5 5.5h13v19.5l-2.17-1.5-2.16 1.5-2.17-1.5-2.17 1.5-2.16-1.5-2.17 1.5z'));
+    g.fillStyle = '#059669'; g.beginPath(); g.arc(22.5, 22.5, 6.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#0F172A'; g.lineWidth = 1.5; g.stroke();
+    line('M19.6 22.6l2 2 3.6-4', 1.9, '#fff');
+  }
   g.restore();
 }
 const INK = { paper: { ink: C.ink, soft: C.mute, url: C.blue, rule: 'rgba(10,15,30,.12)' }, night: { ink: '#FFFFFF', soft: C.moon, url: '#FFFFFF', rule: 'rgba(255,255,255,.14)' } };

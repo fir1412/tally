@@ -82,7 +82,7 @@ test('October\'s book has no shot problems', async () => {
 });
 
 test('every sticker in the camera books has drawn art (an unknown item name used to render an empty sticker)', async () => {
-  for (const m of ['10', '11']) {
+  for (const m of ['10', '11', '12']) {
     const b = (await import(`../js/books/${m}.js`)).default;
     assert.deepEqual(b.stickers.filter(s => /scale\(1\.2 1\.2\)"><\/g>/.test(s.svg)).map(s => s.id), [], `month ${m}`);
   }
