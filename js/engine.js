@@ -816,7 +816,7 @@ export function forecast({ txs, today, startDay = 1, budget = 0, bills = [] }) {
     const pk = addMonths(c.key, -1), prev = monthSpend(txs, pk, startDay), pc = cycleSpan(pk, startDay);
     if (prev.total) { rate = flex(pk) / (daysBetween(pc.start, pc.end) + 1); early = true; }
   }
-  const upcoming = bills.reduce((s, r) => s + billDates(r, c.end).filter(d => d > today && d >= c.start && !billPaid(r, d, txs)).length * r.amount, 0);
+  const upcoming = bills.reduce((s, r) => s + billDates(r, c.end).filter(d => d >= today && d >= c.start && !billPaid(r, d, txs)).length * r.amount, 0);   // due today and not paid yet: still to pay
   const projected = sp.total + upcoming + Math.round(rate * left);
   return { spent: sp.total, upcoming, rate: Math.round(rate), projected, daysLeft: left, end: c.end, early,
     safe: budget ? Math.max(0, Math.floor((budget - sp.total - upcoming) / (left + 1))) : null };
@@ -848,7 +848,7 @@ export function affordMoney(accounts, txs) {
 }
 export function affordCheck({ price, balance, txs, today, startDay = 1, bills = [], budget = 0 }) {
   const f = forecast({ txs, today, startDay, budget, bills }), end = addDays(today, 30), usual = Math.round(f.rate * 30);
-  const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d > today && !billPaid(r, d, txs)).length * r.amount, 0);
+  const upcoming = bills.reduce((s, r) => s + billDates(r, end).filter(d => d >= today && !billPaid(r, d, txs)).length * r.amount, 0);   // due today and not paid yet: still to pay
   const sal = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).reduce((m, x) => (!m || x.date > m.date ? x : m), null);
   const sals = txs.filter(x => x.type === 'income' && x.category === 'salary' && x.date <= today).map(x => x.date).sort().slice(-2);
   const fromEnd = d => daysInMonth(d.slice(0, 7)) - +d.slice(8, 10), [p1, p2] = sals, nm = sal && addMonths(sal.date.slice(0, 7), 1);

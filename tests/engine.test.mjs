@@ -423,3 +423,13 @@ test('can I afford it counts everyday money only: RM 10,000 in ASB doesn\'t buy 
   assert.notEqual(E.affordCheck({ price: 300000, balance: E.affordMoney(accounts.slice(0, 2), []).balance, txs: [], today: '2026-10-01' }).verdict, 'yes');
   assert.equal(E.affordCheck({ price: 300000, balance: E.balances(accounts.slice(0, 2), []).total, txs: [], today: '2026-10-01' }).verdict, 'yes', 'what it said before');
 });
+
+test('a bill due today and not paid yet still counts, once paid it counts as spent (afford and month forecast)', () => {
+  const bill = { id: 'b1', name: 'Rumah', amount: 50000, freq: 'monthly', day: 15, start: '2026-01-15' };
+  const paid = [{ id: 'p', type: 'expense', date: '2026-10-15', amount: 50000, category: 'rent', merchant: 'Rumah', accountId: 'a', bill: 'b1' }];
+  assert.equal(E.affordCheck({ price: 10000, balance: 300000, txs: [], today: '2026-10-15', bills: [bill] }).upcoming, 50000);
+  assert.equal(E.affordCheck({ price: 10000, balance: 300000, txs: paid, today: '2026-10-15', bills: [bill] }).upcoming, 0);
+  assert.equal(E.forecast({ txs: [], today: '2026-10-15', bills: [bill] }).upcoming, 50000);
+  const f = E.forecast({ txs: paid, today: '2026-10-15', bills: [bill] });
+  assert.equal(f.upcoming + f.spent, 50000);
+});
