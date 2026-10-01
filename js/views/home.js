@@ -53,7 +53,7 @@ function affordHtml(r) {
   return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
     <ul class="slegend">${rows.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}</span></li>`).join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${r.left < 0 ? '−' : ''}${esc(fmtRM(Math.abs(r.left)))}</b></li></ul>
     ${r.savings ? `<p class="fine">${esc(t('Savings, not counted: {0}', balHidden() ? MASK : fmtRM(r.savings)))}</p>` : ''}
-    <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))}</p>`;
+    <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))} ${esc(t('A guide from your own entries, not financial advice.'))}</p>`;
 }
 /** When this person started with Tally: their first entry made here, else their first account. */
 // A loop, not Math.min(...all): spreading 125k+ values throws. okMs: a bad time stored before the intake check.
