@@ -38,7 +38,7 @@ test('next30: the day-by-day line ends where "Can I afford it?" does, with the b
   const bills = [{ id: 'b', name: 'Rumah', amount: 50000, freq: 'monthly', day: 15, start: '2026-01-15' }];
   const o = { balance: 300000, txs, today: '2026-10-10', bills };
   const n = E.next30(o), a = E.affordCheck({ ...o, price: 0 });
-  assert.equal(n.days.length, 31);
+  assert.equal(n.days.length, 30);   // [today, today+30): the same 30 days for bills, pay and spending
   assert.equal(n.days.at(-1).bal, a.left);
   assert.equal(n.days.find(d => d.date === '2026-10-15').out, 50000);
   assert.equal(n.days.find(d => d.date === '2026-10-25').in, 400000);

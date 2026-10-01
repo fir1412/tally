@@ -4,7 +4,7 @@ import { S, cat, setKv, saveTx, keepToday, savePhoto, deletePhotos, getPhoto, le
 import { t, fmtDate, fmtMonth, getLang } from '../i18n.js';
 import { esc, ICON, toast, confirmSheet, openSheet, closeSheet, $, $$, landed, countUp, reduced, announce } from '../ui.js';
 import { firstWord } from './learn.js';
-import { subFor, learnSub, subsOf, fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, itemKey, learnNames, owing } from '../engine.js';
+import { subFor, learnSub, subsOf, fmtRM, fmtAcct, isFx, calcAmount, categorize, shopCategory, findDuplicate, validIso, addDays, addMonths, daysInMonth, itemKey, learnNames, owing } from '../engine.js';
 import { checksum, parseItemLines } from '../parse.js';
 import { on } from '../features.js';
 import { readReceipt, loadOcr, ocrReady, ocrProgress, ocrSaved, OCR_BYTES, readPct } from '../scan.js';
@@ -332,7 +332,7 @@ const MARK_T = [[2.8], [3], [3], [3], [3], [3.6, true]];
 const mark = ([s, rev]) => `<g class="tp-mark${rev ? ' rev' : ''}" style="--d:${s}s"><circle cx="106" cy="66" r="9"/><path class="tp-no" d="M102.5 62.5l7 7M109.5 62.5l-7 7"/><path class="tp-ok" d="M102 66.5l3 3 5.5-6.5"/></g>`;
 /** The last day to return it, and the day the warranty ends, from the receipt's date and what it prints. */
 const returnDate = d => addDays(d.date, d.returnDays);
-const warrantyDate = d => { const x = new Date(`${d.date}T00:00:00Z`); x.setUTCMonth(x.getUTCMonth() + d.warrantyMonths); return x.toISOString().slice(0, 10); };
+const warrantyDate = d => { const ym = addMonths(d.date.slice(0, 7), d.warrantyMonths); return `${ym}-${String(Math.min(+d.date.slice(8, 10), daysInMonth(ym))).padStart(2, '0')}`; };   // 31 Aug + 6 months → 28 Feb, not 3 Mar
 /** "Refund within 3 days", "1 year warranty" on the slip: a reminder, only if asked for (a grocery slip's window is noise). */
 const remindHtml = d => [d.returnDays && ['ret', 'remindReturn', t('Remind me before the return window ends ({0})', fmtDate(returnDate(d)))],
   d.warrantyMonths && ['war', 'remindWarranty', t('Remind me before the warranty ends ({0})', fmtDate(warrantyDate(d), { year: true }))]]

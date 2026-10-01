@@ -14,7 +14,8 @@ test('a month\'s saving: what is left over the months to the date, rounded up to
   assert.deepEqual(goalProgress({ ...G, by: '2027-03-15' }, { s: 40000 }, '2026-10-01'), { have: 40000, left: 60000, pct: 0.4, reached: false, overdue: false, months: 5, perMonth: 12000 });
   assert.equal(goalProgress({ ...G, by: '2027-03-15' }, { s: 39999 }, '2026-10-01').perMonth, 12001, '60001 over 5: rounded up');
   assert.equal(goalProgress({ ...G, by: '2026-10-31' }, { s: 0 }, '2026-10-01').months, 1, 'this month: at least 1');
-  assert.equal(goalProgress({ ...G, by: '2027-10-01' }, {}, '2026-10-31').months, 12, 'calendar months, from October to October');
+  assert.equal(goalProgress({ ...G, by: '2027-10-01' }, {}, '2026-10-31').months, 11, '31 Oct to 1 Oct is 11 months, in average months (it was 12: calendar months over-counted)');
+  assert.equal(goalProgress({ ...G, by: '2026-12-31' }, { s: 0 }, '2026-10-01').months, 3, '1 Oct to 31 Dec is 3 months, so RM 1,000 a month for RM 3,000, not RM 1,500 (maths audit F12)');
   assert.equal(goalProgress({ ...G, by: '2027-01-01', accountId: undefined }, { s: 99999 }, '2026-10-01').have, 0, 'no account: nothing saved yet');
   assert.equal(goalProgress(G, { s: -5000 }, '2026-10-01').pct, 0, 'below zero is an empty bar');
 });

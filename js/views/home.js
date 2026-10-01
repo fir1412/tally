@@ -2,7 +2,7 @@
 import { S, today, nowLocal, nowTime, settings, setKv, setSetting, cat, booked, scopedAccounts, budgetsFor, inScope, startDay, thisMonth, cached, OLD_HOME, NEW_HOME, wipeSite, saveTx, keepToday, uid, defaultAccount } from '../state.js';
 import { t, fmtDate, fmtMonth, monShort, cycleShort, getLang } from '../i18n.js';
 import { esc, ICON, MASK, balHidden, eyeBtn, lineChart, pairBars, donut, openSheet, toast, countUp, replay, landing, $, confirmSheet, closeSheet, landed } from '../ui.js';
-import { fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso, affordMoney } from '../engine.js';
+import { firstSpend, fmtRM, balances, monthOf, monthSpend, monthSpends, monthIncomes, addMonths, pace, cashFlow, balanceTrend, insights, habits, dueNudge, daysBetween, itemKey, cycleKey, cycleSpan, billStatus, newest, fmtAcct, offTotal, isFx, rateOf, belowSince, CATEGORIES, affordCheck, calcAmount, recurringCandidates, owing, openShares, validIso, affordMoney } from '../engine.js';
 import { habitEvent, ics, googleUrl, safeId } from '../calendar.js';
 import { download, okMs } from '../io.js';
 import { render, go } from '../app.js';
@@ -48,9 +48,11 @@ function affordHtml(r) {
   const head = { yes: [t('Yes, you can.'), 'af-yes'], tight: [t('You can, but it will be tight.'), 'af-tight'], no: [t('Not yet.'), 'af-no'] }[r.verdict];
   const rows = [[t('Money now'), r.balance], r.pay && [t('Pay due {0}', fmtDate(r.payDate)), r.pay], r.earn && [t('Usual income (your lowest month lately)'), r.earn], [t('Bills due'), -r.upcoming], [t('Usual everyday spending'), -r.usual], [t('This buy'), -r.price]].filter(Boolean);
   const why = r.left >= 0 ? t('{0} left over the next 30 days, after this, your bills and your usual spending.', fmtRM(r.left)) : t('You would be {0} short over the next 30 days.', fmtRM(-r.left));
+  // The verdict is on the lowest day: money that runs out before payday is short even if pay refills it.
+  const dip = r.low && r.low.bal < r.left ? `<p>${esc(r.low.bal < 0 ? t('You may run short around {0}.', fmtDate(r.low.date)) : t('Lowest: {0} on {1}', fmtRM(r.low.bal), fmtDate(r.low.date)))}</p>` : '';
   const save = r.verdict !== 'no' ? '' : r.months ? (r.months === 1 ? t('At your usual saving ({0} a month), you could buy it next month.', fmtRM(r.net)) : t('At your usual saving ({0} a month), you could buy it in {1} months.', fmtRM(r.net), r.months))
     : t('You usually spend what you earn, so saving for it means spending less first.');
-  return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
+  return `<div class="afford ${head[1]}"><b>${esc(head[0])}</b><p>${esc(why)}</p>${dip}${r.early ? `<p>${esc(t('Your usual spending is from {0} days of entries so far, so it is a rough guess.', r.days))}</p>` : ''}${r.over ? `<p>${esc(t("It takes you {0} over this month's budget.", fmtRM(r.over)))}</p>` : ''}${save ? `<p>${esc(save)}</p>` : ''}</div>
     <ul class="slegend">${rows.map(([l, v]) => `<li><span class="grow">${esc(l)}</span><span class="num">${v < 0 ? '−' : ''}${esc(fmtRM(Math.abs(v)))}</span></li>`).join('')}<li><b class="grow">${esc(t('Left'))}</b><b class="num">${r.left < 0 ? '−' : ''}${esc(fmtRM(Math.abs(r.left)))}</b></li></ul>
     ${r.savings ? `<p class="fine">${esc(t('Savings, not counted: {0}', balHidden() ? MASK : fmtRM(r.savings)))}</p>` : ''}
     <p class="fine">${esc(t('From your balance today, your bills (the ones you added and the ones Tally spotted) and your usual everyday spending. Big one-off buys are not counted as usual.'))} ${esc(t('A guide from your own entries, not financial advice.'))}</p>`;
@@ -284,7 +286,7 @@ export const homeView = {
     const all = balances(accts, upToday), unset = accts.filter(a => a.typed === false);
     const used = new Set(upToday.flatMap(x => [x.accountId, x.toAccountId])), shownUnset = unset.filter(a => used.has(a.id));
     const bal = unset.length ? { ...balances(accts.filter(a => !unset.includes(a)), upToday), by: all.by } : all, sp = cached(monthSpend, upToday, ym, sd), spent = sp.total, B = on('budgets') ? budgetsFor().total : 0;
-    const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total }) : null;
+    const p = B ? pace(B, spent, tdy, { startDay: sd, amounts: sp.each.total, fixed: sp.fixed.total, first: cached(firstSpend, upToday) }) : null;
     const lastYm = addMonths(ym, -1), into = daysBetween(cycleSpan(ym, sd).start, tdy), lastStart = cycleSpan(lastYm, sd).start;
     const before = cached(sameDayBefore, upToday, lastYm, sd, into, lastStart), diff = spent - before;
     const recent = cached(newest, upToday, 8);

@@ -1,6 +1,6 @@
 // Files in and out: CSV / Excel / Google Sheets import from other money apps and bank statements, CSV export,
 // JSON backup. Everything read from a file is untrusted: sizes, dates and amounts are checked.
-import { parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate, movedTo, ACCOUNT_KINDS, OWING_KINDS } from './engine.js';
+import { RELIEFS, parseAmount, validIso, daysBetween, CATEGORIES, INCOME_CATEGORIES, categorize, shopCategory, incomeCategory, allocate, movedTo, ACCOUNT_KINDS, OWING_KINDS } from './engine.js';
 import { CAT_ICONS } from './caticons.js';
 
 export const LIMITS = { fileBytes: 25 * 1024 * 1024, backupBytes: 200 * 1024 * 1024, backupJson: 50 * 1024 * 1024, photoBytes: 40 * 1024 * 1024, pixels: 50_000_000, rows: 50_000, text: 200 };
@@ -393,7 +393,8 @@ export function dateOrder(rows, col, mdy = false) {
   if (a || b) return b && !a;
   // Every date could be either (9/1 … 9/12): the reading that doesn't put entries in the future wins (a US sheet's
   // 1–12 September is not January–December with October on still to come); else the app's own order.
-  const today = new Date().toISOString().slice(0, 10), future = mf => rows.filter(r => (fileDate(r?.[col], mf) || '') > today).length;
+  const n = new Date(), today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`, future =   // the phone's date: UTC is yesterday before 8 am in Malaysia
+    mf => rows.filter(r => (fileDate(r?.[col], mf) || '') > today).length;
   const f = future(false), m = future(true);
   return f !== m ? m < f : mdy;
 }
@@ -945,7 +946,7 @@ export function readBackup(text) {
       ...['tax', 'service', 'rounding'].reduce((o, k) => (okSigned(t[k]) ? { ...o, [k]: t[k] } : o), {}),
       ...(okId(t.receiptId) ? { receiptId: t.receiptId } : {}),
       ...(okId(t.refundOf) ? { refundOf: t.refundOf } : {}), ...(validIso(t.warranty) ? { warranty: t.warranty } : {}), ...(validIso(t.returnBy) ? { returnBy: t.returnBy } : {}),
-      ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...(t.spouse === true ? { spouse: true } : {}), ...upd(t.updatedAt),
+      ...(cleanText(t.by, 30) ? { by: cleanText(t.by, 30) } : {}), ...(t.spouse === true ? { spouse: true } : {}), ...(t.type === 'expense' && (t.relief === 'none' || RELIEFS.some(r => r.id === t.relief)) ? { relief: t.relief } : {}), ...upd(t.updatedAt),
       ...(okId(t.bill) ? { bill: t.bill } : {}),
     }));
   const recurring = list(d.recurring, 500).filter(r => isObj(r) && okId(r.id) && okAmt(r.amount))

@@ -4,7 +4,7 @@ import { S, booked, today, startDay, thisMonth, scope, budgetsFor, inScope, sett
 import { t, fmtDate, fmtMonth, cycleShort, getLang, langTag } from '../i18n.js';
 import { esc, short, ICON, openSheet, closeSheet, lineChart, balHidden, MASK } from '../ui.js';
 import { fmtRM, addDays, addMonths, cycleSpan, monthIncomes, monthSpends, forecast, perMonth, billStatus, recurringCandidates, fixedFlexible, dailySpend, whenGrid, topShops, paymentMix, savingsRate, foodSplit, taxPaid, jointIn, taxRelief, priceHistory, basketIndex,
-  categoryItems, subSplit, shopPrices, next30, paydayEffect, billChanges, openShares, cpiChange, yearReview, affordMoney, owing, monthOf, monthSpend, cycleKey, daysBetween } from '../engine.js';
+  categoryItems, subSplit, shopPrices, next30, paydayEffect, firstSpend, billChanges, openShares, cpiChange, yearReview, affordMoney, owing, monthOf, monthSpend, cycleKey, daysBetween } from '../engine.js';
 import { CPI } from '../cpi.js';
 import { catLabel, showIds, downloadReceipts, showCategory } from './money.js';
 import { receiptName, csvLine } from '../io.js';
@@ -44,7 +44,7 @@ export function forecastCard() {
       ${B ? `<span class="mark${at > 70 ? ' end' : ''}" style="left:${at.toFixed(2)}%"><span>${esc(t('Budget'))} ${esc(short(B))}</span></span>` : ''}</div>
     <ul class="slegend">${parts.map(([l, v, k]) => `<li><span class="key ${k}"></span><span class="grow">${esc(l)}</span><span class="num">${esc(fmtRM(v))}</span></li>`).join('')}</ul>
     ${f.safe != null ? `<p class="safe"><span class="lbl">${esc(t('Budget left per day'))}</span><b class="num">${esc(t('{0} a day', fmtRM(f.safe)))}</b><small>${esc(f.daysLeft === 0 ? t('for today only') : t('for {0} days, today included', f.daysLeft + 1))}</small></p>` : ''}
-    <p class="fine">${esc(t('Spent so far, bills still due, and your everyday pace. One-off big buys count once.'))}${f.early ? ` ${esc(t("Early in the month, last month's pace is used."))}` : ''}</p></section>`;
+    <p class="fine">${esc(t('Spent so far, bills still due, and your everyday pace. One-off big buys count once.'))}${f.early ? ` ${esc(t('Your usual spending is from {0} days of entries so far, so it is a rough guess.', f.days))}` : ''}</p></section>`;
 }
 
 // ---- 4. fixed vs flexible ----------------------------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ function foodCard(M) {
 // ---- fees: SST and charges over the year -----------------------------------------------------------------------------------------
 function feesCard(M) {
   const year = M.slice(0, 4), tx = cached(taxPaid, booked(), year), fees = tx.sst + tx.service, y = cached(yearReview, booked(), year);
-  const end = year === today().slice(0, 4) ? today() : `${year}-12-31`, perDay = y.spent / (daysBetween(`${year}-01-01`, end) + 1), worth = perDay ? Math.round(fees / perDay) : 0;
+  const end = year === today().slice(0, 4) ? today() : `${year}-12-31`, from = cached(firstSpend, booked()) > `${year}-01-01` ? cached(firstSpend, booked()) : `${year}-01-01`, perDay = from <= end ? y.spent / (daysBetween(from, end) + 1) : 0, worth = perDay ? Math.round(fees / perDay) : 0;
   return card('fees', t('SST and charges in {0}', year), tx.n ? t('{0} in SST and charges', fmtRM(fees)) : t('Nothing found yet for {0}', year), tx.n
     ? `<p class="rowb"><span>${esc(t('SST'))} <b class="num">${esc(fmtRM(tx.sst))}</b></span><span>${esc(t('Service, delivery and app fees'))} <b class="num">${esc(fmtRM(tx.service))}</b></span></p>
       ${worth >= 1 ? `<p class="callout">${esc(worth === 1 ? t('About 1 day of your usual spending.') : t('About {0} days of your usual spending.', worth))}</p>` : ''}<p class="fine">${esc(t('From {0} receipts that show them.', tx.n))}</p>`
@@ -163,7 +163,7 @@ export function affordInputs() {
 const next30Of = (txs, o) => next30({ txs, ...o });
 function next30Card() {
   const a = affordInputs(); if (!a.counted) return '';
-  const n = cached(next30Of, booked(), { balance: a.balance, today: today(), startDay: startDay(), bills: a.bills }), hide = balHidden(), money = v => (hide ? MASK : fmtRM(v));
+  const n = cached(next30Of, booked(), { balance: a.balance, today: today(), startDay: startDay(), bills: a.bills, budget: on('budgets') ? budgetsFor().total : 0 }), hide = balHidden(), money = v => (hide ? MASK : fmtRM(v));
   const base = Math.min(...n.days.slice(1).map(d => d.in)), events = n.days.filter(d => d.out || d.in - base > 50), dip = n.days.find(d => d.bal < 0);
   return card('next30', t('Next 30 days'), hide ? t('Lowest on {0}', fmtDate(n.low.date)) : t('Lowest: {0} on {1}', fmtRM(n.low.bal), fmtDate(n.low.date)),
     `${dip ? `<p class="callout bad">${esc(t('You may run short around {0}.', fmtDate(dip.date)))}</p>` : ''}${hide ? '' : lineChart(n.days.map(d => ({ date: d.date, v: d.bal })), { label: t('Your money over the next 30 days') })}
@@ -194,14 +194,17 @@ function pricesCard() {
 
 // ---- 1. LHDN tax relief ----------------------------------------------------------------------------------------------------------
 const reliefYear = M => M.slice(0, 4);
+/** Business accounts: their spending is the business's, never a personal relief. A sorted array, so cached() keys on it. */
+const bizIds = () => S.accounts.filter(a => a.scope === 'business').map(a => a.id).sort();
+const NOT_RELIEF = ['zakat', 'donation'];   // a rebate and a deduction: listed, not added into the reliefs' total
 function reliefCard(M) {
-  const year = reliefYear(M), lines = cached(taxRelief, booked(), year), got = lines.filter(l => l.entries.length), total = got.reduce((s, l) => s + l.total, 0);
+  const year = reliefYear(M), lines = cached(taxRelief, booked(), year, bizIds()), got = lines.filter(l => l.entries.length), total = got.filter(l => !NOT_RELIEF.includes(l.id)).reduce((s, l) => s + l.total, 0);
   const rows = got.map(l => `<li><button class="rbtn" data-act="relief-show" data-id="${esc(l.id)}" data-y="${year}"><span class="rowb"><b>${esc(t(l.name))}</b><span class="num">${esc(fmtRM(l.total))}</span></span>
     <small>${esc(l.entries.length === 1 ? t('1 entry') : t('{0} entries', l.entries.length))} · ${esc(t('{0} with receipt photo', l.proof))}</small></button></li>`).join('');
   const none = lines.filter(l => !l.entries.length).map(l => t(l.name));
   return card('relief', t('Possible tax-relief expenses in {0}', year), got.length ? t('{0} in spending to review', fmtRM(total)) : t('Nothing found yet for {0}', year),
     `${rows ? `<ul class="relief">${rows}</ul>` : ''}${got.some(l => l.proof) ? `<button class="btn ghost" data-act="relief-dl" data-y="${year}">${ICON.download}${esc(t('Download the receipts for {0}', year))}</button>` : ''}${none.length ? `<details class="fine more-cats"><summary>${esc(t('Also looked for'))}</summary>${esc(none.join(', '))}</details>` : ''}
-    <p class="fine">${esc(t('Matched from receipt words and categories. These are recorded expenses, not a claim estimate. Eligibility and limits depend on the assessment year and your circumstances. Check LHDN before claiming.'))} ${esc(t('Matched using YA 2025 categories; rules for {0} may differ. Not tax advice.', year))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
+    <p class="fine">${esc(t("Tally matches receipt words, so it can be wrong both ways: it may list things that don't count and miss things that do. Amounts are what you spent, not what you can claim. Each relief has a yearly limit and its own conditions. Zakat is a rebate and donations are a deduction, not reliefs. Rules here follow LHDN's YA 2025 list; YA {0} may differ. Not tax advice. Check LHDN's official list before you file.", year))} <a class="srclink" href="https://www.hasil.gov.my/individu/pelepasan-cukai/" target="_blank" rel="noopener noreferrer">${esc(t('LHDN source: YA 2025 rules'))}</a></p>`);
 }
 
 // ---- 8. couples: who put money into the joint account --------------------------------------------------------------------------
@@ -217,7 +220,7 @@ function jointCard(M) {
 export function analyticsCards(M) {
   const n = booked().filter(x => x.type === 'expense').length, need = 5;
   // Tax relief doesn't wait for 5 entries: people come to Tally for it at tax time (a zakat payment, a child's books).
-  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${on('taxrelief') && cached(taxRelief, booked(), reliefYear(M)).some(l => l.entries.length) ? reliefCard(M) : ''}`;
+  if (n < need) return `<section class="card"><h2>${esc(t('More insights'))}</h2>${later(t('Forecasts, prices, tax relief and more appear after {0} more entries.', need - n))}</section>${on('taxrelief') && cached(taxRelief, booked(), reliefYear(M), bizIds()).some(l => l.entries.length) ? reliefCard(M) : ''}`;
   return [scope() === 'joint' && jointCard(M), M === thisMonth() && next30Card(), owedCard(), fixedCard(M), foodCard(M), feesCard(M), whenCard(M), shopsCard(), payCard(M), pricesCard(), on('taxrelief') && reliefCard(M)].filter(Boolean).join('');
 }
 
@@ -311,7 +314,7 @@ export const act = {
   // Every relief's receipt photos in a folder of its own, with a list of all its entries (photo or not) for the tax form.
   'relief-dl': b => {
     const y = b.dataset.y, byId = new Map(S.tx.map(x => [x.id, x])), taken = new Set(), rows = [], csv = [csvLine(['Relief', 'Date', 'Shop', 'Amount (RM)', 'Photo'])];
-    for (const l of cached(taxRelief, booked(), y)) for (const e of l.entries) {
+    for (const l of cached(taxRelief, booked(), y, bizIds())) for (const e of l.entries) {
       const tx = byId.get(e.id); if (!tx) continue;
       if (tx.receiptId) rows.push({ tx, dir: t(l.name) });
       csv.push(csvLine([t(l.name), e.date, e.merchant || '', (e.cents / 100).toFixed(2), tx.receiptId ? receiptName(tx, taken, t(l.name)) : '']));
@@ -319,7 +322,7 @@ export const act = {
     return downloadReceipts(rows, `tally-tax-relief-${y}`, '﻿' + csv.join('\n'));
   },
   'relief-show': b => {
-    const l = cached(taxRelief, booked(), b.dataset.y).find(x => x.id === b.dataset.id);
+    const l = cached(taxRelief, booked(), b.dataset.y, bizIds()).find(x => x.id === b.dataset.id);
     if (l) showIds(l.entries.map(e => e.id), `${t(l.name)} ${b.dataset.y}`);
   },
 };
