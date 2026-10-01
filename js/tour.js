@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.10.1': [
+    "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin",
+  ],
   '1.10.0': [
     "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights",
   ],

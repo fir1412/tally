@@ -1630,6 +1630,7 @@ export default {
   "kept {0} days": "{0}日間保存",
   "{0} on this phone": "このスマホに{0}枚",
   "{0} photos deleted. The entries are kept.": "写真を{0}枚削除しました。記録は残っています。",
+  "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin": "「買っても大丈夫？」は、記録を始めた日から毎日の出費を数えるようになりました。始めたばかりの月でも少なく見積もりません",
   "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights": "サブカテゴリー（任意）：外食 › Mamak、ファストフードなど。Tally が店名から推測し、あなたの選択を覚えます。「分析」からオンにできます",
   "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "分析：今月を3つの数字で、カテゴリーをタップして買ったものを確認、これからの30日、誰が誰に借りているか、同じ品物のお店ごとの値段",
   "Save and split with friends straight from a scanned receipt": "スキャンしたレシートからそのまま保存して友だちと割り勘",

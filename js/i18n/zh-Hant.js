@@ -1630,6 +1630,7 @@ export default {
   "kept {0} days": "保留 {0} 天",
   "{0} on this phone": "這部手機上有 {0} 張",
   "{0} photos deleted. The entries are kept.": "已刪除 {0} 張照片，記錄都保留了。",
+  "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin": "「我買得起嗎？」現在從你開始記帳的那天起計算日常開銷，第一個月的記錄不會被攤得太薄",
   "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights": "子類別（可選）：餐飲 › Mamak、速食等。Tally 會根據店名猜測，並記住你的選擇。可在「分析」中開啟",
   "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "分析：用三個數字看這個月，點類別看看買了什麼，未來 30 天，誰欠誰，以及同一樣東西在不同店的價格",
   "Save and split with friends straight from a scanned receipt": "掃描收據後可直接儲存並和朋友分攤",

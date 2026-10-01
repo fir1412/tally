@@ -1631,6 +1631,7 @@ export default {
   "kept {0} days": "disimpan {0} hari",
   "{0} on this phone": "{0} dalam telefon ini",
   "{0} photos deleted. The entries are kept.": "{0} foto dipadam. Catatannya kekal.",
+  "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin": "Mampukah saya? kini mengira perbelanjaan harian anda dari hari anda mula mencatat, jadi catatan bulan pertama tidak dibahagi terlalu nipis",
   "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights": "Subkategori, jika anda mahu: Makan › Mamak, Makanan segera dan lain-lain. Tally meneka daripada nama kedai dan ingat pilihan anda. Hidupkan dari Analisis",
   "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "Wawasan: bulan anda dalam tiga angka, ketik kategori untuk lihat apa yang dibeli, 30 hari akan datang, siapa berhutang dengan siapa, dan barang sama di kedai berbeza",
   "Save and split with friends straight from a scanned receipt": "Simpan dan kongsi dengan kawan terus dari resit yang diimbas",

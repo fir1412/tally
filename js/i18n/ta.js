@@ -1630,6 +1630,7 @@ export default {
   "kept {0} days": "{0} நாட்கள் வைக்கப்படும்",
   "{0} on this phone": "இந்தக் கைப்பேசியில் {0}",
   "{0} photos deleted. The entries are kept.": "{0} புகைப்படங்கள் நீக்கப்பட்டன. பதிவுகள் இருக்கின்றன.",
+  "Can I afford it? now counts your everyday spending from the day you started adding it, so a new month of entries isn't spread too thin": "வாங்க முடியுமா? இப்போது நீங்கள் பதிவு செய்யத் தொடங்கிய நாளிலிருந்து அன்றாடச் செலவைக் கணக்கிடுகிறது, அதனால் முதல் மாதச் செலவு குறைவாகக் காட்டப்படாது",
   "Subcategories, if you want them: Dining › Mamak, Fast food and more. Tally guesses from the shop and learns your pick. Turn them on from Insights": "துணை வகைகள், வேண்டுமென்றால்: உணவகம் › Mamak, துரித உணவு மற்றும் பல. கடையின் பெயரை வைத்து Tally ஊகிக்கும், நீங்கள் தேர்ந்தெடுத்ததை நினைவில் வைக்கும். அலசல் பக்கத்தில் இயக்கலாம்",
   "Insights: your month in three numbers, tap a category to see what you bought, the next 30 days, who owes whom, and the same item at different shops": "பகுப்பாய்வு: உங்கள் மாதம் மூன்று எண்களில், வாங்கியதைப் பார்க்க ஒரு வகையைத் தட்டுங்கள், அடுத்த 30 நாட்கள், யார் யாருக்குக் கடன், வெவ்வேறு கடைகளில் ஒரே பொருள்",
   "Save and split with friends straight from a scanned receipt": "ஸ்கேன் செய்த ரசீதிலிருந்தே சேமித்து நண்பர்களுடன் பகிருங்கள்",
