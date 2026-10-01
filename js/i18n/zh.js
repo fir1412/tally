@@ -1504,6 +1504,7 @@ export default {
   "Deleting a split bill also takes off what friends paid back for it": "删除分摊账单时，朋友为它还的钱也会一起去掉",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "首屏写清楚了：Tally 从不读取你的短信，也从不要求银行登录",
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab、Shopee 和银行应用付款截图读得更准：日期、商店或餐厅、以及每一项都更准确",
+  "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "更多应用截图读得准：麦当劳、Airbnb 费用，以及 Shopee 标签下的商品",
   "At most {0}.": "最多 {0}。",
   "Owed to you": "别人欠你",
   "Paid back": "已还钱",

@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.8.4': [
+    "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges",
+  ],
   '1.8.3': [
     "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items",
   ],

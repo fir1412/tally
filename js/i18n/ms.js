@@ -1504,6 +1504,7 @@ export default {
   "Deleting a split bill also takes off what friends paid back for it": "Memadam bil kongsi turut membuang bayaran balik kawan untuknya",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "Dinyatakan dengan jelas di skrin pertama: Tally tidak pernah membaca SMS anda atau meminta log masuk bank",
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Tangkapan skrin bayaran Grab, Shopee dan aplikasi bank dibaca dengan lebih baik: tarikh, kedai atau restoran, dan item yang betul",
+  "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "Lebih banyak tangkapan skrin aplikasi dibaca dengan betul: McDonald's, caj Airbnb, dan item Shopee di bawah lencananya",
   "At most {0}.": "Paling banyak {0}.",
   "Owed to you": "Orang berhutang kepada anda",
   "Paid back": "Sudah bayar balik",

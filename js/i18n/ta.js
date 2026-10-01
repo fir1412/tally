@@ -1503,6 +1503,7 @@ export default {
   "Deleting a split bill also takes off what friends paid back for it": "பகிர்ந்த பில்லை நீக்கினால், அதற்காக நண்பர்கள் திருப்பித் தந்ததும் நீங்கும்",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "முதல் திரையிலேயே தெளிவாக: Tally உங்கள் SMS-ஐப் படிக்காது, வங்கி உள்நுழைவையும் கேட்காது",
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab, Shopee, வங்கி ஆப் கட்டண ஸ்கிரீன்ஷாட்கள் இன்னும் சரியாகப் படிக்கப்படும்: தேதி, கடை அல்லது உணவகம், பொருட்கள்",
+  "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "மேலும் பல ஆப் ஸ்கிரீன்ஷாட்கள் சரியாகப் படிக்கப்படும்: McDonald's, Airbnb கட்டணங்கள், Shopee பேட்ஜ்களின் கீழ் உள்ள பொருட்கள்",
   "At most {0}.": "அதிகபட்சம் {0}.",
   "Owed to you": "உங்களுக்கு வர வேண்டியது",
   "Paid back": "கிடைத்தது",

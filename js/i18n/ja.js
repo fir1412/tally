@@ -1503,6 +1503,7 @@ export default {
   "Deleting a split bill also takes off what friends paid back for it": "割り勘の記録を消すと、友だちがその分として返したお金も消えます",
   "Said plainly on the first screen: Tally never reads your SMS or asks for your bank login": "最初の画面で明記：Tally は SMS を読まず、銀行のログイン情報も求めません",
   "Screenshots of Grab, Shopee and bank-app payments are read better: the right date, the shop or restaurant, and the items": "Grab・Shopee・銀行アプリの支払い画面のスクショをより正確に読み取ります：日付、お店やレストラン、品目",
+  "More app screenshots read right: McDonald's, Airbnb fees, and Shopee items under their badges": "アプリのスクショがさらに正確に：マクドナルド、Airbnb の手数料、Shopee のバッジ下の商品",
   "At most {0}.": "最大{0}です。",
   "Owed to you": "立て替え分",
   "Paid back": "返してもらった",
