@@ -140,6 +140,22 @@ test('app screenshot items: rider line, drink options, app fees, Shopee price li
   const s = items(['10:02 68%', 'Order Details', 'Preferred+ Kedai Contoh Visit Shop', 'Sabun Contoh 30ml', '30ml x2', 'RM48.00RM28.30', 'Mall Kedai Dua', 'Periuk Contoh 3L', '15DaysFreeReturns* X7', 'RM259.00RM229.00', 'Merchandise Subtotal RM285.60', 'Order Total RM285.60']);
   assert.deepEqual(s.items.map(i => [i.name, i.cents]), [['Sabun Contoh 30ml', 5660], ['Periuk Contoh 3L', 22900]]);
 });
+test('app screenshot items: columns run together, a one-item order, rental fees, a Shopee badge with the price', () => {
+  const p = l => parseReceipt(l.join('\n'));
+  // "Profile: RM49.99 Subtotal" is the subtotal, not a second item; a paper "AYAM 5.00 TOTAL" stays an item
+  const g = p(['10:11 62%', 'Grab', 'Booking code', '1x Ayam Contoh Combo RM49.99', 'Profile: RM49.99 Subtotal', 'TOTAL (INCL.TAX) RM 49.99']);
+  assert.deepEqual(g.items.map(i => i.cents), [4999]);
+  assert.equal(g.subtotal, 4999);
+  assert.deepEqual(p(['KEDAI CONTOH', 'AYAM TANDOORI 5.00 TOTAL', 'TEH TARIK 2.00', 'TOTAL 7.00']).items.map(i => i.cents), [500, 200]);
+  // McDonald's app: the one item has no price of its own
+  const m = p(['11:37 85%', 'Order Details', 'Order Summary', '10pcs Ayam Contoh Spicy', 'Payment Details', 'Subtotal RM 60.38', 'Processing&DeliveryFee RM 5.19', 'Tax 6% RM 3.93', 'Total (incl. Tax) RM 69.50']);
+  assert.deepEqual(m.items.map(i => [i.name, i.cents]), [['10pcs Ayam Contoh Spicy', 6038]]);
+  // A rental's cleaning and service fees are charges
+  assert.equal(p(['3 nights in Kuala Lumpur 258.00', 'Cleaning fee 65.00', 'Service fee 48.34', 'Total (MYR) 371.34']).service, 11334);
+  // Shopee: "15 Days Free Returns RM44.00" is the price of the product above, under a "… To Ship" shop header
+  const s = p(['9:01 94%', 'My Purchases', 'Kedai Contoh Sdn Bhd To Ship', 'Ubat Gigi Contoh 100g', 'x1', '15DaysFreeReturns* RM44.00', 'Order Total:RM44.00']);
+  assert.deepEqual(s.items.map(i => [i.name, i.cents]), [['Ubat Gigi Contoh 100g', 4400]]);
+});
 test('dates: day-first, ISO, impossible dates rejected', () => {
   assert.equal(parseDate('05/03/2026'), '2026-03-05');
   assert.equal(parseDate('2026-09-01 10:00'), '2026-09-01');

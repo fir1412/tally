@@ -12,7 +12,7 @@ const UNIT_ONLY = /^\s*(\d{1,3})\s*(?:ea|pcs?|units?)?\s*[x×@]\s*(?:RM\s*)?\d+[
 // A delivery rider's plate and bike with a rating ("VFV4311·WM110 5.00"); a drink's options ("Dairy| Less Sweet| Less Ice")
 // with its price before a discount; a shop app's badges ("15 Days Free Returns", "Preferred+"): never things bought.
 const NOT_ITEM = /\b[A-Z]{1,3}\s?\d{3,4}[A-Z]?\s*[·•]\s*[A-Z]|[A-Z]\s*[·•]\s*[A-Z]{1,3}\s?\d{3,4}\b|\|.*\|/;
-const BADGE = /free\s*returns|guarantee|preferred\s*\+?|visit\s*shop|chat\s*now|\bmall\b|expected\s*delivery|contact\s*seller|support\s*cent(er|re)|you\s*may\s*also\s*like/i;
+const BADGE = /(\d+\s*days?\s*)?free\s*returns\W*|guarantee|my\s*purchases|preferred\s*\+?|visit\s*shop|chat\s*now|\bmall\b|expected\s*delivery|contact\s*seller|support\s*cent(er|re)|you\s*may\s*also\s*like/i;
 const QTY = /^\s*\d+(?:[.,]\d+)?\s*(?:ea|pcs?|units?|kgs?|g|l|ltrs?|litres?)?\s*[x@]\s*(?:RM\s*)?\d+[.,]\d{2}(?:\s*\/\s*(?:kg|g|ea|pcs?|unit|l|ltr|litre))?\s*/i;   // weighed "1.438 KG X 6.90/KG", pumped "26.615L@ RM2.05/L"
 
 // Also OCR's "jotal", "[otal", "Tota", "Totil", "Total2 items", "TOTALAMOUNT".
@@ -24,7 +24,7 @@ const NOT_TOTAL = /[sg]ub\s*-?\s*t[o0]ta|t[o0]ta[l1]?\s*(qty|quantity|items?\b|s
 const TOTAL_WINS = /[il1]ncl|with|after|payment|payable|amount|due|nett|grand|jumlah/i;
 const ALL_AMOUNTS = /(?:RM\s*|MYR\s*|\$)?(\d{1,6})[.,] ?(\d{2})(?!\d)/gi;
 const SUBTOTAL = /[sg]ub\s*-?\s*t[o0]ta[il1]?/i; // also OCR's "Gubtotai"
-const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費|platform\s*fee|carbon\s*neutral|packaging\s*(fee|charge)|small\s*order\s*fee/i;   // a charge on top of the items (Shopee's shipping)
+const SERVICE = /service\s*(charge|chg)|\bsvc\b|\bs\/?c\b|caj\s*perkhidmatan|shipping|delivery\s*(fee|charge)|penghantaran|运费|運費|platform\s*fee|carbon\s*neutral|packaging\s*(fee|charge)|small\s*order\s*fee|service\s*fee|cleaning\s*fee/i;   // a charge on top of the items (Shopee's shipping)
 const TAX = /\bsst(?![a-z])|\bgst(?![a-z])|\bvat(?![a-z])|service\s*tax|sales\s*tax|\btax(?![a-z])|cukai/i;   // "TAX6%" too
 const ROUNDING = /round|pelarasan|bundar/i;
 const MONEY_LABEL = new RegExp([TOTAL, SUBTOTAL, TAX, SERVICE, ROUNDING].map(x => x.source).join('|'), 'i');
@@ -220,8 +220,13 @@ export function parseReceipt(text) {
     // misread the same way still adds up (CORD bench). Commas only: "3 499.00" may be 3 × 499.
     .map(l => l.replace(/(?<![\d.,])(\d{1,3})((?:,\d{3})+)(?=[.,]\d{2}(?!\d))/g, (m, a, b) => a + b.replace(/,/g, '')))
     // Words past a row's price are something beside the slip (a keyboard's "PgDn", a till screen's "WELCOME TO"): their
-    // own line, so the price stays at the end of its row. Tax codes (Z, SR) are shorter and stay.
-    .flatMap(l => l.replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2').split('\n'))
+    // own line, so the price stays at the end of its row. Tax codes (Z, SR) are shorter and stay. When those words are a
+    // money label, two columns ran together ("Profile: RM49.99 Subtotal"): the label and its amount are the line.
+    .flatMap(l => {
+      const m = l.match(/((?:RM|MYR)?\s*-?\d{1,6}[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u);
+      // Only after a bare "Label:" on the left: "AYAM TANDOORI 5.00 TOTAL" is an item with a column heading beside it
+      return m && /^(sub\s*-?\s*)?total$/i.test(m[2]) && /^\W*\p{L}[\p{L} ]{0,20}:\s*$/u.test(l.slice(0, m.index)) ? [`${m[2]} ${m[1]}`] : l.replace(/(\d[.,]\d{2})\s+(\p{L}{3,}(?:\s+\p{L}+)*)$/u, '$1\n$2').split('\n');
+    })
     .filter(Boolean)
     // "Jumlah Barang" with its "7.50" on the next line: one money line, not an item named "Jumlah Barang"
     .reduce((out, l, i, a) => {
@@ -250,7 +255,7 @@ export function parseReceipt(text) {
     const m = line.match(AMOUNT);
     const label = m ? line.slice(0, m.index).trim() : line;
     if (!m) {
-      if (app) block = /^\W*(preferred|mall)\b|visit\s*shop|chat\s*now/i.test(line) ? [] : [...block, line];
+      if (app) block = /^\W*(preferred|mall)\b|visit\s*shop|chat\s*now|\bto\s*(ship|receive|pay)\b/i.test(line) ? [] : [...block, line];   // a shop's header ("… To Ship"), or the tabs
       // "Item (s):1 Qty(s):1" is a footer and "QTY ITEM", "Table: 8", "Payment :" are headers: never an item's name
       const hasText = /[a-z]{2}/i.test(line) && !COUNT.test(line) && !BADGE.test(line) && !/^(qty|quantity|item|description|table|payment|purchased|order|cashier|kuantiti|t?otal\s*items?)\b/i.test(line);
       const last = r.items.at(-1);
@@ -288,7 +293,9 @@ export function parseReceipt(text) {
       const qtyOnly = !/[a-z]{2}/i.test(bareName(name.replace(/(?:RM|MYR)\s*\d+[.,]\d{2}/gi, '')));
       // On a shop app, a price with no name of its own ("RM48.00 RM28.30", "15 Days Free Returns RM44.00") belongs to the
       // product block above it: the name from its first line, the quantity from its "x2" line (the price is for one).
-      const XN = /\bx\s*(\d{1,2})\s*$/i, badgeOnly = BADGE.test(name) && name.replace(BADGE, '').replace(/[^a-z]/gi, '').length < 3;
+      // also a badge or an old price with only a scrap of the variant left ("SPcs RM175.00", OCR's 5Pcs)
+      const XN = /\bx\s*(\d{1,2})\s*$/i, badgeOnly = (BADGE.test(name) || /(?:RM|MYR)\s*\d/i.test(name))
+        && name.replace(BADGE, '').replace(/(?:RM|MYR)\s*\d+[.,]\d{2}/gi, '').replace(/[^a-z]/gi, '').length <= 4;
       const product = app && (qtyOnly || badgeOnly) && block.find(l => /\p{L}{3}/u.test(l) && !BADGE.test(l) && !XN.test(l));
       const times = product ? +(block.findLast(l => XN.test(l))?.match(XN)[1] ?? 1) : 1;
       // Number-only line: its name is the line above, or (code-qty-price layout) the line below, filled in above
@@ -333,6 +340,12 @@ export function parseReceipt(text) {
   for (const it of r.items) { delete it.q; delete it.one; }
   for (const it of r.items) if (it.name) it.name = cleanName(it.name);
   r.items = dropSummaryLines(r.items);
+  // An app's one-item order with no price beside it (McDonald's): the line under "Order Summary", at the subtotal.
+  if (app && !r.items.length && r.subtotal > 0) {
+    const at = lines.findIndex(l => /order\s*summary|your\s*order\b/i.test(l));
+    const name = at >= 0 && lines.slice(at + 1, at + 4).find(l => /\p{L}{3}/u.test(l) && !AMOUNT.test(l) && !NOT_SHOP.test(l));
+    if (name) r.items.push({ name: name.trim(), cents: r.subtotal });   // not cleanName: "10pcs" isn't a quantity 1
+  }
   r.check = checksum(r);
   // A summary line misread past recognition ("Qty 4.50" read as "aly 4.50"): the last line is the sum of those above it.
   if (!r.check.ok && r.items.length > 1) {
