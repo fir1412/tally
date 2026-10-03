@@ -7,7 +7,8 @@
       "namespace": "android_app",
       "package_name": "io.github.tallymy",
       "sha256_cert_fingerprints": [
-        "D2:AC:CA:F8:01:3D:3F:22:DB:F6:07:2B:D9:FC:57:2D:27:24:08:CD:AF:BA:CD:B8:47:C0:02:E0:CA:81:BF:AF"
+        "D2:AC:CA:F8:01:3D:3F:22:DB:F6:07:2B:D9:FC:57:2D:27:24:08:CD:AF:BA:CD:B8:47:C0:02:E0:CA:81:BF:AF",
+        "A5:D5:9B:5A:46:A8:65:A2:73:13:B3:C2:34:53:A7:14:3F:C0:AF:7A:DE:99:6A:E2:0F:B4:6E:05:C5:9A:84:7A"
       ]
     }
   }
