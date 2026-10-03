@@ -6,6 +6,9 @@ import { render, route, go, APP_VERSION } from './app.js';
 
 // Newest first. Written for users; each line is translated.
 export const WHATS_NEW = {
+  '1.12.5': [
+    "A reminder when you log something that happened before you typed an account's balance, so it isn't counted twice",
+  ],
   '1.12.4': [
     "Clearer, more natural wording in Bahasa Melayu, 中文, 繁體中文, 日本語 and தமிழ்",
     "Saved stickers are much smaller, so they send faster",
